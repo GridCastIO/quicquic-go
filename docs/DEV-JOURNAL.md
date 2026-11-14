@@ -10874,3 +10874,36 @@ Merged [PR #1364](https://github.com/the-sarge/quic-go-fast/pull/1364) as `d26ad
 **Next:**
 - B6 #1045 is the frontier. By owner decision, its options return to the owner before dispatch.
 - The live view is [program tracker #646](https://github.com/the-sarge/quic-go-fast/issues/646).
+
+---
+
+## Publish the supported multipath combinations (#1045) - 2026-11-14 16:13 EST
+
+**Main:** `08dfe4635521`
+**Actor:** Claude
+
+**Summary:** [B6 #1045](https://github.com/the-sarge/quic-go-fast/issues/1045) published the multipath support outcome in [PR #1369](https://github.com/the-sarge/quic-go-fast/pull/1369), merged as `08dfe4635`. Public multipath stays Reno primary/backup only, with Reno the default. The B track is 7/7 and program #646 is 48 of 48.
+
+**Completed:**
+- **Supported combinations**, from B5's evidence, in the [support record](audits/2026-11-14-multipath-b6-support.md):
+  - Reno primary/backup: enabled, unchanged since R19.
+  - BBR primary/backup: tested (interop 6/6) but not cost-qualified (goodput 0.848 and 0.869, CPU per useful byte 1.367 and 1.318), so the gate keeps refusing it. The cost fix is deferred to #1368.
+  - Aggregate: unsupported for both controllers. BBR's comparison reached 0.879 of two independent connections, below the 0.95 floor.
+- **Private activation removed.** B5's evidence selection no longer exists in `multipath_api.go` or `multipath_credit.go`, and B4's fixture-only round-robin comparison arm is retired. The aggregation fixture and the `--controller bbrv3` options of the R17 and R18 fixtures retired with them; they remain at `e048181a6`. The Reno affected-cell rerun stays.
+- **Retained source:** the per-path BBR contexts and the private aggregate policy stay, reachable only from in-package unit tests.
+- **Published:** the usage guide, the changelog and `SetCongestionControlV1` state the boundary. The BBRv3 controller remains experimental and unqualified while Q2 #599 is deferred.
+
+**Decisions:**
+- Publish BBR primary/backup as not qualified and defer its cost fix ([owner decision on #646](https://github.com/the-sarge/quic-go-fast/issues/646#issuecomment-6883716498)).
+
+**Validation:**
+- **New tests:** `TestMultipathSupportedCombinations`, `TestMultipathSelectionHasNoPrivateBypass` and `TestMultipathSupportMatchesEvidence`. A gate mutation failed the BBR subtest.
+- **RAS reviews on PR #1369:**
+  - `20261114T204310-bb576fc8c9ecbc3645bbce8f` (initial): no Fix First; one low docs finding rejected.
+  - `20261114T205943-19b6931a0880bab3f952e661` (replacement): no Fix First. One low finding was deferred: the evidence test reads `docs/audits`, which the module archive excludes.
+- **Local certification** at `871ea9df8`: root and internal tests, plus a focused race run, on linux/amd64; golangci-lint on four platforms; `go fix`, gcassert and tidy checks.
+- **Hosted checks:** all 18 passed on `871ea9df8`, including the post-ready `independent-peer` run [43641163606](https://github.com/the-sarge/quic-go-fast/actions/runs/43641163606), which re-ran the 16 Reno R17 cases. No counted runs; the ledger stays at 217/420 instances.
+
+**Next:**
+- The program has no frontier. #1368 (deferred) owns BBR's cost.
+- The live view is [program tracker #646](https://github.com/the-sarge/quic-go-fast/issues/646).
