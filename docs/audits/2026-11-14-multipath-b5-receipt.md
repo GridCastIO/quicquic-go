@@ -7,11 +7,11 @@
 | Interop, ordinary cost, Reno rerun | `4e80d3cf4fa7454ffc3e2a46655afd5f81f86313` | ordinary cost `bb631588…0853`; interop test `2247a29b…1ecd` |
 | Aggregation comparison | `ba51ba67bf09f872c558e1519a3839f74795a021` | `13f05e4c36578c93aef300e00d3d28655460a45020a31a76e999f8a3c499bd23` |
 
-The two candidates' Go sources are identical. `ba51ba67b` changes only the aggregation driver's admission gate, its tests, the README and the ledger documents. All the evidence ran on minimax: Linux 7.0.0-30-generic, Go 1.27.4, AMD Ryzen AI Max+ 395. The [aggregation identity](2026-11-14-multipath-b5/aggregation-gated/aggregation/identity.json) and [source archive hash](2026-11-14-multipath-b5/aggregation-gated/source-archive.sha256) pin the comparison.
+The two candidates' Go sources are identical. `ba51ba67b` changes only the aggregation driver's admission gate, its tests and the ledger documents. All the evidence ran on minimax: Linux 7.0.0-30-generic, Go 1.27.4, AMD Ryzen AI Max+ 395. The [aggregation identity](2026-11-14-multipath-b5/aggregation-gated/aggregation/identity.json) and [source archive hash](2026-11-14-multipath-b5/aggregation-gated/source-archive.sha256) pin the comparison.
 
 ## Aggregation comparison
 
-All 54 cases completed on one candidate, binary and driver, with no product failure in any arm. Three observations were contaminated, by external CI load. Each had its one replacement after the quiet gate's hold, and every replacement was clean. No contaminated observation remains in the inventory. The largest foreign CPU in a kept observation was 1.41 s, against a limit of about 3.85 s. Sources: the [summary](2026-11-14-multipath-b5/aggregation-gated/aggregation/summary.json), [ledger](2026-11-14-multipath-b5/aggregation-gated/aggregation/ledger.json) and [log](2026-11-14-multipath-b5/aggregation-gated/aggregation/campaign.log).
+All 54 cases completed on one candidate, binary and driver, with no product failure in any arm. Three observations were contaminated by external load. The [host journal excerpt](2026-11-14-multipath-b5/host-journal-excerpt.log) records the GridCast runner containers and GARM VMs. Each had its one replacement after the quiet gate's hold, and every replacement was clean. No contaminated observation remains in the inventory. The largest foreign CPU in a kept observation was 1.41 s, against a limit of about 3.85 s. Sources: the [summary](2026-11-14-multipath-b5/aggregation-gated/aggregation/summary.json), [ledger](2026-11-14-multipath-b5/aggregation-gated/aggregation/ledger.json) and [log](2026-11-14-multipath-b5/aggregation-gated/aggregation/campaign.log).
 
 | Threshold | Topology | Median (range) | Floor | Verdict |
 | --- | --- | ---: | ---: | --- |
@@ -29,8 +29,8 @@ Median useful goodput per arm, in Mbit/s, over the 60-second window:
 | Unequal delay/rate | 47.0 | 23.4 | 70.8 | 72.0 | 48.5 | 70.5 |
 | Shared bottleneck | 35.5 | 35.8 | 38.0 | 27.4 | 38.3 | 38.8 |
 
-- **Path use:** E's selected arrival estimate under-used the second path. On balanced, path b carried a median 276 MB against path a's 361 MB. F's forced round-robin split them 359/359 MB. On unequal, E sent 13 MB on the slower path, against F's 180 MB. E/F useful goodput was 0.885 on balanced, 0.688 on unequal and 0.988 on shared. These are informational, as the contract declares for F.
-- **Unequal topology** (reported, no threshold): STREAM completion and DATAGRAM delivery are separate. For the slowest focal connection in each observation, E's median object p50/p99 was 740/788 ms, A's 749/886 ms, and C's 768/929 ms. E completed 332 objects, against 490 for C and 488 for F. Every arm delivered at least 99.98% of offered DATAGRAMs. E's DATAGRAM p99 latency was 37.6 ms, against about 83–90 ms for the arms that used the slow path. E's unequal result is 1.033 of the better single path and 0.685 of C.
+- **Path use:** E under-used the second path. On balanced, path b carried a median 276 MB against path a's 361 MB. F's forced round-robin split them 359/359 MB. On unequal, E sent 13 MB on the slower path, against F's 180 MB. E/F useful goodput was 0.885 on balanced, 0.688 on unequal and 0.988 on shared. These are informational, as the contract declares for F.
+- **Unequal topology** (reported, no threshold): STREAM completion and DATAGRAM delivery are separate. For the slowest focal connection in each observation, E's median object p50/p99 was 740/788 ms, A's 749/886 ms, and C's 768/929 ms. E completed 332 objects, against 490 for C and 488 for F. Every arm delivered at least 99.98% of offered DATAGRAMs. E's DATAGRAM p99 latency was 37.6 ms, against about 83–90 ms for the arms that split their load across both paths. E's unequal result is 1.033 of the better single path and 0.685 of C.
 - **Shared bottleneck:** the competitor's median goodput was 9.2 Mbit/s beside E and 9.4 beside C. Beside D, Reno aggregation, it was 20.6, with D's own goodput at 27.4.
 - No observation recorded a product failure, an empty second or a DATAGRAM duplicate. Only D's Reno arm recorded sender losses: 467–690 per observation. The lowest DATAGRAM delivery in any observation was 99.80%.
 
@@ -38,9 +38,9 @@ The three contaminations and their replacements:
 
 | Observation | Foreign CPU | Hold before replacement | Replacement foreign CPU |
 | --- | ---: | ---: | ---: |
-| Balanced round 0 F | 24.159 s; a GridCast GARM VM started at 16:06:36 | 2,450 s | 0.774 s |
-| Shared round 1 A | 5.399 s; no named process at the next poll, then a named runner job from 17:44 to 17:48 | 629 s | 0.486 s |
-| Shared round 2 F | 7.896 s; named GridCast jobs from 17:59 for about 73 minutes | 4,679 s | 0.313 s |
+| Balanced round 0 F | 24.159 s; a GridCast runner container was created at 16:05:50, and its GARM VM started at 16:06:37 | 2,450 s | 0.774 s |
+| Shared round 1 A | 5.399 s, unattributed; a GridCast container was created 6 s after the window, and its GARM VM ran from 17:44 to 17:48 | 629 s | 0.486 s |
+| Shared round 2 F | 7.896 s; a GridCast container was created at 17:58:55, and named load continued until 19:12 | 4,679 s | 0.313 s |
 
 Arm E itself was clean in all nine observations.
 
@@ -53,14 +53,14 @@ Two counted invocations on candidate `4e80d3cf4` stopped at the same point. Bala
 | First | 15.499 s | 31.235 s | 3.85 s | 6 instances, 462.184 s |
 | Clean rerun | 34.221 s | 36.579 s | 3.85 s | 6 instances, 462.148 s |
 
-All four E attempts were contaminated, against 0 of 8 A–D attempts. Before charging again, the [owner's resume conditions](https://github.com/the-sarge/quic-go-fast/issues/1044#issuecomment-6878881696) required ruling out the fixture. Uncounted dry runs on minimax ran the retained binary exactly as the driver does, under a `sched_switch` trace of the fixture CPUs and their SMT siblings. Nothing was charged. The [diagnosis evidence](2026-11-14-multipath-b5/diagnosis/) keeps the tools, per-run summaries and analysis.
+All four E attempts were contaminated, against 0 of 8 A–D attempts. The [resume conditions](https://github.com/the-sarge/quic-go-fast/issues/1044#issuecomment-6878881696) call for a diagnosis if E is contaminated again on a host with no external load. Given 4 of 4, the fixture was ruled out before any further counted invocation. Diagnosis runs on minimax ran the retained binary through the driver's own observation function, with a `sched_switch` trace (bpftrace) of the fixture CPUs and their SMT siblings attached. They are charged in the ledger below. The [diagnosis evidence](2026-11-14-multipath-b5/diagnosis/) keeps the tools, per-run summaries and analysis.
 
-- **The accounting is sound.** In run 2, `/proc/schedstat` running time agreed with the traced task time within about 2.5% on every fixture CPU. The fixture's own threads were fully inside `RUSAGE_CHILDREN`: E's traced fixture time was 22.95 s, and its rusage was 23.98 s.
-- **The foreign time was external.** Run 1's E window overlapped the start of a self-hosted runner container (`podman`, `dpkg-query`, `yq`) and a GridCast GARM Windows VM. That burst of short-lived processes filled the trace map, and bpftrace reported 77,941 failed updates. So run 1's trace undercounts, and its numbers aren't used. In run 2, the foreign time on the fixture cores was the runner's `transfer.test` (10.6 s during E, 4.1 s during A) and external VM vCPU threads. Run 2's arm A was contaminated by the same job (5.78 s), so arm E isn't special. No fixture thread, child or kernel worker carried foreign time.
+- **The accounting is sound.** In run 2, `/proc/schedstat` running time agreed with the traced task time within about 0.1 s on every fixture CPU: 2.5% in aggregate for E and 5.8% for A ([analysis](2026-11-14-multipath-b5/diagnosis/run2-analysis.log)). The fixture's own threads were fully inside `RUSAGE_CHILDREN`: E's traced fixture time was 22.95 s, and its rusage was 23.98 s.
+- **The foreign time was external.** Run 1's E window overlapped the start of a self-hosted runner container (`podman`, `dpkg-query`, `yq`) and a GridCast GARM Windows VM. That burst of short-lived processes filled the trace map, and bpftrace reported 77,941 failed updates. So run 1's trace undercounts, and its numbers aren't used. In run 2, the foreign time on the fixture cores was the runner's `transfer.test` (10.6 s during E, 4.1 s during A) and external VM vCPU threads. Run 2's arm A was contaminated by the same job (5.78 s), so arm E isn't special. No fixture thread or child carried foreign time. Kernel and other host tasks carried a few tenths of a second (`ksmd` 0.14–0.22 s, `sshd`, `landscape-sysinfo`).
 - **Why every E:** each time, the external jobs arrived inside E's window. No fixture mechanism that draws external load was found. In the gated campaign below, E was clean in all nine observations, while A and F were contaminated.
 - **Fixture defect found:** in both counted stops, the driver admitted E's replacement on one two-second fixture-core sample while the named external job was still running. Each replacement's quiet record shows `named_process_present: true`. The replacement then ran under the load that had contaminated its original.
 
-The fix (`2d5dbc6db`, then `ba51ba67b` after RAS review `20261114T150737-99398a1bf609276ad71152b0` and its verification) adds a per-invocation quiet gate. Admission waits until five minutes after the last named external process or the last contaminated observation. A `pgrep` failure stops the run before any charge. The contamination limit, the one replacement per observation, the three-replacement campaign limit, the wait limit and pre-launch charging are unchanged. The fixture change makes `ba51ba67bf09f872c558e1519a3839f74795a021` the aggregation candidate. Its Go source is identical to `4e80d3cf4`, so the 18 revalidation observations keep their candidate.
+The fix (`2d5dbc6db`, then `ba51ba67b` after RAS review `20261114T150737-99398a1bf609276ad71152b0` and its verification) adds a per-invocation quiet gate. Admission waits until five minutes after the last named external process or the last contaminated observation. A `pgrep` failure stops the run before any charge. The contamination limit, the one replacement per observation, the three-replacement campaign limit, the wait limit and pre-launch charging are unchanged. The fixture change makes `ba51ba67bf09f872c558e1519a3839f74795a021` the aggregation candidate. That departs from the resume condition to reuse `4e80d3cf4` and its driver, under the resume brief's rule: a fixture defect is fixed under review and re-measured on the new candidate. The aggregation binary was rebuilt from the new archive. Its hash differs because the build path is embedded, but its Go source is identical to `4e80d3cf4`, so the 18 revalidation observations keep their candidate.
 
 ## BBR primary/backup revalidation
 
@@ -90,7 +90,7 @@ The [B3 applicability record](2026-11-13-multipath-b3-applicability.md) carried 
 | Private evidence selection (`multipath_api.go`, `multipath_credit.go`; B5) | A private selection admits BBR at the gate and copies its scheduler into the registry. | None. Its zero value is the public profile, and only in-package fixtures set it. |
 
 - **Reno primary/backup:** R18's STREAM GSO on/off, DATAGRAM batching on/off and stateless-pressure cells run only ordinary connections, so the [R18 delivery receipt](2026-11-12-multipath-r18-delivery-receipt.md) still applies to them. Mixed bulk is replaced by the rerun below. R17 is re-established by the required independent-peer job on this PR's head. The E6/R21 native evidence still applies.
-- **BBR primary/backup:** no earlier receipt applies. Its evidence is the 18 revalidation observations above.
+- **BBR primary/backup:** no earlier interop or ordinary-cost receipt applies. Its evidence is the 18 revalidation observations above. Whether the endpoint-level E6/R21 native evidence counts toward BBR primary/backup is left to B6.
 - **Aggregation:** no earlier evidence exists. Its evidence is the comparison above.
 
 ### Reno mixed-bulk rerun: owner-accepted deviation
@@ -118,7 +118,8 @@ These charges go to the single cumulative ledger under the [Reno program ledger 
 | Aggregation, first invocation (stopped) | 6 | 462.184 |
 | Aggregation, clean rerun (stopped) | 6 | 462.148 |
 | Build setup, candidate `ba51ba67b` | 0 | 5.134 |
+| Diagnosis observations: run 1 D and E, run 2 A and E | 4 | 308.101 |
 | Aggregation, gated campaign: 54 cases + 3 replacements | 57 | 4,391.486 |
-| **Cumulative** | **213 / 420** | **8,524.528 / 28,800** |
+| **Cumulative** | **217 / 420** | **8,832.629 / 28,800** |
 
-B5 charged 93 instances and 6,818.587 host-seconds; 207 instances and 20,275.472 host-seconds remain. Time spent waiting for quiet held no fixture and is not charged. The diagnosis's four dry-run observations are uncounted, as the owner's resume conditions allow.
+B5 charged 97 instances and 7,126.688 host-seconds; 203 instances and 19,967.371 host-seconds remain. Time spent waiting for quiet held no fixture and is not charged. The four diagnosis observations are charged under the rule that every attempt spends the ceiling. They are not comparison evidence.
