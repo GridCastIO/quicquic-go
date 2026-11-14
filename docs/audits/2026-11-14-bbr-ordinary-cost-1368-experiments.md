@@ -144,3 +144,11 @@ E04 charges two observations / 154.073299965 host-seconds. Cumulative program us
 ### Observations and disposition
 
 Pending implementation.
+
+### E05 first observation and validity disposition — 2026-11-14
+
+Candidate `dd2749714c5aabdce2a251ea5083d097954fd25a` passed full root-package tests, focused native/BBR race tests, vet and tidy; independent pinned-source review found no material findings. Native controller configuration also passed. The [source/build record](2026-11-14-bbr-ordinary-cost-1368/e05-source.json) and [first raw pair](2026-11-14-bbr-ordinary-cost-1368/e05-timing/summary.json) are preserved. Both profiles passed role/close/progress/loss/write checks. The control was clean (0.248375 foreign CPU-seconds), but granted was contaminated (11.950979 foreign CPU-seconds). Descriptive ratios 0.910547723 goodput and 1.284916763 CPU/useful byte are excluded from performance conclusions.
+
+Disposition: inconclusive timing. One replacement pair is justified to obtain the missing uncontaminated comparison for this uninstrumented structural change, not to retry a valid threshold failure. Use the exact same binary, candidate, cell, seed, affinity, timing and quiet/contamination criteria, in a fresh `e05-replacement-1` directory. No host changes. Stop after that pair or first unexplained correctness/fixture failure; a second contamination requires another explicit reassessment, not automatic retries.
+
+The first pair charges two observations / 154.072289804928 host-seconds. Program #646 cumulative usage is 229/420 instances and 9785.104629053818/28800 seconds; remaining 191 instances / 19014.895370946182 seconds before the single replacement.
