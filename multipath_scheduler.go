@@ -11,8 +11,9 @@ import (
 
 // pathScheduler is a multipath connection's private scheduling policy. It owns the
 // choice of route only; emission keeps packing, credit, registration and each
-// DATAGRAM's eligibility. Primary/backup is the default and the only public policy.
-// Aggregate stays privately selected until its support decision.
+// DATAGRAM's eligibility. Primary/backup is the only policy a connection runs. B5's
+// comparison denied aggregate support (#1044, #1045), so only in-package unit tests
+// select the other two.
 type pathScheduler uint8
 
 const (
@@ -20,8 +21,8 @@ const (
 	// scheduleAggregate sends each opportunity on the eligible path with the earliest
 	// estimated arrival, or by paced byte round-robin while any lacks a rate sample.
 	scheduleAggregate
-	// scheduleRoundRobin is the evidence fixture's comparison arm: aggregate with
-	// the estimate off. Only a fixture selects it; it is not a maintained policy.
+	// scheduleRoundRobin is aggregate with the estimate off, B5's comparison arm. It is
+	// not a maintained policy.
 	scheduleRoundRobin
 )
 

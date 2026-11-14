@@ -7,6 +7,9 @@ import "fmt"
 // An invalid name or nil receiver returns an error without changing selection.
 // Configure selection before Dial, Listen, or returning from GetConfigForClient;
 // concurrent mutation is unsupported. Existing connections retain their selection.
+//
+// BBRv3 is experimental and unqualified. Multipath V1 refuses it with
+// [ErrMultipathUnsupportedV1]; see [Config.ConfigureMultipathV1].
 func (c *Config) SetCongestionControlV1(name string) error {
 	if c == nil {
 		return fmt.Errorf("quic: nil congestion control configuration")
