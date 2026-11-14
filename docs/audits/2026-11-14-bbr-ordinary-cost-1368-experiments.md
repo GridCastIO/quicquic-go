@@ -59,3 +59,21 @@ Granted server samples total 110.13 CPU-seconds across the whole role process. `
 ### Observations and disposition
 
 Pending candidate implementation.
+
+## E03 — BBR protection placement ablation
+
+### Plan — 2026-11-14, prepared while E02 measures
+
+- **Question:** Does moving encryption to the native writer help ordinary BBR enough to justify its protection-plan construction and native-writer occupancy?
+- **Observation:** E01 profiles attribute 10.26 cumulative seconds to writer protection and 2.27 to protection construction reservation; these are contaminated whole-process observations, not additive removable-cost estimates. Historical Reno protection placement improved throughput, but BBR has one handoff per pacing opportunity and two-quanta credit rather than Reno's larger grouped work.
+- **Hypothesis:** Ordinary BBR's smaller request geometry makes deferred protection overhead or native-writer occupancy more costly than the overlap it enables. The existing synchronous protection path may reduce CPU per useful byte or pipeline delay.
+- **Alternatives:** Deferred encryption is essential because the connection goroutine is already the limiter; removing overlap lowers throughput despite cheaper metadata. Endpoint transaction frequency rather than protection placement may dominate.
+- **Intervention:** One experimental guard in `nativeProtectionConstruction.begin` declines deferred protection when `e.bbr != nil`. The existing prepared packer then encrypts synchronously. Keep local registration/completion, endpoint grant/deadlines/fairness, BBR pacing quantum/credit and handoff count unchanged. Use E02 as the control; this isolates placement/plan removal as a combined mechanism. No cross-turn Building lifetime is introduced: that alternative would also need deadline coverage and flush-before-credit-wait semantics and is not the smallest current discriminator.
+- **Prediction:** If plan overhead/native-writer occupancy dominates, granted CPU/byte falls and throughput is preserved or improves. If connection critical-path placement dominates, throughput worsens. No invented numeric acceptance limit; only a clean corresponding end-to-end observation supports a gain.
+- **Falsification/disposition:** Reject if throughput worsens or CPU benefit is unsupported relative to loss of overlap. Retain only if useful under the unchanged contract, then add BBR-specific placement/crypto lifecycle coverage for the final behavior. If placement remains ambiguous, a later plan-retaining synchronous ablation could distinguish bookkeeping from placement, but is not pre-authorized as a needless rerun.
+- **Invariants/checks:** Existing native protection/crypto/prepared emission and BBR GSO tests; native pair's real BBR setup/transfer/close. Initial prototype uses the existing synchronous path and is not final qualification. Reno and negotiated multipath placement are unchanged, as the original deferred route already excludes multipath.
+- **Reproduction/scope:** E02 `eab1ff6179644fba867bd14c71ba3bd96eee5c91` plus the single guard; exact candidate/patch and binary hash retained. One unprofiled stateless-pressure pair after E02, original affinity/warmup/window/seed and contamination accounting. No simultaneous host measurement. Stop after the pair or a correctness/fixture failure; charge the existing program ledger. No shared-host changes.
+
+### Observations and disposition
+
+Pending ablation.
