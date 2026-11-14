@@ -10907,3 +10907,29 @@ Merged [PR #1364](https://github.com/the-sarge/quic-go-fast/pull/1364) as `d26ad
 **Next:**
 - The program has no frontier. #1368 (deferred) owns BBR's cost.
 - The live view is [program tracker #646](https://github.com/the-sarge/quic-go-fast/issues/646).
+
+---
+
+## Root receipt test skips from the module archive (#1371) - 2026-11-14 16:37 EST
+
+**Main:** `470ae6876cfb`
+**Actor:** Claude
+
+**Summary:** [#1371](https://github.com/the-sarge/quic-go-fast/issues/1371), the in-scope follow-up of B6 #1045 deferred on PR #1369, merged in [PR #1372](https://github.com/the-sarge/quic-go-fast/pull/1372) as `470ae6876`. `TestMultipathSupportMatchesEvidence` no longer fails when the root package is tested from the module archive. It is a test-only change to one file.
+
+**Completed:**
+- The test skips with a reason only when the whole `docs/audits` tree is absent, as in a module download, because Go leaves that nested module out of the root module's archive. Any other stat error fails.
+- In a checkout every receipt read and assertion runs unchanged. `readB5Evidence`, the two sibling tests, production code and the frozen evidence are untouched.
+
+**Decisions:**
+- The skip marker is the `docs/audits` directory, not its `go.mod`, so that removing only the `go.mod` cannot silently skip the check in a checkout. Plan revision 1 was approved under delegated authority by the #646 orchestrator ([approval receipt on #1371](https://github.com/the-sarge/quic-go-fast/issues/1371#issuecomment-6884448806)).
+
+**Validation:**
+- **Archive simulation** with `golang.org/x/mod/zip.CreateFromDir`: on base `d8daf37c1` the test failed with a not-exist error; on the candidate it skips with its reason.
+- **Throwaway mutations** on a scratch copy: a renamed receipt and a flipped verdict both fail; removing only `docs/audits/go.mod` still passes.
+- **Local certification** at `74aa4e237` on darwin/arm64: `go vet`, `go mod tidy -diff`, gofmt/gofumpt, `golangci-lint run .` and root-package tests are clean.
+- **Reviews:** the code-review preparation pass found no violations, and one mild smell was rejected. RAS run `20261114T212942-bfa042acee9f868324b91226` (initial, full panel) returned zero findings.
+- **Hosted checks:** all 18 passed on `74aa4e237`, including the post-ready `independent-peer` run [43643347436](https://github.com/the-sarge/quic-go-fast/actions/runs/43643347436).
+
+**Next:**
+- No follow-ups. The live view is [program tracker #646](https://github.com/the-sarge/quic-go-fast/issues/646).
