@@ -1,0 +1,97 @@
+{
+  "result": {
+    "go": "go1.27.4",
+    "topology": {
+      "queues": [
+        {
+          "rate_bps": 50000000,
+          "limit_bytes": 125000
+        },
+        {
+          "rate_bps": 25000000,
+          "limit_bytes": 187500
+        }
+      ],
+      "a": {
+        "queue": 0,
+        "delay_ns": 10000000
+      },
+      "b": {
+        "queue": 1,
+        "delay_ns": 30000000
+      },
+      "competitor": {
+        "queue": 0,
+        "delay_ns": 0
+      },
+      "competing": false
+    },
+    "links": [
+      {
+        "name": "a",
+        "forward": {
+          "received": 292900,
+          "dropped": 408,
+          "overflow": 0,
+          "delivered": 292492,
+          "delivered_bytes": 421372885,
+          "window_bytes": 361495261,
+          "send_errors": 0,
+          "late_over_1ms": 214,
+          "max_late_ms": 1.776948
+        },
+        "reverse": {
+          "received": 76068,
+          "dropped": 0,
+          "overflow": 0,
+          "delivered": 76068,
+          "delivered_bytes": 2475233,
+          "window_bytes": 2123643,
+          "send_errors": 0,
+          "late_over_1ms": 24,
+          "max_late_ms": 1.236552
+        }
+      },
+      {
+        "name": "b",
+        "forward": {
+          "received": 145948,
+          "dropped": 39,
+          "overflow": 0,
+          "delivered": 145909,
+          "delivered_bytes": 209478643,
+          "window_bytes": 180120957,
+          "send_errors": 0,
+          "late_over_1ms": 113,
+          "max_late_ms": 2.010126
+        },
+        "reverse": {
+          "received": 70399,
+          "dropped": 0,
+          "overflow": 0,
+          "delivered": 70399,
+          "delivered_bytes": 2318933,
+          "window_bytes": 1999587,
+          "send_errors": 0,
+          "late_over_1ms": 37,
+          "max_late_ms": 2.222724
+        }
+      }
+    ]
+  },
+  "role": "relay",
+  "spec": {
+    "role": "relay",
+    "topology": "unequal",
+    "arm": "F",
+    "seed": 1145,
+    "server": "127.0.0.1:47460",
+    "front_a": "127.0.0.1:47461",
+    "front_b": "127.0.0.1:47462",
+    "front_competitor": "127.0.0.1:47463",
+    "output": "/home/josh/b5-1044/campaign-ba51ba67/aggregation/unequal/round1/attempt0/F/relay.json",
+    "start_at_unix_ns": 1794676600630365473,
+    "warmup_ns": 10000000000,
+    "window_ns": 60000000000
+  }
+}

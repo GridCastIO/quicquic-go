@@ -1,0 +1,118 @@
+{
+  "result": {
+    "go": "go1.27.4",
+    "topology": {
+      "queues": [
+        {
+          "rate_bps": 50000000,
+          "limit_bytes": 125000
+        }
+      ],
+      "a": {
+        "queue": 0,
+        "delay_ns": 10000000
+      },
+      "b": {
+        "queue": 0,
+        "delay_ns": 10000000
+      },
+      "competitor": {
+        "queue": 0,
+        "delay_ns": 10000000
+      },
+      "competing": true
+    },
+    "links": [
+      {
+        "name": "a",
+        "forward": {
+          "received": 222605,
+          "dropped": 311,
+          "overflow": 0,
+          "delivered": 222294,
+          "delivered_bytes": 320259219,
+          "window_bytes": 277233162,
+          "send_errors": 0,
+          "late_over_1ms": 1099,
+          "max_late_ms": 2.938888
+        },
+        "reverse": {
+          "received": 69817,
+          "dropped": 0,
+          "overflow": 0,
+          "delivered": 69817,
+          "delivered_bytes": 2261465,
+          "window_bytes": 1954331,
+          "send_errors": 0,
+          "late_over_1ms": 535,
+          "max_late_ms": 3.113205
+        }
+      },
+      {
+        "name": "b",
+        "forward": {
+          "received": 0,
+          "dropped": 0,
+          "overflow": 0,
+          "delivered": 0,
+          "delivered_bytes": 0,
+          "window_bytes": 0,
+          "send_errors": 0,
+          "late_over_1ms": 0,
+          "max_late_ms": 0
+        },
+        "reverse": {
+          "received": 0,
+          "dropped": 0,
+          "overflow": 0,
+          "delivered": 0,
+          "delivered_bytes": 0,
+          "window_bytes": 0,
+          "send_errors": 0,
+          "late_over_1ms": 0,
+          "max_late_ms": 0
+        }
+      },
+      {
+        "name": "competitor",
+        "forward": {
+          "received": 73892,
+          "dropped": 1128,
+          "overflow": 0,
+          "delivered": 72764,
+          "delivered_bytes": 104814260,
+          "window_bytes": 86971082,
+          "send_errors": 0,
+          "late_over_1ms": 683,
+          "max_late_ms": 3.359437
+        },
+        "reverse": {
+          "received": 30888,
+          "dropped": 0,
+          "overflow": 0,
+          "delivered": 30888,
+          "delivered_bytes": 990709,
+          "window_bytes": 838925,
+          "send_errors": 0,
+          "late_over_1ms": 304,
+          "max_late_ms": 1.199192
+        }
+      }
+    ]
+  },
+  "role": "relay",
+  "spec": {
+    "role": "relay",
+    "topology": "shared",
+    "arm": "A",
+    "seed": 1245,
+    "server": "127.0.0.1:47460",
+    "front_a": "127.0.0.1:47461",
+    "front_b": "127.0.0.1:47462",
+    "front_competitor": "127.0.0.1:47463",
+    "output": "/home/josh/b5-1044/campaign-ba51ba67/aggregation/shared/round1/attempt0/A/relay.json",
+    "start_at_unix_ns": 1794678119803161409,
+    "warmup_ns": 10000000000,
+    "window_ns": 60000000000
+  }
+}

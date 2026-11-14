@@ -1,0 +1,65 @@
+{
+  "result": {
+    "go": "go1.27.4",
+    "flows": [
+      {
+        "label": "focal-a",
+        "controller": "bbrv3",
+        "multipath_negotiated": true,
+        "scheduler": "aggregate",
+        "paths": [
+          {
+            "wire_id": 0,
+            "lifecycle": "live",
+            "local_use": "active",
+            "primary": true
+          },
+          {
+            "wire_id": 1,
+            "lifecycle": "live",
+            "local_use": "active",
+            "primary": false
+          }
+        ],
+        "objects_started": 292,
+        "stream_bytes_written": 303732383,
+        "datagrams_offered": 15000,
+        "datagram_send_errors": 0,
+        "packets_sent": 228980,
+        "packets_lost": 0,
+        "close_cause": "",
+        "timeout_close": false
+      },
+      {
+        "label": "competitor",
+        "controller": "reno",
+        "multipath_negotiated": false,
+        "scheduler": "",
+        "paths": null,
+        "objects_started": 92,
+        "stream_bytes_written": 94132245,
+        "datagrams_offered": 0,
+        "datagram_send_errors": 0,
+        "packets_sent": 67890,
+        "packets_lost": 1140,
+        "close_cause": "",
+        "timeout_close": false
+      }
+    ]
+  },
+  "role": "client",
+  "spec": {
+    "role": "client",
+    "topology": "shared",
+    "arm": "E",
+    "seed": 1244,
+    "server": "127.0.0.1:47460",
+    "front_a": "127.0.0.1:47461",
+    "front_b": "127.0.0.1:47462",
+    "front_competitor": "127.0.0.1:47463",
+    "output": "/home/josh/b5-1044/campaign-ba51ba67/aggregation/shared/round0/attempt0/E/client.json",
+    "start_at_unix_ns": 1794677645462778863,
+    "warmup_ns": 10000000000,
+    "window_ns": 60000000000
+  }
+}
