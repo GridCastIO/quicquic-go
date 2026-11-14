@@ -357,13 +357,13 @@ func TestBBRPathProbeKeepsSelectedSupplyState(t *testing.T) {
 // is the announced route's ordinary paced work: with that route's pacing or
 // ordinary credit refusing a whole packet, it is a PING alone and spends nothing.
 func TestBBRPathAnnouncementPacing(t *testing.T) {
-	// announce migrates path 1, the primary, holding prepare's reservation across
+	// announce migrates path 1, holding prepare's reservation across
 	// the cutover, then sets path 1's pacing tokens, queues 1,000 bytes and runs the
 	// one opportunity the due announcement takes. It returns the packets on the new tuple.
-	announce := func(t *testing.T, f *reliableFixture, tokens func(*bbrSendPolicy) int64, prepare func(*bbrSendPolicy) *sendReservation) []reliableWrite {
+	announce := func(t *testing.T, f *reliableFixture, primary protocol.PathID, tokens func(*bbrSendPolicy) int64, prepare func(*bbrSendPolicy) *sendReservation) []reliableWrite {
 		t.Helper()
 		p := f.c.pathCredit
-		p.selectPrimaryPrivate(1)
+		p.selectPrimaryPrivate(primary)
 		require.NoError(t, creditIngress(t, f.tc, monotime.Now(), &wire.PathNewConnectionIDFrame{PathID: 1, SequenceNumber: 1, ConnectionID: replacementPeerCID(1), StatelessResetToken: protocol.StatelessResetToken{0xab}}))
 		path := f.bbrPath(1)
 		var held *sendReservation
@@ -409,7 +409,7 @@ func TestBBRPathAnnouncementPacing(t *testing.T) {
 			f := newBBRPathFixture(t, protocol.PerspectiveClient)
 			path := f.bbrPath(1)
 			var refilled monotime.Time
-			writes := announce(t, f, func(p *bbrSendPolicy) int64 {
+			writes := announce(t, f, 1, func(p *bbrSendPolicy) int64 {
 				refilled = p.refilledAt
 				return 0
 			}, nil)
@@ -433,11 +433,67 @@ func TestBBRPathAnnouncementPacing(t *testing.T) {
 			var refilled monotime.Time
 			var before protocol.ByteCount
 			var gap congestion.SendLimitation
-			writes := announce(t, f, func(p *bbrSendPolicy) int64 {
+			writes := announce(t, f, 1, func(p *bbrSendPolicy) int64 {
 				refilled, before, gap = p.refilledAt, p.quantum, p.supplyGap
 				root = *e.bbr
 				return int64(p.quantum) * 1e9
 			}, nil)
+			require.Equal(t, 1000, reliableBytes(writes), "payload rides the paced announcement")
+			require.True(t, slices.ContainsFunc(writes[0].frames, func(f wire.Frame) bool {
+				_, ok := f.(*wire.PingFrame)
+				return ok
+			}), "with its PING")
+			require.Equal(t, before-protocol.ByteCount(len(writes[0].data)), path.budget(monotime.Now()), "the announced route pays the packet's bytes")
+			require.True(t, path.refilledAt.After(refilled), "and its refill moves")
+			require.Equal(t, root.tokens, e.bbr.tokens, "the root policy pays nothing")
+			require.Equal(t, root.refilledAt, e.bbr.refilledAt)
+			require.Equal(t, root.supplyGap, e.bbr.supplyGap, "and no route's supply is observed")
+			require.Equal(t, gap, path.supplyGap)
+		})
+	})
+
+	t.Run("backup zero budget", func(t *testing.T) {
+		nativeOrdinaryTest(t, func(t *testing.T) {
+			f := newBBRPathFixture(t, protocol.PerspectiveClient)
+			e := &f.c.emission
+			path := f.bbrPath(1)
+			var root bbrSendPolicy
+			var refilled monotime.Time
+			var gap congestion.SendLimitation
+			writes := announce(t, f, 0, func(p *bbrSendPolicy) int64 {
+				// A wrong-policy reservation must be able to spend the primary's budget.
+				e.bbr.tokens, e.bbr.updated = int64(e.bbr.quantum)*1e9, monotime.Now()
+				root = *e.bbr
+				refilled, gap = p.refilledAt, p.supplyGap
+				return 0
+			}, nil)
+			require.Equal(t, protocol.PathID(0), f.c.pathCredit.primary)
+			pingOnly(t, writes[0])
+			require.Zero(t, path.tokens, "the exempt announcement spends no pacing")
+			require.Equal(t, refilled, path.refilledAt)
+			require.Equal(t, root.tokens, e.bbr.tokens, "the selected route pays nothing")
+			require.Equal(t, root.refilledAt, e.bbr.refilledAt)
+			require.Equal(t, root.supplyGap, e.bbr.supplyGap, "the announcement observes neither route's supply")
+			require.Equal(t, gap, path.supplyGap)
+		})
+	})
+
+	t.Run("backup budget covers", func(t *testing.T) {
+		nativeOrdinaryTest(t, func(t *testing.T) {
+			f := newBBRPathFixture(t, protocol.PerspectiveClient)
+			e := &f.c.emission
+			path := f.bbrPath(1)
+			var root bbrSendPolicy
+			var refilled monotime.Time
+			var before protocol.ByteCount
+			var gap congestion.SendLimitation
+			writes := announce(t, f, 0, func(p *bbrSendPolicy) int64 {
+				refilled, before, gap = p.refilledAt, p.quantum, p.supplyGap
+				e.bbr.tokens, e.bbr.updated = int64(e.bbr.quantum)*1e9, monotime.Now()
+				root = *e.bbr
+				return int64(p.quantum) * 1e9
+			}, nil)
+			require.Equal(t, protocol.PathID(0), f.c.pathCredit.primary)
 			require.Equal(t, 1000, reliableBytes(writes), "payload rides the paced announcement")
 			require.True(t, slices.ContainsFunc(writes[0].frames, func(f wire.Frame) bool {
 				_, ok := f.(*wire.PingFrame)
@@ -457,7 +513,7 @@ func TestBBRPathAnnouncementPacing(t *testing.T) {
 			f := newBBRPathFixture(t, protocol.PerspectiveClient)
 			path := f.bbrPath(1)
 			var refilled monotime.Time
-			writes := announce(t, f, func(p *bbrSendPolicy) int64 {
+			writes := announce(t, f, 1, func(p *bbrSendPolicy) int64 {
 				refilled = p.refilledAt
 				return int64(p.quantum) * 1e9
 			}, func(p *bbrSendPolicy) *sendReservation {
