@@ -5,6 +5,8 @@ package quic
 import (
 	"context"
 	"encoding/json"
+	"errors"
+	"io/fs"
 	"net"
 	"os"
 	"path/filepath"
@@ -32,6 +34,15 @@ func readB5Evidence(t *testing.T, path string, v any) {
 // The B5 receipts that the support statement cites keep their candidate identities and
 // the verdicts that leave BBR primary/backup and aggregation unsupported.
 func TestMultipathSupportMatchesEvidence(t *testing.T) {
+	// B5's receipts are in the nested docs/audits module, which Go leaves out of this module's
+	// archive. Skip only when that whole tree is absent; in a checkout a missing, unreadable or
+	// changed receipt still fails.
+	_, err := os.Stat(filepath.Join("docs", "audits"))
+	if errors.Is(err, fs.ErrNotExist) {
+		t.Skip("B5 receipts are in the nested docs/audits module, which a module archive omits")
+	}
+	require.NoError(t, err)
+
 	const (
 		bbrCandidate         = "4e80d3cf4fa7454ffc3e2a46655afd5f81f86313"
 		aggregationCandidate = "ba51ba67bf09f872c558e1519a3839f74795a021"
