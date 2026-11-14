@@ -1,0 +1,9 @@
+{
+  "source": "dd2749714c5aabdce2a251ea5083d097954fd25a",
+  "control": "eab1ff6179644fba867bd14c71ba3bd96eee5c91",
+  "archive_sha256": "b88fda7ee12dedb709d0189a6371385d20b14e32e6bc70135fd01150ca2a6460",
+  "binary_sha256": "06d570e0832dffd9172b885000544560a86345041570706620b148d6b7becee7",
+  "build_command": "go test -c -tags ordinarycost -o /tmp/qgf-bbr-cost-1368/e05.test .",
+  "measurement_command": "python3 interop/multipath/ordinary_cost.py --candidate dd2749714c5aabdce2a251ea5083d097954fd25a --binary /tmp/qgf-bbr-cost-1368/e05.test --output /tmp/qgf-bbr-cost-1368/e05-timing --remaining-instances 193 --remaining-host-seconds 19168.96766075111 --timeout-seconds 135 --controller bbrv3 --diagnostic-cell stateless-pressure",
+  "review": "Independent pinned-source audit found no material findings; full root package, affected race, vet and tidy passed. Native controller setup unit check passed."
+}
