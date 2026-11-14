@@ -1,0 +1,98 @@
+# Measurement-only BBR interoperability revalidation (#1368)
+
+This apparatus restores the six existing B5 cases for the combined candidate of [BBR ordinary-flow cost (#1368)](https://github.com/the-sarge/quic-go-fast/issues/1368). It changes no product source in the checkout and adds no public BBR multipath selector. Unoverlaid refusal tests remain authoritative. The [B5 receipt (#1044)](../../../2026-11-14-multipath-b5-receipt.md#bbr-primarybackup-revalidation) and [program applicability rule](../../../../adr/2026-10-24-multipath-bbr-plan.md#program-budget-and-prior-evidence-validity) own the inventory; this apparatus adds no cases, thresholds or allowance.
+
+The inventory is `useful-transfer`, `abandon-reopen-late-feedback` and `same-id-migration-rebinding`, each with quic-go-fast as client and server, on BBR primary/backup: six observations. The separate required hosted independent-peer job still runs its 16 Reno cases and zero evidence on the final ready PR head. These six cases do not replace that job or qualify public BBR support.
+
+## Frozen driver, scenario timeline and overlay
+
+`run_b5.py` is byte-for-byte `interop/multipath/run.py` at `4e80d3cf4fa7454ffc3e2a46655afd5f81f86313`, SHA-256 `7de31bd73bfb026c7aa24989139fd38032c5caac730498f4967c3b5dde4c1990`. Its controller, exact-case, failure/skip, identity and aggregate checks are unchanged. The original 30-second role context, 90-second Go timeout, 120-second driver timeout and 150-second outer container timeout remain. It requires `peer.c` beside itself to hash the adapter; the generator supplies the exact historical bytes.
+
+`prepare.py` reads the supplied full product commit through Git, checks exact source hashes and unique replacement snippets, and emits a source archive, complete file inventory, original/replacement hashes, overlay diff and build/driver identities. The matrix source is pinned at SHA-256 `d81d1e4fc5b574bd4f0fcd5de03c916168fa2e02b53602a8268f411cd90f971b` before overlay. The generated matrix must equal historical B5 matrix SHA-256 `270dbdd71a42e5622217b9fa33fc12c4a32d467a19e05b8f9e0a38bf8a227ccb` after removing only the retired private evidence assignment and its two comment lines. Thus scenario actions, timing, payloads, role order, lifecycle and oracles retain their historical bytes. Trace/oracle/peer helpers and the Dockerfile are separately pinned and must equal B5. A mismatch stops generation for explicit applicability review.
+
+| Overlaid source | Exact measurement-only footprint |
+| --- | --- |
+| `multipath_api.go` | Allow Reno or BBR at the controller admission check; preserve all other platform, version, path-count, policy, CID, socket, grant and I/O gates. |
+| `multipath_picoquic_matrix_test.go` | Restore the historical environment controller helper, select that controller on the fixture Config and assert the established connection's actual identity. Do not restore `multipathEvidence` or its Config assignment. |
+
+No emission, feedback, scheduler, endpoint owner or support-document source is overlaid. The image is built from the unmodified product archive using the unchanged Dockerfile; only the separately compiled measurement test binary uses the Go overlay. `build.py` checks the complete extracted source inventory and bundle hashes, requires the pinned native Linux amd64 Go version and matching image source identity, then records the exact command, overlay, image, peer and resulting test-binary hashes. Failed builds keep their logs and receipts; preserve an interrupted build's log and use a fresh bundle. This is preparation, not evidence that a case ran.
+
+## Preparation and build
+
+Run the apparatus-only tests without launching a peer:
+
+```sh
+python3 -B -m unittest discover -s docs/audits/2026-11-14-bbr-ordinary-cost-1368/qualification/interop -p 'test_*.py'
+```
+
+After the final source applicability review, generate a fresh bundle from the exact committed candidate. Here `product_sha`, `bundle`, `source` and `results` are explicit caller-selected values; source and results must be new directories outside the repository.
+
+```sh
+python3 docs/audits/2026-11-14-bbr-ordinary-cost-1368/qualification/interop/prepare.py \
+  --repo /absolute/path/to/quic-go-fast --product-sha "$product_sha" --output "$bundle"
+mkdir "$source"
+tar -xf "$bundle/source.tar" -C "$source"
+```
+
+On native Linux amd64, retain setup attempts and charge occupied host time under the existing [program ledger (#646)](https://github.com/the-sarge/quic-go-fast/issues/646). Build the unchanged pinned peer image from that exact extraction, recording the source tree from the manifest. The build retains the original 1200-second bound. Do not substitute an unverified cached image or an earlier product candidate.
+
+```sh
+set -euo pipefail
+product_tree=$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["product_tree"])' "$bundle/manifest.json")
+timeout 1200s docker build --platform linux/amd64 -f "$source/interop/multipath/Dockerfile" \
+  --build-arg QGF_SOURCE_COMMIT="$product_sha" --build-arg QGF_SOURCE_TREE="$product_tree" \
+  -t qgf-bbr-interop-1368 "$source" 2>&1 | tee "$bundle/image-build.log"
+docker image inspect qgf-bbr-interop-1368 > "$bundle/image-inspect.json"
+image_id=$(docker image inspect qgf-bbr-interop-1368 --format '{{.Id}}')
+test "$(docker image inspect "$image_id" --format '{{.Architecture}}')" = amd64
+printf '%s\n' "$image_id" > "$bundle/image-id.txt"
+container=$(docker create "$image_id")
+docker cp "$container:/src/build-packages.txt" "$bundle/build-packages.txt"
+docker rm "$container"
+timeout 1200s docker run --rm --platform linux/amd64 --network none \
+  -e QGF_IMAGE_ID="$image_id" -e PYTHONDONTWRITEBYTECODE=1 \
+  -v "$source:/product:ro" -v "$bundle:/bundle" \
+  --entrypoint python3 "$image_id" /bundle/build.py --bundle /bundle --source /product
+```
+
+The recorded test build is `go test -overlay=/bundle/overlay.json -tags picoquic -c -o /bundle/peer-matrix.test .`, in `/product`. It compiles but does not run peer scenarios. The unchanged image build performs its existing fixture unit checks and compiles the public unoverlaid binaries. The mounted source stays byte-exact. Keep `build-receipt.json`, `build.log`, `manifest.json`, `overlay.patch`, image inspection, package identities and the image ID together.
+
+## Six existing observations
+
+The root executor owns pre-launch reconciliation and charging for every attempt; the historical driver does not maintain the cumulative program ledger. Use the existing finite six-case inventory and the live remaining allowance. No duplicate manual Reno matrix, new semantic cell, pass-seeking retry or uncharged setup is authorized here. Stop at the first unexplained prerequisite or case failure, retaining all attempts.
+
+For each scenario in the listed order and each role in `client server`, create a fresh child container and output directory. The following is one explicit case template, not an automatic rerun loop. Set `scenario` and `role` to the scheduled case; use the same immutable image and measurement binary for all six. The source/bundle mount paths match the build. Record each container inspection even when its command fails, remove the container after inspection, and charge actual duration before continuing.
+
+```sh
+mkdir -p "$results/$scenario"
+container=$(docker create --platform linux/amd64 --network none \
+  --user "$(id -u):$(id -g)" \
+  -e QGF_IMAGE_ID="$image_id" -e PYTHONDONTWRITEBYTECODE=1 \
+  -e HOME=/tmp -e GOCACHE=/tmp/go-build -e GOPATH=/tmp/go \
+  -v "$source:/product:ro" -v "$bundle:/bundle:ro" -v "$results:/results" \
+  --entrypoint python3 "$image_id" /bundle/run_b5.py \
+  --binary /usr/local/bin/qgf-r17-peer --test-binary /bundle/peer-matrix.test \
+  --controller bbrv3 --matrix --scenario "$scenario" --role "$role" \
+  --output "/results/$scenario/$role")
+status=0
+timeout 150s docker start --attach "$container" > "$results/$scenario/$role.container.log" 2>&1 || status=$?
+docker inspect "$container" > "$results/$scenario/$role.container-inspect.json"
+container_status=$(docker inspect "$container" --format '{{.State.ExitCode}}')
+docker rm -f "$container"
+test "$status" = 0
+test "$container_status" = 0
+```
+
+After all six charged observations pass, aggregate the receipts without running another peer:
+
+```sh
+python3 -B "$bundle/run_b5.py" --controller bbrv3 --validate-matrix --output "$results"
+```
+
+The aggregate must report exactly six successful BBR cases with one candidate/tree/image/toolchain/kernel/peer/test/driver identity. Compare its `test_binary_sha256`, `peer_binary_sha256`, candidate, tree and image to the build receipt before claiming qualification. Preserve the raw Go JSON, peer logs, attempts and per-case results alongside the aggregate. Performance qualification remains the separate fixed 12-observation ordinary-cost comparison.
+
+## Conditional applicability for the planned E05 candidate
+
+The source assessment at `7721bd07dcce00e2734fa6b4ef3b0a3fb402ed2b` covers the E05 plan, not a completed E05 implementation. E05's proposed same-call two-buffer grouping is limited to confirmed ordinary native BBR and excludes any multipath registry/nonzero route. Retained E02's rich completion helper also reaches BBR path handlers, so the combined candidate revalidates these six existing BBR cases. Exact final guards, request geometry and owner reach must be reassessed before final qualification.
+
+Existing Reno ordinary-cost and E6/R21 native receipts may retain applicability only if the final diff preserves Reno selection/continuation and the endpoint's admission, absolute deadline, native writer, result publication, disposal and shutdown owners. Existing native multi-member representation is not a new owner; fresh BBR emission correctness still must prove Q/2Q bounds, per-buffer settlement, first-request deadline and receive/close fairness. This conditional source judgment neither extends native evidence to arbitrary BBR traffic nor enables BBR primary/backup. No new gate or budget is introduced.
