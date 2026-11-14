@@ -77,3 +77,19 @@ Pending candidate implementation.
 ### Observations and disposition
 
 Pending ablation.
+
+### E02 observations and provisional retain decision — 2026-11-14
+
+Candidate `eab1ff6179644fba867bd14c71ba3bd96eee5c91` passed the complete ACK-handler suite, focused local BBR/ECN race tests, vet and module tidiness. Equivalence tests preserve diagnostic sample invalidation, stale loss alarm clearing, actual loss below an ACK, spurious recovery, delayed CE and early-ACK terminal return. [Source/build record](2026-11-14-bbr-ordinary-cost-1368/e02-source.json); [raw timing summary](2026-11-14-bbr-ordinary-cost-1368/e02-timing/summary.json).
+
+The clean native pair measured unregistered/granted goodput 8.720423390 / 7.761433737 Gbit/s, server CPU 82.030382 / 95.279944 seconds, ratios 0.890029462 goodput and 1.305035652 CPU/useful byte. Foreign CPU 0.134248 / 0.115463 seconds. No losses, write errors, empty seconds or contamination. Relative to E01 the granted throughput rose 2.19% and CPU/useful byte fell about 1.84%; the control throughput fell 0.84%, so ratio movement overstates the candidate's absolute gain. One pair does not establish repeatability. Retain provisionally as a small local improvement, subject to the combined candidate's final qualification; both overall targets remain missed. The source mechanism supports removal of empty work; the measured local result is consistent with the modest prediction, not a complete remedy.
+
+Two observations charge 154.103248318 seconds. Cumulative program usage is 223/420 instances and 9322.885707040/28800 seconds; remaining 197 instances / 19477.114292960 seconds before E03. Next decision: E03 protection-placement ablation on this candidate, with original batching/credit and no shared-host changes.
+
+### E03 observations and reject decision — 2026-11-14
+
+The one-guard candidate `7dffd409ec5a2878f8b0ade8f2665bd63bda90fc` passed focused native-protection/prepared-packet/BBR-GSO tests. The [clean timing pair](2026-11-14-bbr-ordinary-cost-1368/e03-timing/summary.json) measured control/granted goodput 8.853279010 / 6.916882345 Gbit/s and CPU 83.152392 / 89.215095 seconds; ratios 0.781279155 and 1.373274507. Foreign CPU was 0.070025 / 0.238745 seconds; no correctness/latency/write/loss/progress failures. [Exact source/build](2026-11-14-bbr-ordinary-cost-1368/e03-source.json).
+
+Reject synchronous protection for ordinary BBR. Relative to E02, granted total CPU fell 6.37% but throughput fell 10.88%; useful-byte CPU worsened. Control throughput rose 1.52%, so ratios also reflect comparator drift, but the granted absolute regression is clear. Moving work back to the connection loses valuable overlap; this is not an optimization despite the lower total CPU. Restore the original deferred-protection guard byte-for-byte. No further plan-retaining synchronous ablation is justified by this result. Both overall targets remain missed. Next: distinguish local-credit waiting and timing-sample exclusions with bounded scalar observation before a larger grouping change.
+
+E03 charges two observations / 154.073332245 seconds. Cumulative program usage 225/420 instances and 9476.959039284/28800 seconds; remaining 195 instances / 19323.040960716 seconds. No shared environment changes require restoration.

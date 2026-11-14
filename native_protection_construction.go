@@ -24,10 +24,6 @@ type nativeProtectionConstruction struct {
 
 func (b *nativeProtectionConstruction) begin(e *packetEmission, buffer *packetBuffer) {
 	*b = nativeProtectionConstruction{}
-	// E03 diagnostic: compare BBR's existing synchronous protection path.
-	if e.bbr != nil {
-		return
-	}
 	sender, ok := e.local.(*nativeOrdinarySender)
 	if !ok || e.queue != sender || sender.pending == nil || sender.pending.state != ordinaryBuilding || e.route != nil || e.pathCredit != nil {
 		return
