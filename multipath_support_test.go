@@ -86,8 +86,8 @@ func TestMultipathSupportMatchesEvidence(t *testing.T) {
 func TestMultipathSelectionHasNoPrivateBypass(t *testing.T) {
 	selection := reflect.TypeFor[multipathSelection]()
 	var fields []string
-	for i := range selection.NumField() {
-		fields = append(fields, selection.Field(i).Name)
+	for field := range selection.Fields() {
+		fields = append(fields, field.Name)
 	}
 	require.Equal(t, []string{"enabled", "maxPaths"}, fields)
 }
