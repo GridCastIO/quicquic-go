@@ -10820,3 +10820,57 @@ Merged [PR #1364](https://github.com/the-sarge/quic-go-fast/pull/1364) as `d26ad
 **Next:**
 - B5 #1044 is the frontier. Its draft PR #1350 and the ledger need a recheck against B7.
 - The live view is [program tracker #646](https://github.com/the-sarge/quic-go-fast/issues/646).
+
+---
+
+## Aggregation comparison and BBR revalidation (#1044) - 2026-11-14 14:58 EST
+
+**Main:** `e048181a680f`
+**Actor:** Claude
+
+**Summary:** [B5 #1044](https://github.com/the-sarge/quic-go-fast/issues/1044) is complete. The controller-matched aggregation comparison is valid and **negative**, so aggregate support is denied. BBR primary/backup passed its interop cases but failed its ordinary-cost gate; that raw failure waits for B6 #1045. Two PRs:
+- [PR #1350](https://github.com/the-sarge/quic-go-fast/pull/1350), merged as `017ebee5c`: the scoped re-audit that added B5's private evidence selection and the revalidation fixtures to its scope.
+- [PR #1366](https://github.com/the-sarge/quic-go-fast/pull/1366), merged as `e048181a6`: the implementation, campaign and [receipt](audits/2026-11-14-multipath-b5-receipt.md).
+
+**Completed:**
+- **Private evidence selection:** `multipathSelection.evidence` admits BBR at the capability gate and copies a scheduler into the path registry. Its zero value is the public profile, and B6 removes it.
+- **Fixtures:** the aggregation fixture (`aggregation_test.go`, `interop/multipath/aggregation.py`), with three topologies × six arms × three observations. The R17 and R18 fixtures gained `--controller bbrv3`.
+- **Aggregation comparison**, on candidate `ba51ba67b`:
+
+  | Threshold | Median | Floor | Result |
+  | --- | ---: | ---: | --- |
+  | E over the better single path, balanced | 1.764 | ≥ 1.20 | Pass |
+  | E over two independent BBR connections, balanced | **0.879** | ≥ 0.95 | **Fail** |
+  | Reno competitor beside E vs beside C, shared | 0.960 | ≥ 0.90 | Pass |
+
+  The unequal topology is reported without a threshold. E under-used the second path there: 13 MB, against 180 MB for forced round-robin.
+- **BBR primary/backup revalidation**, on candidate `4e80d3cf4`:
+  - Interop: 6/6 pass.
+  - Ordinary cost fails. Goodput was 0.848 and 0.869, and CPU per useful byte was 1.367 and 1.318.
+- **Reno mixed-bulk rerun:** CPU per useful byte was 1.122, a raw failure against 1.10. It is an owner-accepted deviation for that exact result.
+- **Diagnosis and fixture fix.** Arm E was contaminated in all four attempts before the stop, against 0 of 8 for A–D.
+  - A `sched_switch` trace showed the fixture's accounting is sound and the foreign CPU was external CI.
+  - The driver had admitted replacements under the external job that contaminated them. A `QuietGate` now holds admission for five minutes after named load or a contaminated observation.
+  - The gated campaign finished all 54 cases. Three replacements were needed, all clean, and E was clean 9/9.
+- **Status:** the BBR plan is 6/7, the program index shows 47 of 48 slices, and the cumulative ceiling is 420 runs in the ledgers.
+
+**Decisions:**
+- **Owner decisions on the B5 stop** ([#646](https://github.com/the-sarge/quic-go-fast/issues/646#issuecomment-6878878786)):
+  - The ceiling rose from 210 to 420 instances; eight host-hours is unchanged.
+  - Nobody pauses other projects' runners or VMs.
+  - Reno mixed-bulk CPU at 1.122 is accepted for that exact result.
+  - The BBR primary/backup cost failure is decided when B6 starts.
+
+**Validation:**
+- **Ledger:** B5 charged 97 instances and 7,154.688 host-seconds. The cumulative total is 217/420 instances and 8,860.629/28,800 host-seconds.
+- **RAS reviews on PR #1366:**
+  - `20261114T025252-d6793843409349dc8903b302` and `20261114T030759-abe9a21453050d54339f2241`: the original loop.
+  - `20261114T150737-99398a1bf609276ad71152b0`: the fixture-gate delta. C-001 and C-002 were fixed, and verification was clear.
+  - `20261114T193358-016f352c839e2a3f9de4f37c`: the receipt delta. Its fixes were verified. The last two docs-only fixes skipped the RAS rerun by policy.
+- **Receipt check:** an independent evidence check recomputed every number in the receipt.
+- **Local checks:** 107 Python tests pass. Root package tests pass on darwin/arm64. `go vet` with the aggregation, ordinarycost and picoquic tags and `go mod tidy -diff` are clean.
+- **Hosted checks:** all 18 passed on `da5813f5c`, including the post-ready `independent-peer` run [43634157926](https://github.com/the-sarge/quic-go-fast/actions/runs/43634157926).
+
+**Next:**
+- B6 #1045 is the frontier. By owner decision, its options return to the owner before dispatch.
+- The live view is [program tracker #646](https://github.com/the-sarge/quic-go-fast/issues/646).
