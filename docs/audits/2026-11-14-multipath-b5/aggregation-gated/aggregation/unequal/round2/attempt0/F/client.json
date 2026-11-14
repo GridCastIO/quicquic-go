@@ -1,0 +1,50 @@
+{
+  "result": {
+    "go": "go1.27.4",
+    "flows": [
+      {
+        "label": "focal-a",
+        "controller": "bbrv3",
+        "multipath_negotiated": true,
+        "scheduler": "round-robin",
+        "paths": [
+          {
+            "wire_id": 0,
+            "lifecycle": "live",
+            "local_use": "active",
+            "primary": true
+          },
+          {
+            "wire_id": 1,
+            "lifecycle": "live",
+            "local_use": "active",
+            "primary": false
+          }
+        ],
+        "objects_started": 572,
+        "stream_bytes_written": 597118940,
+        "datagrams_offered": 15000,
+        "datagram_send_errors": 0,
+        "packets_sent": 436822,
+        "packets_lost": 0,
+        "close_cause": "",
+        "timeout_close": false
+      }
+    ]
+  },
+  "role": "client",
+  "spec": {
+    "role": "client",
+    "topology": "unequal",
+    "arm": "F",
+    "seed": 1146,
+    "server": "127.0.0.1:47460",
+    "front_a": "127.0.0.1:47461",
+    "front_b": "127.0.0.1:47462",
+    "front_competitor": "127.0.0.1:47463",
+    "output": "/home/josh/b5-1044/campaign-ba51ba67/aggregation/unequal/round2/attempt0/F/client.json",
+    "start_at_unix_ns": 1794676916887522474,
+    "warmup_ns": 10000000000,
+    "window_ns": 60000000000
+  }
+}

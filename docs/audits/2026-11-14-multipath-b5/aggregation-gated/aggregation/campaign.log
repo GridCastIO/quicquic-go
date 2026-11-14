@@ -1,0 +1,515 @@
+16:00:09 balanced round 0 A attempt 0: foreign 0.8150068010000009 s, contaminated False, product failures []
+16:01:28 balanced round 0 B attempt 0: foreign 1.027282648 s, contaminated False, product failures []
+16:02:47 balanced round 0 C attempt 0: foreign 0.8213071060000043 s, contaminated False, product failures []
+16:04:06 balanced round 0 D attempt 0: foreign 0.767051936000005 s, contaminated False, product failures []
+16:05:25 balanced round 0 E attempt 0: foreign 0.6597872439999861 s, contaminated False, product failures []
+16:06:44 balanced round 0 F attempt 0: foreign 24.158786948999992 s, contaminated True, product failures []
+16:06:46 host busy: named process True, fixture share 0.137
+16:07:03 host busy: named process True, fixture share 0.169
+16:07:20 host busy: named process True, fixture share 0.106
+16:07:37 host busy: named process True, fixture share 0.332
+16:07:54 host busy: named process True, fixture share 0.536
+16:08:11 host busy: named process True, fixture share 0.377
+16:08:28 host busy: named process True, fixture share 0.307
+16:08:45 host busy: named process True, fixture share 0.109
+16:09:02 host busy: named process False, fixture share 0.001
+16:09:19 host busy: named process False, fixture share 0.000
+16:09:36 host busy: named process False, fixture share 0.007
+16:09:53 host busy: named process False, fixture share 0.001
+16:10:10 host busy: named process False, fixture share 0.000
+16:10:27 host busy: named process False, fixture share 0.005
+16:10:44 host busy: named process False, fixture share 0.014
+16:11:01 host busy: named process False, fixture share 0.018
+16:11:18 host busy: named process False, fixture share 0.000
+16:11:35 host busy: named process False, fixture share 0.000
+16:11:52 host busy: named process False, fixture share 0.048
+16:12:09 host busy: named process False, fixture share 0.086
+16:12:26 host busy: named process False, fixture share 0.045
+16:12:43 host busy: named process True, fixture share 0.087
+16:13:00 host busy: named process True, fixture share 0.261
+16:13:17 host busy: named process True, fixture share 0.371
+16:13:34 host busy: named process True, fixture share 0.090
+16:13:51 host busy: named process True, fixture share 0.054
+16:14:08 host busy: named process True, fixture share 0.068
+16:14:25 host busy: named process True, fixture share 0.122
+16:14:42 host busy: named process True, fixture share 0.172
+16:14:59 host busy: named process True, fixture share 0.111
+16:15:16 host busy: named process True, fixture share 0.267
+16:15:33 host busy: named process True, fixture share 0.145
+16:15:50 host busy: named process True, fixture share 0.139
+16:16:07 host busy: named process True, fixture share 0.267
+16:16:24 host busy: named process True, fixture share 0.251
+16:16:41 host busy: named process True, fixture share 0.349
+16:16:58 host busy: named process True, fixture share 0.634
+16:17:15 host busy: named process True, fixture share 0.395
+16:17:32 host busy: named process True, fixture share 0.399
+16:17:49 host busy: named process True, fixture share 0.307
+16:18:06 host busy: named process True, fixture share 0.365
+16:18:23 host busy: named process True, fixture share 0.192
+16:18:40 host busy: named process True, fixture share 0.353
+16:18:57 host busy: named process True, fixture share 0.941
+16:19:14 host busy: named process True, fixture share 1.039
+16:19:31 host busy: named process True, fixture share 0.498
+16:19:49 host busy: named process True, fixture share 0.379
+16:20:06 host busy: named process True, fixture share 0.639
+16:20:23 host busy: named process True, fixture share 0.295
+16:20:40 host busy: named process True, fixture share 0.631
+16:20:57 host busy: named process True, fixture share 0.431
+16:21:14 host busy: named process True, fixture share 0.417
+16:21:31 host busy: named process True, fixture share 0.599
+16:21:48 host busy: named process True, fixture share 0.723
+16:22:05 host busy: named process True, fixture share 0.503
+16:22:22 host busy: named process True, fixture share 0.474
+16:22:39 host busy: named process True, fixture share 0.494
+16:22:56 host busy: named process True, fixture share 0.434
+16:23:13 host busy: named process True, fixture share 0.402
+16:23:30 host busy: named process True, fixture share 0.393
+16:23:47 host busy: named process True, fixture share 0.503
+16:24:04 host busy: named process True, fixture share 0.369
+16:24:21 host busy: named process True, fixture share 0.172
+16:24:38 host busy: named process True, fixture share 0.205
+16:24:55 host busy: named process True, fixture share 0.260
+16:25:12 host busy: named process True, fixture share 0.211
+16:25:29 host busy: named process True, fixture share 0.140
+16:25:46 host busy: named process True, fixture share 0.268
+16:26:03 host busy: named process True, fixture share 0.210
+16:26:20 host busy: named process True, fixture share 0.179
+16:26:37 host busy: named process True, fixture share 0.210
+16:26:54 host busy: named process True, fixture share 0.253
+16:27:11 host busy: named process True, fixture share 0.256
+16:27:28 host busy: named process True, fixture share 0.217
+16:27:45 host busy: named process True, fixture share 0.199
+16:28:02 host busy: named process True, fixture share 0.175
+16:28:19 host busy: named process True, fixture share 0.199
+16:28:36 host busy: named process True, fixture share 0.554
+16:28:53 host busy: named process True, fixture share 0.412
+16:29:10 host busy: named process True, fixture share 0.440
+16:29:27 host busy: named process True, fixture share 0.489
+16:29:44 host busy: named process True, fixture share 0.280
+16:30:01 host busy: named process True, fixture share 0.288
+16:30:18 host busy: named process True, fixture share 0.571
+16:30:35 host busy: named process True, fixture share 0.424
+16:30:52 host busy: named process True, fixture share 0.451
+16:31:09 host busy: named process True, fixture share 0.413
+16:31:26 host busy: named process True, fixture share 0.496
+16:31:43 host busy: named process True, fixture share 0.741
+16:32:00 host busy: named process True, fixture share 0.510
+16:32:17 host busy: named process True, fixture share 0.602
+16:32:34 host busy: named process True, fixture share 0.501
+16:32:51 host busy: named process True, fixture share 0.407
+16:33:08 host busy: named process True, fixture share 0.427
+16:33:25 host busy: named process True, fixture share 0.512
+16:33:42 host busy: named process True, fixture share 0.631
+16:33:59 host busy: named process True, fixture share 0.682
+16:34:16 host busy: named process True, fixture share 0.570
+16:34:33 host busy: named process True, fixture share 0.628
+16:34:50 host busy: named process True, fixture share 0.394
+16:35:07 host busy: named process True, fixture share 0.716
+16:35:24 host busy: named process True, fixture share 0.486
+16:35:41 host busy: named process True, fixture share 0.455
+16:35:58 host busy: named process True, fixture share 0.335
+16:36:15 host busy: named process True, fixture share 0.404
+16:36:32 host busy: named process True, fixture share 0.413
+16:36:49 host busy: named process True, fixture share 0.666
+16:37:06 host busy: named process True, fixture share 0.629
+16:37:23 host busy: named process True, fixture share 0.575
+16:37:40 host busy: named process True, fixture share 0.246
+16:37:57 host busy: named process True, fixture share 0.087
+16:38:14 host busy: named process True, fixture share 0.067
+16:38:31 host busy: named process True, fixture share 0.124
+16:38:48 host busy: named process True, fixture share 0.113
+16:39:05 host busy: named process True, fixture share 0.073
+16:39:22 host busy: named process True, fixture share 0.069
+16:39:39 host busy: named process True, fixture share 0.041
+16:39:56 host busy: named process True, fixture share 0.074
+16:40:13 host busy: named process True, fixture share 0.141
+16:40:30 host busy: named process True, fixture share 0.097
+16:40:47 host busy: named process True, fixture share 0.109
+16:41:05 host busy: named process True, fixture share 0.076
+16:41:22 host busy: named process True, fixture share 0.127
+16:41:39 host busy: named process True, fixture share 0.072
+16:41:56 host busy: named process True, fixture share 0.041
+16:42:13 host busy: named process True, fixture share 0.106
+16:42:30 host busy: named process True, fixture share 0.166
+16:42:47 host busy: named process False, fixture share 0.049
+16:43:04 host busy: named process False, fixture share 0.012
+16:43:21 host busy: named process False, fixture share 0.014
+16:43:38 host busy: named process False, fixture share 0.001
+16:43:55 host busy: named process False, fixture share 0.000
+16:44:12 host busy: named process False, fixture share 0.002
+16:44:29 host busy: named process False, fixture share 0.014
+16:44:46 host busy: named process False, fixture share 0.002
+16:45:03 host busy: named process False, fixture share 0.000
+16:45:20 host busy: named process False, fixture share 0.014
+16:45:37 host busy: named process False, fixture share 0.006
+16:45:54 host busy: named process False, fixture share 0.004
+16:46:11 host busy: named process False, fixture share 0.000
+16:46:28 host busy: named process False, fixture share 0.002
+16:46:45 host busy: named process False, fixture share 0.000
+16:47:02 host busy: named process False, fixture share 0.000
+16:47:19 host busy: named process False, fixture share 0.001
+16:48:53 balanced round 0 F attempt 1: foreign 0.7743829599999827 s, contaminated False, product failures []
+16:50:12 balanced round 1 C attempt 0: foreign 0.9966526170000058 s, contaminated False, product failures []
+16:51:31 balanced round 1 D attempt 0: foreign 1.2837415400000154 s, contaminated False, product failures []
+16:52:50 balanced round 1 E attempt 0: foreign 0.9280032499999962 s, contaminated False, product failures []
+16:54:09 balanced round 1 F attempt 0: foreign 0.645888302000003 s, contaminated False, product failures []
+16:55:28 balanced round 1 A attempt 0: foreign 0.7360211589999714 s, contaminated False, product failures []
+16:56:47 balanced round 1 B attempt 0: foreign 0.6083742619999875 s, contaminated False, product failures []
+16:58:06 balanced round 2 E attempt 0: foreign 0.5149984140000434 s, contaminated False, product failures []
+16:59:25 balanced round 2 F attempt 0: foreign 0.9081813309999625 s, contaminated False, product failures []
+17:00:44 balanced round 2 A attempt 0: foreign 0.4711265050000044 s, contaminated False, product failures []
+17:02:03 balanced round 2 B attempt 0: foreign 1.2144408469999828 s, contaminated False, product failures []
+17:03:22 balanced round 2 C attempt 0: foreign 0.40229635599995284 s, contaminated False, product failures []
+17:04:42 balanced round 2 D attempt 0: foreign 0.545415297999984 s, contaminated False, product failures []
+17:06:01 unequal round 0 A attempt 0: foreign 0.5574708250000207 s, contaminated False, product failures []
+17:07:20 unequal round 0 B attempt 0: foreign 0.6158203539999683 s, contaminated False, product failures []
+17:08:39 unequal round 0 C attempt 0: foreign 0.8993698950000191 s, contaminated False, product failures []
+17:09:58 unequal round 0 D attempt 0: foreign 0.9900075550000302 s, contaminated False, product failures []
+17:11:17 unequal round 0 E attempt 0: foreign 0.6436194790000069 s, contaminated False, product failures []
+17:12:36 unequal round 0 F attempt 0: foreign 1.4059586990000028 s, contaminated False, product failures []
+17:13:55 unequal round 1 C attempt 0: foreign 0.6059193240000269 s, contaminated False, product failures []
+17:15:14 unequal round 1 D attempt 0: foreign 0.7031603050000506 s, contaminated False, product failures []
+17:16:33 unequal round 1 E attempt 0: foreign 0.5545239659999357 s, contaminated False, product failures []
+17:17:52 unequal round 1 F attempt 0: foreign 1.0289305720000108 s, contaminated False, product failures []
+17:19:11 unequal round 1 A attempt 0: foreign 0.5612999550000044 s, contaminated False, product failures []
+17:20:30 unequal round 1 B attempt 0: foreign 0.7647223460000063 s, contaminated False, product failures []
+17:21:49 unequal round 2 E attempt 0: foreign 0.9242256190000244 s, contaminated False, product failures []
+17:23:08 unequal round 2 F attempt 0: foreign 0.9167206440000832 s, contaminated False, product failures []
+17:24:28 unequal round 2 A attempt 0: foreign 0.8535281370000423 s, contaminated False, product failures []
+17:24:30 host busy: named process False, fixture share 0.058
+17:26:04 unequal round 2 B attempt 0: foreign 0.480746487999955 s, contaminated False, product failures []
+17:27:23 unequal round 2 C attempt 0: foreign 0.7031197239999916 s, contaminated False, product failures []
+17:28:42 unequal round 2 D attempt 0: foreign 0.978271818999918 s, contaminated False, product failures []
+17:30:01 shared round 0 A attempt 0: foreign 0.6265146420000445 s, contaminated False, product failures []
+17:31:20 shared round 0 B attempt 0: foreign 0.44390204600000516 s, contaminated False, product failures []
+17:32:39 shared round 0 C attempt 0: foreign 0.707230916000043 s, contaminated False, product failures []
+17:33:58 shared round 0 D attempt 0: foreign 0.5390559040000369 s, contaminated False, product failures []
+17:35:17 shared round 0 E attempt 0: foreign 0.6614261310000344 s, contaminated False, product failures []
+17:36:36 shared round 0 F attempt 0: foreign 0.7409056199999142 s, contaminated False, product failures []
+17:37:55 shared round 1 C attempt 0: foreign 0.5807848120000383 s, contaminated False, product failures []
+17:39:14 shared round 1 D attempt 0: foreign 0.7221706949999795 s, contaminated False, product failures []
+17:40:33 shared round 1 E attempt 0: foreign 0.3002879589999097 s, contaminated False, product failures []
+17:41:52 shared round 1 F attempt 0: foreign 0.6917524700000932 s, contaminated False, product failures []
+17:43:11 shared round 1 A attempt 0: foreign 5.398649701000057 s, contaminated True, product failures []
+17:43:13 host busy: named process False, fixture share 0.113
+17:43:30 host busy: named process False, fixture share 0.073
+17:43:47 host busy: named process False, fixture share 0.049
+17:44:04 host busy: named process False, fixture share 0.070
+17:44:21 host busy: named process True, fixture share 0.308
+17:44:38 host busy: named process True, fixture share 0.074
+17:44:55 host busy: named process True, fixture share 0.044
+17:45:12 host busy: named process True, fixture share 0.049
+17:45:29 host busy: named process True, fixture share 0.050
+17:45:46 host busy: named process True, fixture share 0.057
+17:46:03 host busy: named process True, fixture share 0.068
+17:46:21 host busy: named process True, fixture share 0.106
+17:46:38 host busy: named process True, fixture share 0.086
+17:46:55 host busy: named process True, fixture share 0.071
+17:47:12 host busy: named process True, fixture share 0.038
+17:47:29 host busy: named process True, fixture share 0.666
+17:47:46 host busy: named process True, fixture share 0.128
+17:48:03 host busy: named process True, fixture share 0.584
+17:48:20 host busy: named process True, fixture share 0.388
+17:48:37 host busy: named process True, fixture share 0.358
+17:48:54 host busy: named process False, fixture share 0.001
+17:49:11 host busy: named process False, fixture share 0.001
+17:49:28 host busy: named process False, fixture share 0.002
+17:49:45 host busy: named process False, fixture share 0.015
+17:50:02 host busy: named process False, fixture share 0.004
+17:50:19 host busy: named process False, fixture share 0.001
+17:50:36 host busy: named process False, fixture share 0.000
+17:50:53 host busy: named process False, fixture share 0.015
+17:51:10 host busy: named process False, fixture share 0.008
+17:51:27 host busy: named process False, fixture share 0.002
+17:51:44 host busy: named process False, fixture share 0.009
+17:52:01 host busy: named process False, fixture share 0.001
+17:52:18 host busy: named process False, fixture share 0.000
+17:52:35 host busy: named process False, fixture share 0.002
+17:52:52 host busy: named process False, fixture share 0.001
+17:53:09 host busy: named process False, fixture share 0.000
+17:53:26 host busy: named process False, fixture share 0.000
+17:55:00 shared round 1 A attempt 1: foreign 0.4863508160000336 s, contaminated False, product failures []
+17:56:19 shared round 1 B attempt 0: foreign 0.9143012380000819 s, contaminated False, product failures []
+17:57:38 shared round 2 E attempt 0: foreign 0.8573350029999709 s, contaminated False, product failures []
+17:58:57 shared round 2 F attempt 0: foreign 7.895515365999895 s, contaminated True, product failures []
+17:58:59 host busy: named process False, fixture share 0.113
+17:59:16 host busy: named process False, fixture share 0.085
+17:59:33 host busy: named process True, fixture share 0.137
+17:59:50 host busy: named process True, fixture share 0.187
+18:00:07 host busy: named process True, fixture share 0.632
+18:00:24 host busy: named process True, fixture share 0.085
+18:00:41 host busy: named process True, fixture share 0.084
+18:00:58 host busy: named process True, fixture share 0.065
+18:01:15 host busy: named process True, fixture share 0.208
+18:01:32 host busy: named process True, fixture share 0.151
+18:01:49 host busy: named process True, fixture share 0.127
+18:02:06 host busy: named process True, fixture share 0.196
+18:02:23 host busy: named process True, fixture share 0.107
+18:02:40 host busy: named process True, fixture share 0.214
+18:02:57 host busy: named process True, fixture share 0.327
+18:03:14 host busy: named process True, fixture share 0.229
+18:03:31 host busy: named process True, fixture share 0.385
+18:03:48 host busy: named process True, fixture share 0.414
+18:04:05 host busy: named process True, fixture share 0.434
+18:04:22 host busy: named process True, fixture share 0.352
+18:04:39 host busy: named process True, fixture share 0.488
+18:04:56 host busy: named process True, fixture share 0.600
+18:05:13 host busy: named process True, fixture share 0.183
+18:05:30 host busy: named process True, fixture share 0.507
+18:05:47 host busy: named process True, fixture share 0.870
+18:06:04 host busy: named process True, fixture share 0.992
+18:06:21 host busy: named process True, fixture share 0.461
+18:06:38 host busy: named process True, fixture share 0.434
+18:06:55 host busy: named process True, fixture share 0.565
+18:07:12 host busy: named process True, fixture share 0.207
+18:07:29 host busy: named process True, fixture share 0.393
+18:07:46 host busy: named process True, fixture share 0.421
+18:08:03 host busy: named process True, fixture share 0.461
+18:08:21 host busy: named process True, fixture share 0.506
+18:08:38 host busy: named process True, fixture share 0.393
+18:08:55 host busy: named process True, fixture share 0.406
+18:09:12 host busy: named process True, fixture share 0.349
+18:09:29 host busy: named process True, fixture share 0.435
+18:09:46 host busy: named process True, fixture share 0.513
+18:10:03 host busy: named process True, fixture share 0.360
+18:10:20 host busy: named process True, fixture share 0.426
+18:10:37 host busy: named process True, fixture share 0.402
+18:10:54 host busy: named process True, fixture share 0.293
+18:11:11 host busy: named process True, fixture share 0.131
+18:11:28 host busy: named process True, fixture share 0.190
+18:11:45 host busy: named process True, fixture share 0.262
+18:12:02 host busy: named process True, fixture share 0.241
+18:12:19 host busy: named process True, fixture share 0.260
+18:12:36 host busy: named process True, fixture share 0.275
+18:12:53 host busy: named process True, fixture share 0.280
+18:13:10 host busy: named process True, fixture share 0.373
+18:13:27 host busy: named process True, fixture share 0.426
+18:13:44 host busy: named process True, fixture share 0.416
+18:14:01 host busy: named process True, fixture share 0.405
+18:14:18 host busy: named process True, fixture share 0.187
+18:14:35 host busy: named process True, fixture share 0.229
+18:14:52 host busy: named process True, fixture share 0.195
+18:15:09 host busy: named process True, fixture share 0.199
+18:15:26 host busy: named process True, fixture share 0.484
+18:15:43 host busy: named process True, fixture share 0.399
+18:16:00 host busy: named process True, fixture share 0.432
+18:16:17 host busy: named process True, fixture share 0.337
+18:16:34 host busy: named process True, fixture share 0.384
+18:16:51 host busy: named process True, fixture share 0.323
+18:17:08 host busy: named process True, fixture share 0.464
+18:17:25 host busy: named process True, fixture share 0.925
+18:17:42 host busy: named process True, fixture share 0.701
+18:17:59 host busy: named process True, fixture share 0.679
+18:18:16 host busy: named process True, fixture share 0.441
+18:18:33 host busy: named process True, fixture share 0.399
+18:18:50 host busy: named process True, fixture share 0.536
+18:19:07 host busy: named process True, fixture share 0.766
+18:19:24 host busy: named process True, fixture share 0.581
+18:19:41 host busy: named process True, fixture share 0.481
+18:19:58 host busy: named process True, fixture share 0.734
+18:20:15 host busy: named process True, fixture share 0.286
+18:20:32 host busy: named process True, fixture share 0.535
+18:20:49 host busy: named process True, fixture share 0.671
+18:21:06 host busy: named process True, fixture share 0.374
+18:21:23 host busy: named process True, fixture share 0.409
+18:21:40 host busy: named process True, fixture share 0.345
+18:21:57 host busy: named process True, fixture share 0.569
+18:22:14 host busy: named process True, fixture share 0.431
+18:22:31 host busy: named process True, fixture share 0.755
+18:22:48 host busy: named process True, fixture share 0.544
+18:23:05 host busy: named process True, fixture share 0.362
+18:23:22 host busy: named process True, fixture share 0.632
+18:23:39 host busy: named process True, fixture share 0.498
+18:23:56 host busy: named process True, fixture share 0.855
+18:24:13 host busy: named process True, fixture share 0.729
+18:24:30 host busy: named process True, fixture share 0.430
+18:24:47 host busy: named process True, fixture share 0.076
+18:25:04 host busy: named process True, fixture share 0.142
+18:25:21 host busy: named process True, fixture share 0.165
+18:25:38 host busy: named process True, fixture share 0.202
+18:25:55 host busy: named process True, fixture share 0.237
+18:26:12 host busy: named process True, fixture share 0.067
+18:26:29 host busy: named process True, fixture share 0.041
+18:26:46 host busy: named process True, fixture share 0.088
+18:27:03 host busy: named process True, fixture share 0.085
+18:27:20 host busy: named process True, fixture share 0.124
+18:27:37 host busy: named process True, fixture share 0.122
+18:27:54 host busy: named process True, fixture share 0.054
+18:28:11 host busy: named process True, fixture share 0.076
+18:28:28 host busy: named process True, fixture share 0.138
+18:28:45 host busy: named process True, fixture share 0.043
+18:29:02 host busy: named process True, fixture share 0.098
+18:29:19 host busy: named process True, fixture share 0.157
+18:29:37 host busy: named process True, fixture share 0.148
+18:29:54 host busy: named process False, fixture share 0.034
+18:30:11 host busy: named process False, fixture share 0.026
+18:30:28 host busy: named process False, fixture share 0.004
+18:30:45 host busy: named process False, fixture share 0.015
+18:31:02 host busy: named process False, fixture share 0.007
+18:31:19 host busy: named process False, fixture share 0.008
+18:31:36 host busy: named process False, fixture share 0.011
+18:31:53 host busy: named process False, fixture share 0.006
+18:32:10 host busy: named process False, fixture share 0.011
+18:32:27 host busy: named process False, fixture share 0.036
+18:32:44 host busy: named process False, fixture share 0.018
+18:33:01 host busy: named process False, fixture share 0.007
+18:33:18 host busy: named process False, fixture share 0.041
+18:33:35 host busy: named process False, fixture share 0.069
+18:33:52 host busy: named process True, fixture share 0.073
+18:34:09 host busy: named process True, fixture share 0.222
+18:34:26 host busy: named process True, fixture share 0.198
+18:34:43 host busy: named process True, fixture share 0.187
+18:35:00 host busy: named process True, fixture share 0.157
+18:35:17 host busy: named process True, fixture share 0.263
+18:35:34 host busy: named process True, fixture share 0.242
+18:35:51 host busy: named process True, fixture share 0.306
+18:36:08 host busy: named process True, fixture share 0.123
+18:36:25 host busy: named process False, fixture share 0.004
+18:36:42 host busy: named process False, fixture share 0.005
+18:36:59 host busy: named process False, fixture share 0.009
+18:37:16 host busy: named process False, fixture share 0.006
+18:37:33 host busy: named process False, fixture share 0.002
+18:37:50 host busy: named process False, fixture share 0.004
+18:38:07 host busy: named process False, fixture share 0.002
+18:38:24 host busy: named process False, fixture share 0.033
+18:38:41 host busy: named process False, fixture share 0.015
+18:38:58 host busy: named process False, fixture share 0.041
+18:39:15 host busy: named process False, fixture share 0.035
+18:39:32 host busy: named process False, fixture share 0.105
+18:39:49 host busy: named process False, fixture share 0.130
+18:40:06 host busy: named process True, fixture share 0.135
+18:40:23 host busy: named process True, fixture share 0.296
+18:40:40 host busy: named process True, fixture share 0.180
+18:40:57 host busy: named process True, fixture share 0.090
+18:41:14 host busy: named process True, fixture share 0.223
+18:41:31 host busy: named process True, fixture share 0.135
+18:41:48 host busy: named process True, fixture share 0.144
+18:42:05 host busy: named process True, fixture share 0.117
+18:42:22 host busy: named process True, fixture share 0.080
+18:42:39 host busy: named process True, fixture share 0.264
+18:42:56 host busy: named process True, fixture share 0.173
+18:43:13 host busy: named process True, fixture share 0.166
+18:43:30 host busy: named process True, fixture share 0.253
+18:43:47 host busy: named process True, fixture share 0.424
+18:44:04 host busy: named process True, fixture share 0.491
+18:44:21 host busy: named process True, fixture share 0.388
+18:44:38 host busy: named process True, fixture share 0.419
+18:44:55 host busy: named process True, fixture share 0.200
+18:45:12 host busy: named process True, fixture share 0.485
+18:45:29 host busy: named process True, fixture share 0.479
+18:45:46 host busy: named process True, fixture share 0.249
+18:46:03 host busy: named process True, fixture share 0.573
+18:46:20 host busy: named process True, fixture share 0.902
+18:46:37 host busy: named process True, fixture share 0.906
+18:46:54 host busy: named process True, fixture share 0.648
+18:47:11 host busy: named process True, fixture share 0.590
+18:47:28 host busy: named process True, fixture share 0.781
+18:47:45 host busy: named process True, fixture share 0.404
+18:48:02 host busy: named process True, fixture share 0.452
+18:48:19 host busy: named process True, fixture share 0.626
+18:48:36 host busy: named process True, fixture share 0.531
+18:48:53 host busy: named process True, fixture share 0.948
+18:49:10 host busy: named process True, fixture share 0.756
+18:49:27 host busy: named process True, fixture share 0.660
+18:49:44 host busy: named process True, fixture share 0.594
+18:50:01 host busy: named process True, fixture share 0.463
+18:50:18 host busy: named process True, fixture share 0.727
+18:50:35 host busy: named process True, fixture share 0.355
+18:50:52 host busy: named process True, fixture share 0.547
+18:51:10 host busy: named process True, fixture share 0.598
+18:51:27 host busy: named process True, fixture share 0.537
+18:51:44 host busy: named process True, fixture share 0.213
+18:52:01 host busy: named process True, fixture share 0.327
+18:52:18 host busy: named process True, fixture share 0.551
+18:52:35 host busy: named process True, fixture share 0.727
+18:52:52 host busy: named process True, fixture share 0.976
+18:53:09 host busy: named process True, fixture share 0.451
+18:53:26 host busy: named process True, fixture share 0.479
+18:53:43 host busy: named process True, fixture share 0.485
+18:54:00 host busy: named process True, fixture share 0.512
+18:54:17 host busy: named process True, fixture share 0.581
+18:54:34 host busy: named process True, fixture share 0.592
+18:54:51 host busy: named process True, fixture share 0.613
+18:55:08 host busy: named process True, fixture share 0.401
+18:55:25 host busy: named process True, fixture share 0.363
+18:55:42 host busy: named process True, fixture share 0.529
+18:55:59 host busy: named process True, fixture share 0.699
+18:56:16 host busy: named process True, fixture share 1.001
+18:56:33 host busy: named process True, fixture share 0.515
+18:56:50 host busy: named process True, fixture share 0.525
+18:57:07 host busy: named process True, fixture share 0.666
+18:57:24 host busy: named process True, fixture share 0.398
+18:57:41 host busy: named process True, fixture share 0.467
+18:57:58 host busy: named process True, fixture share 0.788
+18:58:15 host busy: named process True, fixture share 0.468
+18:58:32 host busy: named process True, fixture share 0.714
+18:58:49 host busy: named process True, fixture share 0.433
+18:59:06 host busy: named process True, fixture share 0.457
+18:59:23 host busy: named process True, fixture share 0.550
+18:59:40 host busy: named process True, fixture share 0.495
+18:59:57 host busy: named process True, fixture share 0.555
+19:00:14 host busy: named process True, fixture share 0.618
+19:00:31 host busy: named process True, fixture share 0.660
+19:00:48 host busy: named process True, fixture share 0.686
+19:01:05 host busy: named process True, fixture share 0.815
+19:01:22 host busy: named process True, fixture share 0.630
+19:01:39 host busy: named process True, fixture share 0.449
+19:01:56 host busy: named process True, fixture share 0.571
+19:02:13 host busy: named process True, fixture share 0.482
+19:02:30 host busy: named process True, fixture share 0.384
+19:02:47 host busy: named process True, fixture share 0.683
+19:03:04 host busy: named process True, fixture share 0.487
+19:03:21 host busy: named process True, fixture share 0.550
+19:03:38 host busy: named process True, fixture share 0.467
+19:03:55 host busy: named process True, fixture share 0.708
+19:04:12 host busy: named process True, fixture share 0.890
+19:04:29 host busy: named process True, fixture share 0.667
+19:04:46 host busy: named process True, fixture share 0.529
+19:05:03 host busy: named process True, fixture share 0.895
+19:05:20 host busy: named process True, fixture share 0.704
+19:05:37 host busy: named process True, fixture share 0.635
+19:05:54 host busy: named process True, fixture share 0.339
+19:06:11 host busy: named process True, fixture share 0.369
+19:06:28 host busy: named process True, fixture share 0.508
+19:06:45 host busy: named process True, fixture share 0.522
+19:07:02 host busy: named process True, fixture share 0.733
+19:07:19 host busy: named process True, fixture share 0.495
+19:07:36 host busy: named process True, fixture share 0.786
+19:07:53 host busy: named process True, fixture share 0.576
+19:08:10 host busy: named process True, fixture share 0.655
+19:08:27 host busy: named process True, fixture share 0.591
+19:08:44 host busy: named process True, fixture share 0.549
+19:09:01 host busy: named process True, fixture share 0.542
+19:09:18 host busy: named process True, fixture share 0.554
+19:09:35 host busy: named process True, fixture share 0.699
+19:09:52 host busy: named process True, fixture share 0.290
+19:10:09 host busy: named process True, fixture share 0.598
+19:10:26 host busy: named process True, fixture share 0.244
+19:10:43 host busy: named process True, fixture share 0.265
+19:11:00 host busy: named process True, fixture share 0.628
+19:11:17 host busy: named process True, fixture share 0.985
+19:11:34 host busy: named process True, fixture share 0.984
+19:11:51 host busy: named process True, fixture share 0.688
+19:12:08 host busy: named process False, fixture share 0.030
+19:12:25 host busy: named process False, fixture share 0.001
+19:12:42 host busy: named process False, fixture share 0.000
+19:13:00 host busy: named process False, fixture share 0.000
+19:13:17 host busy: named process False, fixture share 0.000
+19:13:34 host busy: named process False, fixture share 0.000
+19:13:51 host busy: named process False, fixture share 0.000
+19:14:08 host busy: named process False, fixture share 0.000
+19:14:25 host busy: named process False, fixture share 0.000
+19:14:42 host busy: named process False, fixture share 0.003
+19:14:59 host busy: named process False, fixture share 0.000
+19:15:16 host busy: named process False, fixture share 0.000
+19:15:33 host busy: named process False, fixture share 0.000
+19:15:50 host busy: named process False, fixture share 0.000
+19:16:07 host busy: named process False, fixture share 0.001
+19:16:24 host busy: named process False, fixture share 0.001
+19:16:41 host busy: named process False, fixture share 0.000
+19:18:15 shared round 2 F attempt 1: foreign 0.3133426490000666 s, contaminated False, product failures []
+19:19:34 shared round 2 A attempt 0: foreign 0.1797819340000455 s, contaminated False, product failures []
+19:20:53 shared round 2 B attempt 0: foreign 0.16939078500014482 s, contaminated False, product failures []
+19:22:12 shared round 2 C attempt 0: foreign 0.35195493899991526 s, contaminated False, product failures []
+19:23:31 shared round 2 D attempt 0: foreign 0.43157068100000195 s, contaminated False, product failures []
+19:23:31 done: mode campaign, support negative, charged 57

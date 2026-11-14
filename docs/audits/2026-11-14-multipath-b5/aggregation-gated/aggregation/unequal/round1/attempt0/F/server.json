@@ -1,0 +1,116 @@
+{
+  "result": {
+    "go": "go1.27.4",
+    "granted": true,
+    "joined": true,
+    "flows": {
+      "focal-a": {
+        "stream_series": [
+          8283211,
+          8620680,
+          8732372,
+          8672496,
+          8697783,
+          8304770,
+          8607029,
+          8506138,
+          8755403,
+          8686789,
+          8668217,
+          8682752,
+          8681671,
+          8633544,
+          8036846,
+          8766721,
+          8221982,
+          8673589,
+          8680753,
+          8462317,
+          8881080,
+          8669766,
+          8601704,
+          8510735,
+          8283054,
+          8422295,
+          8944228,
+          8690833,
+          8709951,
+          8306022,
+          8684957,
+          8514634,
+          8810533,
+          8632748,
+          8611029,
+          8711724,
+          8683683,
+          8661298,
+          8017304,
+          8689087,
+          8679611,
+          8675694,
+          8296218,
+          8660763,
+          8657086,
+          8655990,
+          8680808,
+          8594218,
+          8765673,
+          8665445,
+          7626447,
+          8691185,
+          8684077,
+          8766910,
+          8571446,
+          8296743,
+          8682245,
+          8673649,
+          8689735,
+          8677446
+        ],
+        "stream_useful_bytes": 515103117,
+        "objects_completed": 490,
+        "object_completion": {
+          "count": 490,
+          "p50_ms": 520.91544,
+          "p99_ms": 599.976161,
+          "max_ms": 605.451379
+        },
+        "datagrams_useful": 15000,
+        "datagram_useful_bytes": 15000000,
+        "datagram_duplicates": 0,
+        "datagram_latency": {
+          "count": 15000,
+          "p50_ms": 31.324889,
+          "p99_ms": 83.000397,
+          "max_ms": 87.439659
+        }
+      }
+    },
+    "connections": [
+      {
+        "labels": [
+          "focal-a"
+        ],
+        "multipath_negotiated": true,
+        "close_cause": "Application error 0x0 (remote)",
+        "timeout_close": false
+      }
+    ],
+    "stream_errors": 0
+  },
+  "role": "server",
+  "spec": {
+    "role": "server",
+    "topology": "unequal",
+    "arm": "F",
+    "seed": 1145,
+    "server": "127.0.0.1:47460",
+    "front_a": "127.0.0.1:47461",
+    "front_b": "127.0.0.1:47462",
+    "front_competitor": "127.0.0.1:47463",
+    "output": "/home/josh/b5-1044/campaign-ba51ba67/aggregation/unequal/round1/attempt0/F/server.json",
+    "start_at_unix_ns": 1794676600630365473,
+    "warmup_ns": 10000000000,
+    "window_ns": 60000000000
+  }
+}
