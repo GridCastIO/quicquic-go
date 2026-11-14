@@ -10933,3 +10933,26 @@ Merged [PR #1364](https://github.com/the-sarge/quic-go-fast/pull/1364) as `d26ad
 
 **Next:**
 - No follow-ups. The live view is [program tracker #646](https://github.com/the-sarge/quic-go-fast/issues/646).
+
+---
+
+## BBR backup announcement coverage landed - 2026-11-14 17:14 EST
+
+**Main:** `30e6af34197c`
+**Actor:** Codex
+
+### Summary
+
+Merged [PR #1375 — BBR announcements on an unselected path](https://github.com/the-sarge/quic-go-fast/pull/1375), closing [issue #1352 — announcement coverage when selected and announced routes differ](https://github.com/the-sarge/quic-go-fast/issues/1352). Two test-only cases keep path 0 selected while announcing migrated backup path 1: zero budget emits only PING without pacing debit, and sufficient budget carries 1,000 STREAM bytes while charging only path 1 by the encoded packet length. Both retain primary selection and policy supply-gap state; existing primary-path and pending-credit cases remain.
+
+### Decisions
+
+The owner approved bringing this coverage forward independently of [deferred cost qualification issue #1368](https://github.com/the-sarge/quic-go-fast/issues/1368); the [approved contract on PR #1375](https://github.com/the-sarge/quic-go-fast/pull/1375#issuecomment-6884882463) remains test-only and example-level. Public multipath remains Reno-only. RAS run `20261114T220314-8d3e65e56e4fbfa768707e83` completed with no required fixes. Its optional non-unknown supply-gap seed was independently rejected as strengthening beyond the accepted cases; the [disposition on PR #1375](https://github.com/the-sarge/quic-go-fast/pull/1375#issuecomment-6884957920) records the evidence and existing guard coverage.
+
+### Validation
+
+The scoped wrong-policy mutation made the zero-budget case leak STREAM payload and the funded case retain its 2,400-byte budget instead of paying down to 1,374; restoring production code passed both. Standards and Spec preparation passed. Exact-head certification at `000a237bdf52a199b131a299abffccbd2a7567a9` passed the announcement suite, BBR path race tests, root-package tests, vet, module-tidiness, formatting, and diff checks. All applicable hosted checks succeeded, including the [post-ready independent peer matrix](https://github.com/the-sarge/quic-go-fast/actions/runs/43646628065) on that exact head. The base remained unchanged before squash merge `30e6af34197c7c47e80f016c51850ab2fd320e58`.
+
+### Next
+
+No follow-up was created from this review. [Issue #1368 — BBR ordinary-flow cost qualification](https://github.com/the-sarge/quic-go-fast/issues/1368) remains the live view of deferred cost work; this coverage does not requalify BBR primary/backup or reopen that work.
