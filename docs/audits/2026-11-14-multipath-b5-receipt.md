@@ -40,7 +40,7 @@ The three contaminations and their replacements:
 | --- | ---: | ---: | ---: |
 | Balanced round 0 F | 24.159 s; a GridCast runner container was created at 16:05:50, and its GARM VM started at 16:06:37 | 2,450 s | 0.774 s |
 | Shared round 1 A | 5.399 s, unattributed; a GridCast container was created 6 s after the window, and its GARM VM ran from 17:44 to 17:48 | 629 s | 0.486 s |
-| Shared round 2 F | 7.896 s; a GridCast container was created at 17:58:55, and named load continued until 19:12 | 4,679 s | 0.313 s |
+| Shared round 2 F | 7.896 s, unattributed; the transfer window ended at 17:58:55.5, a GridCast container was created at 17:58:56.0, and named load ran from 17:59:33 to 19:12 | 4,679 s | 0.313 s |
 
 Arm E itself was clean in all nine observations.
 
@@ -56,7 +56,7 @@ Two counted invocations on candidate `4e80d3cf4` stopped at the same point. Bala
 All four E attempts were contaminated, against 0 of 8 A–D attempts. The [resume conditions](https://github.com/the-sarge/quic-go-fast/issues/1044#issuecomment-6878881696) call for a diagnosis if E is contaminated again on a host with no external load. Given 4 of 4, the fixture was ruled out before any further counted invocation. Diagnosis runs on minimax ran the retained binary through the driver's own observation function, with a `sched_switch` trace (bpftrace) of the fixture CPUs and their SMT siblings attached. They are charged in the ledger below. The [diagnosis evidence](2026-11-14-multipath-b5/diagnosis/) keeps the tools, per-run summaries and analysis.
 
 - **The accounting is sound.** In run 2, `/proc/schedstat` running time agreed with the traced task time within about 0.1 s on every fixture CPU: 2.5% in aggregate for E and 5.8% for A ([analysis](2026-11-14-multipath-b5/diagnosis/run2-analysis.log)). The fixture's own threads were fully inside `RUSAGE_CHILDREN`: E's traced fixture time was 22.95 s, and its rusage was 23.98 s.
-- **The foreign time was external.** Run 1's E window overlapped the start of a self-hosted runner container (`podman`, `dpkg-query`, `yq`) and a GridCast GARM Windows VM. That burst of short-lived processes filled the trace map, and bpftrace reported 77,941 failed updates. So run 1's trace undercounts, and its numbers aren't used. In run 2, the foreign time on the fixture cores was the runner's `transfer.test` (10.6 s during E, 4.1 s during A) and external VM vCPU threads. Run 2's arm A was contaminated by the same job (5.78 s), so arm E isn't special. No fixture thread or child carried foreign time. Kernel and other host tasks carried a few tenths of a second (`ksmd` 0.14–0.22 s, `sshd`, `landscape-sysinfo`).
+- **The foreign time was external.** Run 1's E observation ran from about 14:38:00 to 14:39:16. A GridCast runner container was created inside that window, at 14:39:00 (`podman`, `dpkg-query`, `yq`, `qemu-img` image preparation), and its GARM VM started afterward, at 14:39:53. The container's burst of short-lived processes filled the trace map, and bpftrace reported 77,941 failed updates. So run 1's trace undercounts, and its numbers aren't used. In run 2, the foreign time on the fixture CPUs and their siblings was the runner's `transfer.test` (10.6 s during E, 4.1 s during A) and vCPU threads of a long-running external VM. That VM ran through all four diagnosis observations. The journal excerpt shows one external Windows 11 VM, `qemu-1054`, running from 07:05 to 18:45, and the session's process listing identified it at the time. The named-process pattern doesn't match it, so it is bounded only by the contamination limit. Run 2's arm A was contaminated by the same job (5.78 s), so arm E isn't special. No fixture thread or child carried foreign time. Kernel and other host tasks carried a few tenths of a second (`ksmd` 0.14–0.22 s, `sshd`, `landscape-sysinfo`).
 - **Why every E:** each time, the external jobs arrived inside E's window. No fixture mechanism that draws external load was found. In the gated campaign below, E was clean in all nine observations, while A and F were contaminated.
 - **Fixture defect found:** in both counted stops, the driver admitted E's replacement on one two-second fixture-core sample while the named external job was still running. Each replacement's quiet record shows `named_process_present: true`. The replacement then ran under the load that had contaminated its original.
 
@@ -86,10 +86,10 @@ The [B3 applicability record](2026-11-13-multipath-b3-applicability.md) carried 
 | Path views and selection (`multipath_admission.go`, `packet_emission_path.go`, `multipath_scheduler.go`; B4) | Every eligible path is read into a view and a private scheduler chooses the route. Primary/backup stays the default. | Reaches Reno multipath, but not ordinary connections. Reno's affected cell is R18's mixed bulk, whose opted-in background is Reno multipath. It was rerun from the reserve: 6 observations. |
 | Native route saturation (`native_ordinary.go`; B4) | Saturation can exclude a released record. | Applies only to a connection with path admission. E6/R21 native classes don't negotiate multipath, so their evidence still applies. |
 | BBR readiness and announcement pacing (`packet_emission_bbr.go`, `local_send_credit.go`, `packet_packer.go`; B4, #1345) | BBR plans and readiness, and a BBR announcement's payload pacing | None outside BBR. Reno's announcement and ordinary connections are unchanged. |
-| Same-path ACK carriage (`internal/ackhandler`, `packet_emission_ack.go`, `packet_packer.go`; B7) | A multipath receiver prefers the path an ACK acknowledges, with a bounded periodic PING | Reaches Reno multipath. An ordinary connection keeps its inherited ACK and PING behavior. For R18 it is the same mixed-bulk cell. For R17, the required independent-peer job runs all 16 Reno cases on this PR's exact head. |
+| Same-path ACK carriage (`internal/ackhandler`, `packet_emission_ack.go`, `packet_packer.go`; B7) | A multipath receiver prefers the path an ACK acknowledges, with a bounded periodic PING | Reaches Reno multipath. An ordinary connection keeps its inherited ACK and PING behavior. For R18 it is the same mixed-bulk cell. For R17, the required independent-peer job runs all 16 Reno cases on this PR's head once it is ready, and the merge waits for that job to pass. |
 | Private evidence selection (`multipath_api.go`, `multipath_credit.go`; B5) | A private selection admits BBR at the gate and copies its scheduler into the registry. | None. Its zero value is the public profile, and only in-package fixtures set it. |
 
-- **Reno primary/backup:** R18's STREAM GSO on/off, DATAGRAM batching on/off and stateless-pressure cells run only ordinary connections, so the [R18 delivery receipt](2026-11-12-multipath-r18-delivery-receipt.md) still applies to them. Mixed bulk is replaced by the rerun below. R17 is re-established by the required independent-peer job on this PR's head. The E6/R21 native evidence still applies.
+- **Reno primary/backup:** R18's STREAM GSO on/off, DATAGRAM batching on/off and stateless-pressure cells run only ordinary connections, so the [R18 delivery receipt](2026-11-12-multipath-r18-delivery-receipt.md) still applies to them. Mixed bulk is replaced by the rerun below. R17 is re-established when the required independent-peer job passes on this PR's final head; the merge waits for it. The run is recorded in the closing record on #1044. The E6/R21 native evidence still applies.
 - **BBR primary/backup:** no earlier interop or ordinary-cost receipt applies. Its evidence is the 18 revalidation observations above. Whether the endpoint-level E6/R21 native evidence counts toward BBR primary/backup is left to B6.
 - **Aggregation:** no earlier evidence exists. Its evidence is the comparison above.
 
@@ -118,8 +118,15 @@ These charges go to the single cumulative ledger under the [Reno program ledger 
 | Aggregation, first invocation (stopped) | 6 | 462.184 |
 | Aggregation, clean rerun (stopped) | 6 | 462.148 |
 | Build setup, candidate `ba51ba67b` | 0 | 5.134 |
-| Diagnosis observations: run 1 D and E, run 2 A and E | 4 | 308.101 |
+| Diagnosis observations: run 1 D and E, run 2 A and E, with tracer setup | 4 | 336.101 |
 | Aggregation, gated campaign: 54 cases + 3 replacements | 57 | 4,391.486 |
-| **Cumulative** | **217 / 420** | **8,832.629 / 28,800** |
+| **Cumulative** | **217 / 420** | **8,860.629 / 28,800** |
 
-B5 charged 97 instances and 7,126.688 host-seconds; 203 instances and 19,967.371 host-seconds remain. Time spent waiting for quiet held no fixture and is not charged. The four diagnosis observations are charged under the rule that every attempt spends the ceiling. They are not comparison evidence.
+B5 charged 97 instances and 7,154.688 host-seconds; 203 instances and 19,939.371 host-seconds remain. Time spent waiting for quiet held no fixture and is not charged.
+
+The four diagnosis observations are charged under the rule that every attempt spends the ceiling. They are not comparison evidence. Their observation timers total 308.101 s. Tracer setup and teardown add an estimated 7 s per observation, 28 s in all:
+
+- **Setup:** about 5.3 s, measured from the gap between one observation's summary and the next observation's start, in both runs.
+- **Teardown:** about 0.3 s, from the file times. Each run's final teardown isn't separately measured.
+
+The charge was added after the fact: the diagnosis scripts and the gated campaign's [identity](2026-11-14-multipath-b5/aggregation-gated/aggregation/identity.json) treated the diagnosis as uncounted. That campaign was supplied 264 instances and 24,666.958 host-seconds. With the diagnosis charged first, its allowance would have been 260 instances and 24,330.857 host-seconds. Its maximum reservation of 57 × 120 s = 6,840 s still fits, so the campaign's preflight holds. The frozen artifacts are unchanged.

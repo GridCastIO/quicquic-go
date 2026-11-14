@@ -1,3 +1,8 @@
+# Long-running VM present through the diagnosis and gated campaign (not matched by the driver's named-process pattern):
+2026-11-14T07:05:36+00:00 minimax systemd-machined[1251502]: New machine qemu-1054-infra-windows-windows-11-pro-amd64.
+2026-11-14T07:05:36+00:00 minimax systemd[1]: Started machine-qemu\x2d1054\x2dinfra\x2dwindows\x2dwindows\x2d11\x2dpro\x2damd64.scope - Virtual Machine qemu-1054-infra-windows-windows-11-pro-amd64.
+2026-11-14T18:45:06+00:00 minimax systemd-machined[1251502]: Machine qemu-1054-infra-windows-windows-11-pro-amd64 terminated.
+# GridCast runner containers and GARM VMs during the B5 invocations:
 2026-11-14T03:58:45+00:00 minimax podman[871932]: 2026-11-14 03:58:45.458598194 +0000 UTC m=+0.105541928 container create 54c3e86685177d927ed12ecc042acefe731865f05b769103
 2026-11-14T03:59:32+00:00 minimax systemd-machined[1085763]: New machine qemu-1036-infra-garm-win2025-garm-gridcast-win64-nah8bvppzq7o.
 2026-11-14T04:02:37+00:00 minimax systemd-machined[1085763]: Machine qemu-1036-infra-garm-win2025-garm-gridcast-win64-nah8bvppzq7o terminated.
