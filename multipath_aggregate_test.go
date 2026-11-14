@@ -161,34 +161,6 @@ func TestAggregateNoDestructivePopBeforeSelection(t *testing.T) {
 	})
 }
 
-// The fixture's comparison arm keeps paced byte round-robin after both paths
-// have valid rate samples.
-func TestAggregateComparisonArmIgnoresSamples(t *testing.T) {
-	nativeOrdinaryTest(t, func(t *testing.T) {
-		f := newBBRPathFixture(t, protocol.PerspectiveServer)
-		f.aggregate(t, scheduleRoundRobin)
-		f.write(t, 12000)
-		f.drain(t)
-		zero, one := f.parseWrites(t, 0), f.parseWrites(t, 1)
-		require.Positive(t, reliableBytes(zero))
-		require.Positive(t, reliableBytes(one))
-		time.Sleep(20 * time.Millisecond)
-		f.ackPath(t, 0, 0, zero)
-		f.ackPath(t, 1, 1, one)
-		require.Positive(t, f.view(0).rate)
-		require.Positive(t, f.view(1).rate)
-
-		p := f.c.pathCredit
-		p.members[0].scheduled, p.members[1].scheduled = 10000, 0
-		route, _, _, held := p.selectRoute(monotime.Now())
-		require.False(t, held)
-		require.NotNil(t, route, "the less-served path goes, whatever its estimate")
-		require.Equal(t, protocol.PathID(1), route.context.PathID)
-		require.Zero(t, p.members[1].scheduled, "and the ledger rebases on it")
-		require.EqualValues(t, 10000, p.members[0].scheduled)
-	})
-}
-
 // gsoCapableConn reports segmentation offload over a socket that lacks it.
 type gsoCapableConn struct{ sendConn }
 

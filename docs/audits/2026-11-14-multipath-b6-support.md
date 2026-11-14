@@ -1,0 +1,26 @@
+# B6 support record: published multipath combinations (#1045)
+
+[B6 (#1045)](https://github.com/the-sarge/quic-go-fast/issues/1045) publishes the multipath combinations that matching evidence supports, under the [B6 slice](../adr/2026-10-24-multipath-bbr-plan.md#b6), its [qualification policy](../adr/2026-10-24-multipath-bbr-plan.md#qualification-and-adoption-policy) and the [owner decision of 2026-11-14](https://github.com/the-sarge/quic-go-fast/issues/646#issuecomment-6883716498): BBR primary/backup is published as tested but not cost-qualified, aggregation stays unsupported, and the cost fix is deferred to #1368. No threshold, algorithm or ledger charge changes. B6 runs no counted observation; the cumulative ledger stays at 217/420 instances and 8,860.629/28,800 host-seconds.
+
+## Supported combinations
+
+Every combination below is draft-21 QUIC v1 with at most two paths, on Linux amd64 over a `Transport.ConfigureMultipathIOV1` grant. Everything outside that profile keeps refusing as [R19 (#1039)](https://github.com/the-sarge/quic-go-fast/issues/1039) published it.
+
+| Combination | Evidence | Verdict | Public behavior |
+| --- | --- | --- | --- |
+| Reno primary/backup | R19's receipts: [native](2026-11-03-multipath-e6-receipt.md), [writer-yield](2026-11-12-native-writer-yield-r21/README.md), [interop](2026-11-09-multipath-r17-receipt.md) and [ordinary cost](2026-11-12-multipath-r18-delivery-receipt.md), carried forward by the [B3](2026-11-13-multipath-b3-applicability.md) and [B5](2026-11-14-multipath-b5-receipt.md#evidence-applicability) applicability records | Qualified, experimental. R18's two CPU exceptions and B5's mixed-bulk rerun at 1.122 CPU per useful byte are exact owner-accepted deviations; the raw verdicts stay failed. | Enabled, opt-in, with Reno the default controller. Unchanged. |
+| BBR primary/backup | [B5 receipt](2026-11-14-multipath-b5-receipt.md#bbr-primarybackup-revalidation), candidate `4e80d3cf4fa7454ffc3e2a46655afd5f81f86313`: [interop](2026-11-14-multipath-b5/interop/matrix-result.json) 6/6 pass; [ordinary cost](2026-11-14-multipath-b5/ordinary-bbr/summary.json) fail, with goodput 0.848 and 0.869 of the unregistered baseline (floor 0.95) and CPU per useful byte 1.367 and 1.318 (ceiling 1.10) in mixed bulk and stateless pressure | Tested, not cost-qualified | Refused with `ErrMultipathUnsupportedV1` before anything is advertised. The deferred cost fix is #1368. |
+| BBR aggregate | [B5 comparison](2026-11-14-multipath-b5-receipt.md#aggregation-comparison), candidate `ba51ba67bf09f872c558e1519a3839f74795a021`, [summary](2026-11-14-multipath-b5/aggregation-gated/aggregation/summary.json): 1.764 of the better single path (floor 1.20), **0.879** of two independent connections (floor 0.95), Reno competitor 0.960 (floor 0.90) | Unsupported: valid negative comparison | `ConfigureMultipathV1` rejects every policy but `"primary-backup"` with `ErrMultipathInvalidConfigV1`. |
+| Reno aggregate | None. B5's arm D was informational and can't qualify it. | Unsupported | As for BBR aggregate. |
+
+The BBRv3 controller itself remains experimental and unqualified while full [Q2 qualification #599](https://github.com/the-sarge/quic-go-fast/issues/599) is deferred. B6 qualifies no controller. Because BBR primary/backup isn't enabled, B6 doesn't decide whether the endpoint-level E6 and R21 native evidence counts toward it, which B5 left open; a later qualification under #1368 decides that with its fresh cost evidence.
+
+**Adoption:** no consumer benefit of Reno primary/backup has been measured, and the one benefit measurement, B5's aggregation comparison, was negative. Nothing here is an adoption recommendation.
+
+## Removed activation and retained source
+
+- **Removed:** B5's private evidence selection, which admitted BBR at the capability gate (`multipath_api.go`) and copied a scheduling policy into the path registry (`multipath_credit.go`), and B4's fixture-only byte-round-robin comparison arm, whose retirement is this qualification decision. The Config's multipath request now holds only what `ConfigureMultipathV1` sets. The fixtures that ran through it retire with it: the aggregation workload and driver and the BBR controller options of the R17 matrix and R18 ordinary-cost fixtures. They remain at [`e048181a6`](https://github.com/the-sarge/quic-go-fast/tree/e048181a680f07dc7560f7df1667d8c065513583/interop/multipath).
+- **Evidence of absence:** `TestMultipathSelectionHasNoPrivateBypass` pins the request to its public fields. `TestMultipathSupportedCombinations` shows the gate refusing BBR primary/backup from a dial, a listener and a server-selected Config, in either configuration order, refusing aggregation with either controller, and running Reno primary/backup, the default, on the primary/backup scheduler. `TestMultipathSupportMatchesEvidence` checks the B5 identities and verdicts this record cites.
+- **Retained:** the per-path BBR contexts of B1–B3 and B4's private aggregate policy, including its no-sample round-robin fallback, stay in source. No public Config reaches either: only in-package unit tests exercise them. There is no dormant public option.
+
+The Reno primary/backup source is unchanged by this removal; the required independent-peer job re-runs its 16 R17 cases on the product PR's final head.

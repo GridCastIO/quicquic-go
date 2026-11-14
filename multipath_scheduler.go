@@ -11,8 +11,9 @@ import (
 
 // pathScheduler is a multipath connection's private scheduling policy. It owns the
 // choice of route only; emission keeps packing, credit, registration and each
-// DATAGRAM's eligibility. Primary/backup is the default and the only public policy.
-// Aggregate stays privately selected until its support decision.
+// DATAGRAM's eligibility. Primary/backup is the only policy a connection runs. B5's
+// comparison denied aggregate support (#1044, #1045), so only in-package unit tests
+// select aggregate.
 type pathScheduler uint8
 
 const (
@@ -20,17 +21,14 @@ const (
 	// scheduleAggregate sends each opportunity on the eligible path with the earliest
 	// estimated arrival, or by paced byte round-robin while any lacks a rate sample.
 	scheduleAggregate
-	// scheduleRoundRobin is the evidence fixture's comparison arm: aggregate with
-	// the estimate off. Only a fixture selects it; it is not a maintained policy.
-	scheduleRoundRobin
 )
 
 // schedule chooses the opportunity's route from immutable views in path ID order.
 func (p *pathCreditRegistry) schedule(views []pathView, now monotime.Time) (chosen, steerTo protocol.PathID, steering, held bool) {
-	if p.scheduler == schedulePrimaryBackup {
+	if p.scheduler != scheduleAggregate {
 		return selectPath(views, p.primary)
 	}
-	chosen, steerTo, steering, held, floor := selectAggregate(views, p.primary, now, p.scheduler == scheduleAggregate)
+	chosen, steerTo, steering, held, floor := selectAggregate(views, p.primary, now, true)
 	// Rebase the ledger on its least-served candidate, so it stays within about one
 	// handoff and a returning path is neither starved nor owed a backlog.
 	for _, m := range p.members {
