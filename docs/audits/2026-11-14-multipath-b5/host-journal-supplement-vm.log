@@ -1,0 +1,3 @@
+2026-11-14T07:05:36+00:00 minimax systemd-machined[1251502]: New machine qemu-1054-infra-windows-windows-11-pro-amd64.
+2026-11-14T07:05:36+00:00 minimax systemd[1]: Started machine-qemu\x2d1054\x2dinfra\x2dwindows\x2dwindows\x2d11\x2dpro\x2damd64.scope - Virtual Machine qemu-1054-infra-windows-windows-11-pro-amd64.
+2026-11-14T18:45:06+00:00 minimax systemd-machined[1251502]: Machine qemu-1054-infra-windows-windows-11-pro-amd64 terminated.
