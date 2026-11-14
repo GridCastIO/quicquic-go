@@ -332,22 +332,24 @@ class LedgerTest(unittest.TestCase):
 
 
 class QuietGateTest(unittest.TestCase):
-    """A replacement must not start under the external job that contaminated its original."""
+    """A replacement must not start under the external load that contaminated its original."""
 
-    def gate(self, named):
-        clock = {"now": 1000.0}
+    def gate(self, named, codes=None):
+        self.clock = {"now": 1000.0}
         polls = iter(named)
 
         def pgrep(*args, **kwargs):
-            return mock.Mock(returncode=0 if next(polls) else 1)
+            if codes:
+                return mock.Mock(returncode=next(codes), stderr="pgrep: diagnostic\n")
+            return mock.Mock(returncode=0 if next(polls) else 1, stderr="")
 
         def sleep(seconds):
-            clock["now"] += seconds
+            self.clock["now"] += seconds
 
         patches = [mock.patch.object(driver.subprocess, "run", side_effect=pgrep),
                    mock.patch.object(driver, "fixture_busy_share", return_value=0.0),
                    mock.patch.object(driver.time, "sleep", side_effect=sleep),
-                   mock.patch.object(driver.time, "monotonic", side_effect=lambda: clock["now"])]
+                   mock.patch.object(driver.time, "monotonic", side_effect=lambda: self.clock["now"])]
         for patch in patches:
             patch.start()
             self.addCleanup(patch.stop)
@@ -358,7 +360,7 @@ class QuietGateTest(unittest.TestCase):
         gate = self.gate([True] * 3 + [False] * 40)
         quiet = gate.wait(lambda message: None)
         self.assertFalse(quiet["named_process_present"])
-        self.assertGreaterEqual(quiet["waited_s"], 3 * driver.QUIET_POLL_S + driver.QUIET_HOLD_S - driver.QUIET_POLL_S)
+        self.assertGreaterEqual(quiet["waited_s"], 2 * driver.QUIET_POLL_S + driver.QUIET_HOLD_S)
 
     def test_a_host_never_seen_busy_admits_at_once(self):
         gate = self.gate([False] * 2)
@@ -369,6 +371,40 @@ class QuietGateTest(unittest.TestCase):
         self.assertEqual(0.0, gate.wait(lambda message: None)["waited_s"])
         self.assertGreaterEqual(gate.wait(lambda message: None)["waited_s"], driver.QUIET_HOLD_S)
 
+    def test_an_unanswered_process_inspection_is_not_quiet(self):
+        for code in (2, 3):
+            gate = self.gate([], codes=iter([code]))
+            with self.assertRaisesRegex(RuntimeError, f"pgrep exit {code}: pgrep: diagnostic"):
+                gate.wait(lambda message: None)
+
+    def test_campaign_holds_a_replacement_after_unnamed_contamination(self):
+        # No named process is ever seen; only the measured contamination can start the hold.
+        self.gate([False] * 200)
+        launched = []
+
+        class Ledger:
+            def require_capacity(ledger, instances=1):
+                pass
+
+            def save(ledger):
+                pass
+
+            def observe(ledger, binary, directory, topology, round_, arm, seed, candidate, mode, go_version, attempt=0):
+                launched.append(self.clock["now"])
+                self.clock["now"] += 77
+                return {"arm": arm, "attempt": attempt, "foreign_cpu_s": 0.0, "product_failures": [],
+                        "contaminated": len(launched) == 1}
+
+        with tempfile.TemporaryDirectory() as directory, \
+                mock.patch.object(driver, "schedule", return_value=list(driver.schedule())[:2]):
+            records, reruns = driver.run_campaign("binary", Path(directory), "c" * 40, driver.GO_VERSION,
+                                                  lambda message: None, Ledger())
+        self.assertEqual(1, reruns)
+        self.assertEqual([1, 0], [record["attempt"] for record in records])
+        self.assertEqual(3, len(launched))
+        self.assertGreaterEqual(launched[1] - (launched[0] + 77), driver.QUIET_HOLD_S)
+        # A clean observation keeps immediate admission for the next one.
+        self.assertEqual(launched[1] + 77, launched[2])
 
 if __name__ == "__main__":
     unittest.main()

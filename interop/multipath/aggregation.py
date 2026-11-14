@@ -350,23 +350,36 @@ def fixture_busy_share(sample_s=2.0):
 
 
 class QuietGate:
-    """Admits an observation only on a quiet host. A named external CI process or VM can
-    reach the fixture cores at any moment, so a two-second sample beside one proves nothing:
-    the gate also holds until none has been seen for QUIET_HOLD_S. A replacement therefore
-    never starts under the job that contaminated its original. One gate spans an invocation."""
+    """Delays an observation's admission until the host looks quiet. A named external CI
+    process or VM can reach the fixture cores at any moment, so a two-second sample beside
+    one proves little: the gate also holds until QUIET_HOLD_S has passed since it last saw
+    one, or since an observation was contaminated. A replacement therefore waits out the
+    load that contaminated its original when that load is named or brief; nothing here
+    can rule out load that arrives later. One gate spans an invocation."""
 
     def __init__(self):
-        self.named_seen_at = None
+        self.hold_from = None
+
+    def hold(self):
+        """Start the hold now; the campaign calls this when an observation is contaminated."""
+        self.hold_from = time.monotonic()
+
+    def named_process_present(self):
+        result = subprocess.run(["pgrep", "-f", HOST_BUSY_PATTERN], capture_output=True, text=True, check=False)
+        if result.returncode not in (0, 1):
+            # Only 0 (a match) and 1 (none) answer the question; anything else must not read as quiet.
+            raise RuntimeError(f"pgrep exit {result.returncode}: {result.stderr.strip()}")
+        return result.returncode == 0
 
     def wait(self, log):
         begun = time.monotonic()
         while True:
-            busy = subprocess.run(["pgrep", "-f", HOST_BUSY_PATTERN], capture_output=True, check=False).returncode == 0
+            busy = self.named_process_present()
             now = time.monotonic()
             waited = now - begun
             if busy:
-                self.named_seen_at = now
-            held = self.named_seen_at is None or now - self.named_seen_at >= QUIET_HOLD_S
+                self.hold_from = now
+            held = self.hold_from is None or now - self.hold_from >= QUIET_HOLD_S
             share = fixture_busy_share()
             if held and share < QUIET_BUSY_SHARE:
                 return {"waited_s": waited, "fixture_busy_share": share, "named_process_present": busy}
@@ -535,6 +548,8 @@ def run_campaign(binary, output, candidate, go_version, log, ledger):
             record.update(quiet=quiet, load_before=load_before, load_after=os.getloadavg()[0])
             log(f"{topology} round {round_} {arm} attempt {attempt}: foreign {record['foreign_cpu_s']} s, "
                 f"contaminated {record['contaminated']}, product failures {record['product_failures']}")
+            if record["contaminated"]:
+                gate.hold()
             if not rerun_due(record, attempt, reruns):
                 break
             record["rerun_cause"] = "foreign CPU over the limit"
