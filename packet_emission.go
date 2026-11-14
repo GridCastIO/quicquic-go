@@ -79,6 +79,7 @@ type emissionPolicy interface {
 	notePreparedEmissionActivity(ackhandler.PreparedPacketView, monotime.Time)
 	noteEmissionRegistration()
 	emissionReceivePending() bool
+	emissionClosePending() bool
 	logCoalescedPacket(*coalescedPacket, protocol.ECN)
 	noteFirstEmission()
 	noteCoalescedActivity(bool, monotime.Time)

@@ -150,9 +150,9 @@ func (p *bbrSendPolicy) resetGeneration(generation uint64, now monotime.Time) {
 	p.supplyGap = congestion.SendUnknown
 }
 
-// sendBounded performs at most one owned handoff per opportunity. Continuation
-// goes through the connection loop, which services receive, timer and close
-// events on every pass.
+// sendBounded normally performs one owned handoff per opportunity. Ordinary
+// native sending can group a second buffer before the same call finishes its
+// request. Continuation returns through the connection's receive/timer/close loop.
 // ACK/PTO exemptions bypass only ordinary pacing, never local byte ownership.
 func (e *packetEmission) sendBounded(now monotime.Time, confirmed bool) (result emissionResult) {
 	e.inOpportunity = true
@@ -272,7 +272,8 @@ func (e *packetEmission) sendBounded(now monotime.Time, confirmed bool) (result 
 		result.retry = result.progress
 		return result
 	}
-	return e.boundedDatagrams(now, size, plan.request)
+	result = e.boundedDatagrams(now, size, plan.request)
+	return e.groupBoundedNative(now, size, result)
 }
 
 // boundedStep is the work a BBR opportunity does once its path turns are done.
@@ -387,9 +388,9 @@ func (e *packetEmission) boundedDatagrams(now monotime.Time, size, limit protoco
 		}
 	}
 	e.handoff(buf, batch.gsoSize(), ecn, sendMetadata{}, &protection)
-	// Continue as Reno's receive-yield stop does: the connection makes its next
-	// full pass (close, receive, timers, capacity) without a scheduling token,
-	// timer re-arm or select between consecutive datagrams.
+	// An ordinary native opportunity can append one more bounded buffer. After
+	// the opportunity, the connection makes its next full pass (close, receive,
+	// timers, capacity) without a scheduling token, timer re-arm or select.
 	return emissionResult{progress: true, deadline: deadlineSendImmediately, supplyExhausted: exhausted}
 }
 
