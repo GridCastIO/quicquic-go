@@ -8,7 +8,8 @@ import "fmt"
 // Configure selection before Dial, Listen, or returning from GetConfigForClient;
 // concurrent mutation is unsupported. Existing connections retain their selection.
 //
-// BBRv3 is experimental and unqualified. Multipath V1 refuses it with
+// BBRv3 is experimental and unqualified while its full qualification (#599) is
+// deferred. Multipath V1 refuses it with
 // [ErrMultipathUnsupportedV1]; see [Config.ConfigureMultipathV1].
 func (c *Config) SetCongestionControlV1(name string) error {
 	if c == nil {

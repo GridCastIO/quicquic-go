@@ -45,7 +45,7 @@ type pathCreditRegistry struct {
 	retained       []*pathRetained // bounded by the history units each one holds
 	now            monotime.Time
 	primary        protocol.PathID
-	scheduler      pathScheduler // primary/backup; only unit tests set another, before the first selection
+	scheduler      pathScheduler // primary/backup; only unit tests set aggregate, before the first selection
 }
 
 type issuedPathCIDs struct {
