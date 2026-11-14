@@ -331,5 +331,44 @@ class LedgerTest(unittest.TestCase):
                 short.require_capacity(54)
 
 
+class QuietGateTest(unittest.TestCase):
+    """A replacement must not start under the external job that contaminated its original."""
+
+    def gate(self, named):
+        clock = {"now": 1000.0}
+        polls = iter(named)
+
+        def pgrep(*args, **kwargs):
+            return mock.Mock(returncode=0 if next(polls) else 1)
+
+        def sleep(seconds):
+            clock["now"] += seconds
+
+        patches = [mock.patch.object(driver.subprocess, "run", side_effect=pgrep),
+                   mock.patch.object(driver, "fixture_busy_share", return_value=0.0),
+                   mock.patch.object(driver.time, "sleep", side_effect=sleep),
+                   mock.patch.object(driver.time, "monotonic", side_effect=lambda: clock["now"])]
+        for patch in patches:
+            patch.start()
+            self.addCleanup(patch.stop)
+        return driver.QuietGate()
+
+    def test_quiet_cores_do_not_admit_beside_a_named_external_job(self):
+        # Named CI load on other cores, idle fixture cores: the earlier gate admitted at once.
+        gate = self.gate([True] * 3 + [False] * 40)
+        quiet = gate.wait(lambda message: None)
+        self.assertFalse(quiet["named_process_present"])
+        self.assertGreaterEqual(quiet["waited_s"], 3 * driver.QUIET_POLL_S + driver.QUIET_HOLD_S - driver.QUIET_POLL_S)
+
+    def test_a_host_never_seen_busy_admits_at_once(self):
+        gate = self.gate([False] * 2)
+        self.assertEqual(0.0, gate.wait(lambda message: None)["waited_s"])
+
+    def test_a_sighting_holds_the_next_admission(self):
+        gate = self.gate([False, True] + [False] * 40)
+        self.assertEqual(0.0, gate.wait(lambda message: None)["waited_s"])
+        self.assertGreaterEqual(gate.wait(lambda message: None)["waited_s"], driver.QUIET_HOLD_S)
+
+
 if __name__ == "__main__":
     unittest.main()

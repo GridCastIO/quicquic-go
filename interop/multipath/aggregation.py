@@ -48,6 +48,8 @@ FIXTURE_CPUS = [4, 5] + list(range(8, 16))
 FIXTURE_CPUS += [cpu + 16 for cpu in FIXTURE_CPUS]
 HOST_BUSY_PATTERN = "[R]unner.Worker|[t]ransfer.test|qemu.*guest=[i]nfra-garm|[n]ativerig"
 QUIET_BUSY_SHARE = 0.05
+QUIET_HOLD_S = 300
+QUIET_POLL_S = 15
 SERVER_ADDRESS = "127.0.0.1:47460"
 FRONTS = {"front_a": "127.0.0.1:47461", "front_b": "127.0.0.1:47462", "front_competitor": "127.0.0.1:47463"}
 METRIC_BOUNDARIES = {
@@ -347,19 +349,31 @@ def fixture_busy_share(sample_s=2.0):
     return max((after[cpu] - before[cpu]) / (sample_s * 1e9) for cpu in cpus)
 
 
-def wait_quiet(log):
-    waited = 0.0
-    while True:
-        busy = subprocess.run(["pgrep", "-f", HOST_BUSY_PATTERN], capture_output=True, check=False).returncode == 0
-        share = fixture_busy_share()
-        # Background processes on other cores do not contaminate the fixture.
-        if share < QUIET_BUSY_SHARE:
-            return {"waited_s": waited, "fixture_busy_share": share, "named_process_present": busy}
-        log(f"host busy: named process {busy}, fixture share {share:.3f}")
-        time.sleep(13)
-        waited += 15
-        if waited > QUIET_WAIT_LIMIT_S:
-            raise RuntimeError(f"host stayed busy for {waited:.0f} s")
+class QuietGate:
+    """Admits an observation only on a quiet host. A named external CI process or VM can
+    reach the fixture cores at any moment, so a two-second sample beside one proves nothing:
+    the gate also holds until none has been seen for QUIET_HOLD_S. A replacement therefore
+    never starts under the job that contaminated its original. One gate spans an invocation."""
+
+    def __init__(self):
+        self.named_seen_at = None
+
+    def wait(self, log):
+        begun = time.monotonic()
+        while True:
+            busy = subprocess.run(["pgrep", "-f", HOST_BUSY_PATTERN], capture_output=True, check=False).returncode == 0
+            now = time.monotonic()
+            waited = now - begun
+            if busy:
+                self.named_seen_at = now
+            held = self.named_seen_at is None or now - self.named_seen_at >= QUIET_HOLD_S
+            share = fixture_busy_share()
+            if held and share < QUIET_BUSY_SHARE:
+                return {"waited_s": waited, "fixture_busy_share": share, "named_process_present": busy}
+            log(f"host busy: named process {busy}, fixture share {share:.3f}")
+            if waited > QUIET_WAIT_LIMIT_S:
+                raise RuntimeError(f"host stayed busy for {waited:.0f} s")
+            time.sleep(QUIET_POLL_S)
 
 
 def role_command(binary, timeout_s):
@@ -510,10 +524,11 @@ def run_campaign(binary, output, candidate, go_version, log, ledger):
     results = output / "observations.jsonl"
     superseded = output / "superseded.jsonl"
     records, reruns = [], 0
+    gate = QuietGate()
     for topology, round_, arm, seed in schedule():
         attempt = 0
         while True:
-            quiet = wait_quiet(log)
+            quiet = gate.wait(log)
             load_before = os.getloadavg()[0]
             record = ledger.observe(binary, output / topology / f"round{round_}" / f"attempt{attempt}" / arm,
                                     topology, round_, arm, seed, candidate, "campaign", go_version, attempt=attempt)
@@ -598,8 +613,9 @@ def main(argv=None):
             summary.update(summarize(records, binary["go"]), reruns=reruns, campaign_complete=True)
         else:
             ledger.require_capacity(len(ARMS))
+            gate = QuietGate()
             for arm in ARMS:
-                quiet = wait_quiet(log)
+                quiet = gate.wait(log)
                 record = ledger.observe(binary["path"], args.output / args.smoke_topology / arm, args.smoke_topology, 0,
                                         arm, BASE_SEED, args.candidate, mode, binary["go"], warmup_s=warmup, window_s=window)
                 record["quiet"] = quiet
