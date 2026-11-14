@@ -25,3 +25,9 @@ Append-only plans and outcomes: [experiment ledger](2026-11-14-bbr-ordinary-cost
 ## Delivery state
 
 In progress: recover baseline, add explicit ordinary BBR diagnostic fixture, profile current behavior, choose a discriminating candidate. Implementation, ordinary-cost qualification, independent review, exact-head tests/hosted checks, merge, development journal and issue/OmniFocus reconciliation remain. Both overall performance targets are unverified on the current candidate and historically missed. Recommendation: measure the ordinary stateless-pressure path first, then change the responsible owner based on attribution.
+
+## Current design update — E02/E03, 2026-11-14
+
+E02's BBR-only empty-loss-feedback helper is provisionally retained: one clean pair improved granted absolute goodput from 7.595 to 7.761 Gbit/s, with CPU/useful-byte ratio 1.305 and goodput ratio 0.890. E03 synchronous protection is rejected: 6.917 Gbit/s and CPU/useful-byte ratio 1.373 despite lower total CPU. Deferred writer protection is restored byte-for-byte; the retained runtime at `1cfcd9ed0` is E02's `eab1ff617` behavior. Both overall targets remain missed. Repetition/qualification is pending.
+
+Pipeline reassessment: completion overhead accounts for only part of the deficit; moving AES back onto the connection loses valuable overlap. Cross-turn grouping would need Building deadline/expiry coverage, credit-refusal flushes and fairness validation, so it is not yet selected. Next experiment distinguishes CPU work from local-credit waits and timing-sample exclusions with bounded scalar observation. Program cumulative usage is 225/420 instances and 9476.959039284/28800 host-seconds. No host policy changes or outstanding remote workloads remain after E03.
