@@ -258,9 +258,9 @@ func TestNativeOrdinaryBBRAcceptedMembers(t *testing.T) {
 			e := &tc.conn.emission
 			var previous monotime.Time
 			var pns []protocol.PacketNumber
-			for _, count := range []int{2, 3} {
-				// The first real member establishes positive PTO evidence. The
-				// second exercises the closed member on the same real native owner.
+			for memberIndex, count := range []int{2, 3} {
+				// The first real member begins without an eligible PTO witness;
+				// the next member retains the existing-witness case.
 				const size = 300
 				now := monotime.Now()
 				require.True(t, e.reserveLocal(protocol.ByteCount(count*size), true, false, now))
@@ -292,7 +292,11 @@ func TestNativeOrdinaryBBRAcceptedMembers(t *testing.T) {
 				require.Equal(t, count, fact.accepted)
 				require.Greater(t, fact.returnedAt, previous)
 				previous = fact.returnedAt
+				if memberIndex == 0 {
+					require.Zero(t, recovery.GetLossDetectionTimeout(), "all first-member packets are still pending local return")
+				}
 				require.NoError(t, sender.consume())
+				require.True(t, recovery.GetLossDetectionTimeout().After(fact.returnedAt))
 				require.Equal(t, fact.returnedAt, receipt.acceptedAt())
 				require.Zero(t, buffer.refCount)
 				require.Zero(t, e.bbrPendingBytes(e.bbr), "native retirement releases byte credit once")
