@@ -1,6 +1,7 @@
 package handshake
 
 import (
+	"crypto"
 	"crypto/fips140"
 	"crypto/rand"
 	"crypto/tls"
@@ -28,6 +29,12 @@ const (
 func randomCipherSuite() cipherSuite { return cipherSuites[mrand.IntN(len(cipherSuites))] }
 
 func setupEndpoints(t *testing.T, serverRTTStats *utils.RTTStats) (client, server *updatableAEAD, serverEventRecorder *events.Recorder) {
+	t.Helper()
+	return setupEndpointsForVersion(t, serverRTTStats, protocol.Version1)
+}
+
+func setupEndpointsForVersion(t *testing.T, serverRTTStats *utils.RTTStats, version protocol.Version) (client, server *updatableAEAD, serverEventRecorder *events.Recorder) {
+	t.Helper()
 	cs := randomCipherSuite()
 	var eventRecorder events.Recorder
 
@@ -36,8 +43,8 @@ func setupEndpoints(t *testing.T, serverRTTStats *utils.RTTStats) (client, serve
 	rand.Read(trafficSecret1)
 	rand.Read(trafficSecret2)
 
-	client = newUpdatableAEAD(utils.NewRTTStats(), nil, utils.DefaultLogger, protocol.Version1)
-	server = newUpdatableAEAD(serverRTTStats, &eventRecorder, utils.DefaultLogger, protocol.Version1)
+	client = newUpdatableAEAD(utils.NewRTTStats(), nil, utils.DefaultLogger, version)
+	server = newUpdatableAEAD(serverRTTStats, &eventRecorder, utils.DefaultLogger, version)
 	client.SetReadKey(cs, trafficSecret2)
 	client.SetWriteKey(cs, trafficSecret1)
 	server.SetReadKey(cs, trafficSecret1)
@@ -76,35 +83,56 @@ func bothSides(ev qlogwriter.Event) []qlogwriter.Event {
 	}
 }
 
+func TestNextTrafficSecretRFCVectors(t *testing.T) {
+	secret := splitHexString(t, "9ac312a7f877468ebe69422748ad00a1 5443f18203a07d6060f688f30f21632b")
+	for _, tc := range []struct {
+		version    protocol.Version
+		nextSecret string
+	}{
+		// RFC 9001, Appendix A.5.
+		{protocol.Version1, "1223504755036d556342ee9361d25342 1a826c9ecdf3c7148684b36b714881f9"},
+		// RFC 9369, Appendix A.5.
+		{protocol.Version2, "c69374c49e3d2a9466fa689e49d476db 5d0dfbc87d32ceeaa6343fd0ae4c7d88"},
+	} {
+		t.Run(tc.version.String(), func(t *testing.T) {
+			aead := newUpdatableAEAD(utils.NewRTTStats(), nil, utils.DefaultLogger, tc.version)
+			require.Equal(t, splitHexString(t, tc.nextSecret), aead.getNextTrafficSecret(crypto.SHA256, secret))
+		})
+	}
+}
+
 func TestChaChaTestVector(t *testing.T) {
 	if fips140.Enabled() {
 		t.Skip("ChaCha20-Poly1305 is not allowed in FIPS 140-3 mode")
 	}
 
 	testCases := []struct {
-		name            string
-		version         protocol.Version
-		expectedPayload []byte
-		expectedPacket  []byte
+		version           protocol.Version
+		expectedPayload   []byte
+		expectedPacket    []byte
+		nextTrafficSecret []byte
 	}{
 		{
-			version:         protocol.Version1,
-			expectedPayload: splitHexString(t, "655e5cd55c41f69080575d7999c25a5bfb"),
-			expectedPacket:  splitHexString(t, "4cfe4189655e5cd55c41f69080575d7999c25a5bfb"),
+			version:           protocol.Version1,
+			nextTrafficSecret: splitHexString(t, "1223504755036d556342ee9361d25342 1a826c9ecdf3c7148684b36b714881f9"),
+			expectedPayload:   splitHexString(t, "655e5cd55c41f69080575d7999c25a5bfb"),
+			expectedPacket:    splitHexString(t, "4cfe4189655e5cd55c41f69080575d7999c25a5bfb"),
 		},
 		{
-			version:         protocol.Version2,
-			expectedPayload: splitHexString(t, "0ae7b6b932bc27d786f4bc2bb20f2162ba"),
-			expectedPacket:  splitHexString(t, "5558b1c60ae7b6b932bc27d786f4bc2bb20f2162ba"),
+			version:           protocol.Version2,
+			nextTrafficSecret: splitHexString(t, "c69374c49e3d2a9466fa689e49d476db 5d0dfbc87d32ceeaa6343fd0ae4c7d88"),
+			expectedPayload:   splitHexString(t, "0ae7b6b932bc27d786f4bc2bb20f2162ba"),
+			expectedPacket:    splitHexString(t, "5558b1c60ae7b6b932bc27d786f4bc2bb20f2162ba"),
 		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(fmt.Sprintf("QUIC %s", tc.version), func(t *testing.T) {
 			secret := splitHexString(t, "9ac312a7f877468ebe69422748ad00a1 5443f18203a07d6060f688f30f21632b")
-			aead := newUpdatableAEAD(utils.NewRTTStats(), nil, nil, tc.version)
+			aead := newUpdatableAEAD(utils.NewRTTStats(), nil, utils.DefaultLogger, tc.version)
 			chacha := getCipherSuite(tls.TLS_CHACHA20_POLY1305_SHA256)
 			require.Equal(t, tls.TLS_CHACHA20_POLY1305_SHA256, chacha.ID)
+			aead.SetReadKey(chacha, secret)
 			aead.SetWriteKey(chacha, secret)
 			const pnOffset = 1
 			header := splitHexString(t, "4200bff4")
@@ -115,6 +143,18 @@ func TestChaChaTestVector(t *testing.T) {
 			packet := append(header, payload...)
 			aead.EncryptHeader(packet[pnOffset+4:pnOffset+4+16], &packet[0], packet[pnOffset:payloadOffset])
 			require.Equal(t, tc.expectedPacket, packet)
+
+			// Initialize the peer with the published next secret, independently of our update derivation.
+			aead.SetHandshakeConfirmed()
+			peer := newUpdatableAEAD(utils.NewRTTStats(), nil, utils.DefaultLogger, tc.version)
+			peer.SetWriteKey(chacha, tc.nextTrafficSecret)
+			header = splitHexString(t, "4600bff5")
+			payload = sealForTest(t, peer, nil, plaintext, 654360565, header)
+			decrypted, err := aead.Open(nil, payload, monotime.Now(), 654360565, protocol.KeyPhaseOne, header)
+			require.NoError(t, err)
+			require.Equal(t, plaintext, decrypted)
+			require.Equal(t, protocol.KeyPhaseOne, aead.KeyPhase())
+			require.Equal(t, payload, sealForTest(t, aead, nil, plaintext, 654360565, header))
 		})
 	}
 }
@@ -282,31 +322,35 @@ func TestKeyUpdates(t *testing.T) {
 // }
 
 func TestReorderedPacketAfterKeyUpdate(t *testing.T) {
-	client, server, eventRecorder := setupEndpoints(t, utils.NewRTTStats())
+	for _, version := range []protocol.Version{protocol.Version1, protocol.Version2} {
+		t.Run(version.String(), func(t *testing.T) {
+			client, server, eventRecorder := setupEndpointsForVersion(t, utils.NewRTTStats(), version)
 
-	now := monotime.Now()
-	encrypted01 := sealForTest(t, client, nil, []byte(msg), 0x42, []byte(ad))
-	encrypted02 := sealForTest(t, client, nil, []byte(msg), 0x43, []byte(ad))
-	_, err := server.Open(nil, encrypted01, now, 0x42, protocol.KeyPhaseZero, []byte(ad))
-	require.NoError(t, err)
-	_ = sealForTest(t, server, nil, []byte(msg), 0x1, []byte(ad))
+			now := monotime.Now()
+			encrypted01 := sealForTest(t, client, nil, []byte(msg), 0x42, []byte(ad))
+			encrypted02 := sealForTest(t, client, nil, []byte(msg), 0x43, []byte(ad))
+			_, err := server.Open(nil, encrypted01, now, 0x42, protocol.KeyPhaseZero, []byte(ad))
+			require.NoError(t, err)
+			_ = sealForTest(t, server, nil, []byte(msg), 0x1, []byte(ad))
 
-	client.rollKeys()
-	encrypted1 := sealForTest(t, client, nil, []byte(msg), 0x44, []byte(ad))
-	require.Equal(t, protocol.KeyPhaseZero, server.KeyPhase())
-	_, err = server.Open(nil, encrypted1, now, 0x44, protocol.KeyPhaseOne, []byte(ad))
-	require.NoError(t, err)
-	require.Equal(t, protocol.KeyPhaseOne, server.KeyPhase())
-	require.Equal(t,
-		bothSides(qlog.KeyUpdated{Trigger: qlog.KeyUpdateRemote, KeyPhase: 1}),
-		eventRecorder.Events(),
-	)
+			client.rollKeys()
+			encrypted1 := sealForTest(t, client, nil, []byte(msg), 0x44, []byte(ad))
+			require.Equal(t, protocol.KeyPhaseZero, server.KeyPhase())
+			_, err = server.Open(nil, encrypted1, now, 0x44, protocol.KeyPhaseOne, []byte(ad))
+			require.NoError(t, err)
+			require.Equal(t, protocol.KeyPhaseOne, server.KeyPhase())
+			require.Equal(t,
+				bothSides(qlog.KeyUpdated{Trigger: qlog.KeyUpdateRemote, KeyPhase: 1}),
+				eventRecorder.Events(),
+			)
 
-	// now receive a reordered packet
-	decrypted, err := server.Open(nil, encrypted02, now, 0x43, protocol.KeyPhaseZero, []byte(ad))
-	require.NoError(t, err)
-	require.Equal(t, msg, string(decrypted))
-	require.Equal(t, protocol.KeyPhaseOne, server.KeyPhase())
+			// now receive a reordered packet
+			decrypted, err := server.Open(nil, encrypted02, now, 0x43, protocol.KeyPhaseZero, []byte(ad))
+			require.NoError(t, err)
+			require.Equal(t, msg, string(decrypted))
+			require.Equal(t, protocol.KeyPhaseOne, server.KeyPhase())
+		})
+	}
 }
 
 func TestDropsKeys3PTOsAfterKeyUpdate(t *testing.T) {
@@ -390,52 +434,56 @@ func setKeyUpdateIntervals(t *testing.T, firstKeyUpdateInterval, keyUpdateInterv
 }
 
 func TestInitiateKeyUpdateAfterSendingMaxPackets(t *testing.T) {
-	const firstKeyUpdateInterval = 5
-	const keyUpdateInterval = 20
-	setKeyUpdateIntervals(t, firstKeyUpdateInterval, keyUpdateInterval)
+	for _, version := range []protocol.Version{protocol.Version1, protocol.Version2} {
+		t.Run(version.String(), func(t *testing.T) {
+			const firstKeyUpdateInterval = 5
+			const keyUpdateInterval = 20
+			setKeyUpdateIntervals(t, firstKeyUpdateInterval, keyUpdateInterval)
 
-	client, server, eventRecorder := setupEndpoints(t, utils.NewRTTStats())
-	server.SetHandshakeConfirmed()
+			client, server, eventRecorder := setupEndpointsForVersion(t, utils.NewRTTStats(), version)
+			server.SetHandshakeConfirmed()
 
-	var pn protocol.PacketNumber
-	// first key update
-	for range firstKeyUpdateInterval {
-		require.Equal(t, protocol.KeyPhaseZero, server.KeyPhase())
-		sealForTest(t, server, nil, []byte(msg), pn, []byte(ad))
-		pn++
+			var pn protocol.PacketNumber
+			// first key update
+			for range firstKeyUpdateInterval {
+				require.Equal(t, protocol.KeyPhaseZero, server.KeyPhase())
+				sealForTest(t, server, nil, []byte(msg), pn, []byte(ad))
+				pn++
+			}
+			// the first update is allowed without receiving an acknowledgement
+			require.Equal(t, protocol.KeyPhaseOne, server.KeyPhase())
+			require.Equal(t,
+				bothSides(qlog.KeyUpdated{KeyPhase: 1, Trigger: qlog.KeyUpdateLocal}),
+				eventRecorder.Events(),
+			)
+			eventRecorder.Clear()
+
+			// subsequent key update
+			for range 2 * keyUpdateInterval {
+				require.Equal(t, protocol.KeyPhaseOne, server.KeyPhase())
+				sealForTest(t, server, nil, []byte(msg), pn, []byte(ad))
+				pn++
+			}
+			// no update allowed before receiving an acknowledgement for the current key phase
+			require.Equal(t, protocol.KeyPhaseOne, server.KeyPhase())
+			// receive an ACK for a packet sent in key phase 1
+			client.rollKeys()
+			b := sealForTest(t, client, nil, []byte("foobar"), 1, []byte("ad"))
+			_, err := server.Open(nil, b, monotime.Now(), 1, protocol.KeyPhaseOne, []byte("ad"))
+			require.NoError(t, err)
+			require.NoError(t, server.SetLargestAcked(firstKeyUpdateInterval))
+			require.Empty(t, eventRecorder.Events())
+
+			require.Equal(t, protocol.KeyPhaseZero, server.KeyPhase())
+			require.Equal(t,
+				append(
+					bothSides(qlog.KeyDiscarded{KeyPhase: 0}),
+					bothSides(qlog.KeyUpdated{KeyPhase: 2, Trigger: qlog.KeyUpdateLocal})...,
+				),
+				eventRecorder.Events(),
+			)
+		})
 	}
-	// the first update is allowed without receiving an acknowledgement
-	require.Equal(t, protocol.KeyPhaseOne, server.KeyPhase())
-	require.Equal(t,
-		bothSides(qlog.KeyUpdated{KeyPhase: 1, Trigger: qlog.KeyUpdateLocal}),
-		eventRecorder.Events(),
-	)
-	eventRecorder.Clear()
-
-	// subsequent key update
-	for range 2 * keyUpdateInterval {
-		require.Equal(t, protocol.KeyPhaseOne, server.KeyPhase())
-		sealForTest(t, server, nil, []byte(msg), pn, []byte(ad))
-		pn++
-	}
-	// no update allowed before receiving an acknowledgement for the current key phase
-	require.Equal(t, protocol.KeyPhaseOne, server.KeyPhase())
-	// receive an ACK for a packet sent in key phase 1
-	client.rollKeys()
-	b := sealForTest(t, client, nil, []byte("foobar"), 1, []byte("ad"))
-	_, err := server.Open(nil, b, monotime.Now(), 1, protocol.KeyPhaseOne, []byte("ad"))
-	require.NoError(t, err)
-	require.NoError(t, server.SetLargestAcked(firstKeyUpdateInterval))
-	require.Empty(t, eventRecorder.Events())
-
-	require.Equal(t, protocol.KeyPhaseZero, server.KeyPhase())
-	require.Equal(t,
-		append(
-			bothSides(qlog.KeyDiscarded{KeyPhase: 0}),
-			bothSides(qlog.KeyUpdated{KeyPhase: 2, Trigger: qlog.KeyUpdateLocal})...,
-		),
-		eventRecorder.Events(),
-	)
 }
 
 func TestKeyUpdateEnforceACKKeyPhase(t *testing.T) {
@@ -480,56 +528,60 @@ func TestKeyUpdateEnforceACKKeyPhase(t *testing.T) {
 }
 
 func TestKeyUpdateAfterOpeningMaxPackets(t *testing.T) {
-	const firstKeyUpdateInterval = 5
-	const keyUpdateInterval = 20
-	setKeyUpdateIntervals(t, firstKeyUpdateInterval, keyUpdateInterval)
+	for _, version := range []protocol.Version{protocol.Version1, protocol.Version2} {
+		t.Run(version.String(), func(t *testing.T) {
+			const firstKeyUpdateInterval = 5
+			const keyUpdateInterval = 20
+			setKeyUpdateIntervals(t, firstKeyUpdateInterval, keyUpdateInterval)
 
-	client, server, eventRecorder := setupEndpoints(t, utils.NewRTTStats())
-	server.SetHandshakeConfirmed()
+			client, server, eventRecorder := setupEndpointsForVersion(t, utils.NewRTTStats(), version)
+			server.SetHandshakeConfirmed()
 
-	msg := []byte("message")
-	ad := []byte("additional data")
+			msg := []byte("message")
+			ad := []byte("additional data")
 
-	// first key update
-	var pn protocol.PacketNumber
-	for range firstKeyUpdateInterval {
-		require.Equal(t, protocol.KeyPhaseZero, server.KeyPhase())
-		encrypted := sealForTest(t, client, nil, msg, pn, ad)
-		_, err := server.Open(nil, encrypted, monotime.Now(), pn, protocol.KeyPhaseZero, ad)
-		require.NoError(t, err)
-		pn++
+			// first key update
+			var pn protocol.PacketNumber
+			for range firstKeyUpdateInterval {
+				require.Equal(t, protocol.KeyPhaseZero, server.KeyPhase())
+				encrypted := sealForTest(t, client, nil, msg, pn, ad)
+				_, err := server.Open(nil, encrypted, monotime.Now(), pn, protocol.KeyPhaseZero, ad)
+				require.NoError(t, err)
+				pn++
+			}
+
+			// the first update is allowed without receiving an acknowledgement
+			require.Equal(t, protocol.KeyPhaseOne, server.KeyPhase())
+			require.Equal(t,
+				bothSides(qlog.KeyUpdated{KeyPhase: 1, Trigger: qlog.KeyUpdateLocal}),
+				eventRecorder.Events(),
+			)
+			eventRecorder.Clear()
+
+			// subsequent key update
+			client.rollKeys()
+			for range keyUpdateInterval {
+				require.Equal(t, protocol.KeyPhaseOne, server.KeyPhase())
+				encrypted := sealForTest(t, client, nil, msg, pn, ad)
+				_, err := server.Open(nil, encrypted, monotime.Now(), pn, protocol.KeyPhaseOne, ad)
+				require.NoError(t, err)
+				pn++
+			}
+
+			// No update allowed before receiving an acknowledgement for the current key phase
+			require.Equal(t, protocol.KeyPhaseOne, server.KeyPhase())
+			sealForTest(t, server, nil, msg, 1, ad)
+			require.NoError(t, server.SetLargestAcked(firstKeyUpdateInterval+1))
+			require.Equal(t, protocol.KeyPhaseZero, server.KeyPhase())
+			require.Equal(t,
+				append(
+					bothSides(qlog.KeyDiscarded{KeyPhase: 0}),
+					bothSides(qlog.KeyUpdated{KeyPhase: 2, Trigger: qlog.KeyUpdateLocal})...,
+				),
+				eventRecorder.Events(),
+			)
+		})
 	}
-
-	// the first update is allowed without receiving an acknowledgement
-	require.Equal(t, protocol.KeyPhaseOne, server.KeyPhase())
-	require.Equal(t,
-		bothSides(qlog.KeyUpdated{KeyPhase: 1, Trigger: qlog.KeyUpdateLocal}),
-		eventRecorder.Events(),
-	)
-	eventRecorder.Clear()
-
-	// subsequent key update
-	client.rollKeys()
-	for range keyUpdateInterval {
-		require.Equal(t, protocol.KeyPhaseOne, server.KeyPhase())
-		encrypted := sealForTest(t, client, nil, msg, pn, ad)
-		_, err := server.Open(nil, encrypted, monotime.Now(), pn, protocol.KeyPhaseOne, ad)
-		require.NoError(t, err)
-		pn++
-	}
-
-	// No update allowed before receiving an acknowledgement for the current key phase
-	require.Equal(t, protocol.KeyPhaseOne, server.KeyPhase())
-	sealForTest(t, server, nil, msg, 1, ad)
-	require.NoError(t, server.SetLargestAcked(firstKeyUpdateInterval+1))
-	require.Equal(t, protocol.KeyPhaseZero, server.KeyPhase())
-	require.Equal(t,
-		append(
-			bothSides(qlog.KeyDiscarded{KeyPhase: 0}),
-			bothSides(qlog.KeyUpdated{KeyPhase: 2, Trigger: qlog.KeyUpdateLocal})...,
-		),
-		eventRecorder.Events(),
-	)
 }
 
 func TestKeyUpdateKeyPhaseSkipping(t *testing.T) {
