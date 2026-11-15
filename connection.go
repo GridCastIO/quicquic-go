@@ -1517,6 +1517,13 @@ func (c *Conn) handleShortHeaderPacket(
 		return false, nil
 	}
 
+	if admitted, err := c.admitDatagramPacket(data, protocol.Encryption1RTT); err != nil {
+		return false, err
+	} else if !admitted {
+		c.unprocessedPacketDropped(p)
+		return false, nil
+	}
+
 	var log func([]qlog.Frame)
 	if c.qlogger != nil {
 		log = func(frames []qlog.Frame) {
@@ -1662,6 +1669,13 @@ func (c *Conn) handleLongHeaderPacket(p receivedPacket, hdr *wire.Header, datagr
 				Trigger:                 qlog.PacketDropDuplicate,
 			})
 		}
+		return false, nil
+	}
+
+	if admitted, err := c.admitDatagramPacket(packet.data, packet.encryptionLevel); err != nil {
+		return false, err
+	} else if !admitted {
+		c.unprocessedPacketDropped(p)
 		return false, nil
 	}
 
@@ -3415,7 +3429,9 @@ func (c *Conn) DatagramReceiveDropsV1() uint64 {
 // On a connection with DATAGRAM support, every admission also requires the queued
 // packets plus the DATAGRAM payloads still awaiting ReceiveDatagram to
 // number fewer than 1,024. A packet refused by that condition is also dropped
-// and counted. The count excludes packets released because the
+// and counted. Configured jumbo receivers also count authenticated packets
+// refused before frame handling because their DATAGRAMs exceed the remaining
+// receive-queue capacity. The count excludes packets released because the
 // connection has closed. The dropped packets are never acknowledged, so the
 // peer's loss detection sees them. The count never decreases, is safe to call
 // concurrently, and keeps its value after the connection closes.

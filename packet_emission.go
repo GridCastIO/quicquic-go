@@ -284,7 +284,7 @@ func (e *packetEmission) pacingDeadline() monotime.Time {
 }
 
 // appendPacket packs, logs and registers one packet. With datagramOnly, the
-// packet carries only the next queued DATAGRAM frame, and errNothingToPack
+// packet carries queued DATAGRAM frames (one at standard size), and errNothingToPack
 // leaves a frame that doesn't fit queued.
 func (e *packetEmission) appendPacket(buf *packetBuffer, maxSize protocol.ByteCount, datagramOnly bool, ecn protocol.ECN, now monotime.Time) (nativePacketReceipt, error) {
 	return e.appendPacketProtected(buf, maxSize, datagramOnly, ecn, now, nil)
