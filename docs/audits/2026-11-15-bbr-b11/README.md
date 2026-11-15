@@ -55,7 +55,7 @@ Unequal-path diagnostics are reported separately, without qualification threshol
 | C | 490 / 490 / 492 | 489.543, 903.613 / 483.093, 897.109 / 463.642, 902.630 | 1.000000 / 1.000000 / 1.000000 | 29.598, 84.272 / 29.653, 85.922 / 29.661, 84.297 |
 | E | 488 / 488 / 488 | 605.054 / 614.276 / 608.897 | 0.999800 / 1.000000 / 0.999933 | 83.173 / 82.729 / 83.138 |
 
-Every unequal observation reports zero empty STREAM seconds and zero focal packets lost. E completed 488 objects in each round; its p99 STREAM completion was 605.054/614.276/608.897 ms and DATAGRAM p99 latency 83.173/82.729/83.138 ms. These are measured outcomes at the fixed load, not numerical service guarantees.
+Every unequal observation reports zero empty STREAM seconds. E completed 488 objects in each round; its p99 STREAM completion was 605.054/614.276/608.897 ms and DATAGRAM p99 latency 83.173/82.729/83.138 ms. These are measured outcomes at the fixed load, not numerical service guarantees.
 
 ## Charges and closure boundary
 
