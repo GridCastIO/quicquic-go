@@ -1,0 +1,52 @@
+{
+  "controller": "bbrv3",
+  "go": "go1.27.4",
+  "granted": false,
+  "gso_capable": true,
+  "window_cpu_s": 83.700428,
+  "window_rusage": {
+    "start": {
+      "user_cpu_ns": 10602168000,
+      "system_cpu_ns": 3890369000,
+      "voluntary_context_switches": 821225,
+      "involuntary_context_switches": 2097
+    },
+    "end": {
+      "user_cpu_ns": 72039519000,
+      "system_cpu_ns": 26153446000,
+      "voluntary_context_switches": 5608569,
+      "involuntary_context_switches": 15034
+    },
+    "delta": {
+      "user_cpu_ns": 61437351000,
+      "system_cpu_ns": 22263077000,
+      "voluntary_context_switches": 4787344,
+      "involuntary_context_switches": 12937
+    }
+  },
+  "rss_kb_at_20s": 24840,
+  "rss_kb_end": 24916,
+  "heap_inuse_end": 5185536,
+  "write_errors": 0,
+  "joined": false,
+  "application_send_call": {
+    "ordinary": {
+      "count": 803693,
+      "p50_us": 57.343,
+      "p99_us": 262.143,
+      "max_us": 2880.658
+    }
+  },
+  "application_send_call_boundary": "elapsed Stream.Write / SendDatagram call time; neither native return nor peer delivery",
+  "connections": [
+    {
+      "label": "ordinary",
+      "multipath_negotiated": false,
+      "packets_sent": 45409191,
+      "packets_lost": 0,
+      "bytes_sent": 64812984884,
+      "close_cause": "",
+      "timeout_close": false
+    }
+  ]
+}
