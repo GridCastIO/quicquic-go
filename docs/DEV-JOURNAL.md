@@ -11081,3 +11081,28 @@ All applicable hosted checks passed. The actual post-ready [peer job for PR #139
 ### Next
 
 The committed plan and index identify [B12 (#1385)](https://github.com/the-sarge/quic-go-fast/issues/1385) as the sole successor, following its positive publication branch: public admission, the accepted independent-peer evidence, and removal of private activation and the finite comparison apparatus. [Continuation #1374](https://github.com/the-sarge/quic-go-fast/issues/1374) is the live coordination view. B11 (#1384) introduces no follow-up issue or additional campaign.
+
+---
+
+## Experimental BBR aggregate published - 2026-11-15 15:32 EST
+
+**Main:** `8c0e70a8b858`
+**Actor:** Codex
+
+### Completed
+
+Published experimental BBR aggregate support in [B12 (#1385)](https://github.com/the-sarge/quic-go-fast/issues/1385), merged through [PR #1393](https://github.com/the-sarge/quic-go-fast/pull/1393) at `8c0e70a8b8584ba7b1d9a0f3a3b236b821643060`. Public configuration selects the existing paced byte-round-robin scheduler; common admission rechecks the final policy/controller pair, so Reno aggregate remains rejected even after cloning and controller changes. Reno default and BBR primary/backup remain. Private experiment activation and the finite comparison runner are retired, with frozen evidence preserved. The same product PR marks B12 and the B continuation complete with no successor frontier.
+
+### Decisions
+
+The [B12 support record (#1385)](audits/2026-11-15-bbr-b12-support.md) publishes B11's positive fixed comparison with its unchanged median-paired gates, individual shared round below threshold, exact accepted ordinary-cost exceptions and unqualified BBR status. Aggregation remains experimental, uncoupled and limited to the existing Linux amd64 draft-21 QUIC v1/native-grant profile; it establishes no universal performance/fairness, full Q2 or application-adoption claim. New additional paths require explicit local activation for concurrent use.
+
+### Validation
+
+Reviewed/certified head `fd33b522c9f420fb83a6f2a73c4c3eb5e0d78b01` against base `0e1cf6ab028597825f57db67c09941431491943e`. Independent Standards/Spec preparation, initial full-panel RAS `20261115T200129-4fdf21473fa6e81f0f084168`, exact-head verification and replacement `20261115T201331-372bd69a72c00bf9883001fb` completed under the bounded policy. [Final dispositions on PR #1393](https://github.com/the-sarge/quic-go-fast/pull/1393#issuecomment-6900795070) reject the trace concern using the existing DATAGRAM/FIFO barrier and defer two noncritical documentation/evidence-aid strengthenings; merged-head revalidation confirms the frozen positive result and preserved recovery behavior, with no marginal follow-up issue.
+
+The complete local Go suite, native root/ACK-handler suites, one focused native lifecycle race, vet, module tidiness, lint and 79 Python fixture tests passed. Six public BBR aggregate peer cases passed, including both-role new STREAM traffic on both simultaneously active paths; exact measured source and later source-applicability limits are retained. All applicable hosted checks passed on the certified head, including the actual post-ready [16-case Reno peer run](https://github.com/the-sarge/quic-go-fast/actions/runs/43758030299) and separate negotiated-zero evidence. [Program #646](https://github.com/the-sarge/quic-go-fast/issues/646) records 412/420 charged instances and 16359.32814715980921592/28800 host-seconds after this slice; no clean rerun or additional campaign occurred.
+
+### Next
+
+B12 (#1385) is closed. This entry completes its post-merge journal step; the coordinator reconciles the mutable continuation and parent trackers and completes administrative cleanup. [Continuation #1374](https://github.com/the-sarge/quic-go-fast/issues/1374) and [program #646](https://github.com/the-sarge/quic-go-fast/issues/646) remain the live views. No further continuation slice or peer campaign is scheduled; full [Q2 (#599)](https://github.com/the-sarge/quic-go-fast/issues/599) remains outside this work.
