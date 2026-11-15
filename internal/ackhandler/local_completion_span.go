@@ -72,7 +72,7 @@ func TryCompleteLocalAcceptedPackets(handler LocalSentPacketHandler, tokens []Lo
 			key := congestionKey(r.level, r.pn)
 			info := d.packets.borrow(key)
 			slot := d.recovery.find(key)
-			if r.timingMissing || r.richOrdinal == 0 || info == nil || info.Ordinal != r.richOrdinal ||
+			if r.timingMissing || r.richOrdinal == 0 || info == nil || info.Ordinal != r.richOrdinal || info.PathGeneration != d.pathGeneration ||
 				slot < 0 || d.recovery.index.outcomes[slot].ordinal != r.richOrdinal ||
 				d.recovery.index.outcomes[slot].state != outcomeUnresolved || d.recovery.local.outcomes[slot].registration != r {
 				return false
