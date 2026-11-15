@@ -14,8 +14,8 @@ type creditPair struct {
 	queued bool // handed off: only a worker-side complete may follow
 }
 
-// The recycling ledger is equivalent to the predecessor on every operation
-// sequence emission and the worker can issue: identical ledger state and
+// For the preserved exact-reservation operations, the recycling ledger is
+// equivalent to the predecessor: identical ledger state and
 // returns after every operation, and identical wakeup tokens wherever a wait
 // can begin (after a refusal's drain, after a wait's rearm, and after a worker
 // completion). Connection-side releases are the only operations at which the

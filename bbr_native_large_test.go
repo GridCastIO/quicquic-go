@@ -279,7 +279,7 @@ func TestBBRNativeLargeMemberSelection(t *testing.T) {
 	}
 }
 
-func TestBBRNativeLargeCreditRefusalPreservesControl(t *testing.T) {
+func TestBBRNativeLargeGenerationDebtPreservesControl(t *testing.T) {
 	for _, ack := range []bool{false, true} {
 		t.Run(map[bool]string{false: "no ACK", true: "due ACK"}[ack], func(t *testing.T) {
 			nativeOrdinaryTest(t, func(t *testing.T) {
@@ -289,13 +289,14 @@ func TestBBRNativeLargeCreditRefusalPreservesControl(t *testing.T) {
 				held := p.credit.reserve(p.creditLimit()-32768, p.creditLimit(), true, false)
 				require.NotNil(t, held)
 				defer held.complete()
+				c.emission.resetLocalPath(1, now)
 				if ack {
 					require.NoError(t, c.receivedPacketHandler.ReceivedPacket(4, protocol.ECNNon, protocol.Encryption1RTT, now, true))
 					require.NoError(t, c.receivedPacketHandler.ReceivedPacket(5, protocol.ECNNon, protocol.Encryption1RTT, now, true))
 				}
 				result := c.emission.send(now, true)
 				require.NoError(t, result.err)
-				require.NotNil(t, c.datagramQueue.Peek(), "the larger exact request refuses before destructive packing")
+				require.NotNil(t, c.datagramQueue.Peek(), "generation debt refuses ordinary packing despite partial room")
 				require.Equal(t, ack, result.progress)
 				if ack {
 					require.True(t, result.retry)
