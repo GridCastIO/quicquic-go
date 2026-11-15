@@ -202,4 +202,4 @@ Dropped by [owner decision on #1356](https://github.com/the-sarge/quic-go-fast/i
 
 <a id="controller-matched-aggregation-arms"></a>
 
-The completed six-arm inventory is historical; the current B11 four-arm inventory above is authoritative for this continuation.
+The [completed six-arm inventory](https://github.com/the-sarge/quic-go-fast/blob/b4e3a4474f51a7b1fa60a0febbc79b04da4c4e72/docs/adr/2026-10-24-multipath-bbr-plan.md#controller-matched-aggregation-arms) is historical; the current B11 four-arm inventory above is authoritative for this continuation.
