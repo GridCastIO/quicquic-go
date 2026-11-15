@@ -10956,3 +10956,28 @@ The scoped wrong-policy mutation made the zero-budget case leak STREAM payload a
 ### Next
 
 No follow-up was created from this review. [Issue #1368 — BBR ordinary-flow cost qualification](https://github.com/the-sarge/quic-go-fast/issues/1368) remains the live view of deferred cost work; this coverage does not requalify BBR primary/backup or reopen that work.
+
+---
+
+## Ordinary BBR cost redesign landed (#1368) - 2026-11-15 00:30 EST
+
+**Main:** `fe5207c2532a`
+**Actor:** Codex
+
+### Summary
+
+Merged [PR #1377 — Reduce ordinary BBR overhead on granted endpoints](https://github.com/the-sarge/quic-go-fast/pull/1377), closing [issue #1368 — BBR ordinary-flow cost qualification](https://github.com/the-sarge/quic-go-fast/issues/1368). The selected implementation retains E02, E06, E08 and E09; E11 was rejected after its valid measurement established no useful benefit. Public multipath remains Reno-only, and BBR remains experimental and unqualified for Q2.
+
+### Decisions
+
+The [owner's exact-result acceptance for issue #1368](https://github.com/the-sarge/quic-go-fast/issues/1368#issuecomment-6889212163) covers mixed-bulk granted/control goodput **0.944295141** and CPU/useful-byte **1.208131477**, plus stateless-pressure CPU/useful-byte **1.159370297**; stateless goodput **0.959070830** passes. The original minimum goodput ratio **0.95**, maximum CPU ratio **1.10** and raw failed verdicts remain unchanged. This acceptance applies to the recorded results and does not waive correctness, interoperability, review or public-scope constraints.
+
+### Validation
+
+The [final native qualification receipt](https://github.com/the-sarge/quic-go-fast/blob/fe5207c2532aed00bb7a9fe3da60746fd4582391/docs/audits/2026-11-14-bbr-ordinary-cost-1368/final-qualification/README.md) records all **12 clean ordinary observations**, with no replacements, and all **six BBR interoperability cases** plus their original aggregate passing independent artifact audit. The [initial review disposition](https://github.com/the-sarge/quic-go-fast/blob/fe5207c2532aed00bb7a9fe3da60746fd4582391/docs/audits/2026-11-14-bbr-ordinary-cost-1368/review/initial-disposition.md) and [replacement review and certification receipt](https://github.com/the-sarge/quic-go-fast/blob/fe5207c2532aed00bb7a9fe3da60746fd4582391/docs/audits/2026-11-14-bbr-ordinary-cost-1368/review/replacement-disposition.md) preserve the two full-panel RAS runs, `20261115T044010-73516bc125a2bca0aee2c78e` and `20261115T045741-51989ba8517075e39c8a5764`. Required documentation corrections and test-only lint fixes were completed; final tests, focused races, vet, tidy and lint passed. No follow-up finding remains.
+
+The actual [PR #1377 ready-head independent-peer job](https://github.com/the-sarge/quic-go-fast/actions/runs/43680539392/job/132709977665), run `43680539392` at head `338b6d69c3b46cc396a92a8539a2f198bbbfb635`, passed all **16 independent Reno observations** and the separate non-independent zero-evidence check; independent artifact audit passed. Its **16 instances /224 job-seconds** charge brings [closed program tracker #646](https://github.com/the-sarge/quic-go-fast/issues/646) to **283/420 instances /12588.07078762835985/28800 seconds**, leaving **137 instances /16211.92921237164015 seconds**. The parent program remains closed.
+
+### Next
+
+No new optimization or follow-up task was created. [Deferred issue #1374 — BBR primary/backup aggregation](https://github.com/the-sarge/quic-go-fast/issues/1374) remains the live view: its ordinary-cost dependency is resolved, while primary/backup requalification and scoped aggregation design remain outstanding and deferred.
