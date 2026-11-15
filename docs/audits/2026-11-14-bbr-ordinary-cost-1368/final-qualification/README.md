@@ -1,6 +1,6 @@
 # Final native qualification receipt (#1368)
 
-**Native inventory complete; ordinary raw verdict FAILED with exact owner-accepted exceptions; six-case BBR interoperability PASS. Full-panel review and exact ready-head required checks remain PENDING.** This receipt covers [BBR ordinary-flow cost (#1368)](https://github.com/the-sarge/quic-go-fast/issues/1368), not public BBR multipath enablement, aggregation, full Q2 qualification or application adoption. The [candidate applicability record](../candidate-applicability.md) preserves the scoped Reno/native-owner evidence carry and remaining review obligations.
+**Native inventory complete; ordinary raw verdict FAILED with exact owner-accepted exceptions; six-case BBR interoperability PASS. Full-panel review and final local certification are COMPLETE; exact ready-head required checks remain PENDING. See the [review receipt](../review/replacement-disposition.md).** This receipt covers [BBR ordinary-flow cost (#1368)](https://github.com/the-sarge/quic-go-fast/issues/1368), not public BBR multipath enablement, aggregation, full Q2 qualification or application adoption. The [candidate applicability record](../candidate-applicability.md) preserves the scoped Reno/native-owner evidence carry and remaining review obligations.
 
 ## Source, venue and commands
 

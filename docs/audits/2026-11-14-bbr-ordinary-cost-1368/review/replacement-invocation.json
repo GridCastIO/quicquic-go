@@ -1,0 +1,17 @@
+{
+  "run_id": "20261115T045741-51989ba8517075e39c8a5764",
+  "pr": 1377,
+  "head": "fc5193dd346d9991c12ad7771f2d970f2b687e51",
+  "base": "62247738352d9f645935518fa9259fe4e2f48dc8",
+  "brief_path": "/tmp/qgf-1377-replacement-brief.md",
+  "brief_sha256": "8180eb427cf049ba70cc0dc32bc1c45db08aa0f22d4d38bb0e9cec8f06d1b9c7",
+  "config_path": "/tmp/qgf-ras-1368.yaml",
+  "full_panel": [
+    "codex-astra",
+    "codex-sol",
+    "claude-fable",
+    "claude-opus"
+  ],
+  "review_round": "one permitted replacement",
+  "local_certificate_sha256": "4a4c32d2435ee66f216dcdd1b04665e1ee9c6d505677bd322c57bdb25d5cec31"
+}

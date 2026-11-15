@@ -24,7 +24,7 @@ Append-only plans and outcomes: [experiment ledger](2026-11-14-bbr-ordinary-cost
 
 ## Delivery state
 
-The complete 12-observation ordinary campaign is valid, with zero replacements. Original medians are mixed-bulk 0.944295141 goodput /1.208131477 CPU/useful byte and stateless-pressure 0.959070830 /1.159370297. The owner explicitly accepted these exact final measured exceptions after reviewing the wider result; preserve the original 0.95 /1.10 targets and raw failed verdicts. All other ordinary checks pass. Six BBR interop cases and their aggregate have passed independent identity/trace audit. Complete full-panel review, exact ready-head checks and authorized merge; E11 remains rejected and reverted. Recommendation: deliver retained E09 under the documented exact-result exceptions after remaining checks.
+The complete 12-observation ordinary campaign is valid, with zero replacements. Original medians are mixed-bulk 0.944295141 goodput /1.208131477 CPU/useful byte and stateless-pressure 0.959070830 /1.159370297. The owner explicitly accepted these exact final measured exceptions after reviewing the wider result; preserve the original 0.95 /1.10 targets and raw failed verdicts. All other ordinary checks pass. Six BBR interop cases and their aggregate have passed independent identity/trace audit. Full-panel review and final local certification are complete. Finish exact ready-head checks and authorized merge; E11 remains rejected and reverted. Recommendation: deliver retained E09 under the documented exact-result exceptions after remaining checks.
 
 ## Current design update — E02/E03, 2026-11-14
 
@@ -121,3 +121,8 @@ The final ordinary campaign and independent audit are complete. The owner explic
 ## Current delivery update — native qualification complete
 
 All six BBR interop cases and original aggregate pass independent audit, with exact source/image/binary/peer identity and retained bounded trace evidence. The final ordinary results are accepted by the owner as exact-result exceptions while their raw failed verdicts remain. Local correctness/cross-compilation evidence passes at the same Go/module source. Program #646 usage is 267/420 instances /12364.07078762835985 seconds, remaining 153 /16435.92921237164015. Proceed to full-panel review and required ready-head checks, then merge. No native workload, temporary container or shared-host policy change remains.
+
+
+## Final review and local certification — 2026-11-15 America/New_York
+
+[PR #1377](https://github.com/the-sarge/quic-go-fast/pull/1377) completed the initial and single permitted replacement full-panel RAS reviews. Two documentation corrections were integrated; the remaining diagnostic-success and comment-scope suggestions were independently rejected as unnecessary. The [review receipt](2026-11-14-bbr-ordinary-cost-1368/review/replacement-disposition.md) preserves exact run/head identities, dispositions and passing final local certification. The only post-qualification Go changes are three behavior-preserving test switches required by staticcheck; production and qualification apparatus remain identical. Native measurements retain their original source/binary identities and the owner’s exact-result exceptions. Complete the existing hosted checks, including the actual ready-head independent-peer run, then perform the authorized merge.
