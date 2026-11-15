@@ -556,18 +556,23 @@ func TestMultipathCreditDefaultDisabledAndFresh(t *testing.T) {
 	require.Error(t, err, "a closed CID owner cannot activate private state")
 }
 
-func TestMultipathPrivateSchedulerActivation(t *testing.T) {
+func TestMultipathPublicSchedulerActivation(t *testing.T) {
 	for _, scheduler := range []pathScheduler{schedulePrimaryBackup, scheduleAggregate} {
 		t.Run(fmt.Sprint(scheduler), func(t *testing.T) {
 			tc, _ := newCreditTestOwners(t)
 			conf := tc.conn.config.Clone()
-			conf.multipath.experimentScheduler = scheduler
+			require.NoError(t, conf.SetCongestionControlV1("bbrv3"))
+			policy := "primary-backup"
+			if scheduler == scheduleAggregate {
+				policy = "aggregate"
+			}
+			require.NoError(t, conf.ConfigureMultipathV1(true, 2, policy))
 			tc.conn.config = populateConfig(conf)
-			conf.multipath.experimentScheduler = schedulePrimaryBackup
+			require.NoError(t, conf.ConfigureMultipathV1(true, 2, "primary-backup"))
 			_, err := tc.conn.enableMultipathCredit(2, 1, 4)
 			require.NoError(t, err)
 			require.Equal(t, scheduler, tc.conn.pathCredit.scheduler)
-			tc.conn.config.multipath.experimentScheduler = schedulePrimaryBackup
+			require.NoError(t, tc.conn.config.ConfigureMultipathV1(true, 2, "primary-backup"))
 			require.Equal(t, scheduler, tc.conn.pathCredit.scheduler, "activation captures the copied choice once")
 		})
 	}

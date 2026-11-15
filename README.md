@@ -22,7 +22,7 @@ Shipped capabilities combine fork-specific work and selected upstream fixes. See
 
 **Experimental BBRv3 for lossy bulk transfers.** Opt in with `Config.SetCongestionControlV1("bbrv3")`. The measured benefit below is against fast.8 Reno. BBR remains **unqualified**: higher memory use, control-message latency and adverse Reno coexistence remain limitations. **Reno remains the default.** See the [release's BBR status](https://github.com/the-sarge/quic-go-fast/releases/tag/v0.62.1-fast.8#corrected-bbr-and-subsequent-recovery).
 
-**Unreleased on `main`: experimental multipath primary/backup.** This API is absent from the recommended fast.9 tag. Opt in with `Config.ConfigureMultipathV1(true, 2, "primary-backup")` and an explicit native UDP socket grant. Draft-21 QUIC v1 on Linux amd64 supports default Reno or explicitly selected BBR. BBR support carries exact accepted ordinary-cost exceptions; the underlying controller remains unqualified and aggregation remains refused. See the [tested profile, evidence and limitations](docs/audits/2026-11-15-bbr-b9-support.md).
+**Unreleased on `main`: experimental multipath.** This API is absent from the recommended fast.9 tag. Opt in with `Config.ConfigureMultipathV1(true, 2, "primary-backup")` and an explicit native UDP socket grant. Draft-21 QUIC v1 on Linux amd64 supports default Reno or explicitly selected BBR. BBR also accepts `"aggregate"`, using uncoupled paced byte round-robin after its positive fixed comparison. BBR retains exact accepted ordinary-cost exceptions and its unqualified controller status. No universal performance, fairness or adoption claim follows. See the [tested profile, evidence and limitations](docs/audits/2026-11-15-bbr-b12-support.md).
 
 ## Performance evidence
 

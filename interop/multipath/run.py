@@ -51,7 +51,7 @@ def matrix_invocation(scenario, role, test_binary=None, controller="reno"):
     return command, [f"TestPicoquicMultipathMatrix/{scenario}/{role}"]
 
 
-def check_matrix(root, controller="reno"):
+def check_matrix(root, controller="reno", policy="primary-backup"):
     expected = matrix_expected(controller)
     identity = None
     expected_paths = set()
@@ -71,11 +71,13 @@ def check_matrix(root, controller="reno"):
             raise ValueError(f"invalid case receipt: {case}")
         if result.get("controller", "reno") != controller:
             raise ValueError(f"matrix controller mismatch: {case}")
+        if result.get("policy", "primary-backup") != policy:
+            raise ValueError(f"matrix policy mismatch: {case}")
         if identity is None:
             identity = result["identity"]
         elif result["identity"] != identity:
             raise ValueError(f"matrix candidate/build/kernel identity changed: {case}")
-    result = {"status": "pass", "executed": expected, "identity": identity, "controller": controller,
+    result = {"status": "pass", "executed": expected, "identity": identity, "controller": controller, "policy": policy,
               "guarantee": "example-level; fixed draft-21 QUIC v1 scenarios only"}
     if controller == "reno":
         zero = root / "negotiated-zero"
@@ -139,13 +141,16 @@ def main():
     modes.add_argument("--matrix", action="store_true", help="run exactly one R17 scenario/role")
     modes.add_argument("--zero-vectors", action="store_true", help="run the separate negotiated-zero normative/controlled evidence")
     modes.add_argument("--validate-matrix", action="store_true", help="validate the 16 retained independent case receipts")
+    parser.add_argument("--policy", choices=("primary-backup", "aggregate"), default="primary-backup")
     parser.add_argument("--controller", choices=("reno", "bbrv3"), default="reno")
     parser.add_argument("--scenario", choices=MATRIX_SCENARIOS)
     parser.add_argument("--role", choices=("client", "server"))
     parser.add_argument("--test-binary", type=Path)
     args = parser.parse_args()
+    if args.policy == "aggregate" and (args.controller != "bbrv3" or not (args.matrix or args.validate_matrix)):
+        parser.error("aggregate requires the fixed BBR matrix")
     if args.validate_matrix:
-        result = check_matrix(args.output, args.controller)
+        result = check_matrix(args.output, args.controller, args.policy)
         with (args.output / "matrix-result.json").open("x") as output:
             json.dump(result, output, indent=2)
             output.write("\n")
@@ -170,7 +175,7 @@ def main():
     identity = execution_identity(args.binary, args.test_binary) if args.matrix or args.zero_vectors else None
     args.output.mkdir(parents=True, exist_ok=False)
     env = os.environ | {"PICOQUIC_BINARY": str(Path(args.binary).resolve()), "PICOQUIC_LOG_DIR": str(args.output.resolve()),
-                        "PICOQUIC_CONTROLLER": args.controller}
+                        "PICOQUIC_CONTROLLER": args.controller, "PICOQUIC_POLICY": args.policy}
     command = ["go", "test", "-json", "-tags=picoquic", "-run=^TestPicoquicOrdinaryControl$", "-count=1", "-timeout=90s", "./integrationtests/self", "-version=1"]
     package, expected = PACKAGE, EXPECTED
     if args.smoke:
@@ -188,7 +193,7 @@ def main():
         package, expected = SMOKE_PACKAGE, ZERO_EXPECTED
     started = datetime.now(timezone.utc).isoformat()
     before = time.monotonic()
-    attempt = {"controller": args.controller, "expected": expected, "identity": identity, "command": command, "started": started}
+    attempt = {"policy": args.policy, "controller": args.controller, "expected": expected, "identity": identity, "command": command, "started": started}
     (args.output / "attempt.json").write_text(json.dumps(attempt, indent=2) + "\n")
     with (args.output / "go-test.jsonl").open("w") as log:
         process = subprocess.Popen(command, env=env, stdout=log, stderr=subprocess.STDOUT, start_new_session=True)
@@ -201,7 +206,7 @@ def main():
     if status != 0:
         raise ValueError(f"peer control exited {status}; see {args.output / 'go-test.jsonl'}")
     check_cases((args.output / "go-test.jsonl").read_text().splitlines(), package, expected)
-    result = {"controller": args.controller, "executed": expected, "status": "pass", "identity": identity,
+    result = {"policy": args.policy, "controller": args.controller, "executed": expected, "status": "pass", "identity": identity,
               "command": command, "started": started, "duration_seconds": time.monotonic() - before}
     (args.output / "result.json").write_text(json.dumps(result, indent=2) + "\n")
     print(json.dumps(result))

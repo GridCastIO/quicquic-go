@@ -95,6 +95,19 @@ class AccountingTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             runner.matrix_invocation("path-zero-ack", "client", controller="bbrv3")
 
+    def test_aggregate_policy_requires_matching_case_receipts(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            for case in runner.matrix_expected("bbrv3"):
+                _, scenario, role = case.split("/")
+                directory = root / scenario / role
+                directory.mkdir(parents=True)
+                (directory / "go-test.jsonl").write_text(json.dumps({"Action": "pass", "Package": runner.SMOKE_PACKAGE, "Test": case}) + "\n")
+                (directory / "result.json").write_text(json.dumps({"status": "pass", "executed": [case], "controller": "bbrv3", "policy": "aggregate", "identity": {"candidate": "a" * 40}}))
+            self.assertEqual(runner.check_matrix(root, "bbrv3", "aggregate")["policy"], "aggregate")
+            with self.assertRaisesRegex(ValueError, "policy"):
+                runner.check_matrix(root, "bbrv3", "primary-backup")
+
     def test_aggregate_requires_case_logs_and_one_candidate_identity(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)

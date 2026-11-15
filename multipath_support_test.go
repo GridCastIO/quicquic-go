@@ -5,6 +5,7 @@ package quic
 import (
 	"bytes"
 	"context"
+	"crypto/tls"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -32,7 +33,7 @@ func readMultipathEvidence(t *testing.T, path string, v any) {
 }
 
 // Accepted BBR cost exceptions preserve the original failed verdicts and exact metrics.
-// The previous aggregation candidate still has a valid negative result.
+// The old arrival policy remains negative; the replacement has its own positive receipt.
 func TestMultipathSupportMatchesEvidence(t *testing.T) {
 	// B5's receipts are in the nested docs/audits module, which Go leaves out of this module's
 	// archive. Skip only when that whole tree is absent; in a checkout a missing, unreadable or
@@ -100,98 +101,100 @@ func TestMultipathSupportMatchesEvidence(t *testing.T) {
 	readMultipathEvidence(t, "2026-11-14-multipath-b5/aggregation-gated/aggregation/identity.json", &identity)
 	require.Equal(t, aggregationCandidate, identity.Candidate)
 	require.True(t, aggregation.Complete)
-	require.Equal(t, "negative", aggregation.Support, "aggregation is unsupported")
+	require.Equal(t, "negative", aggregation.Support, "the old arrival policy remains unsupported")
 	require.Equal(t, []string{"balanced"}, aggregation.FailedTopologies)
+	readMultipathEvidence(t, "2026-11-15-bbr-b11/aggregation/summary.json", &aggregation)
+	readMultipathEvidence(t, "2026-11-15-bbr-b11/aggregation/identity.json", &identity)
+	require.Equal(t, "8c34fbac874adf55f096b6c67d51244160169422", identity.Candidate)
+	require.True(t, aggregation.Complete)
+	require.Equal(t, "positive", aggregation.Support, "paced byte round-robin supports experimental BBR aggregate")
+	require.Empty(t, aggregation.FailedTopologies)
+
 }
 
-// The sole private selector is copied by value; public configuration never sets it.
-func TestMultipathSelectionPrivateExperimentBoundary(t *testing.T) {
+// Public policy selection is the only configuration authority for activation.
+func TestMultipathSelectionPublicPolicyBoundary(t *testing.T) {
 	selection := reflect.TypeFor[multipathSelection]()
 	var fields []string
 	for field := range selection.Fields() {
 		fields = append(fields, field.Name)
 	}
-	require.Equal(t, []string{"enabled", "maxPaths", "experimentScheduler"}, fields)
+	require.Equal(t, []string{"enabled", "maxPaths", "scheduler"}, fields)
 	conf := &Config{}
-	conf.multipath.experimentScheduler = scheduleAggregate
-	require.NoError(t, conf.ConfigureMultipathV1(true, 2, "primary-backup"))
-	require.Equal(t, schedulePrimaryBackup, conf.multipath.experimentScheduler)
-	require.ErrorIs(t, conf.ConfigureMultipathV1(true, 2, "aggregate"), ErrMultipathInvalidConfigV1)
-	require.Equal(t, schedulePrimaryBackup, conf.multipath.experimentScheduler)
+	require.NoError(t, conf.ConfigureMultipathV1(true, 2, "aggregate"))
+	saved := conf.Clone()
+	require.ErrorIs(t, conf.ConfigureMultipathV1(true, 2, "unknown"), ErrMultipathInvalidConfigV1)
+	require.Equal(t, saved, conf)
+	require.NoError(t, conf.ConfigureMultipathV1(false, 99, "unknown"))
+	require.False(t, conf.MultipathEnabledV1())
 }
 
 // Public constructors preserve controller selection through setter order and cloning.
 func TestMultipathSupportedCombinations(t *testing.T) {
 	requireMultipathProfile(t)
-	t.Run("aggregate", func(t *testing.T) {
-		for _, controller := range []string{"reno", "bbrv3"} {
-			conf := &Config{}
-			require.NoError(t, conf.SetCongestionControlV1(controller))
-			require.ErrorIs(t, conf.ConfigureMultipathV1(true, 2, "aggregate"), ErrMultipathInvalidConfigV1)
-			require.False(t, conf.MultipathEnabledV1())
-		}
-	})
 
-	for _, controllerFirst := range []bool{true, false} {
-		for _, early := range []bool{false, true} {
-			for _, selected := range []bool{false, true} {
-				t.Run(fmt.Sprintf("BBR/order-%t/early-%t/selected-%t", controllerFirst, early, selected), func(t *testing.T) {
-					conf := &Config{}
-					if controllerFirst {
-						require.NoError(t, conf.SetCongestionControlV1("bbrv3"))
-					}
-					require.NoError(t, conf.ConfigureMultipathV1(true, 2, "primary-backup"))
-					if !controllerFirst {
-						require.NoError(t, conf.SetCongestionControlV1("bbrv3"))
-					}
-					conf = conf.Clone()
-					require.Equal(t, "bbrv3", conf.CongestionControlV1())
-					require.True(t, conf.MultipathEnabledV1())
-					serverTr, clientTr := grantedTransport(t), grantedTransport(t)
-					serverConf := conf
-					if selected {
-						serverConf = &Config{GetConfigForClient: func(*ClientInfo) (*Config, error) { return conf.Clone(), nil }}
-					}
-					ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
-					defer cancel()
-					var accept func(context.Context) (*Conn, error)
-					if early {
-						ln, err := serverTr.ListenEarly(nativeServerTLS(), serverConf)
-						require.NoError(t, err)
-						t.Cleanup(func() { ln.Close() })
-						accept = ln.Accept
-					} else {
-						ln, err := serverTr.Listen(nativeServerTLS(), serverConf)
-						require.NoError(t, err)
-						t.Cleanup(func() { ln.Close() })
-						accept = ln.Accept
-					}
-					dial := clientTr.Dial
-					if early {
-						dial = clientTr.DialEarly
-					}
-					client, err := dial(ctx, serverTr.Conn.LocalAddr(), nativeClientTLS(), conf.Clone())
-					require.NoError(t, err)
-					t.Cleanup(func() { client.CloseWithError(0, "") })
-					server, err := accept(ctx)
-					require.NoError(t, err)
-					t.Cleanup(func() { server.CloseWithError(0, "") })
-					for _, conn := range []*Conn{client, server} {
-						select {
-						case <-conn.HandshakeComplete():
-						case <-ctx.Done():
-							t.Fatal(ctx.Err())
+	for _, policy := range []string{"primary-backup", "aggregate"} {
+		for _, controllerFirst := range []bool{true, false} {
+			for _, early := range []bool{false, true} {
+				for _, selected := range []bool{false, true} {
+					t.Run(fmt.Sprintf("BBR/%s/order-%t/early-%t/selected-%t", policy, controllerFirst, early, selected), func(t *testing.T) {
+						conf := &Config{}
+						if controllerFirst {
+							require.NoError(t, conf.SetCongestionControlV1("bbrv3"))
 						}
-						negotiated, err := conn.MultipathNegotiatedV1()
+						require.NoError(t, conf.ConfigureMultipathV1(true, 2, policy))
+						if !controllerFirst {
+							require.NoError(t, conf.SetCongestionControlV1("bbrv3"))
+						}
+						conf = conf.Clone()
+						require.Equal(t, "bbrv3", conf.CongestionControlV1())
+						require.True(t, conf.MultipathEnabledV1())
+						serverTr, clientTr := grantedTransport(t), grantedTransport(t)
+						serverConf := conf
+						if selected {
+							serverConf = &Config{GetConfigForClient: func(*ClientInfo) (*Config, error) { return conf.Clone(), nil }}
+						}
+						ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+						defer cancel()
+						var accept func(context.Context) (*Conn, error)
+						if early {
+							ln, err := serverTr.ListenEarly(nativeServerTLS(), serverConf)
+							require.NoError(t, err)
+							t.Cleanup(func() { ln.Close() })
+							accept = ln.Accept
+						} else {
+							ln, err := serverTr.Listen(nativeServerTLS(), serverConf)
+							require.NoError(t, err)
+							t.Cleanup(func() { ln.Close() })
+							accept = ln.Accept
+						}
+						dial := clientTr.Dial
+						if early {
+							dial = clientTr.DialEarly
+						}
+						client, err := dial(ctx, serverTr.Conn.LocalAddr(), nativeClientTLS(), conf.Clone())
 						require.NoError(t, err)
-						require.True(t, negotiated)
-						require.Equal(t, "bbrv3", conn.CongestionControlV1())
-					}
-				})
+						t.Cleanup(func() { client.CloseWithError(0, "") })
+						server, err := accept(ctx)
+						require.NoError(t, err)
+						t.Cleanup(func() { server.CloseWithError(0, "") })
+						for _, conn := range []*Conn{client, server} {
+							select {
+							case <-conn.HandshakeComplete():
+							case <-ctx.Done():
+								t.Fatal(ctx.Err())
+							}
+							negotiated, err := conn.MultipathNegotiatedV1()
+							require.NoError(t, err)
+							require.True(t, negotiated)
+							require.Equal(t, "bbrv3", conn.CongestionControlV1())
+						}
+					})
+				}
 			}
 		}
-	}
 
+	}
 	t.Run("Reno primary/backup", func(t *testing.T) {
 		for _, explicit := range []bool{false, true} {
 			conf := multipathConfig(t)
@@ -275,7 +278,7 @@ func TestMultipathBBRPublicTransferAndJoin(t *testing.T) {
 	}
 }
 
-// The experiment traverses public admission and copies its choice before either
+// The public aggregate policy traverses admission and copies its choice before either
 // connection runs. No command changes a running connection's scheduler.
 func TestMultipathAggregateTransferAndJoin(t *testing.T) {
 	requireMultipathProfile(t)
@@ -283,9 +286,9 @@ func TestMultipathAggregateTransferAndJoin(t *testing.T) {
 	require.NoError(t, conf.SetCongestionControlV1("bbrv3"))
 	conf.EnableDatagrams = true
 	conf.DisablePathMTUDiscovery = true // MTU probe charging has separate real-packer coverage.
-	conf.multipath.experimentScheduler = scheduleAggregate
+	require.NoError(t, conf.ConfigureMultipathV1(true, 2, "aggregate"))
 	clientConf, serverConf := conf.Clone(), conf.Clone()
-	conf.multipath.experimentScheduler = schedulePrimaryBackup
+	require.NoError(t, conf.ConfigureMultipathV1(true, 2, "primary-backup"))
 	sink := newQlogSink()
 	clientConf.Tracer = sink.tracer
 	serverTr, clientTr, secondTr := grantedTransport(t), grantedTransport(t), grantedTransport(t)
@@ -392,4 +395,35 @@ func TestMultipathAggregateTransferAndJoin(t *testing.T) {
 		require.Positive(t, datagrams[id], "path %d carried DATAGRAM", id)
 	}
 	t.Logf("STREAM bytes by path: %v; DATAGRAMs by path: %v", streamBytes, datagrams)
+}
+
+// Admission rechecks the final controller even after a valid BBR selection was cloned.
+func TestMultipathAggregateRejectsChangedController(t *testing.T) {
+	requireMultipathProfile(t)
+	conf := &Config{}
+	require.NoError(t, conf.SetCongestionControlV1("bbrv3"))
+	require.NoError(t, conf.ConfigureMultipathV1(true, 2, "aggregate"))
+	conf = conf.Clone()
+	require.NoError(t, conf.SetCongestionControlV1("reno"))
+	target := &net.UDPAddr{IP: net.IPv4(127, 0, 0, 1), Port: 9}
+	ctx := t.Context()
+	tr := grantedTransport(t)
+	for _, dial := range []func(context.Context, net.Addr, *tls.Config, *Config) (*Conn, error){tr.Dial, tr.DialEarly} {
+		_, err := dial(ctx, target, nativeClientTLS(), conf)
+		require.ErrorIs(t, err, ErrMultipathUnsupportedV1)
+	}
+	_, err := tr.Listen(nativeServerTLS(), conf)
+	require.ErrorIs(t, err, ErrMultipathUnsupportedV1)
+	_, err = tr.ListenEarly(nativeServerTLS(), conf)
+	require.ErrorIs(t, err, ErrMultipathUnsupportedV1)
+	serverTr := grantedTransport(t)
+	ln, err := serverTr.Listen(nativeServerTLS(), &Config{GetConfigForClient: func(*ClientInfo) (*Config, error) { return conf.Clone(), nil }})
+	require.NoError(t, err)
+	defer ln.Close()
+	dialCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+	_, err = tr.Dial(dialCtx, serverTr.Conn.LocalAddr(), nativeClientTLS(), nil)
+	var refused *TransportError
+	require.ErrorAs(t, err, &refused)
+	require.Equal(t, ConnectionRefused, refused.ErrorCode)
 }
