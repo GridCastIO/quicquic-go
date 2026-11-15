@@ -24,7 +24,7 @@ Append-only plans and outcomes: [experiment ledger](2026-11-14-bbr-ordinary-cost
 
 ## Delivery state
 
-In progress: E09 now has a valid quiet-window comparison. Goodput ratio 0.969333090 meets its target; CPU/useful-byte ratio 1.156907217 still misses 1.10. E09 improves granted absolute CPU/useful byte by 2.64% over valid E08 with 2.81% more useful output, so retain it provisionally. E10 will measure current accepted-member coverage and CPU attribution before another runtime change. Final ordinary-cost qualification, BBR interop, full-panel review, exact-head hosted checks, merge, journal and tracker closure remain. Recommendation: use current-source counts and profiles to identify the remaining CPU work while preserving the valid E09 control.
+In progress: retained E09 has a valid goodput pass (0.969333090) and CPU/useful-byte miss (1.156907217). E10's instrumented, contaminated attribution found that the composite PTO check was the sole recovery decline, while all members reaching rich preflight succeeded. E11 will test a narrow BBR-only source proof: a fully validated accepted member supplies its own positive PTO witness before the scalar timer point. Every other guard and per-packet transition remains; no quiet prevalence or saving follows from E10. Final ordinary-cost qualification, BBR interop, full-panel review, exact-head hosted checks, merge, journal and tracker closure remain. Recommendation: verify and measure this bounded guard change against uninstrumented E09 before further decisions.
 
 ## Current design update — E02/E03, 2026-11-14
 
@@ -96,3 +96,8 @@ Program #646 usage, including recovered setup and measured E09 setup, is 243/420
 ## Current design update — E09 valid result and E10 diagnosis
 
 The replacement is valid with negligible foreign CPU. Only CPU/useful byte fails (1.156907217); goodput passes (0.969333090), and all other product checks pass. Provisionally retain E09 and select bounded current-source member-coverage counters plus profiles, because E07 predates both admission and completion changes. Timing from that instrumented diagnostic will be excluded. Usage is 245/420 instances /11069.54967272945961 host-seconds, remaining 175 /17730.45032727054039.
+
+
+## Current design update — E10 attribution and E11 witness proof
+
+E10 timing is excluded and both observations are contaminated. Its counters nevertheless conserve: the granted interior member path handled 58.6744% of native packets; members containing another 41.1338% first failed the composite PTO group, not rich preflight. The exact failing conjunct and quiet prevalence are unknown. Source review supports testing only BBR's prior-positive-PTO requirement: full token preflight and unchanged first-packet acceptance can establish the required witness before the scalar timer update. E11's pre-code plan preserves all other guards, Reno behavior and the complete closed-span mutation proof. Usage is 247/420 instances /11231.34290643550578 seconds, remaining 173 /17568.65709356449422.
