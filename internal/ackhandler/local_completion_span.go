@@ -18,9 +18,8 @@ func TryCompleteLocalAcceptedPackets(handler LocalSentPacketHandler, tokens []Lo
 		return false
 	}
 	d := h.congestionEvents
-	var records [64]*congestion.PacketInfo
 	if d != nil {
-		if _, bbr := h.congestion.(*congestion.BBRSender); !bbr || len(tokens) > len(records) || !d.localRoute || d.recovery.local == nil {
+		if _, bbr := h.congestion.(*congestion.BBRSender); !bbr || !d.localRoute || d.recovery.local == nil {
 			return false
 		}
 	} else if h.bbrECN != nil {
@@ -49,7 +48,7 @@ func TryCompleteLocalAcceptedPackets(handler LocalSentPacketHandler, tokens []Lo
 		}
 	}
 	previous := protocol.InvalidPacketNumber
-	for i, token := range tokens {
+	for _, token := range tokens {
 		r := token.registration
 		// Epoch and owner are immutable. Reject foreign identities before reading
 		// mutable registration fields owned by another connection.
@@ -68,20 +67,41 @@ func TryCompleteLocalAcceptedPackets(handler LocalSentPacketHandler, tokens []Lo
 		if !present || ps.history.packets[index] != p || index >= len(ps.history.unresolvedLocal) || !ps.history.unresolvedLocal[index] {
 			return false
 		}
-		if d != nil {
-			key := congestionKey(r.level, r.pn)
-			info := d.packets.borrow(key)
-			slot := d.recovery.find(key)
-			if r.timingMissing || r.richOrdinal == 0 || info == nil || info.Ordinal != r.richOrdinal || info.PathGeneration != d.pathGeneration ||
-				slot < 0 || d.recovery.index.outcomes[slot].ordinal != r.richOrdinal ||
-				d.recovery.index.outcomes[slot].state != outcomeUnresolved || d.recovery.local.outcomes[slot].registration != r {
-				return false
-			}
-			records[i] = info
-		}
 		previous = r.pn
 	}
+	if d != nil {
+		return h.completeLocalAcceptedBBR(tokens, returnedAt)
+	}
+	h.completeLocalAcceptedMember(tokens, returnedAt, nil)
+	return true
+}
 
+// Keep bounded borrowed storage off the Reno member's call frame. Common token
+// and history identities have been checked; all rich facts still precede mutation.
+func (h *sentPacketHandler) completeLocalAcceptedBBR(tokens []LocalCompletionToken, returnedAt monotime.Time) bool {
+	var records [64]*congestion.PacketInfo
+	if len(tokens) > len(records) {
+		return false
+	}
+	d := h.congestionEvents
+	for i, token := range tokens {
+		r := token.registration
+		key := congestionKey(r.level, r.pn)
+		info := d.packets.borrow(key)
+		slot := d.recovery.find(key)
+		if r.timingMissing || r.richOrdinal == 0 || info == nil || info.Ordinal != r.richOrdinal || info.PathGeneration != d.pathGeneration ||
+			slot < 0 || d.recovery.index.outcomes[slot].ordinal != r.richOrdinal ||
+			d.recovery.index.outcomes[slot].state != outcomeUnresolved || d.recovery.local.outcomes[slot].registration != r {
+			return false
+		}
+		records[i] = info
+	}
+	h.completeLocalAcceptedMember(tokens, returnedAt, records[:len(tokens)])
+	return true
+}
+
+func (h *sentPacketHandler) completeLocalAcceptedMember(tokens []LocalCompletionToken, returnedAt monotime.Time, records []*congestion.PacketInfo) {
+	ps, d := h.appDataPackets, h.congestionEvents
 	for i, token := range tokens {
 		r := token.registration
 		h.local.owner.pending--
@@ -115,5 +135,4 @@ func TryCompleteLocalAcceptedPackets(handler LocalSentPacketHandler, tokens []Lo
 	// cancellation logger call, qlog or undo observer. Read current RTT and
 	// final evidence; never reuse a cached deadline.
 	h.setLossDetectionTimer(returnedAt)
-	return true
 }
