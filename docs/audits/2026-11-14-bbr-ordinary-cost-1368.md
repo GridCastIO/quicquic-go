@@ -24,7 +24,7 @@ Append-only plans and outcomes: [experiment ledger](2026-11-14-bbr-ordinary-cost
 
 ## Delivery state
 
-In progress: the owner-confirmed quiet window produced one valid E08 diagnostic, supporting provisional retention of the combined larger-member/partial-admission design while both targets remain missed (0.938467975 goodput /1.190607021 CPU per useful byte). E09 accepted-member completion passed correctness checks and independent audits, but renewed fixture-core interference contaminated both observations of its planned comparison. E09 performance is unverified and no automatic retry or subsequent runtime change is selected. A continuous quiet Minimax window is the current external dependency. Final ordinary-cost qualification, BBR interop, full-panel review, exact-head hosted checks, merge, journal and tracker closure remain. Recommendation: obtain that window and compare the unchanged E09 candidate before further runtime decisions.
+In progress: E09 now has a valid quiet-window comparison. Goodput ratio 0.969333090 meets its target; CPU/useful-byte ratio 1.156907217 still misses 1.10. E09 improves granted absolute CPU/useful byte by 2.64% over valid E08 with 2.81% more useful output, so retain it provisionally. E10 will measure current accepted-member coverage and CPU attribution before another runtime change. Final ordinary-cost qualification, BBR interop, full-panel review, exact-head hosted checks, merge, journal and tracker closure remain. Recommendation: use current-source counts and profiles to identify the remaining CPU work while preserving the valid E09 control.
 
 ## Current design update — E02/E03, 2026-11-14
 
@@ -91,3 +91,8 @@ E09 is integrated with independent source/test audits clear and affected local c
 E09's two observations were contaminated by 50.895 /74.013 foreign CPU seconds; their nominal 0.9946 /1.1054 ratios are excluded. The 90-second prelaunch observation and subsequent fresh driver checks did not establish sustained in-run quiet. Preserve the candidate without a performance-retention claim or automatic retry. The owner has been asked for an actual continuous Minimax window; independent source review can prepare conditional next questions, but invalid timing does not select another change.
 
 Program #646 usage, including recovered setup and measured E09 setup, is 243/420 instances and 10915.44544463989606/28800 seconds, leaving 177 /17884.55455536010394. No task operational workload remains and no shared-host policy changed.
+
+
+## Current design update — E09 valid result and E10 diagnosis
+
+The replacement is valid with negligible foreign CPU. Only CPU/useful byte fails (1.156907217); goodput passes (0.969333090), and all other product checks pass. Provisionally retain E09 and select bounded current-source member-coverage counters plus profiles, because E07 predates both admission and completion changes. Timing from that instrumented diagnostic will be excluded. Usage is 245/420 instances /11069.54967272945961 host-seconds, remaining 175 /17730.45032727054039.
