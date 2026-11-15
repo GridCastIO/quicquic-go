@@ -1,0 +1,168 @@
+File: e07.test
+Build ID: 6b36516f58d414a6299eb8e3e613ef140c8e314e
+Type: cpu
+Time: 2026-11-15 00:44:08 UTC
+Duration: 76.99s, Total samples = 102.68s (133.36%)
+Showing nodes accounting for 84.06s, 81.87% of 102.68s total
+Showing top 160 nodes out of 1033
+      flat  flat%   sum%        cum   cum%
+    20.21s 19.68% 19.68%     20.21s 19.68%  internal/runtime/syscall/linux.Syscall6
+     9.43s  9.18% 28.87%      9.43s  9.18%  crypto/internal/fips140/aes/gcm.gcmAesEnc
+     3.24s  3.16% 32.02%      3.26s  3.17%  internal/sync.(*Mutex).Unlock (inline)
+     1.83s  1.78% 33.80%      1.83s  1.78%  runtime.memmove
+     1.61s  1.57% 35.37%      1.61s  1.57%  runtime.futex
+     1.47s  1.43% 36.80%      5.07s  4.94%  github.com/quic-go/quic-go/internal/ackhandler.(*sentPacketHandler).captureCongestionSend
+     1.35s  1.31% 38.12%     17.75s 17.29%  github.com/quic-go/quic-go.(*packetPacker).appendPreparedPacketProtected
+     1.29s  1.26% 39.37%      1.29s  1.26%  runtime.nanotime (inline)
+     1.23s  1.20% 40.57%      1.23s  1.20%  time.runtimeNow
+     1.01s  0.98% 41.56%      1.11s  1.08%  runtime.lock2
+     0.98s  0.95% 42.51%         1s  0.97%  sync.(*poolDequeue).pushHead
+     0.92s   0.9% 43.41%      0.92s   0.9%  crypto/internal/fips140/aes.encryptBlockAsm
+     0.91s  0.89% 44.29%      1.06s  1.03%  github.com/quic-go/quic-go.(*packetPacker).shortHeaderIdentity
+     0.91s  0.89% 45.18%      0.99s  0.96%  github.com/quic-go/quic-go/internal/ackhandler.(*deliveryRecords).take
+     0.88s  0.86% 46.04%      0.89s  0.87%  runtime.unlock2
+     0.84s  0.82% 46.85%      2.21s  2.15%  runtime.selectgo
+     0.83s  0.81% 47.66%      1.03s  1.00%  github.com/quic-go/quic-go/internal/ackhandler.(*deliveryRecords).get
+     0.77s  0.75% 48.41%      1.77s  1.72%  github.com/quic-go/quic-go/internal/ackhandler.(*sentPacketHandler).beginCongestionFeedback
+     0.72s   0.7% 49.11%      8.17s  7.96%  github.com/quic-go/quic-go.(*framer).Append
+     0.70s  0.68% 49.80%      1.33s  1.30%  github.com/quic-go/quic-go/internal/ackhandler.(*deliveryRecords).set
+     0.70s  0.68% 50.48%      1.22s  1.19%  github.com/quic-go/quic-go/internal/wire.putStreamFrame
+     0.68s  0.66% 51.14%      0.75s  0.73%  github.com/quic-go/quic-go/internal/ackhandler.(*deliveryRecords).find (inline)
+     0.67s  0.65% 51.79%     30.71s 29.91%  github.com/quic-go/quic-go.(*packetEmission).appendNativePacket
+     0.67s  0.65% 52.44%      3.52s  3.43%  github.com/quic-go/quic-go/internal/ackhandler.(*sentPacketHandler).detectAndRemoveAckedPackets
+     0.66s  0.64% 53.09%      1.27s  1.24%  github.com/quic-go/quic-go.(*framer).HasData
+     0.62s   0.6% 53.69%      2.29s  2.23%  github.com/quic-go/quic-go/internal/ackhandler.(*sentPacketHandler).completeLocalCongestion
+     0.60s  0.58% 54.28%      0.63s  0.61%  github.com/quic-go/quic-go/internal/ackhandler.(*sentPacketHandler).accountSentPacket
+     0.51s   0.5% 54.77%      0.79s  0.77%  internal/sync.(*Mutex).Lock (inline)
+     0.50s  0.49% 55.26%      0.52s  0.51%  slices.partialInsertionSortCmpFunc[go.shape.6698e22365df8a25d802f2fbe24a5849c639a30a50c1efc8d745306d61105815]
+     0.49s  0.48% 55.74%      0.49s  0.48%  github.com/quic-go/quic-go/internal/congestion.(*BBRSender).Sent
+     0.48s  0.47% 56.20%      1.24s  1.21%  github.com/quic-go/quic-go/internal/ackhandler.(*recoveryEvidence).sentLocal
+     0.45s  0.44% 56.64%     11.27s 10.98%  github.com/quic-go/quic-go.(*packetPacker).composeNextPacket
+     0.44s  0.43% 57.07%     12.12s 11.80%  github.com/quic-go/quic-go.(*packetPacker).maybeGetShortHeaderPacket
+     0.44s  0.43% 57.50%      0.44s  0.43%  sync/atomic.(*Uint64).CompareAndSwap (inline)
+     0.42s  0.41% 57.91%      1.95s  1.90%  github.com/quic-go/quic-go.(*SendStream).getDataForWriting
+     0.42s  0.41% 58.32%      0.42s  0.41%  github.com/quic-go/quic-go/internal/ackhandler.snapshotAckTargets
+     0.41s   0.4% 58.72%     11.68s 11.38%  github.com/quic-go/quic-go.(*packetPacker).maybeGetAppDataPacket
+     0.39s  0.38% 59.10%      0.44s  0.43%  github.com/quic-go/quic-go/internal/ackhandler.(*packet).Outstanding (inline)
+     0.38s  0.37% 59.47%      0.69s  0.67%  github.com/quic-go/quic-go.(*datagramQueue).Peek
+     0.37s  0.36% 59.83%      0.55s  0.54%  github.com/quic-go/quic-go.(*connectionFlowController).IsNewlyBlocked
+     0.37s  0.36% 60.19%     33.24s 32.37%  github.com/quic-go/quic-go.(*packetEmission).boundedDatagrams
+     0.37s  0.36% 60.55%      0.47s  0.46%  github.com/quic-go/quic-go/internal/ackhandler.(*congestionDispatch).advanceLocalQualification
+     0.37s  0.36% 60.91%      0.37s  0.36%  github.com/quic-go/quic-go/quicvarint.Append
+     0.36s  0.35% 61.26%      0.36s  0.35%  runtime.procyieldAsm
+     0.35s  0.34% 61.60%      0.64s  0.62%  github.com/quic-go/quic-go.(*connectionFlowController).SendWindowSize
+     0.35s  0.34% 61.94%      0.35s  0.34%  github.com/quic-go/quic-go/internal/ackhandler.(*slotSet).clear (inline)
+     0.34s  0.33% 62.27%     11.42s 11.12%  github.com/quic-go/quic-go/internal/handshake.PacketProtection.Protect
+     0.32s  0.31% 62.58%      1.72s  1.68%  github.com/quic-go/quic-go.(*sendStreamAckHandler).OnAcked
+     0.31s   0.3% 62.88%      0.31s   0.3%  github.com/quic-go/quic-go/internal/ackhandler.(*deliverySampler).sent
+     0.31s   0.3% 63.19%      1.16s  1.13%  runtime.stealWork
+     0.31s   0.3% 63.49%      2.09s  2.04%  sync.(*Pool).Get
+     0.30s  0.29% 63.78%      0.48s  0.47%  github.com/quic-go/quic-go.(*connectionFlowController).TryAddBytesSent
+     0.30s  0.29% 64.07%      9.57s  9.32%  github.com/quic-go/quic-go/internal/ackhandler.(*sentPacketHandler).registerPreparedPacket
+     0.30s  0.29% 64.37%      1.34s  1.31%  github.com/quic-go/quic-go/internal/ackhandler.acquirePacket
+     0.29s  0.28% 64.65%      1.17s  1.14%  github.com/quic-go/quic-go.(*endpointState).reconcileCurrent
+     0.28s  0.27% 64.92%      0.28s  0.27%  github.com/quic-go/quic-go/internal/ackhandler.(*slotSet).set (inline)
+     0.28s  0.27% 65.19%      0.32s  0.31%  runtime.casgstatus
+     0.27s  0.26% 65.46%      5.18s  5.04%  github.com/quic-go/quic-go.(*SendStream).popStreamFrame
+     0.27s  0.26% 65.72%      0.70s  0.68%  github.com/quic-go/quic-go/internal/ackhandler.(*recoveryEvidence).ack
+     0.27s  0.26% 65.98%      0.43s  0.42%  github.com/quic-go/quic-go/internal/ackhandler.(*sentPacketHandler).numTrackedPackets
+     0.27s  0.26% 66.24%      9.88s  9.62%  github.com/quic-go/quic-go/internal/ackhandler.(*sentPacketHandler).receivedAck
+     0.26s  0.25% 66.50%      0.33s  0.32%  github.com/quic-go/quic-go.(*packetEmission).localPacketRoom (inline)
+     0.26s  0.25% 66.75%     35.36s 34.44%  github.com/quic-go/quic-go.(*packetEmission).sendBounded
+     0.26s  0.25% 67.00%      0.44s  0.43%  github.com/quic-go/quic-go.(*packetPacker).appendPathAcks
+     0.26s  0.25% 67.26%      0.26s  0.25%  github.com/quic-go/quic-go/internal/utils.(*defaultLogger).Debug
+     0.26s  0.25% 67.51%      0.52s  0.51%  runtime.runqgrab
+     0.26s  0.25% 67.76%      0.26s  0.25%  runtime.usleep
+     0.25s  0.24% 68.01%      0.30s  0.29%  github.com/quic-go/quic-go/internal/wire.AppendShortHeader
+     0.25s  0.24% 68.25%      0.25s  0.24%  runtime.memclrNoHeapPointers
+     0.24s  0.23% 68.48%      0.24s  0.23%  crypto/internal/fips140/aes/gcm.gcmAesFinish
+     0.24s  0.23% 68.72%      5.22s  5.08%  runtime.findRunnable
+     0.23s  0.22% 68.94%      0.23s  0.22%  github.com/quic-go/quic-go.endpointTurn (inline)
+     0.22s  0.21% 69.16%      0.22s  0.21%  github.com/quic-go/quic-go.(*nativeProtectionPlan).append (inline)
+     0.22s  0.21% 69.37%     10.07s  9.81%  github.com/quic-go/quic-go.(*packetEmission).registerPrepared
+     0.22s  0.21% 69.59%      0.25s  0.24%  github.com/quic-go/quic-go/internal/ackhandler.(*localECNRecords).append
+     0.22s  0.21% 69.80%      0.57s  0.56%  github.com/quic-go/quic-go/internal/ackhandler.(*recoveryEvidence).feedback
+     0.22s  0.21% 70.01%      0.22s  0.21%  github.com/quic-go/quic-go/internal/ackhandler.(*recoveryEvidence).feedback.func1
+     0.22s  0.21% 70.23%      0.31s   0.3%  sync.runtime_procPin
+     0.21s   0.2% 70.43%      0.28s  0.27%  github.com/quic-go/quic-go/internal/ackhandler.(*localPacketRanks).qualify
+     0.21s   0.2% 70.64%      1.62s  1.58%  runtime.chansend
+     0.21s   0.2% 70.84%      0.67s  0.65%  sync.(*poolDequeue).popHead
+     0.20s  0.19% 71.04%      4.67s  4.55%  github.com/quic-go/quic-go/internal/ackhandler.(*sentPacketHandler).CompleteLocalPacket
+     0.20s  0.19% 71.23%      0.20s  0.19%  github.com/quic-go/quic-go/internal/ackhandler.(*sentPacketHandler).initializeSentPacket (inline)
+     0.20s  0.19% 71.43%      0.20s  0.19%  sync/atomic.StorePointer
+     0.19s  0.19% 71.61%      2.17s  2.11%  github.com/quic-go/quic-go.(*endpointState).advance
+     0.19s  0.19% 71.80%      0.74s  0.72%  github.com/quic-go/quic-go/internal/ackhandler.(*localCompletions).allocateRegistration (inline)
+     0.19s  0.19% 71.98%      0.19s  0.19%  runtime.(*waitq).dequeue (inline)
+     0.18s  0.18% 72.16%      0.39s  0.38%  github.com/quic-go/quic-go.(*Conn).logPreparedShortHeaderPacket
+     0.18s  0.18% 72.33%     58.47s 56.94%  github.com/quic-go/quic-go.(*Conn).run
+     0.18s  0.18% 72.51%      4.15s  4.04%  github.com/quic-go/quic-go.(*SendStream).popNewStreamFrameForPacket
+     0.18s  0.18% 72.68%      0.79s  0.77%  github.com/quic-go/quic-go.(*endpointState).publish
+     0.18s  0.18% 72.86%      0.19s  0.19%  github.com/quic-go/quic-go.(*nativeOrdinarySender).register
+     0.18s  0.18% 73.03%      1.19s  1.16%  github.com/quic-go/quic-go.(*oobConn).ReadPacket
+     0.18s  0.18% 73.21%      1.46s  1.42%  github.com/quic-go/quic-go.(*packetPacker).prepareShortHeaderPayload
+     0.18s  0.18% 73.38%      0.55s  0.54%  runtime.sellock
+     0.17s  0.17% 73.55%      0.17s  0.17%  github.com/quic-go/quic-go.(*connIDManager).SentPacket
+     0.17s  0.17% 73.71%      1.23s  1.20%  github.com/quic-go/quic-go.(*nativeProtectionConstruction).reserve
+     0.17s  0.17% 73.88%      0.17s  0.17%  github.com/quic-go/quic-go.(*nativeProtectionPlan).preflight
+     0.17s  0.17% 74.05%      0.27s  0.26%  github.com/quic-go/quic-go.(*packetPacker).appDataAck
+     0.17s  0.17% 74.21%      0.55s  0.54%  github.com/quic-go/quic-go/internal/congestion.(*BBRSender).Feedback
+     0.16s  0.16% 74.37%      0.23s  0.22%  github.com/quic-go/quic-go.(*endpointState).arbitrate-range1
+     0.16s  0.16% 74.52%      0.32s  0.31%  github.com/quic-go/quic-go.(*packetEmission).bbrECNAuthority.func1
+     0.16s  0.16% 74.68%      0.31s   0.3%  github.com/quic-go/quic-go.(*packetEmission).opportunityCapabilities
+     0.16s  0.16% 74.83%      0.20s  0.19%  github.com/quic-go/quic-go/internal/ackhandler.(*sentPacketHandler).detectAndRemoveAckedPackets-range2 (inline)
+     0.16s  0.16% 74.99%      0.31s   0.3%  github.com/quic-go/quic-go/internal/ackhandler.(*sentPacketHandler).sendMode
+     0.16s  0.16% 75.15%      0.44s  0.43%  github.com/quic-go/quic-go/internal/ackhandler.(*sentPacketHandler).validateLocalPacket
+     0.16s  0.16% 75.30%      0.50s  0.49%  sync.(*Pool).pin
+     0.15s  0.15% 75.45%      0.15s  0.15%  github.com/quic-go/quic-go.(*nativeOrdinarySender).bufferRoom (inline)
+     0.15s  0.15% 75.59%      0.27s  0.26%  github.com/quic-go/quic-go.(*sendReservation).release
+     0.15s  0.15% 75.74%      0.33s  0.32%  github.com/quic-go/quic-go/internal/ackhandler.(*localECNEvidence).qualify
+     0.15s  0.15% 75.89%      0.17s  0.17%  github.com/quic-go/quic-go/internal/ackhandler.(*localPacketRanks).replaceWord
+     0.15s  0.15% 76.03%      0.49s  0.48%  github.com/quic-go/quic-go/internal/ackhandler.(*sentPacketHandler).completeLocalBBRWithoutLoss
+     0.15s  0.15% 76.18%      0.40s  0.39%  github.com/quic-go/quic-go/internal/ackhandler.(*sentPacketHandler).registerLocalECN
+     0.15s  0.15% 76.32%      0.26s  0.25%  runtime.(*timer).unlock (inline)
+     0.15s  0.15% 76.47%      0.34s  0.33%  runtime.scanObject
+     0.14s  0.14% 76.61%      0.14s  0.14%  crypto/internal/fips140/aes/gcm.gcmAesData
+     0.14s  0.14% 76.74%      5.20s  5.06%  github.com/quic-go/quic-go.(*nativeOrdinarySender).consumeResult
+     0.14s  0.14% 76.88%      0.25s  0.24%  github.com/quic-go/quic-go.(*nativeProtectionConstruction).matches
+     0.14s  0.14% 77.02%      0.46s  0.45%  github.com/quic-go/quic-go/internal/ackhandler.(*bbrECNTracker).mode
+     0.14s  0.14% 77.15%      0.47s  0.46%  github.com/quic-go/quic-go/internal/ackhandler.(*sentPacketHandler).SendAllowance
+     0.14s  0.14% 77.29%      1.31s  1.28%  github.com/quic-go/quic-go/internal/ackhandler.(*sentPacketHandler).finishCongestionFeedback
+     0.14s  0.14% 77.43%      0.14s  0.14%  github.com/quic-go/quic-go/internal/ackhandler.(*sentPacketHandler).getPacketNumberSpace
+     0.14s  0.14% 77.56%      0.14s  0.14%  memeqbody
+     0.14s  0.14% 77.70%      0.28s  0.27%  runtime.chanrecv
+     0.14s  0.14% 77.83%      0.21s   0.2%  runtime.mapaccess2_fast64
+     0.14s  0.14% 77.97%      1.45s  1.41%  sync.(*Pool).Put
+     0.14s  0.14% 78.11%      0.14s  0.14%  sync.(*poolDequeue).unpack (inline)
+     0.13s  0.13% 78.23%      0.72s   0.7%  github.com/quic-go/quic-go/internal/ackhandler.(*sentPacketHandler).lossDetectionTime
+     0.13s  0.13% 78.36%      0.87s  0.85%  github.com/quic-go/quic-go/internal/ackhandler.(*sentPacketHandler).newLocalRegistration
+     0.13s  0.13% 78.49%      0.24s  0.23%  github.com/quic-go/quic-go/internal/ackhandler.(*sentPacketHistory).cleanupStart
+     0.13s  0.13% 78.61%      0.47s  0.46%  github.com/quic-go/quic-go/internal/ackhandler.(*sentPacketHistory).localPTOChanged
+     0.13s  0.13% 78.74%      0.18s  0.18%  github.com/quic-go/quic-go/internal/wire.(*StreamFrame).Length
+     0.13s  0.13% 78.87%      0.66s  0.64%  runtime.newobject
+     0.12s  0.12% 78.98%      0.68s  0.66%  github.com/quic-go/quic-go.(*endpointState).occupiedParticipants.func1 (inline)
+     0.12s  0.12% 79.10%      0.32s  0.31%  github.com/quic-go/quic-go.(*nativeOrdinarySender).reserve
+     0.12s  0.12% 79.22%      0.37s  0.36%  github.com/quic-go/quic-go.(*nativeOrdinarySender).sendProtected
+     0.12s  0.12% 79.33%      0.16s  0.16%  github.com/quic-go/quic-go/internal/ackhandler.(*sentPacketHandler).localTrackedPackets
+     0.12s  0.12% 79.45%      0.14s  0.14%  github.com/quic-go/quic-go/internal/ackhandler.(*spaceSlots).popFront (inline)
+     0.12s  0.12% 79.57%      0.12s  0.12%  github.com/quic-go/quic-go/internal/ackhandler.recoverySpace
+     0.12s  0.12% 79.68%      1.75s  1.70%  runtime.netpoll
+     0.12s  0.12% 79.80%      0.12s  0.12%  runtime.write1
+     0.12s  0.12% 79.92%      0.22s  0.21%  slices.BinarySearchFunc[go.shape.[]*github.com/quic-go/quic-go.endpointParticipant,go.shape.*uint8,go.shape.int]
+     0.12s  0.12% 80.04%      0.60s  0.58%  sync.(*poolChain).popTail
+     0.12s  0.12% 80.15%      0.46s  0.45%  sync.(*poolDequeue).popTail
+     0.12s  0.12% 80.27%      0.16s  0.16%  time.Time.Add
+     0.11s  0.11% 80.38%      0.16s  0.16%  github.com/quic-go/quic-go.(*framer).appendControlFrames
+     0.11s  0.11% 80.48%      0.73s  0.71%  github.com/quic-go/quic-go.(*nativeOrdinarySender).wouldBlock
+     0.11s  0.11% 80.59%      0.12s  0.12%  github.com/quic-go/quic-go.(*nativeProtectionPlan).validForMember
+     0.11s  0.11% 80.70%      0.11s  0.11%  github.com/quic-go/quic-go.(*packetEmission).captureTerminalReceipts
+     0.11s  0.11% 80.80%      0.11s  0.11%  github.com/quic-go/quic-go/internal/ackhandler.(*deliveryRecords).home
+     0.11s  0.11% 80.91%      0.11s  0.11%  github.com/quic-go/quic-go/internal/ackhandler.(*deliverySampler).feedback
+     0.11s  0.11% 81.02%      0.13s  0.13%  github.com/quic-go/quic-go/internal/ackhandler.(*localECNRecords).splice
+     0.11s  0.11% 81.13%      0.11s  0.11%  github.com/quic-go/quic-go/internal/ackhandler.(*packet).recoveryTime
+     0.11s  0.11% 81.23%      0.11s  0.11%  github.com/quic-go/quic-go/internal/ackhandler.ackTargets.apply (inline)
+     0.11s  0.11% 81.34%      0.18s  0.18%  github.com/quic-go/quic-go/internal/handshake.TryReservePacketProtection
+     0.11s  0.11% 81.45%      0.11s  0.11%  github.com/quic-go/quic-go/internal/monotime.Time.IsZero
+     0.11s  0.11% 81.55%      0.16s  0.16%  runtime.(*_panic).nextDefer
+     0.11s  0.11% 81.66%      0.11s  0.11%  runtime.nextFreeFast
+     0.11s  0.11% 81.77%      1.12s  1.09%  sync.(*poolChain).pushHead
+     0.10s 0.097% 81.87%      0.10s 0.097%  github.com/quic-go/quic-go.(*endpointState).participantPosition.func1
