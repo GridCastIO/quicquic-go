@@ -88,6 +88,8 @@ func TestLocalBBRCompletionPreservesLossAndSpuriousRecovery(t *testing.T) {
 	var recorders [2]*congestionRecorder
 	for arm := range handlers {
 		h, r := newLocalECNTestHandler(t, true)
+		// Both arms ACK the same six-packet sequence; keep random skips outside it.
+		h.appDataPackets.pns.(*skippingPacketNumberGenerator).nextToSkip = 10000
 		handlers[arm], recorders[arm] = h, r
 		now := monotime.Time(time.Second)
 		low, pending := localECNPacket(t, h, now)
