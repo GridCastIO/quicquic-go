@@ -3,6 +3,7 @@
 package quic
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -17,6 +18,7 @@ import (
 	"time"
 
 	"github.com/quic-go/quic-go/internal/monotime"
+	"github.com/quic-go/quic-go/qlog"
 
 	"github.com/stretchr/testify/require"
 )
@@ -102,15 +104,20 @@ func TestMultipathSupportMatchesEvidence(t *testing.T) {
 	require.Equal(t, []string{"balanced"}, aggregation.FailedTopologies)
 }
 
-// The Config's multipath request holds only what ConfigureMultipathV1 sets, so no private
-// selection can reach the capability gate or the path registry.
-func TestMultipathSelectionHasNoPrivateBypass(t *testing.T) {
+// The sole private selector is copied by value; public configuration never sets it.
+func TestMultipathSelectionPrivateExperimentBoundary(t *testing.T) {
 	selection := reflect.TypeFor[multipathSelection]()
 	var fields []string
 	for field := range selection.Fields() {
 		fields = append(fields, field.Name)
 	}
-	require.Equal(t, []string{"enabled", "maxPaths"}, fields)
+	require.Equal(t, []string{"enabled", "maxPaths", "experimentScheduler"}, fields)
+	conf := &Config{}
+	conf.multipath.experimentScheduler = scheduleAggregate
+	require.NoError(t, conf.ConfigureMultipathV1(true, 2, "primary-backup"))
+	require.Equal(t, schedulePrimaryBackup, conf.multipath.experimentScheduler)
+	require.ErrorIs(t, conf.ConfigureMultipathV1(true, 2, "aggregate"), ErrMultipathInvalidConfigV1)
+	require.Equal(t, schedulePrimaryBackup, conf.multipath.experimentScheduler)
 }
 
 // Public constructors preserve controller selection through setter order and cloning.
@@ -266,4 +273,123 @@ func TestMultipathBBRPublicTransferAndJoin(t *testing.T) {
 		require.NoError(t, tr.Close())
 		require.NoError(t, tr.WaitMultipathIOStoppedV1(ctx))
 	}
+}
+
+// The experiment traverses public admission and copies its choice before either
+// connection runs. No command changes a running connection's scheduler.
+func TestMultipathAggregateTransferAndJoin(t *testing.T) {
+	requireMultipathProfile(t)
+	conf := multipathConfig(t)
+	require.NoError(t, conf.SetCongestionControlV1("bbrv3"))
+	conf.EnableDatagrams = true
+	conf.DisablePathMTUDiscovery = true // MTU probe charging has separate real-packer coverage.
+	conf.multipath.experimentScheduler = scheduleAggregate
+	clientConf, serverConf := conf.Clone(), conf.Clone()
+	conf.multipath.experimentScheduler = schedulePrimaryBackup
+	sink := newQlogSink()
+	clientConf.Tracer = sink.tracer
+	serverTr, clientTr, secondTr := grantedTransport(t), grantedTransport(t), grantedTransport(t)
+	ln, err := serverTr.Listen(nativeServerTLS(), serverConf)
+	require.NoError(t, err)
+	defer ln.Close()
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+	deadline, _ := ctx.Deadline()
+	client, err := clientTr.Dial(ctx, serverTr.Conn.LocalAddr(), nativeClientTLS(), clientConf)
+	require.NoError(t, err)
+	defer client.CloseWithError(0, "")
+	server, err := ln.Accept(ctx)
+	require.NoError(t, err)
+	defer server.CloseWithError(0, "")
+	path, err := client.OpenPathV1(ctx, secondTr, serverTr.Conn.LocalAddr().(*net.UDPAddr))
+	require.NoError(t, err)
+	require.NoError(t, path.SetLocalUseV1("active"))
+	for _, c := range []*Conn{client, server} {
+		var scheduler pathScheduler
+		require.NoError(t, c.runPathCommand(func(r *pathCreditRegistry, _ monotime.Time) error { scheduler = r.scheduler; return nil }))
+		require.Equal(t, scheduleAggregate, scheduler)
+	}
+	streamBytes, datagrams := map[uint64]int64{}, map[uint64]int{}
+	observed := 0
+	observe := func() {
+		events := sink.recorded()
+		for _, event := range events[observed:] {
+			packet, ok := event.(qlog.PacketSent)
+			if !ok || packet.Path == nil {
+				continue
+			}
+			for _, frame := range packet.Frames {
+				switch f := frame.Frame.(type) {
+				case *qlog.StreamFrame:
+					streamBytes[packet.Path.PathID] += f.Length
+				case *qlog.DatagramFrame:
+					datagrams[packet.Path.PathID]++
+				}
+			}
+		}
+		observed = len(events)
+	}
+	// A fixed tiny burst need not use both paths: pacing and previous handoffs
+	// can consume its turns. Offer bounded work until carriage is witnessed,
+	// allowing pacing to advance between opportunities. These are fixture
+	// limits (at most 1 MiB per phase), not a scheduler service promise.
+	opportunities := time.NewTicker(time.Millisecond)
+	defer opportunities.Stop()
+	next := func() {
+		t.Helper()
+		select {
+		case <-opportunities.C:
+		case <-ctx.Done():
+			t.Fatal(ctx.Err())
+		}
+	}
+	payload := bytes.Repeat([]byte{'s'}, 16*1024)
+	for round := 0; round < 64 && (streamBytes[0] == 0 || streamBytes[1] == 0); round++ {
+		next()
+		stream, err := client.OpenUniStreamSync(ctx)
+		require.NoError(t, err)
+		require.NoError(t, stream.SetWriteDeadline(deadline))
+		writeDone := make(chan error, 1)
+		go func() {
+			_, err := stream.Write(payload)
+			if err == nil {
+				err = stream.Close()
+			}
+			writeDone <- err
+		}()
+		received, err := server.AcceptUniStream(ctx)
+		require.NoError(t, err)
+		require.NoError(t, received.SetReadDeadline(deadline))
+		data, err := io.ReadAll(received)
+		require.NoError(t, err)
+		require.NoError(t, <-writeDone)
+		require.Equal(t, payload, data)
+		observe()
+	}
+	for round := 0; round < 1024 && (datagrams[0] == 0 || datagrams[1] == 0); round++ {
+		next()
+		message := bytes.Repeat([]byte{byte(round)}, 1024)
+		require.NoError(t, client.SendDatagram(message))
+		got, err := server.ReceiveDatagram(ctx)
+		require.NoError(t, err)
+		require.Equal(t, message, got)
+		observe()
+	}
+	require.NoError(t, client.CloseWithError(0, ""))
+	require.NoError(t, server.CloseWithError(0, ""))
+	for _, tr := range []*Transport{clientTr, secondTr, serverTr} {
+		require.NoError(t, tr.Close())
+		require.NoError(t, tr.WaitMultipathIOStoppedV1(ctx))
+	}
+	select {
+	case <-sink.closed:
+	case <-ctx.Done():
+		t.Fatal(ctx.Err())
+	}
+	observe()
+	for _, id := range []uint64{0, 1} {
+		require.Positive(t, streamBytes[id], "path %d carried STREAM", id)
+		require.Positive(t, datagrams[id], "path %d carried DATAGRAM", id)
+	}
+	t.Logf("STREAM bytes by path: %v; DATAGRAMs by path: %v", streamBytes, datagrams)
 }

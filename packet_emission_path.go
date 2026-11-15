@@ -3,7 +3,6 @@ package quic
 import (
 	"net"
 	"slices"
-	"time"
 
 	"github.com/quic-go/quic-go/internal/ackhandler"
 	"github.com/quic-go/quic-go/internal/monotime"
@@ -40,11 +39,8 @@ type pathView struct {
 
 	// What only aggregate reads.
 	backup    bool
-	sendAt    monotime.Time      // the next send pacing allows; zero or past is now
-	queued    protocol.ByteCount // bytes held locally for this path, plus the next packet
-	rate      uint64             // conservative delivery rate in bytes per second; zero is no valid sample
-	rtt       time.Duration      // smoothed path-local RTT; zero is none measured
-	scheduled uint64             // the round-robin ledger
+	sendAt    monotime.Time // the next send pacing allows; zero or past is now
+	scheduled uint64        // the round-robin ledger
 }
 
 // selectPath takes views in path ID order. A pending PTO goes first so the probe
@@ -198,8 +194,6 @@ func (e *packetEmission) pathView(id protocol.PathID, route *pathRoute, recovery
 	}
 	view.ready = (plan.step == stepSend || plan.step == stepMTUProbe) &&
 		p.credit.admits(plan.ceiling, projected.creditLimit(), plan.ordinary, plan.isolated) && e.canConstruct(route)
-	view.queued = e.bbrPendingBytes(p) + size
-	view.rate = p.controller.DeliveryRateEstimate()
 	return view
 }
 

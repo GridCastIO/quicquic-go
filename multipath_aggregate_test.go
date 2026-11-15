@@ -71,17 +71,20 @@ func TestBBRPathDatagramHeldWhileFittingPathCongested(t *testing.T) {
 	})
 }
 
-// With no valid rate sample yet, BBR aggregation takes paced byte round-robin, and
-// each path pays its own pacing. Same-path ACKs then give each path the rate
-// estimate that turns the arrival estimate on.
-func TestAggregateBBRFallsBackUntilSampled(t *testing.T) {
+// BBR aggregation uses paced byte round-robin before and after valid samples.
+// Each path retains its own pacing and delivery sampler.
+func TestAggregateBBRBeforeAndAfterSamples(t *testing.T) {
 	nativeOrdinaryTest(t, func(t *testing.T) {
 		f := newBBRPathFixture(t, protocol.PerspectiveServer)
+		require.Len(t, f.c.pathCredit.members, 2)
+		for _, m := range f.c.pathCredit.members {
+			require.Zero(t, m.scheduled, "fresh admitted members have no aggregate service debt")
+		}
 		f.aggregate(t, scheduleAggregate)
 		e := &f.c.emission
 		e.bbr.supplyGap = congestion.SendUnknown
-		require.Zero(t, f.view(0).rate)
-		require.Zero(t, f.view(1).rate)
+		require.Zero(t, e.bbr.controller.DeliveryRateEstimate())
+		require.Zero(t, f.bbrPath(1).controller.DeliveryRateEstimate())
 		start := monotime.Now()
 
 		f.write(t, 12000)
@@ -97,15 +100,28 @@ func TestAggregateBBRFallsBackUntilSampled(t *testing.T) {
 		f.ackPath(t, 0, 0, zero)
 		f.ackPath(t, 1, 1, one)
 		for _, id := range []protocol.PathID{0, 1} {
-			view := f.view(id)
-			require.Positive(t, view.rate, "path %d's own samples give it a rate", id)
-			require.Positive(t, view.rtt, "and a path-local RTT")
+			policy := e.bbr
+			if id != 0 {
+				policy = f.bbrPath(id)
+			}
+			require.Positive(t, policy.controller.DeliveryRateEstimate(), "path %d's own samples give it a rate", id)
+			require.Positive(t, f.c.pathCredit.rttOf(id).SmoothedRTT(), "and a path-local RTT")
 		}
+		// Unequal valid samples must not outrank the byte ledger. The old arrival
+		// estimator favored path 1 here despite path zero's unserved turn.
+		f.c.pathCredit.rttOf(0).UpdateRTT(time.Second, 0)
+		time.Sleep(20 * time.Millisecond)
+		f.prefer(0)
+		f.socket.writes = nil
+		f.write(t, 1200)
+		f.pass(t)
+		require.Positive(t, reliableBytes(f.parseWrites(t, 0)))
+		require.Zero(t, reliableBytes(f.parseWrites(t, 1)))
 	})
 }
 
-// Reno has no delivery sampler, so its aggregation always takes the paced
-// round-robin fallback. Selection allocates nothing and installs no sampling store.
+// The private fixture can also exercise Reno selection, which allocates nothing
+// and installs no sampling store. Public Reno aggregation remains unsupported.
 func TestAggregateRenoWithoutEstimator(t *testing.T) {
 	nativeOrdinaryTest(t, func(t *testing.T) {
 		f := newReliableFixture(t, protocol.PerspectiveServer)
@@ -123,9 +139,7 @@ func TestAggregateRenoWithoutEstimator(t *testing.T) {
 		f.ackPath(t, 0, 0, zero)
 		f.ackPath(t, 1, 1, one)
 		for _, id := range []protocol.PathID{0, 1} {
-			view := f.view(id)
-			require.Zero(t, view.rate, "path %d has no estimator", id)
-			require.Positive(t, view.rtt)
+			require.Positive(t, f.c.pathCredit.rttOf(id).SmoothedRTT())
 			require.Equal(t, congestion.DeliveryStats{}, f.recovery(id).(deliveryProbe).DeliveryStats(), "and no sampling store")
 		}
 		now := monotime.Now()

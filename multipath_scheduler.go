@@ -1,9 +1,7 @@
 package quic
 
 import (
-	"math/bits"
 	"slices"
-	"time"
 
 	"github.com/quic-go/quic-go/internal/monotime"
 	"github.com/quic-go/quic-go/internal/protocol"
@@ -11,15 +9,13 @@ import (
 
 // pathScheduler is a multipath connection's private scheduling policy. It owns the
 // choice of route only; emission keeps packing, credit, registration and each
-// DATAGRAM's eligibility. Primary/backup is the only policy a connection runs. B5's
-// comparison denied aggregate support (#1044, #1045), so only in-package unit tests
-// select aggregate.
+// DATAGRAM's eligibility. Aggregate is reachable only through the private experiment
+// selector; the public policy remains primary/backup.
 type pathScheduler uint8
 
 const (
 	schedulePrimaryBackup pathScheduler = iota
-	// scheduleAggregate sends each opportunity on the eligible path with the earliest
-	// estimated arrival, or by paced byte round-robin while any lacks a rate sample.
+	// scheduleAggregate balances eligible opportunities with paced byte round-robin.
 	scheduleAggregate
 )
 
@@ -28,7 +24,7 @@ func (p *pathCreditRegistry) schedule(views []pathView, now monotime.Time) (chos
 	if p.scheduler != scheduleAggregate {
 		return selectPath(views, p.primary)
 	}
-	chosen, steerTo, steering, held, floor := selectAggregate(views, p.primary, now, true)
+	chosen, steerTo, steering, held, floor := selectAggregate(views, p.primary, now)
 	// Rebase the ledger on its least-served candidate, so it stays within about one
 	// handoff and a returning path is neither starved nor owed a backlog.
 	for _, m := range p.members {
@@ -48,9 +44,6 @@ func (p *pathCreditRegistry) viewOf(m *pathMember, now monotime.Time) pathView {
 	}
 	view := p.conn.emission.pathView(m.id, route, recovery, now)
 	view.backup, view.scheduled = m.backup, m.scheduled
-	if rtt := p.rttOf(m.id); rtt != nil && rtt.HasMeasurement() {
-		view.rtt = rtt.SmoothedRTT()
-	}
 	return view
 }
 
@@ -73,11 +66,10 @@ func (p *pathCreditRegistry) noteScheduled(route *pathRoute, n protocol.ByteCoun
 // probe retries its reliable data there. With no primary, ordinary work holds, as
 // it does under primary/backup. Otherwise active paths are the candidates while any is
 // eligible, and backups only when none is. Among candidates that can take a whole
-// packet, the earliest estimated arrival wins when every one has a valid rate sample
-// and estimate is set; otherwise paced byte round-robin chooses. Ties go to the lower
+// packet, paced byte round-robin chooses. Ties go to the lower
 // wire ID. With no candidate ready, the primary waits, as it does under primary/backup.
 // floor is the least ledger among the round-robin candidates.
-func selectAggregate(views []pathView, primary protocol.PathID, now monotime.Time, estimate bool) (chosen, steerTo protocol.PathID, steering, held bool, floor uint64) {
+func selectAggregate(views []pathView, primary protocol.PathID, now monotime.Time) (chosen, steerTo protocol.PathID, steering, held bool, floor uint64) {
 	if index := slices.IndexFunc(views, func(view pathView) bool { return view.probing }); index >= 0 {
 		return views[index].id, 0, false, false, 0
 	}
@@ -90,11 +82,6 @@ func selectAggregate(views []pathView, primary protocol.PathID, now monotime.Tim
 		active = active || !view.backup
 	}
 	candidate := func(view pathView) bool { return !active || !view.backup }
-	for _, view := range views {
-		if candidate(view) && view.ready && (view.rate == 0 || view.rtt <= 0) {
-			estimate = false
-		}
-	}
 	pick, wait, first := -1, -1, true
 	for i, view := range views {
 		if !candidate(view) {
@@ -109,7 +96,7 @@ func selectAggregate(views []pathView, primary protocol.PathID, now monotime.Tim
 		if first || view.scheduled < floor {
 			floor, first = view.scheduled, false
 		}
-		if pick < 0 || (estimate && arrival(view, now) < arrival(views[pick], now)) || (!estimate && roundRobinBefore(view, views[pick], now)) {
+		if pick < 0 || roundRobinBefore(view, views[pick], now) {
 			pick = i
 		}
 	}
@@ -121,18 +108,6 @@ func selectAggregate(views []pathView, primary protocol.PathID, now monotime.Tim
 	}
 	steerTo, steering = steerFor(views[pick], views)
 	return views[pick].id, steerTo, steering, false, floor
-}
-
-// arrival estimates when a packet sent on this path next would arrive: its next
-// eligible send time, plus its queued bytes at its conservative delivery rate, plus
-// half its path-local RTT.
-func arrival(view pathView, now monotime.Time) time.Duration {
-	hi, lo := bits.Mul64(uint64(view.queued), uint64(time.Second))
-	if hi >= view.rate {
-		return time.Duration(1<<63 - 1)
-	}
-	drain, _ := bits.Div64(hi, lo, view.rate)
-	return max(0, view.sendAt.Sub(now)) + time.Duration(min(drain, 1<<62)) + view.rtt/2
 }
 
 // roundRobinBefore orders paced byte round-robin: a path pacing allows now before
