@@ -239,6 +239,7 @@ func TestMultipathBBRPublicTransferAndJoin(t *testing.T) {
 	require.NoError(t, err)
 	defer server.CloseWithError(0, "")
 	transfer := func(message string) {
+		t.Helper()
 		stream, err := client.OpenUniStreamSync(ctx)
 		require.NoError(t, err)
 		_, err = stream.Write([]byte(message))
