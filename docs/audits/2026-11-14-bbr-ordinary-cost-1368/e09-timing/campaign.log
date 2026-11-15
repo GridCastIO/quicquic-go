@@ -1,0 +1,4 @@
+02:30:06 host busy: named process True, fixture share 0.145
+02:30:21 host busy: named process True, fixture share 0.128
+02:30:36 host busy: named process True, fixture share 0.181
+02:33:27 done: mode diagnostic, passed False, charged 2

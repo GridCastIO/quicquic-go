@@ -24,7 +24,7 @@ Append-only plans and outcomes: [experiment ledger](2026-11-14-bbr-ordinary-cost
 
 ## Delivery state
 
-In progress: the owner-confirmed quiet Minimax window produced a valid E08 diagnostic. Whole-packet partial admission recovers useful throughput and improves absolute CPU per useful byte relative to E06, so the combined design is provisionally retained. The matched ratios are 0.938467975 goodput and 1.190607021 CPU/useful byte; both overall targets remain missed. E09 will test repeated reconciliation at the existing accepted-member completion boundary, with its own pre-code plan. Observer runtime remains outside the product branch. Final ordinary-cost qualification, full-panel review, exact-head hosted checks, merge, journal and issue/OmniFocus closure remain. Recommendation: test the bounded completion-owner change while preserving the valid E08 control and all earlier evidence.
+In progress: the owner-confirmed quiet window produced one valid E08 diagnostic, supporting provisional retention of the combined larger-member/partial-admission design while both targets remain missed (0.938467975 goodput /1.190607021 CPU per useful byte). E09 accepted-member completion passed correctness checks and independent audits, but renewed fixture-core interference contaminated both observations of its planned comparison. E09 performance is unverified and no automatic retry or subsequent runtime change is selected. A continuous quiet Minimax window is the current external dependency. Final ordinary-cost qualification, BBR interop, full-panel review, exact-head hosted checks, merge, journal and tracker closure remain. Recommendation: obtain that window and compare the unchanged E09 candidate before further runtime decisions.
 
 ## Current design update — E02/E03, 2026-11-14
 
@@ -84,3 +84,10 @@ Program #646 usage is 241/420 instances and 10709.552619184451/28800 seconds, le
 ## Current design update — E09 correctness and setup accounting
 
 E09 is integrated with independent source/test audits clear and affected local checks passing. It reconciles a fully accepted BBR native member through the existing recovery owner while preserving ordered per-packet facts and the generic qualification traversal. Native timing is pending. The existing program #646 accounting rule requires a separate recovered setup charge: zero instances /44 conservative artifact-based seconds for eight earlier successful native build/check sets. This estimate is explicitly distinguished from an original monotonic measurement; raw observation receipts are unchanged. Corrected usage is 241/420 instances and 10753.552619184451/28800 seconds, leaving 179 /18046.447380815549 before E09 setup.
+
+
+## Current design update — E09 inconclusive comparison
+
+E09's two observations were contaminated by 50.895 /74.013 foreign CPU seconds; their nominal 0.9946 /1.1054 ratios are excluded. The 90-second prelaunch observation and subsequent fresh driver checks did not establish sustained in-run quiet. Preserve the candidate without a performance-retention claim or automatic retry. The owner has been asked for an actual continuous Minimax window; independent source review can prepare conditional next questions, but invalid timing does not select another change.
+
+Program #646 usage, including recovered setup and measured E09 setup, is 243/420 instances and 10915.44544463989606/28800 seconds, leaving 177 /17884.55455536010394. No task operational workload remains and no shared-host policy changed.
