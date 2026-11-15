@@ -1411,10 +1411,25 @@ func (p *packetPacker) appendPacketPayload(raw []byte, pl payload, paddingLen pr
 	if paddingLen > 0 {
 		raw = append(raw, make([]byte, paddingLen)...)
 	}
-	// Randomize the order of the control frames.
-	// This makes sure that the receiver doesn't rely on the order in which frames are packed.
-	if len(pl.frames) > 1 {
-		p.rand.Shuffle(len(pl.frames), func(i, j int) { pl.frames[i], pl.frames[j] = pl.frames[j], pl.frames[i] })
+	// Randomize control frames, but preserve the queue-relative order of packed
+	// DATAGRAMs. Reverse partitioning keeps their order without extra storage.
+	shuffle := len(pl.frames)
+	datagrams := 0
+	for _, frame := range pl.frames {
+		if _, ok := frame.Frame.(*wire.DatagramFrame); ok {
+			datagrams++
+		}
+	}
+	if datagrams > 1 {
+		for i := len(pl.frames) - 1; i >= 0; i-- {
+			if _, ok := pl.frames[i].Frame.(*wire.DatagramFrame); ok {
+				shuffle--
+				pl.frames[i], pl.frames[shuffle] = pl.frames[shuffle], pl.frames[i]
+			}
+		}
+	}
+	if shuffle > 1 {
+		p.rand.Shuffle(shuffle, func(i, j int) { pl.frames[i], pl.frames[j] = pl.frames[j], pl.frames[i] })
 	}
 	for _, f := range pl.frames {
 		var err error

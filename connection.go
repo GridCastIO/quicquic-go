@@ -1520,7 +1520,7 @@ func (c *Conn) handleShortHeaderPacket(
 	if admitted, err := c.admitDatagramPacket(data, protocol.Encryption1RTT); err != nil {
 		return false, err
 	} else if !admitted {
-		c.unprocessedPacketDropped(p)
+		c.recordUnprocessedPacketDrop(p.Size(), datagramPayloadChecksum)
 		return false, nil
 	}
 
@@ -1675,7 +1675,7 @@ func (c *Conn) handleLongHeaderPacket(p receivedPacket, hdr *wire.Header, datagr
 	if admitted, err := c.admitDatagramPacket(packet.data, packet.encryptionLevel); err != nil {
 		return false, err
 	} else if !admitted {
-		c.unprocessedPacketDropped(p)
+		c.recordUnprocessedPacketDrop(p.Size(), datagramPayloadChecksum)
 		return false, nil
 	}
 
@@ -2368,16 +2368,22 @@ func inPacketSizedBuffer(p receivedPacket, ceiling packetCeiling) receivedPacket
 // unprocessedPacketDropped counts and records the drop of a packet that could
 // not enter the unprocessed-packet queue. The caller holds receivedPacketMx.
 func (c *Conn) unprocessedPacketDropped(p receivedPacket) {
+	var checksum qlog.DatagramPayloadChecksum
+	if c.qlogger != nil && wire.IsLongHeaderPacket(p.data[0]) {
+		checksum = qlog.CalculateDatagramPayloadChecksum(p.data)
+	}
+	c.recordUnprocessedPacketDrop(p.Size(), checksum)
+}
+
+// recordUnprocessedPacketDrop also serves authenticated admission. Its checksum
+// must be captured before unpacking changes or slices the UDP datagram buffer.
+func (c *Conn) recordUnprocessedPacketDrop(size protocol.ByteCount, datagramPayloadChecksum qlog.DatagramPayloadChecksum) {
 	c.unprocessedPacketDrops.Add(1)
 	if c.qlogger == nil {
 		return
 	}
-	var datagramPayloadChecksum qlog.DatagramPayloadChecksum
-	if wire.IsLongHeaderPacket(p.data[0]) {
-		datagramPayloadChecksum = qlog.CalculateDatagramPayloadChecksum(p.data)
-	}
 	c.qlogger.RecordEvent(qlog.PacketDropped{
-		Raw:                     qlog.RawInfo{Length: int(p.Size())},
+		Raw:                     qlog.RawInfo{Length: int(size)},
 		DatagramPayloadChecksum: datagramPayloadChecksum,
 		Trigger:                 qlog.PacketDropDOSPrevention,
 	})

@@ -343,7 +343,7 @@ Scoped review evidence and technical disposition are linked from [PR #1233](http
 
 **Owner / authority:** the packer owns packing, and connection admission owns the weighting.
 
-**Seams / blast radius:** per-DATAGRAM work at about 910k/s is unmeasured until the consumer's comparison. Receive queues hold more entries per packet.
+**Seams / blast radius:** per-DATAGRAM work at about 910k/s remains unqualified until consumer qualification of the production implementation. Receive queues hold more entries per packet. The admission pre-scan materializes DATAGRAM frames and copies STREAM payloads through the existing parser, including STREAM-only packets on jumbo/DATAGRAM-enabled receivers; the operational cost belongs in the existing qualification assessment, with no new performance threshold or campaign.
 
 **Artifacts / representation / closure:** shipped behavior. Guarantee: example-level. Closure row: size at or below 1452 packs one frame per packet as today.
 
