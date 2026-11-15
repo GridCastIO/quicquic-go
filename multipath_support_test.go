@@ -118,7 +118,6 @@ func TestMultipathSelectionPrivateExperimentBoundary(t *testing.T) {
 	require.Equal(t, schedulePrimaryBackup, conf.multipath.experimentScheduler)
 	require.ErrorIs(t, conf.ConfigureMultipathV1(true, 2, "aggregate"), ErrMultipathInvalidConfigV1)
 	require.Equal(t, schedulePrimaryBackup, conf.multipath.experimentScheduler)
-
 }
 
 // Public constructors preserve controller selection through setter order and cloning.
