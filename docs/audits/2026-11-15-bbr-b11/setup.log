@@ -1,0 +1,9 @@
+Kernel Version: 7.0
+
+=== RUN   TestAggregationRelayQueue
+--- PASS: TestAggregationRelayQueue (0.00s)
+=== RUN   TestAggregationTopologies
+--- PASS: TestAggregationTopologies (0.00s)
+=== RUN   TestAggregationArms
+--- PASS: TestAggregationArms (0.00s)
+PASS

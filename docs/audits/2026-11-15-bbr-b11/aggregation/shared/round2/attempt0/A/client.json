@@ -1,0 +1,52 @@
+{
+  "result": {
+    "go": "go1.27.4",
+    "flows": [
+      {
+        "label": "focal-a",
+        "controller": "bbrv3",
+        "multipath_negotiated": false,
+        "scheduler": "",
+        "paths": null,
+        "objects_started": 275,
+        "stream_bytes_written": 285593839,
+        "datagrams_offered": 15000,
+        "datagram_send_errors": 0,
+        "packets_sent": 215177,
+        "packets_lost": 0,
+        "close_cause": "",
+        "timeout_close": false
+      },
+      {
+        "label": "competitor",
+        "controller": "reno",
+        "multipath_negotiated": false,
+        "scheduler": "",
+        "paths": null,
+        "objects_started": 112,
+        "stream_bytes_written": 113489355,
+        "datagrams_offered": 0,
+        "datagram_send_errors": 0,
+        "packets_sent": 81480,
+        "packets_lost": 1006,
+        "close_cause": "",
+        "timeout_close": false
+      }
+    ]
+  },
+  "role": "client",
+  "spec": {
+    "role": "client",
+    "topology": "shared",
+    "arm": "A",
+    "seed": 1246,
+    "server": "127.0.0.1:47460",
+    "front_a": "127.0.0.1:47461",
+    "front_b": "127.0.0.1:47462",
+    "front_competitor": "127.0.0.1:47463",
+    "output": "/tmp/qgf-b11-1384-20261115-8c34fbac8/aggregation/shared/round2/attempt0/A/client.json",
+    "start_at_unix_ns": 1794769644215603350,
+    "warmup_ns": 10000000000,
+    "window_ns": 60000000000
+  }
+}

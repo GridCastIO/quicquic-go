@@ -1,0 +1,95 @@
+18:06:21 host busy: named process False, fixture share 0.067
+18:07:55 balanced round 0 A attempt 0: foreign 3.672762488000002 s, contaminated False, product failures []
+18:09:15 balanced round 0 B attempt 0: foreign 0.13153330700000154 s, contaminated False, product failures []
+18:10:34 balanced round 0 C attempt 0: foreign 0.11912265199999972 s, contaminated False, product failures []
+18:11:53 balanced round 0 E attempt 0: foreign 0.10373169800001136 s, contaminated False, product failures []
+18:13:12 balanced round 1 C attempt 0: foreign 0.24511682100001764 s, contaminated False, product failures []
+18:14:31 balanced round 1 E attempt 0: foreign 0.1162310660000152 s, contaminated False, product failures []
+18:15:50 balanced round 1 A attempt 0: foreign 0.08085843900000356 s, contaminated False, product failures []
+18:17:09 balanced round 1 B attempt 0: foreign 0.06404377499998937 s, contaminated False, product failures []
+18:18:28 balanced round 2 E attempt 0: foreign 0.3626093330000124 s, contaminated False, product failures []
+18:19:47 balanced round 2 A attempt 0: foreign 0.19519261600003723 s, contaminated False, product failures []
+18:21:06 balanced round 2 B attempt 0: foreign 0.1653128179999861 s, contaminated False, product failures []
+18:22:25 balanced round 2 C attempt 0: foreign 0.1896223159999959 s, contaminated False, product failures []
+18:23:44 unequal round 0 A attempt 0: foreign 4.823841869999981 s, contaminated True, product failures []
+18:23:46 host busy: named process False, fixture share 0.046
+18:24:03 host busy: named process False, fixture share 0.141
+18:24:20 host busy: named process True, fixture share 0.322
+18:24:37 host busy: named process True, fixture share 0.591
+18:24:54 host busy: named process True, fixture share 0.955
+18:25:11 host busy: named process True, fixture share 0.192
+18:25:28 host busy: named process True, fixture share 0.004
+18:25:45 host busy: named process True, fixture share 0.004
+18:26:02 host busy: named process True, fixture share 0.081
+18:26:19 host busy: named process True, fixture share 0.234
+18:26:36 host busy: named process True, fixture share 0.416
+18:26:53 host busy: named process True, fixture share 0.157
+18:27:10 host busy: named process True, fixture share 0.331
+18:27:27 host busy: named process True, fixture share 0.297
+18:27:44 host busy: named process True, fixture share 0.180
+18:28:01 host busy: named process True, fixture share 0.066
+18:28:18 host busy: named process True, fixture share 0.002
+18:28:35 host busy: named process True, fixture share 0.158
+18:28:52 host busy: named process True, fixture share 0.152
+18:29:09 host busy: named process True, fixture share 0.097
+18:29:26 host busy: named process True, fixture share 0.044
+18:29:43 host busy: named process True, fixture share 0.297
+18:30:00 host busy: named process True, fixture share 0.240
+18:30:17 host busy: named process True, fixture share 0.510
+18:30:34 host busy: named process True, fixture share 0.004
+18:30:51 host busy: named process False, fixture share 0.002
+18:31:08 host busy: named process False, fixture share 0.003
+18:31:25 host busy: named process False, fixture share 0.002
+18:31:42 host busy: named process False, fixture share 0.001
+18:31:59 host busy: named process False, fixture share 0.001
+18:32:16 host busy: named process False, fixture share 0.003
+18:32:33 host busy: named process False, fixture share 0.002
+18:32:50 host busy: named process False, fixture share 0.002
+18:33:07 host busy: named process False, fixture share 0.000
+18:33:24 host busy: named process False, fixture share 0.001
+18:33:41 host busy: named process False, fixture share 0.001
+18:33:58 host busy: named process False, fixture share 0.080
+18:34:15 host busy: named process False, fixture share 0.003
+18:34:32 host busy: named process True, fixture share 0.071
+18:34:49 host busy: named process False, fixture share 0.003
+18:35:06 host busy: named process False, fixture share 0.001
+18:35:23 host busy: named process False, fixture share 0.002
+18:35:40 host busy: named process False, fixture share 0.001
+18:35:57 host busy: named process False, fixture share 0.001
+18:36:14 host busy: named process False, fixture share 0.003
+18:36:31 host busy: named process False, fixture share 0.002
+18:36:49 host busy: named process False, fixture share 0.003
+18:37:06 host busy: named process False, fixture share 0.002
+18:37:23 host busy: named process False, fixture share 0.001
+18:37:40 host busy: named process False, fixture share 0.004
+18:37:57 host busy: named process False, fixture share 0.003
+18:38:14 host busy: named process False, fixture share 0.005
+18:38:31 host busy: named process False, fixture share 0.002
+18:38:48 host busy: named process False, fixture share 0.004
+18:39:05 host busy: named process False, fixture share 0.004
+18:39:22 host busy: named process False, fixture share 0.004
+18:40:56 unequal round 0 A attempt 1: foreign 0.12633620600002438 s, contaminated False, product failures []
+18:42:15 unequal round 0 B attempt 0: foreign 0.20222322899999945 s, contaminated False, product failures []
+18:43:34 unequal round 0 C attempt 0: foreign 0.17882580399999704 s, contaminated False, product failures []
+18:44:53 unequal round 0 E attempt 0: foreign 0.17619601699998455 s, contaminated False, product failures []
+18:46:12 unequal round 1 C attempt 0: foreign 0.33107930700001553 s, contaminated False, product failures []
+18:47:31 unequal round 1 E attempt 0: foreign 0.24035567799997537 s, contaminated False, product failures []
+18:48:50 unequal round 1 A attempt 0: foreign 0.07580970700001011 s, contaminated False, product failures []
+18:50:09 unequal round 1 B attempt 0: foreign 0.15241927299998892 s, contaminated False, product failures []
+18:51:28 unequal round 2 E attempt 0: foreign 0.38149881599997926 s, contaminated False, product failures []
+18:52:47 unequal round 2 A attempt 0: foreign 0.17699185499999004 s, contaminated False, product failures []
+18:54:06 unequal round 2 B attempt 0: foreign 0.2205579809999758 s, contaminated False, product failures []
+18:55:25 unequal round 2 C attempt 0: foreign 0.19404641400000067 s, contaminated False, product failures []
+18:56:44 shared round 0 A attempt 0: foreign 0.3061287609999699 s, contaminated False, product failures []
+18:58:03 shared round 0 B attempt 0: foreign 0.09685807400005153 s, contaminated False, product failures []
+18:59:22 shared round 0 C attempt 0: foreign 0.08636881600001622 s, contaminated False, product failures []
+19:00:41 shared round 0 E attempt 0: foreign 0.1789009700000861 s, contaminated False, product failures []
+19:02:00 shared round 1 C attempt 0: foreign 0.33484678800002676 s, contaminated False, product failures []
+19:03:20 shared round 1 E attempt 0: foreign 0.06766269099998823 s, contaminated False, product failures []
+19:04:39 shared round 1 A attempt 0: foreign 0.08039781899998744 s, contaminated False, product failures []
+19:05:58 shared round 1 B attempt 0: foreign 0.09946562900001332 s, contaminated False, product failures []
+19:07:17 shared round 2 E attempt 0: foreign 0.19994906800003065 s, contaminated False, product failures []
+19:08:36 shared round 2 A attempt 0: foreign 0.046770561999943894 s, contaminated False, product failures []
+19:09:55 shared round 2 B attempt 0: foreign 0.15656174700007597 s, contaminated False, product failures []
+19:11:14 shared round 2 C attempt 0: foreign 0.09781558099994214 s, contaminated False, product failures []
+19:11:14 done: mode campaign, support positive, charged 37

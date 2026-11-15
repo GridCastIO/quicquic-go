@@ -1,6 +1,6 @@
 # QUIC multipath #646 program
 
-**Identity:** `QGF-MP646-20261024`. **Status:** 48 original slices complete; B9–B10 complete; two accepted B-continuation slices not implemented. **Tracking issue:** [#646](https://github.com/the-sarge/quic-go-fast/issues/646). Track plans own contracts; issues and OmniFocus own live mappings/state. Historical receipts stay behind links. This package reports work and dispatches no implementation.
+**Identity:** `QGF-MP646-20261024`. **Status:** 48 original slices complete; B9–B11 complete; one accepted B-continuation slice not implemented. **Tracking issue:** [#646](https://github.com/the-sarge/quic-go-fast/issues/646). Track plans own contracts; issues and OmniFocus own live mappings/state. Historical receipts stay behind links. This package reports work and dispatches no implementation.
 
 ## Tracks and frontier
 
@@ -8,12 +8,12 @@
 | --- | --- | --- | ---: | --- |
 | E — native endpoint | [Endpoint plan](2026-10-24-multipath-endpoint-plan.md) | [#1012](https://github.com/the-sarge/quic-go-fast/issues/1012) | 9 | Complete; unchanged |
 | R — Reno primary/backup | [Reno plan](2026-10-24-multipath-reno-plan.md) | [#1013](https://github.com/the-sarge/quic-go-fast/issues/1013) | 21 | Complete; experimental Linux amd64 Reno primary/backup enabled by R19 #1039 |
-| B — BBR/aggregation | [BBR plan](2026-10-24-multipath-bbr-plan.md) | [#1014](https://github.com/the-sarge/quic-go-fast/issues/1014) | 9 complete + 2 pending | Continuation B9→B10→B11→B12 under follow-up #1374; frontier B11 (#1384) |
+| B — BBR/aggregation | [BBR plan](2026-10-24-multipath-bbr-plan.md) | [#1014](https://github.com/the-sarge/quic-go-fast/issues/1014) | 10 complete + 1 pending | Continuation B9→B10→B11→B12 under follow-up #1374; frontier B12 (#1385) |
 | N — endpoint efficiency/admission | [Efficiency plan](2026-11-04-native-endpoint-efficiency-plan.md) | [#1193](https://github.com/the-sarge/quic-go-fast/issues/1193) | 11 | Complete; unchanged |
 
 The current public profile admits experimental Reno or BBR primary/backup through B9 (#1382); Reno stays default. See the [B9 support record](../audits/2026-11-15-bbr-b9-support.md). The owner has authorized planning experimental BBR primary/backup using the exact accepted cost evidence, followed by one private paced byte-round-robin aggregation candidate and a fixed comparison. B12 publishes either supported experimental BBR aggregate or a valid negative unsupported outcome. Full BBR Q2 [#599](https://github.com/the-sarge/quic-go-fast/issues/599) remains deferred and outside this work; public Reno aggregate and application adoption remain excluded.
 
-**Current continuation frontier:** [B11 (#1384)](https://github.com/the-sarge/quic-go-fast/issues/1384) only, after completed [B9 (#1382)](https://github.com/the-sarge/quic-go-fast/issues/1382) and [B10 (#1383)](https://github.com/the-sarge/quic-go-fast/issues/1383). [B12 (#1385)](https://github.com/the-sarge/quic-go-fast/issues/1385) remains blocked by B11's valid positive/negative receipt. B10's frozen private runtime supplies B11's candidate; no parallel continuation slices exist. Completed cross-track edges remain R9←E5, R16←E6 and B1←R19; no new E/R/N work or convenience ordering is introduced.
+**Current continuation frontier:** [B12 (#1385)](https://github.com/the-sarge/quic-go-fast/issues/1385) only, after completed [B9 (#1382)](https://github.com/the-sarge/quic-go-fast/issues/1382), [B10 (#1383)](https://github.com/the-sarge/quic-go-fast/issues/1383) and [B11 (#1384)](https://github.com/the-sarge/quic-go-fast/issues/1384). The [B11 comparison](../audits/2026-11-15-bbr-b11/README.md) is valid and positive under the unchanged median-paired thresholds; B12 follows its positive publication branch and retires the private selector and finite comparison apparatus. Aggregation remains publicly rejected until that slice delivers. No parallel continuation slices exist. Completed cross-track edges remain R9←E5, R16←E6 and B1←R19; no new E/R/N work or convenience ordering is introduced.
 
 ## Evidence and no-code outcomes
 
