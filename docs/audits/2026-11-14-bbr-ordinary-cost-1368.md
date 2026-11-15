@@ -24,7 +24,7 @@ Append-only plans and outcomes: [experiment ledger](2026-11-14-bbr-ordinary-cost
 
 ## Delivery state
 
-In progress: E08's up-to admission candidate passed correctness checks and independent source/test audits, but its first diagnostic pair is contaminated in both profiles. Apparent passing ratios are excluded; E06's clean ratios of 0.866 / 1.222 remain the last valid comparison and miss both overall targets. Preserve E08 unchanged while reassessing fixture-core interference before any bounded replacement. Observer runtime is excluded from the product branch. Final ordinary-cost qualification, full-panel review, exact-head hosted checks, merge, journal and issue/OmniFocus closure remain. Recommendation: obtain valid evidence for the admission mechanism before changing completion or member caps.
+In progress, awaiting a measurement window/resource: E08's up-to admission candidate passed correctness checks and independent source/test audits, but both its first pair and the one preplanned replacement are contaminated in both profiles. Timing retries have stopped under the recorded plan. E06's clean ratios of 0.866 /1.222 remain the last valid comparison and miss both overall targets; E08 performance is unverified. Preserve the audited candidate unchanged while obtaining a quiet Minimax window or equivalent native Linux host. Observer runtime is excluded from the product branch. Final ordinary-cost qualification, full-panel review, exact-head hosted checks, merge, journal and issue/OmniFocus closure remain. Recommendation: resolve the measurement dependency and obtain valid admission evidence before changing completion or member caps.
 
 ## Current design update — E02/E03, 2026-11-14
 
@@ -65,3 +65,10 @@ E08 keeps E06's single-member geometry and changes only eligible ordinary native
 E08 source `740f07cd88f96c379991c7c3880aafac7a84e20d` passed local/native mechanism checks and independent source/test audits. Its first pair has substantial fixture-core interference in both profiles (57.415 / 38.303 foreign CPU seconds), so nominal ratios 1.031 / 1.055 are excluded. Control goodput was only 7.023 Gbit/s, granted 7.237; no improvement or feasibility claim follows. The candidate remains unchanged pending a validity reassessment.
 
 Program #646 usage is 237/420 instances and 10401.432815502481/28800 host-seconds, leaving 183 /18398.567184497519. No task timing workload or shared-host modification remains.
+
+
+## Current design update — E08 measurement dependency
+
+The exact-binary replacement also has substantial fixture-core interference in both profiles (19.848 /15.846 foreign CPU seconds), despite the preceding 90-second quiet streak. Its descriptive ratios 0.927 /1.180 are excluded, just as the first pair's nominal pass was excluded. No performance disposition or E09 selection follows. The preplanned E08 retry has been used; further timing requires a concrete quiet execution window or equivalent native resource, not another longer quiet heuristic. Candidate documentation and review-tool preparation can proceed independently, but feasibility and qualification remain unverified.
+
+Program #646 usage is 239/420 instances and 10555.475946517745/28800 seconds, leaving 181 /18244.524053482255. The owner was asked for the needed window/resource; no shared-host change or task timing workload remains.
