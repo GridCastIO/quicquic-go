@@ -1,0 +1,132 @@
+{
+  "qualification": false,
+  "contaminated": true,
+  "scope": "Granted server within this instrumented execution only; no cross-arm or quiet-E09 quantitative attribution. First-reason packet counts assign whole declined members, not individually offending packets.",
+  "interior": {
+    "samples": 56,
+    "first_mono_ns": 3616995126152,
+    "last_mono_ns": 3671995995571,
+    "first_unix_ns": 1794714348709978875,
+    "last_unix_ns": 1794714403710848294,
+    "first_seconds_after_attempt_start": 17.008030117,
+    "last_seconds_after_attempt_start": 72.008899536,
+    "span_seconds": 55.000869419,
+    "adjacent_snapshot_gaps_s": [
+      1.000004848,
+      1.000011541,
+      1.000027049,
+      1.00004302,
+      1.000030265,
+      1.000008345,
+      1.000025496,
+      1.000021519,
+      1.000006411,
+      1.00001692,
+      1.000011811,
+      1.000020337,
+      1.000001903,
+      1.000020647,
+      1.000008765,
+      1.000019766,
+      1.000003095,
+      1.000021348,
+      1.00000564,
+      1.000040735,
+      1.000020547,
+      1.000001512,
+      1.000016449,
+      1.000120635,
+      1.00000558,
+      1.000003405,
+      1.000010598,
+      1.000001612,
+      1.000002754,
+      1.0000218,
+      1.000013964,
+      1.000013845,
+      1.000001842,
+      1.000003616,
+      1.000001171,
+      1.000021987,
+      1.000023943,
+      1.000018303,
+      1.000023413,
+      1.000008575,
+      1.000018854,
+      1.000012953,
+      1.000007433,
+      1.000010768,
+      1.00001624,
+      1.000039112,
+      1.000003215,
+      1.000000549,
+      1.000014787,
+      1.000012672,
+      1.000002654,
+      1.000016339,
+      1.000025738,
+      1.0000009,
+      1.000002193
+    ]
+  },
+  "native_attempts": {
+    "members": 1838877,
+    "packets": 37104927
+  },
+  "native_eligible_attempts": {
+    "members": 1767710,
+    "packets": 37033760
+  },
+  "successes": {
+    "members": 1310311,
+    "packets": 21771097
+  },
+  "success_fraction": {
+    "members": 0.7125604377019236,
+    "packets": 0.5867441000490312
+  },
+  "native_declines": {
+    "too_small": {
+      "members": 71167,
+      "packets": 71167
+    }
+  },
+  "recovery_declines": {
+    "pto": {
+      "members": 457399,
+      "packets": 15262663
+    }
+  },
+  "rich_attempts": {
+    "members": 1310311,
+    "packets": 21771097
+  },
+  "rich_successes": {
+    "members": 1310311,
+    "packets": 21771097
+  },
+  "pto_bucket_packet_fraction_of_native": 0.41133790668824116,
+  "geometry": {
+    "handoffs": 1838876,
+    "bytes": 52961480513,
+    "datagrams": 37104892,
+    "gso_handoffs": 1767709,
+    "scalar_handoffs": 71167,
+    "size_buckets": [
+      71167,
+      750709,
+      66201,
+      173547,
+      235352,
+      541900,
+      0
+    ]
+  },
+  "mean_handoff_bytes": 28801.00698089485,
+  "mean_handoff_datagrams": 20.178028317298175,
+  "lifetime_success_fraction": {
+    "members": 0.7260437902184079,
+    "packets": 0.6023215842245466
+  },
+  "limits": "PTO is a composite first-decline predicate group: application space/epoch/owner, tracking, outstanding history and latest positive local PTO. Counts do not isolate its subcondition. Handoff geometry and native-consumption counts differ at in-flight interval boundaries. Control/client native counters are zero as expected for these legacy routes. No snapshot truncation or captured counter regression was found."
+}

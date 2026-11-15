@@ -1,0 +1,3489 @@
+{
+  "observer_source_schema_pin": "738ead192547bc107b7b0c142cdd8b7a0146a205",
+  "qualification": false,
+  "timing_acceptance_eligible": false,
+  "size_bucket_upper_bounds_bytes": [
+    1452,
+    16384,
+    20480,
+    32768,
+    49152,
+    65507,
+    null
+  ],
+  "boundaries": "Lifetime counters freeze before teardown and include startup/warmup. Interior snapshots lie within 17\u201373 seconds after attempt registration, approximately inside the 5-second setup +10-second warmup +60-second measurement. Server/client use overlapping role bounds, with each actual selected endpoint and monotonic duration reported. These are neither exact 60-second window counts nor synchronized cross-role snapshots. Whole-role profiles include setup/warmup/cleanup; cumulative samples overlap and are not additive removable time. Instrumentation overhead is not removed.",
+  "counter_validation": "All captured snapshots and final copies pass strict uint64/schema, per-stage member/packet conservation and snapshot/counter monotonicity checks; overflow/truncation is rejected. This does not claim a mathematical proof against multiple uint64 wraps between observations.",
+  "attempts": [
+    {
+      "profile": "unregistered",
+      "status": "succeeded",
+      "occupied_s": 77.06809332128614,
+      "foreign_cpu_s": 84.80802789699999,
+      "contaminated": true,
+      "started_at_unix_ns": 1794714252616254129,
+      "matching_interior": {
+        "available": true,
+        "common_nominal_bounds_seconds_after_attempt_start": [
+          17.00488351,
+          72.005585187
+        ],
+        "roles": {
+          "server": {
+            "samples": 56,
+            "first_mono_ns": 3616994562201,
+            "last_mono_ns": 3671995263878,
+            "first_unix_ns": 1794714269621137639,
+            "last_unix_ns": 1794714324621839316,
+            "first_seconds_after_attempt_start": 17.00488351,
+            "last_seconds_after_attempt_start": 72.005585187,
+            "span_seconds": 55.000701677,
+            "adjacent_snapshot_gaps_s": [
+              1.000003916,
+              1.000045224,
+              1.000019655,
+              1.000002464,
+              1.000006821,
+              1.000004808,
+              1.00001661,
+              1.000008475,
+              1.000000559,
+              1.0000059,
+              1.000001492,
+              1.00000083,
+              1.0000169,
+              1.000004928,
+              1.000029054,
+              1.00001143,
+              1.000024364,
+              1.000012693,
+              1.000019906,
+              1.000040044,
+              1.000094636,
+              1.000002193,
+              1.000001682,
+              1.000014726,
+              1.000006181,
+              1.000045514,
+              1.000003715,
+              1.00000029,
+              1.000003906,
+              1.000000419,
+              1.000003916,
+              1.000004177,
+              1.000006511,
+              1.000001672,
+              1.000004236,
+              1.000006481,
+              1.000019746,
+              1.000087784,
+              1.000002433,
+              1.000004868,
+              1.000006671,
+              1.000008755,
+              1.000010549,
+              1.000000629,
+              1.000007483,
+              1.000000139,
+              1.000009006,
+              1.000010398,
+              1.000004257,
+              1.00000099,
+              1.000015669,
+              1.000010839,
+              1.000015257,
+              1.000005689,
+              1.000004187
+            ],
+            "observation": {
+              "counters": {
+                "geometry": {
+                  "handoffs": 3015514,
+                  "bytes": 47410049713,
+                  "datagrams": 33214877,
+                  "gso_handoffs": 2958918,
+                  "scalar_handoffs": 56596,
+                  "size_buckets": [
+                    56596,
+                    947271,
+                    2011647,
+                    0,
+                    0,
+                    0,
+                    0
+                  ]
+                },
+                "native": {
+                  "attempts": {
+                    "members": 0,
+                    "packets": 0
+                  },
+                  "datagrams": 0,
+                  "seam_attempts": {
+                    "members": 0,
+                    "packets": 0
+                  },
+                  "successes": {
+                    "members": 0,
+                    "packets": 0
+                  },
+                  "declines": [
+                    {
+                      "members": 0,
+                      "packets": 0
+                    },
+                    {
+                      "members": 0,
+                      "packets": 0
+                    },
+                    {
+                      "members": 0,
+                      "packets": 0
+                    },
+                    {
+                      "members": 0,
+                      "packets": 0
+                    },
+                    {
+                      "members": 0,
+                      "packets": 0
+                    },
+                    {
+                      "members": 0,
+                      "packets": 0
+                    }
+                  ],
+                  "recovery": {
+                    "attempts": {
+                      "members": 0,
+                      "packets": 0
+                    },
+                    "rich_attempts": {
+                      "members": 0,
+                      "packets": 0
+                    },
+                    "successes": {
+                      "members": 0,
+                      "packets": 0
+                    },
+                    "rich_successes": {
+                      "members": 0,
+                      "packets": 0
+                    },
+                    "declines": [
+                      {
+                        "members": 0,
+                        "packets": 0
+                      },
+                      {
+                        "members": 0,
+                        "packets": 0
+                      },
+                      {
+                        "members": 0,
+                        "packets": 0
+                      },
+                      {
+                        "members": 0,
+                        "packets": 0
+                      },
+                      {
+                        "members": 0,
+                        "packets": 0
+                      },
+                      {
+                        "members": 0,
+                        "packets": 0
+                      },
+                      {
+                        "members": 0,
+                        "packets": 0
+                      },
+                      {
+                        "members": 0,
+                        "packets": 0
+                      },
+                      {
+                        "members": 0,
+                        "packets": 0
+                      },
+                      {
+                        "members": 0,
+                        "packets": 0
+                      },
+                      {
+                        "members": 0,
+                        "packets": 0
+                      },
+                      {
+                        "members": 0,
+                        "packets": 0
+                      },
+                      {
+                        "members": 0,
+                        "packets": 0
+                      },
+                      {
+                        "members": 0,
+                        "packets": 0
+                      },
+                      {
+                        "members": 0,
+                        "packets": 0
+                      },
+                      {
+                        "members": 0,
+                        "packets": 0
+                      },
+                      {
+                        "members": 0,
+                        "packets": 0
+                      },
+                      {
+                        "members": 0,
+                        "packets": 0
+                      },
+                      {
+                        "members": 0,
+                        "packets": 0
+                      },
+                      {
+                        "members": 0,
+                        "packets": 0
+                      },
+                      {
+                        "members": 0,
+                        "packets": 0
+                      },
+                      {
+                        "members": 0,
+                        "packets": 0
+                      },
+                      {
+                        "members": 0,
+                        "packets": 0
+                      },
+                      {
+                        "members": 0,
+                        "packets": 0
+                      },
+                      {
+                        "members": 0,
+                        "packets": 0
+                      },
+                      {
+                        "members": 0,
+                        "packets": 0
+                      },
+                      {
+                        "members": 0,
+                        "packets": 0
+                      },
+                      {
+                        "members": 0,
+                        "packets": 0
+                      },
+                      {
+                        "members": 0,
+                        "packets": 0
+                      },
+                      {
+                        "members": 0,
+                        "packets": 0
+                      },
+                      {
+                        "members": 0,
+                        "packets": 0
+                      },
+                      {
+                        "members": 0,
+                        "packets": 0
+                      },
+                      {
+                        "members": 0,
+                        "packets": 0
+                      }
+                    ]
+                  }
+                }
+              },
+              "native_eligible_fraction": {
+                "members": null,
+                "packets": null
+              },
+              "native_fast_completion_fraction": {
+                "members": null,
+                "packets": null
+              },
+              "recovery_success_fraction": {
+                "members": null,
+                "packets": null
+              },
+              "rich_success_fraction": {
+                "members": null,
+                "packets": null
+              },
+              "first_native_declines": {
+                "result_error": {
+                  "members": 0,
+                  "packets": 0
+                },
+                "partial": {
+                  "members": 0,
+                  "packets": 0
+                },
+                "packet_geometry": {
+                  "members": 0,
+                  "packets": 0
+                },
+                "too_small": {
+                  "members": 0,
+                  "packets": 0
+                },
+                "too_large": {
+                  "members": 0,
+                  "packets": 0
+                },
+                "mtu": {
+                  "members": 0,
+                  "packets": 0
+                }
+              },
+              "first_recovery_declines": {
+                "handler": {
+                  "members": 0,
+                  "packets": 0
+                },
+                "shape": {
+                  "members": 0,
+                  "packets": 0
+                },
+                "local_state": {
+                  "members": 0,
+                  "packets": 0
+                },
+                "qlog": {
+                  "members": 0,
+                  "packets": 0
+                },
+                "handshake": {
+                  "members": 0,
+                  "packets": 0
+                },
+                "amplification": {
+                  "members": 0,
+                  "packets": 0
+                },
+                "lost_queue": {
+                  "members": 0,
+                  "packets": 0
+                },
+                "rich_controller": {
+                  "members": 0,
+                  "packets": 0
+                },
+                "unexpected_bbr_ecn": {
+                  "members": 0,
+                  "packets": 0
+                },
+                "pto": {
+                  "members": 0,
+                  "packets": 0
+                },
+                "physical_prefix": {
+                  "members": 0,
+                  "packets": 0
+                },
+                "pending_ecn": {
+                  "members": 0,
+                  "packets": 0
+                },
+                "ecn_constraints": {
+                  "members": 0,
+                  "packets": 0
+                },
+                "ecn_tracker": {
+                  "members": 0,
+                  "packets": 0
+                },
+                "token_owner": {
+                  "members": 0,
+                  "packets": 0
+                },
+                "token_level": {
+                  "members": 0,
+                  "packets": 0
+                },
+                "token_outcome": {
+                  "members": 0,
+                  "packets": 0
+                },
+                "token_acked": {
+                  "members": 0,
+                  "packets": 0
+                },
+                "token_early_ack": {
+                  "members": 0,
+                  "packets": 0
+                },
+                "token_order": {
+                  "members": 0,
+                  "packets": 0
+                },
+                "token_time": {
+                  "members": 0,
+                  "packets": 0
+                },
+                "packet_state": {
+                  "members": 0,
+                  "packets": 0
+                },
+                "history_identity": {
+                  "members": 0,
+                  "packets": 0
+                },
+                "rich_size": {
+                  "members": 0,
+                  "packets": 0
+                },
+                "rich_timing": {
+                  "members": 0,
+                  "packets": 0
+                },
+                "rich_ordinal": {
+                  "members": 0,
+                  "packets": 0
+                },
+                "rich_delivery": {
+                  "members": 0,
+                  "packets": 0
+                },
+                "rich_delivery_ordinal": {
+                  "members": 0,
+                  "packets": 0
+                },
+                "rich_generation": {
+                  "members": 0,
+                  "packets": 0
+                },
+                "rich_recovery": {
+                  "members": 0,
+                  "packets": 0
+                },
+                "rich_recovery_ordinal": {
+                  "members": 0,
+                  "packets": 0
+                },
+                "rich_recovery_state": {
+                  "members": 0,
+                  "packets": 0
+                },
+                "rich_registration": {
+                  "members": 0,
+                  "packets": 0
+                }
+              },
+              "native_packets_per_attempt": null,
+              "native_datagrams_per_attempt": null,
+              "handoff_bytes_mean": 15722.045963971648,
+              "handoff_datagrams_mean": 11.01466516156118
+            }
+          },
+          "client": {
+            "samples": 54,
+            "first_mono_ns": 3617994342708,
+            "last_mono_ns": 3670996080101,
+            "first_unix_ns": 1794714270621081893,
+            "last_unix_ns": 1794714323622819286,
+            "first_seconds_after_attempt_start": 18.004827764,
+            "last_seconds_after_attempt_start": 71.006565157,
+            "span_seconds": 53.001737393,
+            "adjacent_snapshot_gaps_s": [
+              1.000043972,
+              1.000015948,
+              1.000002103,
+              1.000022501,
+              1.000008334,
+              1.000017562,
+              1.000002253,
+              1.000001571,
+              1.000007613,
+              1.000030587,
+              1.000001281,
+              1.000044783,
+              1.000007462,
+              1.000083946,
+              1.000084468,
+              1.000034523,
+              1.000003676,
+              1.000019606,
+              1.000079678,
+              1.000030756,
+              1.000015298,
+              1.000004697,
+              1.000016109,
+              1.000001612,
+              1.000106649,
+              1.000017822,
+              1.000062376,
+              1.000017511,
+              1.000061084,
+              1.000041436,
+              1.000011891,
+              1.000011901,
+              1.000017642,
+              1.000118381,
+              1.00001165,
+              1.000000761,
+              1.000000219,
+              1.000000149,
+              1.000081311,
+              1.000139681,
+              1.000008986,
+              1.000040354,
+              1.000042849,
+              1.00003243,
+              1.000008023,
+              1.000068728,
+              1.000019075,
+              1.000066894,
+              1.000052187,
+              1.000000209,
+              1.000074418,
+              1.000037098,
+              1.000005339
+            ],
+            "observation": {
+              "counters": {
+                "geometry": {
+                  "handoffs": 1428416,
+                  "bytes": 54398926,
+                  "datagrams": 1428416,
+                  "gso_handoffs": 0,
+                  "scalar_handoffs": 1428416,
+                  "size_buckets": [
+                    1428416,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0
+                  ]
+                },
+                "native": {
+                  "attempts": {
+                    "members": 0,
+                    "packets": 0
+                  },
+                  "datagrams": 0,
+                  "seam_attempts": {
+                    "members": 0,
+                    "packets": 0
+                  },
+                  "successes": {
+                    "members": 0,
+                    "packets": 0
+                  },
+                  "declines": [
+                    {
+                      "members": 0,
+                      "packets": 0
+                    },
+                    {
+                      "members": 0,
+                      "packets": 0
+                    },
+                    {
+                      "members": 0,
+                      "packets": 0
+                    },
+                    {
+                      "members": 0,
+                      "packets": 0
+                    },
+                    {
+                      "members": 0,
+                      "packets": 0
+                    },
+                    {
+                      "members": 0,
+                      "packets": 0
+                    }
+                  ],
+                  "recovery": {
+                    "attempts": {
+                      "members": 0,
+                      "packets": 0
+                    },
+                    "rich_attempts": {
+                      "members": 0,
+                      "packets": 0
+                    },
+                    "successes": {
+                      "members": 0,
+                      "packets": 0
+                    },
+                    "rich_successes": {
+                      "members": 0,
+                      "packets": 0
+                    },
+                    "declines": [
+                      {
+                        "members": 0,
+                        "packets": 0
+                      },
+                      {
+                        "members": 0,
+                        "packets": 0
+                      },
+                      {
+                        "members": 0,
+                        "packets": 0
+                      },
+                      {
+                        "members": 0,
+                        "packets": 0
+                      },
+                      {
+                        "members": 0,
+                        "packets": 0
+                      },
+                      {
+                        "members": 0,
+                        "packets": 0
+                      },
+                      {
+                        "members": 0,
+                        "packets": 0
+                      },
+                      {
+                        "members": 0,
+                        "packets": 0
+                      },
+                      {
+                        "members": 0,
+                        "packets": 0
+                      },
+                      {
+                        "members": 0,
+                        "packets": 0
+                      },
+                      {
+                        "members": 0,
+                        "packets": 0
+                      },
+                      {
+                        "members": 0,
+                        "packets": 0
+                      },
+                      {
+                        "members": 0,
+                        "packets": 0
+                      },
+                      {
+                        "members": 0,
+                        "packets": 0
+                      },
+                      {
+                        "members": 0,
+                        "packets": 0
+                      },
+                      {
+                        "members": 0,
+                        "packets": 0
+                      },
+                      {
+                        "members": 0,
+                        "packets": 0
+                      },
+                      {
+                        "members": 0,
+                        "packets": 0
+                      },
+                      {
+                        "members": 0,
+                        "packets": 0
+                      },
+                      {
+                        "members": 0,
+                        "packets": 0
+                      },
+                      {
+                        "members": 0,
+                        "packets": 0
+                      },
+                      {
+                        "members": 0,
+                        "packets": 0
+                      },
+                      {
+                        "members": 0,
+                        "packets": 0
+                      },
+                      {
+                        "members": 0,
+                        "packets": 0
+                      },
+                      {
+                        "members": 0,
+                        "packets": 0
+                      },
+                      {
+                        "members": 0,
+                        "packets": 0
+                      },
+                      {
+                        "members": 0,
+                        "packets": 0
+                      },
+                      {
+                        "members": 0,
+                        "packets": 0
+                      },
+                      {
+                        "members": 0,
+                        "packets": 0
+                      },
+                      {
+                        "members": 0,
+                        "packets": 0
+                      },
+                      {
+                        "members": 0,
+                        "packets": 0
+                      },
+                      {
+                        "members": 0,
+                        "packets": 0
+                      },
+                      {
+                        "members": 0,
+                        "packets": 0
+                      }
+                    ]
+                  }
+                }
+              },
+              "native_eligible_fraction": {
+                "members": null,
+                "packets": null
+              },
+              "native_fast_completion_fraction": {
+                "members": null,
+                "packets": null
+              },
+              "recovery_success_fraction": {
+                "members": null,
+                "packets": null
+              },
+              "rich_success_fraction": {
+                "members": null,
+                "packets": null
+              },
+              "first_native_declines": {
+                "result_error": {
+                  "members": 0,
+                  "packets": 0
+                },
+                "partial": {
+                  "members": 0,
+                  "packets": 0
+                },
+                "packet_geometry": {
+                  "members": 0,
+                  "packets": 0
+                },
+                "too_small": {
+                  "members": 0,
+                  "packets": 0
+                },
+                "too_large": {
+                  "members": 0,
+                  "packets": 0
+                },
+                "mtu": {
+                  "members": 0,
+                  "packets": 0
+                }
+              },
+              "first_recovery_declines": {
+                "handler": {
+                  "members": 0,
+                  "packets": 0
+                },
+                "shape": {
+                  "members": 0,
+                  "packets": 0
+                },
+                "local_state": {
+                  "members": 0,
+                  "packets": 0
+                },
+                "qlog": {
+                  "members": 0,
+                  "packets": 0
+                },
+                "handshake": {
+                  "members": 0,
+                  "packets": 0
+                },
+                "amplification": {
+                  "members": 0,
+                  "packets": 0
+                },
+                "lost_queue": {
+                  "members": 0,
+                  "packets": 0
+                },
+                "rich_controller": {
+                  "members": 0,
+                  "packets": 0
+                },
+                "unexpected_bbr_ecn": {
+                  "members": 0,
+                  "packets": 0
+                },
+                "pto": {
+                  "members": 0,
+                  "packets": 0
+                },
+                "physical_prefix": {
+                  "members": 0,
+                  "packets": 0
+                },
+                "pending_ecn": {
+                  "members": 0,
+                  "packets": 0
+                },
+                "ecn_constraints": {
+                  "members": 0,
+                  "packets": 0
+                },
+                "ecn_tracker": {
+                  "members": 0,
+                  "packets": 0
+                },
+                "token_owner": {
+                  "members": 0,
+                  "packets": 0
+                },
+                "token_level": {
+                  "members": 0,
+                  "packets": 0
+                },
+                "token_outcome": {
+                  "members": 0,
+                  "packets": 0
+                },
+                "token_acked": {
+                  "members": 0,
+                  "packets": 0
+                },
+                "token_early_ack": {
+                  "members": 0,
+                  "packets": 0
+                },
+                "token_order": {
+                  "members": 0,
+                  "packets": 0
+                },
+                "token_time": {
+                  "members": 0,
+                  "packets": 0
+                },
+                "packet_state": {
+                  "members": 0,
+                  "packets": 0
+                },
+                "history_identity": {
+                  "members": 0,
+                  "packets": 0
+                },
+                "rich_size": {
+                  "members": 0,
+                  "packets": 0
+                },
+                "rich_timing": {
+                  "members": 0,
+                  "packets": 0
+                },
+                "rich_ordinal": {
+                  "members": 0,
+                  "packets": 0
+                },
+                "rich_delivery": {
+                  "members": 0,
+                  "packets": 0
+                },
+                "rich_delivery_ordinal": {
+                  "members": 0,
+                  "packets": 0
+                },
+                "rich_generation": {
+                  "members": 0,
+                  "packets": 0
+                },
+                "rich_recovery": {
+                  "members": 0,
+                  "packets": 0
+                },
+                "rich_recovery_ordinal": {
+                  "members": 0,
+                  "packets": 0
+                },
+                "rich_recovery_state": {
+                  "members": 0,
+                  "packets": 0
+                },
+                "rich_registration": {
+                  "members": 0,
+                  "packets": 0
+                }
+              },
+              "native_packets_per_attempt": null,
+              "native_datagrams_per_attempt": null,
+              "handoff_bytes_mean": 38.08339167301403,
+              "handoff_datagrams_mean": 1.0
+            }
+          }
+        }
+      },
+      "roles": {
+        "server": {
+          "label": "unregistered.server",
+          "snapshot_count": 71,
+          "snapshot_overflow": 0,
+          "final_recorded": true,
+          "lifetime_before_teardown": {
+            "counters": {
+              "geometry": {
+                "handoffs": 3820212,
+                "bytes": 60294140829,
+                "datagrams": 42243482,
+                "gso_handoffs": 3751397,
+                "scalar_handoffs": 68815,
+                "size_buckets": [
+                  68815,
+                  1184590,
+                  2566807,
+                  0,
+                  0,
+                  0,
+                  0
+                ]
+              },
+              "native": {
+                "attempts": {
+                  "members": 0,
+                  "packets": 0
+                },
+                "datagrams": 0,
+                "seam_attempts": {
+                  "members": 0,
+                  "packets": 0
+                },
+                "successes": {
+                  "members": 0,
+                  "packets": 0
+                },
+                "declines": [
+                  {
+                    "members": 0,
+                    "packets": 0
+                  },
+                  {
+                    "members": 0,
+                    "packets": 0
+                  },
+                  {
+                    "members": 0,
+                    "packets": 0
+                  },
+                  {
+                    "members": 0,
+                    "packets": 0
+                  },
+                  {
+                    "members": 0,
+                    "packets": 0
+                  },
+                  {
+                    "members": 0,
+                    "packets": 0
+                  }
+                ],
+                "recovery": {
+                  "attempts": {
+                    "members": 0,
+                    "packets": 0
+                  },
+                  "rich_attempts": {
+                    "members": 0,
+                    "packets": 0
+                  },
+                  "successes": {
+                    "members": 0,
+                    "packets": 0
+                  },
+                  "rich_successes": {
+                    "members": 0,
+                    "packets": 0
+                  },
+                  "declines": [
+                    {
+                      "members": 0,
+                      "packets": 0
+                    },
+                    {
+                      "members": 0,
+                      "packets": 0
+                    },
+                    {
+                      "members": 0,
+                      "packets": 0
+                    },
+                    {
+                      "members": 0,
+                      "packets": 0
+                    },
+                    {
+                      "members": 0,
+                      "packets": 0
+                    },
+                    {
+                      "members": 0,
+                      "packets": 0
+                    },
+                    {
+                      "members": 0,
+                      "packets": 0
+                    },
+                    {
+                      "members": 0,
+                      "packets": 0
+                    },
+                    {
+                      "members": 0,
+                      "packets": 0
+                    },
+                    {
+                      "members": 0,
+                      "packets": 0
+                    },
+                    {
+                      "members": 0,
+                      "packets": 0
+                    },
+                    {
+                      "members": 0,
+                      "packets": 0
+                    },
+                    {
+                      "members": 0,
+                      "packets": 0
+                    },
+                    {
+                      "members": 0,
+                      "packets": 0
+                    },
+                    {
+                      "members": 0,
+                      "packets": 0
+                    },
+                    {
+                      "members": 0,
+                      "packets": 0
+                    },
+                    {
+                      "members": 0,
+                      "packets": 0
+                    },
+                    {
+                      "members": 0,
+                      "packets": 0
+                    },
+                    {
+                      "members": 0,
+                      "packets": 0
+                    },
+                    {
+                      "members": 0,
+                      "packets": 0
+                    },
+                    {
+                      "members": 0,
+                      "packets": 0
+                    },
+                    {
+                      "members": 0,
+                      "packets": 0
+                    },
+                    {
+                      "members": 0,
+                      "packets": 0
+                    },
+                    {
+                      "members": 0,
+                      "packets": 0
+                    },
+                    {
+                      "members": 0,
+                      "packets": 0
+                    },
+                    {
+                      "members": 0,
+                      "packets": 0
+                    },
+                    {
+                      "members": 0,
+                      "packets": 0
+                    },
+                    {
+                      "members": 0,
+                      "packets": 0
+                    },
+                    {
+                      "members": 0,
+                      "packets": 0
+                    },
+                    {
+                      "members": 0,
+                      "packets": 0
+                    },
+                    {
+                      "members": 0,
+                      "packets": 0
+                    },
+                    {
+                      "members": 0,
+                      "packets": 0
+                    },
+                    {
+                      "members": 0,
+                      "packets": 0
+                    }
+                  ]
+                }
+              }
+            },
+            "native_eligible_fraction": {
+              "members": null,
+              "packets": null
+            },
+            "native_fast_completion_fraction": {
+              "members": null,
+              "packets": null
+            },
+            "recovery_success_fraction": {
+              "members": null,
+              "packets": null
+            },
+            "rich_success_fraction": {
+              "members": null,
+              "packets": null
+            },
+            "first_native_declines": {
+              "result_error": {
+                "members": 0,
+                "packets": 0
+              },
+              "partial": {
+                "members": 0,
+                "packets": 0
+              },
+              "packet_geometry": {
+                "members": 0,
+                "packets": 0
+              },
+              "too_small": {
+                "members": 0,
+                "packets": 0
+              },
+              "too_large": {
+                "members": 0,
+                "packets": 0
+              },
+              "mtu": {
+                "members": 0,
+                "packets": 0
+              }
+            },
+            "first_recovery_declines": {
+              "handler": {
+                "members": 0,
+                "packets": 0
+              },
+              "shape": {
+                "members": 0,
+                "packets": 0
+              },
+              "local_state": {
+                "members": 0,
+                "packets": 0
+              },
+              "qlog": {
+                "members": 0,
+                "packets": 0
+              },
+              "handshake": {
+                "members": 0,
+                "packets": 0
+              },
+              "amplification": {
+                "members": 0,
+                "packets": 0
+              },
+              "lost_queue": {
+                "members": 0,
+                "packets": 0
+              },
+              "rich_controller": {
+                "members": 0,
+                "packets": 0
+              },
+              "unexpected_bbr_ecn": {
+                "members": 0,
+                "packets": 0
+              },
+              "pto": {
+                "members": 0,
+                "packets": 0
+              },
+              "physical_prefix": {
+                "members": 0,
+                "packets": 0
+              },
+              "pending_ecn": {
+                "members": 0,
+                "packets": 0
+              },
+              "ecn_constraints": {
+                "members": 0,
+                "packets": 0
+              },
+              "ecn_tracker": {
+                "members": 0,
+                "packets": 0
+              },
+              "token_owner": {
+                "members": 0,
+                "packets": 0
+              },
+              "token_level": {
+                "members": 0,
+                "packets": 0
+              },
+              "token_outcome": {
+                "members": 0,
+                "packets": 0
+              },
+              "token_acked": {
+                "members": 0,
+                "packets": 0
+              },
+              "token_early_ack": {
+                "members": 0,
+                "packets": 0
+              },
+              "token_order": {
+                "members": 0,
+                "packets": 0
+              },
+              "token_time": {
+                "members": 0,
+                "packets": 0
+              },
+              "packet_state": {
+                "members": 0,
+                "packets": 0
+              },
+              "history_identity": {
+                "members": 0,
+                "packets": 0
+              },
+              "rich_size": {
+                "members": 0,
+                "packets": 0
+              },
+              "rich_timing": {
+                "members": 0,
+                "packets": 0
+              },
+              "rich_ordinal": {
+                "members": 0,
+                "packets": 0
+              },
+              "rich_delivery": {
+                "members": 0,
+                "packets": 0
+              },
+              "rich_delivery_ordinal": {
+                "members": 0,
+                "packets": 0
+              },
+              "rich_generation": {
+                "members": 0,
+                "packets": 0
+              },
+              "rich_recovery": {
+                "members": 0,
+                "packets": 0
+              },
+              "rich_recovery_ordinal": {
+                "members": 0,
+                "packets": 0
+              },
+              "rich_recovery_state": {
+                "members": 0,
+                "packets": 0
+              },
+              "rich_registration": {
+                "members": 0,
+                "packets": 0
+              }
+            },
+            "native_packets_per_attempt": null,
+            "native_datagrams_per_attempt": null,
+            "handoff_bytes_mean": 15782.930588407136,
+            "handoff_datagrams_mean": 11.057889457443723
+          }
+        },
+        "client": {
+          "label": "unregistered.client",
+          "snapshot_count": 71,
+          "snapshot_overflow": 0,
+          "final_recorded": true,
+          "lifetime_before_teardown": {
+            "counters": {
+              "geometry": {
+                "handoffs": 1889943,
+                "bytes": 71987820,
+                "datagrams": 1889943,
+                "gso_handoffs": 0,
+                "scalar_handoffs": 1889943,
+                "size_buckets": [
+                  1889943,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0
+                ]
+              },
+              "native": {
+                "attempts": {
+                  "members": 0,
+                  "packets": 0
+                },
+                "datagrams": 0,
+                "seam_attempts": {
+                  "members": 0,
+                  "packets": 0
+                },
+                "successes": {
+                  "members": 0,
+                  "packets": 0
+                },
+                "declines": [
+                  {
+                    "members": 0,
+                    "packets": 0
+                  },
+                  {
+                    "members": 0,
+                    "packets": 0
+                  },
+                  {
+                    "members": 0,
+                    "packets": 0
+                  },
+                  {
+                    "members": 0,
+                    "packets": 0
+                  },
+                  {
+                    "members": 0,
+                    "packets": 0
+                  },
+                  {
+                    "members": 0,
+                    "packets": 0
+                  }
+                ],
+                "recovery": {
+                  "attempts": {
+                    "members": 0,
+                    "packets": 0
+                  },
+                  "rich_attempts": {
+                    "members": 0,
+                    "packets": 0
+                  },
+                  "successes": {
+                    "members": 0,
+                    "packets": 0
+                  },
+                  "rich_successes": {
+                    "members": 0,
+                    "packets": 0
+                  },
+                  "declines": [
+                    {
+                      "members": 0,
+                      "packets": 0
+                    },
+                    {
+                      "members": 0,
+                      "packets": 0
+                    },
+                    {
+                      "members": 0,
+                      "packets": 0
+                    },
+                    {
+                      "members": 0,
+                      "packets": 0
+                    },
+                    {
+                      "members": 0,
+                      "packets": 0
+                    },
+                    {
+                      "members": 0,
+                      "packets": 0
+                    },
+                    {
+                      "members": 0,
+                      "packets": 0
+                    },
+                    {
+                      "members": 0,
+                      "packets": 0
+                    },
+                    {
+                      "members": 0,
+                      "packets": 0
+                    },
+                    {
+                      "members": 0,
+                      "packets": 0
+                    },
+                    {
+                      "members": 0,
+                      "packets": 0
+                    },
+                    {
+                      "members": 0,
+                      "packets": 0
+                    },
+                    {
+                      "members": 0,
+                      "packets": 0
+                    },
+                    {
+                      "members": 0,
+                      "packets": 0
+                    },
+                    {
+                      "members": 0,
+                      "packets": 0
+                    },
+                    {
+                      "members": 0,
+                      "packets": 0
+                    },
+                    {
+                      "members": 0,
+                      "packets": 0
+                    },
+                    {
+                      "members": 0,
+                      "packets": 0
+                    },
+                    {
+                      "members": 0,
+                      "packets": 0
+                    },
+                    {
+                      "members": 0,
+                      "packets": 0
+                    },
+                    {
+                      "members": 0,
+                      "packets": 0
+                    },
+                    {
+                      "members": 0,
+                      "packets": 0
+                    },
+                    {
+                      "members": 0,
+                      "packets": 0
+                    },
+                    {
+                      "members": 0,
+                      "packets": 0
+                    },
+                    {
+                      "members": 0,
+                      "packets": 0
+                    },
+                    {
+                      "members": 0,
+                      "packets": 0
+                    },
+                    {
+                      "members": 0,
+                      "packets": 0
+                    },
+                    {
+                      "members": 0,
+                      "packets": 0
+                    },
+                    {
+                      "members": 0,
+                      "packets": 0
+                    },
+                    {
+                      "members": 0,
+                      "packets": 0
+                    },
+                    {
+                      "members": 0,
+                      "packets": 0
+                    },
+                    {
+                      "members": 0,
+                      "packets": 0
+                    },
+                    {
+                      "members": 0,
+                      "packets": 0
+                    }
+                  ]
+                }
+              }
+            },
+            "native_eligible_fraction": {
+              "members": null,
+              "packets": null
+            },
+            "native_fast_completion_fraction": {
+              "members": null,
+              "packets": null
+            },
+            "recovery_success_fraction": {
+              "members": null,
+              "packets": null
+            },
+            "rich_success_fraction": {
+              "members": null,
+              "packets": null
+            },
+            "first_native_declines": {
+              "result_error": {
+                "members": 0,
+                "packets": 0
+              },
+              "partial": {
+                "members": 0,
+                "packets": 0
+              },
+              "packet_geometry": {
+                "members": 0,
+                "packets": 0
+              },
+              "too_small": {
+                "members": 0,
+                "packets": 0
+              },
+              "too_large": {
+                "members": 0,
+                "packets": 0
+              },
+              "mtu": {
+                "members": 0,
+                "packets": 0
+              }
+            },
+            "first_recovery_declines": {
+              "handler": {
+                "members": 0,
+                "packets": 0
+              },
+              "shape": {
+                "members": 0,
+                "packets": 0
+              },
+              "local_state": {
+                "members": 0,
+                "packets": 0
+              },
+              "qlog": {
+                "members": 0,
+                "packets": 0
+              },
+              "handshake": {
+                "members": 0,
+                "packets": 0
+              },
+              "amplification": {
+                "members": 0,
+                "packets": 0
+              },
+              "lost_queue": {
+                "members": 0,
+                "packets": 0
+              },
+              "rich_controller": {
+                "members": 0,
+                "packets": 0
+              },
+              "unexpected_bbr_ecn": {
+                "members": 0,
+                "packets": 0
+              },
+              "pto": {
+                "members": 0,
+                "packets": 0
+              },
+              "physical_prefix": {
+                "members": 0,
+                "packets": 0
+              },
+              "pending_ecn": {
+                "members": 0,
+                "packets": 0
+              },
+              "ecn_constraints": {
+                "members": 0,
+                "packets": 0
+              },
+              "ecn_tracker": {
+                "members": 0,
+                "packets": 0
+              },
+              "token_owner": {
+                "members": 0,
+                "packets": 0
+              },
+              "token_level": {
+                "members": 0,
+                "packets": 0
+              },
+              "token_outcome": {
+                "members": 0,
+                "packets": 0
+              },
+              "token_acked": {
+                "members": 0,
+                "packets": 0
+              },
+              "token_early_ack": {
+                "members": 0,
+                "packets": 0
+              },
+              "token_order": {
+                "members": 0,
+                "packets": 0
+              },
+              "token_time": {
+                "members": 0,
+                "packets": 0
+              },
+              "packet_state": {
+                "members": 0,
+                "packets": 0
+              },
+              "history_identity": {
+                "members": 0,
+                "packets": 0
+              },
+              "rich_size": {
+                "members": 0,
+                "packets": 0
+              },
+              "rich_timing": {
+                "members": 0,
+                "packets": 0
+              },
+              "rich_ordinal": {
+                "members": 0,
+                "packets": 0
+              },
+              "rich_delivery": {
+                "members": 0,
+                "packets": 0
+              },
+              "rich_delivery_ordinal": {
+                "members": 0,
+                "packets": 0
+              },
+              "rich_generation": {
+                "members": 0,
+                "packets": 0
+              },
+              "rich_recovery": {
+                "members": 0,
+                "packets": 0
+              },
+              "rich_recovery_ordinal": {
+                "members": 0,
+                "packets": 0
+              },
+              "rich_recovery_state": {
+                "members": 0,
+                "packets": 0
+              },
+              "rich_registration": {
+                "members": 0,
+                "packets": 0
+              }
+            },
+            "native_packets_per_attempt": null,
+            "native_datagrams_per_attempt": null,
+            "handoff_bytes_mean": 38.08994239508811,
+            "handoff_datagrams_mean": 1.0
+          }
+        }
+      }
+    },
+    {
+      "profile": "opted-in",
+      "status": "succeeded",
+      "occupied_s": 77.05920206476003,
+      "foreign_cpu_s": 50.88259775899999,
+      "contaminated": true,
+      "started_at_unix_ns": 1794714331701948758,
+      "matching_interior": {
+        "available": true,
+        "common_nominal_bounds_seconds_after_attempt_start": [
+          17.008030117,
+          72.008899536
+        ],
+        "roles": {
+          "server": {
+            "samples": 56,
+            "first_mono_ns": 3616995126152,
+            "last_mono_ns": 3671995995571,
+            "first_unix_ns": 1794714348709978875,
+            "last_unix_ns": 1794714403710848294,
+            "first_seconds_after_attempt_start": 17.008030117,
+            "last_seconds_after_attempt_start": 72.008899536,
+            "span_seconds": 55.000869419,
+            "adjacent_snapshot_gaps_s": [
+              1.000004848,
+              1.000011541,
+              1.000027049,
+              1.00004302,
+              1.000030265,
+              1.000008345,
+              1.000025496,
+              1.000021519,
+              1.000006411,
+              1.00001692,
+              1.000011811,
+              1.000020337,
+              1.000001903,
+              1.000020647,
+              1.000008765,
+              1.000019766,
+              1.000003095,
+              1.000021348,
+              1.00000564,
+              1.000040735,
+              1.000020547,
+              1.000001512,
+              1.000016449,
+              1.000120635,
+              1.00000558,
+              1.000003405,
+              1.000010598,
+              1.000001612,
+              1.000002754,
+              1.0000218,
+              1.000013964,
+              1.000013845,
+              1.000001842,
+              1.000003616,
+              1.000001171,
+              1.000021987,
+              1.000023943,
+              1.000018303,
+              1.000023413,
+              1.000008575,
+              1.000018854,
+              1.000012953,
+              1.000007433,
+              1.000010768,
+              1.00001624,
+              1.000039112,
+              1.000003215,
+              1.000000549,
+              1.000014787,
+              1.000012672,
+              1.000002654,
+              1.000016339,
+              1.000025738,
+              1.0000009,
+              1.000002193
+            ],
+            "observation": {
+              "counters": {
+                "geometry": {
+                  "handoffs": 1838876,
+                  "bytes": 52961480513,
+                  "datagrams": 37104892,
+                  "gso_handoffs": 1767709,
+                  "scalar_handoffs": 71167,
+                  "size_buckets": [
+                    71167,
+                    750709,
+                    66201,
+                    173547,
+                    235352,
+                    541900,
+                    0
+                  ]
+                },
+                "native": {
+                  "attempts": {
+                    "members": 1838877,
+                    "packets": 37104927
+                  },
+                  "datagrams": 37104927,
+                  "seam_attempts": {
+                    "members": 1767710,
+                    "packets": 37033760
+                  },
+                  "successes": {
+                    "members": 1310311,
+                    "packets": 21771097
+                  },
+                  "declines": [
+                    {
+                      "members": 0,
+                      "packets": 0
+                    },
+                    {
+                      "members": 0,
+                      "packets": 0
+                    },
+                    {
+                      "members": 0,
+                      "packets": 0
+                    },
+                    {
+                      "members": 71167,
+                      "packets": 71167
+                    },
+                    {
+                      "members": 0,
+                      "packets": 0
+                    },
+                    {
+                      "members": 0,
+                      "packets": 0
+                    }
+                  ],
+                  "recovery": {
+                    "attempts": {
+                      "members": 1767710,
+                      "packets": 37033760
+                    },
+                    "rich_attempts": {
+                      "members": 1310311,
+                      "packets": 21771097
+                    },
+                    "successes": {
+                      "members": 1310311,
+                      "packets": 21771097
+                    },
+                    "rich_successes": {
+                      "members": 1310311,
+                      "packets": 21771097
+                    },
+                    "declines": [
+                      {
+                        "members": 0,
+                        "packets": 0
+                      },
+                      {
+                        "members": 0,
+                        "packets": 0
+                      },
+                      {
+                        "members": 0,
+                        "packets": 0
+                      },
+                      {
+                        "members": 0,
+                        "packets": 0
+                      },
+                      {
+                        "members": 0,
+                        "packets": 0
+                      },
+                      {
+                        "members": 0,
+                        "packets": 0
+                      },
+                      {
+                        "members": 0,
+                        "packets": 0
+                      },
+                      {
+                        "members": 0,
+                        "packets": 0
+                      },
+                      {
+                        "members": 0,
+                        "packets": 0
+                      },
+                      {
+                        "members": 457399,
+                        "packets": 15262663
+                      },
+                      {
+                        "members": 0,
+                        "packets": 0
+                      },
+                      {
+                        "members": 0,
+                        "packets": 0
+                      },
+                      {
+                        "members": 0,
+                        "packets": 0
+                      },
+                      {
+                        "members": 0,
+                        "packets": 0
+                      },
+                      {
+                        "members": 0,
+                        "packets": 0
+                      },
+                      {
+                        "members": 0,
+                        "packets": 0
+                      },
+                      {
+                        "members": 0,
+                        "packets": 0
+                      },
+                      {
+                        "members": 0,
+                        "packets": 0
+                      },
+                      {
+                        "members": 0,
+                        "packets": 0
+                      },
+                      {
+                        "members": 0,
+                        "packets": 0
+                      },
+                      {
+                        "members": 0,
+                        "packets": 0
+                      },
+                      {
+                        "members": 0,
+                        "packets": 0
+                      },
+                      {
+                        "members": 0,
+                        "packets": 0
+                      },
+                      {
+                        "members": 0,
+                        "packets": 0
+                      },
+                      {
+                        "members": 0,
+                        "packets": 0
+                      },
+                      {
+                        "members": 0,
+                        "packets": 0
+                      },
+                      {
+                        "members": 0,
+                        "packets": 0
+                      },
+                      {
+                        "members": 0,
+                        "packets": 0
+                      },
+                      {
+                        "members": 0,
+                        "packets": 0
+                      },
+                      {
+                        "members": 0,
+                        "packets": 0
+                      },
+                      {
+                        "members": 0,
+                        "packets": 0
+                      },
+                      {
+                        "members": 0,
+                        "packets": 0
+                      },
+                      {
+                        "members": 0,
+                        "packets": 0
+                      }
+                    ]
+                  }
+                }
+              },
+              "native_eligible_fraction": {
+                "members": 0.9612986621726195,
+                "packets": 0.9980820067372724
+              },
+              "native_fast_completion_fraction": {
+                "members": 0.7125604377019236,
+                "packets": 0.5867441000490312
+              },
+              "recovery_success_fraction": {
+                "members": 0.7412477159715112,
+                "packets": 0.5878716338821659
+              },
+              "rich_success_fraction": {
+                "members": 1.0,
+                "packets": 1.0
+              },
+              "first_native_declines": {
+                "result_error": {
+                  "members": 0,
+                  "packets": 0
+                },
+                "partial": {
+                  "members": 0,
+                  "packets": 0
+                },
+                "packet_geometry": {
+                  "members": 0,
+                  "packets": 0
+                },
+                "too_small": {
+                  "members": 71167,
+                  "packets": 71167
+                },
+                "too_large": {
+                  "members": 0,
+                  "packets": 0
+                },
+                "mtu": {
+                  "members": 0,
+                  "packets": 0
+                }
+              },
+              "first_recovery_declines": {
+                "handler": {
+                  "members": 0,
+                  "packets": 0
+                },
+                "shape": {
+                  "members": 0,
+                  "packets": 0
+                },
+                "local_state": {
+                  "members": 0,
+                  "packets": 0
+                },
+                "qlog": {
+                  "members": 0,
+                  "packets": 0
+                },
+                "handshake": {
+                  "members": 0,
+                  "packets": 0
+                },
+                "amplification": {
+                  "members": 0,
+                  "packets": 0
+                },
+                "lost_queue": {
+                  "members": 0,
+                  "packets": 0
+                },
+                "rich_controller": {
+                  "members": 0,
+                  "packets": 0
+                },
+                "unexpected_bbr_ecn": {
+                  "members": 0,
+                  "packets": 0
+                },
+                "pto": {
+                  "members": 457399,
+                  "packets": 15262663
+                },
+                "physical_prefix": {
+                  "members": 0,
+                  "packets": 0
+                },
+                "pending_ecn": {
+                  "members": 0,
+                  "packets": 0
+                },
+                "ecn_constraints": {
+                  "members": 0,
+                  "packets": 0
+                },
+                "ecn_tracker": {
+                  "members": 0,
+                  "packets": 0
+                },
+                "token_owner": {
+                  "members": 0,
+                  "packets": 0
+                },
+                "token_level": {
+                  "members": 0,
+                  "packets": 0
+                },
+                "token_outcome": {
+                  "members": 0,
+                  "packets": 0
+                },
+                "token_acked": {
+                  "members": 0,
+                  "packets": 0
+                },
+                "token_early_ack": {
+                  "members": 0,
+                  "packets": 0
+                },
+                "token_order": {
+                  "members": 0,
+                  "packets": 0
+                },
+                "token_time": {
+                  "members": 0,
+                  "packets": 0
+                },
+                "packet_state": {
+                  "members": 0,
+                  "packets": 0
+                },
+                "history_identity": {
+                  "members": 0,
+                  "packets": 0
+                },
+                "rich_size": {
+                  "members": 0,
+                  "packets": 0
+                },
+                "rich_timing": {
+                  "members": 0,
+                  "packets": 0
+                },
+                "rich_ordinal": {
+                  "members": 0,
+                  "packets": 0
+                },
+                "rich_delivery": {
+                  "members": 0,
+                  "packets": 0
+                },
+                "rich_delivery_ordinal": {
+                  "members": 0,
+                  "packets": 0
+                },
+                "rich_generation": {
+                  "members": 0,
+                  "packets": 0
+                },
+                "rich_recovery": {
+                  "members": 0,
+                  "packets": 0
+                },
+                "rich_recovery_ordinal": {
+                  "members": 0,
+                  "packets": 0
+                },
+                "rich_recovery_state": {
+                  "members": 0,
+                  "packets": 0
+                },
+                "rich_registration": {
+                  "members": 0,
+                  "packets": 0
+                }
+              },
+              "native_packets_per_attempt": 20.178036377637003,
+              "native_datagrams_per_attempt": 20.178036377637003,
+              "handoff_bytes_mean": 28801.00698089485,
+              "handoff_datagrams_mean": 20.178028317298175
+            }
+          },
+          "client": {
+            "samples": 54,
+            "first_mono_ns": 3617994860052,
+            "last_mono_ns": 3670996280176,
+            "first_unix_ns": 1794714349709598270,
+            "last_unix_ns": 1794714402711018394,
+            "first_seconds_after_attempt_start": 18.007649512,
+            "last_seconds_after_attempt_start": 71.009069636,
+            "span_seconds": 53.001420124,
+            "adjacent_snapshot_gaps_s": [
+              1.000016079,
+              1.000119503,
+              1.000021309,
+              1.000089747,
+              1.000004206,
+              1.000086712,
+              1.000000169,
+              1.000010168,
+              1.00000648,
+              1.000078847,
+              1.00000084,
+              1.00001088,
+              1.000009126,
+              1.000000639,
+              1.000050404,
+              1.000016399,
+              1.000048751,
+              1.000060111,
+              1.000027851,
+              1.000003455,
+              1.000033702,
+              1.000012853,
+              1.000000179,
+              1.00001636,
+              1.000004096,
+              1.000007393,
+              1.000015978,
+              1.000033582,
+              1.000004487,
+              1.000000129,
+              1.0000004,
+              1.000018042,
+              1.000033031,
+              1.000023152,
+              1.000007931,
+              1.000020897,
+              1.000017953,
+              1.000011179,
+              1.000035125,
+              1.000067305,
+              1.000036427,
+              1.000005489,
+              1.000023132,
+              1.000018865,
+              1.0000331,
+              1.000068017,
+              1.000002223,
+              1.000050483,
+              1.000008074,
+              1.000036137,
+              1.000041145,
+              1.000060813,
+              1.000010769
+            ],
+            "observation": {
+              "counters": {
+                "geometry": {
+                  "handoffs": 1658804,
+                  "bytes": 63021346,
+                  "datagrams": 1658804,
+                  "gso_handoffs": 0,
+                  "scalar_handoffs": 1658804,
+                  "size_buckets": [
+                    1658804,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0
+                  ]
+                },
+                "native": {
+                  "attempts": {
+                    "members": 0,
+                    "packets": 0
+                  },
+                  "datagrams": 0,
+                  "seam_attempts": {
+                    "members": 0,
+                    "packets": 0
+                  },
+                  "successes": {
+                    "members": 0,
+                    "packets": 0
+                  },
+                  "declines": [
+                    {
+                      "members": 0,
+                      "packets": 0
+                    },
+                    {
+                      "members": 0,
+                      "packets": 0
+                    },
+                    {
+                      "members": 0,
+                      "packets": 0
+                    },
+                    {
+                      "members": 0,
+                      "packets": 0
+                    },
+                    {
+                      "members": 0,
+                      "packets": 0
+                    },
+                    {
+                      "members": 0,
+                      "packets": 0
+                    }
+                  ],
+                  "recovery": {
+                    "attempts": {
+                      "members": 0,
+                      "packets": 0
+                    },
+                    "rich_attempts": {
+                      "members": 0,
+                      "packets": 0
+                    },
+                    "successes": {
+                      "members": 0,
+                      "packets": 0
+                    },
+                    "rich_successes": {
+                      "members": 0,
+                      "packets": 0
+                    },
+                    "declines": [
+                      {
+                        "members": 0,
+                        "packets": 0
+                      },
+                      {
+                        "members": 0,
+                        "packets": 0
+                      },
+                      {
+                        "members": 0,
+                        "packets": 0
+                      },
+                      {
+                        "members": 0,
+                        "packets": 0
+                      },
+                      {
+                        "members": 0,
+                        "packets": 0
+                      },
+                      {
+                        "members": 0,
+                        "packets": 0
+                      },
+                      {
+                        "members": 0,
+                        "packets": 0
+                      },
+                      {
+                        "members": 0,
+                        "packets": 0
+                      },
+                      {
+                        "members": 0,
+                        "packets": 0
+                      },
+                      {
+                        "members": 0,
+                        "packets": 0
+                      },
+                      {
+                        "members": 0,
+                        "packets": 0
+                      },
+                      {
+                        "members": 0,
+                        "packets": 0
+                      },
+                      {
+                        "members": 0,
+                        "packets": 0
+                      },
+                      {
+                        "members": 0,
+                        "packets": 0
+                      },
+                      {
+                        "members": 0,
+                        "packets": 0
+                      },
+                      {
+                        "members": 0,
+                        "packets": 0
+                      },
+                      {
+                        "members": 0,
+                        "packets": 0
+                      },
+                      {
+                        "members": 0,
+                        "packets": 0
+                      },
+                      {
+                        "members": 0,
+                        "packets": 0
+                      },
+                      {
+                        "members": 0,
+                        "packets": 0
+                      },
+                      {
+                        "members": 0,
+                        "packets": 0
+                      },
+                      {
+                        "members": 0,
+                        "packets": 0
+                      },
+                      {
+                        "members": 0,
+                        "packets": 0
+                      },
+                      {
+                        "members": 0,
+                        "packets": 0
+                      },
+                      {
+                        "members": 0,
+                        "packets": 0
+                      },
+                      {
+                        "members": 0,
+                        "packets": 0
+                      },
+                      {
+                        "members": 0,
+                        "packets": 0
+                      },
+                      {
+                        "members": 0,
+                        "packets": 0
+                      },
+                      {
+                        "members": 0,
+                        "packets": 0
+                      },
+                      {
+                        "members": 0,
+                        "packets": 0
+                      },
+                      {
+                        "members": 0,
+                        "packets": 0
+                      },
+                      {
+                        "members": 0,
+                        "packets": 0
+                      },
+                      {
+                        "members": 0,
+                        "packets": 0
+                      }
+                    ]
+                  }
+                }
+              },
+              "native_eligible_fraction": {
+                "members": null,
+                "packets": null
+              },
+              "native_fast_completion_fraction": {
+                "members": null,
+                "packets": null
+              },
+              "recovery_success_fraction": {
+                "members": null,
+                "packets": null
+              },
+              "rich_success_fraction": {
+                "members": null,
+                "packets": null
+              },
+              "first_native_declines": {
+                "result_error": {
+                  "members": 0,
+                  "packets": 0
+                },
+                "partial": {
+                  "members": 0,
+                  "packets": 0
+                },
+                "packet_geometry": {
+                  "members": 0,
+                  "packets": 0
+                },
+                "too_small": {
+                  "members": 0,
+                  "packets": 0
+                },
+                "too_large": {
+                  "members": 0,
+                  "packets": 0
+                },
+                "mtu": {
+                  "members": 0,
+                  "packets": 0
+                }
+              },
+              "first_recovery_declines": {
+                "handler": {
+                  "members": 0,
+                  "packets": 0
+                },
+                "shape": {
+                  "members": 0,
+                  "packets": 0
+                },
+                "local_state": {
+                  "members": 0,
+                  "packets": 0
+                },
+                "qlog": {
+                  "members": 0,
+                  "packets": 0
+                },
+                "handshake": {
+                  "members": 0,
+                  "packets": 0
+                },
+                "amplification": {
+                  "members": 0,
+                  "packets": 0
+                },
+                "lost_queue": {
+                  "members": 0,
+                  "packets": 0
+                },
+                "rich_controller": {
+                  "members": 0,
+                  "packets": 0
+                },
+                "unexpected_bbr_ecn": {
+                  "members": 0,
+                  "packets": 0
+                },
+                "pto": {
+                  "members": 0,
+                  "packets": 0
+                },
+                "physical_prefix": {
+                  "members": 0,
+                  "packets": 0
+                },
+                "pending_ecn": {
+                  "members": 0,
+                  "packets": 0
+                },
+                "ecn_constraints": {
+                  "members": 0,
+                  "packets": 0
+                },
+                "ecn_tracker": {
+                  "members": 0,
+                  "packets": 0
+                },
+                "token_owner": {
+                  "members": 0,
+                  "packets": 0
+                },
+                "token_level": {
+                  "members": 0,
+                  "packets": 0
+                },
+                "token_outcome": {
+                  "members": 0,
+                  "packets": 0
+                },
+                "token_acked": {
+                  "members": 0,
+                  "packets": 0
+                },
+                "token_early_ack": {
+                  "members": 0,
+                  "packets": 0
+                },
+                "token_order": {
+                  "members": 0,
+                  "packets": 0
+                },
+                "token_time": {
+                  "members": 0,
+                  "packets": 0
+                },
+                "packet_state": {
+                  "members": 0,
+                  "packets": 0
+                },
+                "history_identity": {
+                  "members": 0,
+                  "packets": 0
+                },
+                "rich_size": {
+                  "members": 0,
+                  "packets": 0
+                },
+                "rich_timing": {
+                  "members": 0,
+                  "packets": 0
+                },
+                "rich_ordinal": {
+                  "members": 0,
+                  "packets": 0
+                },
+                "rich_delivery": {
+                  "members": 0,
+                  "packets": 0
+                },
+                "rich_delivery_ordinal": {
+                  "members": 0,
+                  "packets": 0
+                },
+                "rich_generation": {
+                  "members": 0,
+                  "packets": 0
+                },
+                "rich_recovery": {
+                  "members": 0,
+                  "packets": 0
+                },
+                "rich_recovery_ordinal": {
+                  "members": 0,
+                  "packets": 0
+                },
+                "rich_recovery_state": {
+                  "members": 0,
+                  "packets": 0
+                },
+                "rich_registration": {
+                  "members": 0,
+                  "packets": 0
+                }
+              },
+              "native_packets_per_attempt": null,
+              "native_datagrams_per_attempt": null,
+              "handoff_bytes_mean": 37.99203884244311,
+              "handoff_datagrams_mean": 1.0
+            }
+          }
+        }
+      },
+      "roles": {
+        "server": {
+          "label": "opted-in.server",
+          "snapshot_count": 72,
+          "snapshot_overflow": 0,
+          "final_recorded": true,
+          "lifetime_before_teardown": {
+            "counters": {
+              "geometry": {
+                "handoffs": 2356508,
+                "bytes": 68654336308,
+                "datagrams": 48101464,
+                "gso_handoffs": 2272565,
+                "scalar_handoffs": 83943,
+                "size_buckets": [
+                  83943,
+                  966088,
+                  82300,
+                  214400,
+                  291665,
+                  718112,
+                  0
+                ]
+              },
+              "native": {
+                "attempts": {
+                  "members": 2356508,
+                  "packets": 48101464
+                },
+                "datagrams": 48101464,
+                "seam_attempts": {
+                  "members": 2272565,
+                  "packets": 48017521
+                },
+                "successes": {
+                  "members": 1710928,
+                  "packets": 28972550
+                },
+                "declines": [
+                  {
+                    "members": 0,
+                    "packets": 0
+                  },
+                  {
+                    "members": 0,
+                    "packets": 0
+                  },
+                  {
+                    "members": 0,
+                    "packets": 0
+                  },
+                  {
+                    "members": 83943,
+                    "packets": 83943
+                  },
+                  {
+                    "members": 0,
+                    "packets": 0
+                  },
+                  {
+                    "members": 0,
+                    "packets": 0
+                  }
+                ],
+                "recovery": {
+                  "attempts": {
+                    "members": 2272565,
+                    "packets": 48017521
+                  },
+                  "rich_attempts": {
+                    "members": 1710928,
+                    "packets": 28972550
+                  },
+                  "successes": {
+                    "members": 1710928,
+                    "packets": 28972550
+                  },
+                  "rich_successes": {
+                    "members": 1710928,
+                    "packets": 28972550
+                  },
+                  "declines": [
+                    {
+                      "members": 0,
+                      "packets": 0
+                    },
+                    {
+                      "members": 0,
+                      "packets": 0
+                    },
+                    {
+                      "members": 0,
+                      "packets": 0
+                    },
+                    {
+                      "members": 0,
+                      "packets": 0
+                    },
+                    {
+                      "members": 0,
+                      "packets": 0
+                    },
+                    {
+                      "members": 0,
+                      "packets": 0
+                    },
+                    {
+                      "members": 0,
+                      "packets": 0
+                    },
+                    {
+                      "members": 0,
+                      "packets": 0
+                    },
+                    {
+                      "members": 0,
+                      "packets": 0
+                    },
+                    {
+                      "members": 561637,
+                      "packets": 19044971
+                    },
+                    {
+                      "members": 0,
+                      "packets": 0
+                    },
+                    {
+                      "members": 0,
+                      "packets": 0
+                    },
+                    {
+                      "members": 0,
+                      "packets": 0
+                    },
+                    {
+                      "members": 0,
+                      "packets": 0
+                    },
+                    {
+                      "members": 0,
+                      "packets": 0
+                    },
+                    {
+                      "members": 0,
+                      "packets": 0
+                    },
+                    {
+                      "members": 0,
+                      "packets": 0
+                    },
+                    {
+                      "members": 0,
+                      "packets": 0
+                    },
+                    {
+                      "members": 0,
+                      "packets": 0
+                    },
+                    {
+                      "members": 0,
+                      "packets": 0
+                    },
+                    {
+                      "members": 0,
+                      "packets": 0
+                    },
+                    {
+                      "members": 0,
+                      "packets": 0
+                    },
+                    {
+                      "members": 0,
+                      "packets": 0
+                    },
+                    {
+                      "members": 0,
+                      "packets": 0
+                    },
+                    {
+                      "members": 0,
+                      "packets": 0
+                    },
+                    {
+                      "members": 0,
+                      "packets": 0
+                    },
+                    {
+                      "members": 0,
+                      "packets": 0
+                    },
+                    {
+                      "members": 0,
+                      "packets": 0
+                    },
+                    {
+                      "members": 0,
+                      "packets": 0
+                    },
+                    {
+                      "members": 0,
+                      "packets": 0
+                    },
+                    {
+                      "members": 0,
+                      "packets": 0
+                    },
+                    {
+                      "members": 0,
+                      "packets": 0
+                    },
+                    {
+                      "members": 0,
+                      "packets": 0
+                    }
+                  ]
+                }
+              }
+            },
+            "native_eligible_fraction": {
+              "members": 0.9643782240501624,
+              "packets": 0.9982548764004355
+            },
+            "native_fast_completion_fraction": {
+              "members": 0.7260437902184079,
+              "packets": 0.6023215842245466
+            },
+            "recovery_success_fraction": {
+              "members": 0.7528620743521087,
+              "packets": 0.6033745473865675
+            },
+            "rich_success_fraction": {
+              "members": 1.0,
+              "packets": 1.0
+            },
+            "first_native_declines": {
+              "result_error": {
+                "members": 0,
+                "packets": 0
+              },
+              "partial": {
+                "members": 0,
+                "packets": 0
+              },
+              "packet_geometry": {
+                "members": 0,
+                "packets": 0
+              },
+              "too_small": {
+                "members": 83943,
+                "packets": 83943
+              },
+              "too_large": {
+                "members": 0,
+                "packets": 0
+              },
+              "mtu": {
+                "members": 0,
+                "packets": 0
+              }
+            },
+            "first_recovery_declines": {
+              "handler": {
+                "members": 0,
+                "packets": 0
+              },
+              "shape": {
+                "members": 0,
+                "packets": 0
+              },
+              "local_state": {
+                "members": 0,
+                "packets": 0
+              },
+              "qlog": {
+                "members": 0,
+                "packets": 0
+              },
+              "handshake": {
+                "members": 0,
+                "packets": 0
+              },
+              "amplification": {
+                "members": 0,
+                "packets": 0
+              },
+              "lost_queue": {
+                "members": 0,
+                "packets": 0
+              },
+              "rich_controller": {
+                "members": 0,
+                "packets": 0
+              },
+              "unexpected_bbr_ecn": {
+                "members": 0,
+                "packets": 0
+              },
+              "pto": {
+                "members": 561637,
+                "packets": 19044971
+              },
+              "physical_prefix": {
+                "members": 0,
+                "packets": 0
+              },
+              "pending_ecn": {
+                "members": 0,
+                "packets": 0
+              },
+              "ecn_constraints": {
+                "members": 0,
+                "packets": 0
+              },
+              "ecn_tracker": {
+                "members": 0,
+                "packets": 0
+              },
+              "token_owner": {
+                "members": 0,
+                "packets": 0
+              },
+              "token_level": {
+                "members": 0,
+                "packets": 0
+              },
+              "token_outcome": {
+                "members": 0,
+                "packets": 0
+              },
+              "token_acked": {
+                "members": 0,
+                "packets": 0
+              },
+              "token_early_ack": {
+                "members": 0,
+                "packets": 0
+              },
+              "token_order": {
+                "members": 0,
+                "packets": 0
+              },
+              "token_time": {
+                "members": 0,
+                "packets": 0
+              },
+              "packet_state": {
+                "members": 0,
+                "packets": 0
+              },
+              "history_identity": {
+                "members": 0,
+                "packets": 0
+              },
+              "rich_size": {
+                "members": 0,
+                "packets": 0
+              },
+              "rich_timing": {
+                "members": 0,
+                "packets": 0
+              },
+              "rich_ordinal": {
+                "members": 0,
+                "packets": 0
+              },
+              "rich_delivery": {
+                "members": 0,
+                "packets": 0
+              },
+              "rich_delivery_ordinal": {
+                "members": 0,
+                "packets": 0
+              },
+              "rich_generation": {
+                "members": 0,
+                "packets": 0
+              },
+              "rich_recovery": {
+                "members": 0,
+                "packets": 0
+              },
+              "rich_recovery_ordinal": {
+                "members": 0,
+                "packets": 0
+              },
+              "rich_recovery_state": {
+                "members": 0,
+                "packets": 0
+              },
+              "rich_registration": {
+                "members": 0,
+                "packets": 0
+              }
+            },
+            "native_packets_per_attempt": 20.41217937728198,
+            "native_datagrams_per_attempt": 20.41217937728198,
+            "handoff_bytes_mean": 29133.928808219618,
+            "handoff_datagrams_mean": 20.41217937728198
+          }
+        },
+        "client": {
+          "label": "opted-in.client",
+          "snapshot_count": 72,
+          "snapshot_overflow": 0,
+          "final_recorded": true,
+          "lifetime_before_teardown": {
+            "counters": {
+              "geometry": {
+                "handoffs": 2204267,
+                "bytes": 83770610,
+                "datagrams": 2204267,
+                "gso_handoffs": 0,
+                "scalar_handoffs": 2204267,
+                "size_buckets": [
+                  2204267,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0
+                ]
+              },
+              "native": {
+                "attempts": {
+                  "members": 0,
+                  "packets": 0
+                },
+                "datagrams": 0,
+                "seam_attempts": {
+                  "members": 0,
+                  "packets": 0
+                },
+                "successes": {
+                  "members": 0,
+                  "packets": 0
+                },
+                "declines": [
+                  {
+                    "members": 0,
+                    "packets": 0
+                  },
+                  {
+                    "members": 0,
+                    "packets": 0
+                  },
+                  {
+                    "members": 0,
+                    "packets": 0
+                  },
+                  {
+                    "members": 0,
+                    "packets": 0
+                  },
+                  {
+                    "members": 0,
+                    "packets": 0
+                  },
+                  {
+                    "members": 0,
+                    "packets": 0
+                  }
+                ],
+                "recovery": {
+                  "attempts": {
+                    "members": 0,
+                    "packets": 0
+                  },
+                  "rich_attempts": {
+                    "members": 0,
+                    "packets": 0
+                  },
+                  "successes": {
+                    "members": 0,
+                    "packets": 0
+                  },
+                  "rich_successes": {
+                    "members": 0,
+                    "packets": 0
+                  },
+                  "declines": [
+                    {
+                      "members": 0,
+                      "packets": 0
+                    },
+                    {
+                      "members": 0,
+                      "packets": 0
+                    },
+                    {
+                      "members": 0,
+                      "packets": 0
+                    },
+                    {
+                      "members": 0,
+                      "packets": 0
+                    },
+                    {
+                      "members": 0,
+                      "packets": 0
+                    },
+                    {
+                      "members": 0,
+                      "packets": 0
+                    },
+                    {
+                      "members": 0,
+                      "packets": 0
+                    },
+                    {
+                      "members": 0,
+                      "packets": 0
+                    },
+                    {
+                      "members": 0,
+                      "packets": 0
+                    },
+                    {
+                      "members": 0,
+                      "packets": 0
+                    },
+                    {
+                      "members": 0,
+                      "packets": 0
+                    },
+                    {
+                      "members": 0,
+                      "packets": 0
+                    },
+                    {
+                      "members": 0,
+                      "packets": 0
+                    },
+                    {
+                      "members": 0,
+                      "packets": 0
+                    },
+                    {
+                      "members": 0,
+                      "packets": 0
+                    },
+                    {
+                      "members": 0,
+                      "packets": 0
+                    },
+                    {
+                      "members": 0,
+                      "packets": 0
+                    },
+                    {
+                      "members": 0,
+                      "packets": 0
+                    },
+                    {
+                      "members": 0,
+                      "packets": 0
+                    },
+                    {
+                      "members": 0,
+                      "packets": 0
+                    },
+                    {
+                      "members": 0,
+                      "packets": 0
+                    },
+                    {
+                      "members": 0,
+                      "packets": 0
+                    },
+                    {
+                      "members": 0,
+                      "packets": 0
+                    },
+                    {
+                      "members": 0,
+                      "packets": 0
+                    },
+                    {
+                      "members": 0,
+                      "packets": 0
+                    },
+                    {
+                      "members": 0,
+                      "packets": 0
+                    },
+                    {
+                      "members": 0,
+                      "packets": 0
+                    },
+                    {
+                      "members": 0,
+                      "packets": 0
+                    },
+                    {
+                      "members": 0,
+                      "packets": 0
+                    },
+                    {
+                      "members": 0,
+                      "packets": 0
+                    },
+                    {
+                      "members": 0,
+                      "packets": 0
+                    },
+                    {
+                      "members": 0,
+                      "packets": 0
+                    },
+                    {
+                      "members": 0,
+                      "packets": 0
+                    }
+                  ]
+                }
+              }
+            },
+            "native_eligible_fraction": {
+              "members": null,
+              "packets": null
+            },
+            "native_fast_completion_fraction": {
+              "members": null,
+              "packets": null
+            },
+            "recovery_success_fraction": {
+              "members": null,
+              "packets": null
+            },
+            "rich_success_fraction": {
+              "members": null,
+              "packets": null
+            },
+            "first_native_declines": {
+              "result_error": {
+                "members": 0,
+                "packets": 0
+              },
+              "partial": {
+                "members": 0,
+                "packets": 0
+              },
+              "packet_geometry": {
+                "members": 0,
+                "packets": 0
+              },
+              "too_small": {
+                "members": 0,
+                "packets": 0
+              },
+              "too_large": {
+                "members": 0,
+                "packets": 0
+              },
+              "mtu": {
+                "members": 0,
+                "packets": 0
+              }
+            },
+            "first_recovery_declines": {
+              "handler": {
+                "members": 0,
+                "packets": 0
+              },
+              "shape": {
+                "members": 0,
+                "packets": 0
+              },
+              "local_state": {
+                "members": 0,
+                "packets": 0
+              },
+              "qlog": {
+                "members": 0,
+                "packets": 0
+              },
+              "handshake": {
+                "members": 0,
+                "packets": 0
+              },
+              "amplification": {
+                "members": 0,
+                "packets": 0
+              },
+              "lost_queue": {
+                "members": 0,
+                "packets": 0
+              },
+              "rich_controller": {
+                "members": 0,
+                "packets": 0
+              },
+              "unexpected_bbr_ecn": {
+                "members": 0,
+                "packets": 0
+              },
+              "pto": {
+                "members": 0,
+                "packets": 0
+              },
+              "physical_prefix": {
+                "members": 0,
+                "packets": 0
+              },
+              "pending_ecn": {
+                "members": 0,
+                "packets": 0
+              },
+              "ecn_constraints": {
+                "members": 0,
+                "packets": 0
+              },
+              "ecn_tracker": {
+                "members": 0,
+                "packets": 0
+              },
+              "token_owner": {
+                "members": 0,
+                "packets": 0
+              },
+              "token_level": {
+                "members": 0,
+                "packets": 0
+              },
+              "token_outcome": {
+                "members": 0,
+                "packets": 0
+              },
+              "token_acked": {
+                "members": 0,
+                "packets": 0
+              },
+              "token_early_ack": {
+                "members": 0,
+                "packets": 0
+              },
+              "token_order": {
+                "members": 0,
+                "packets": 0
+              },
+              "token_time": {
+                "members": 0,
+                "packets": 0
+              },
+              "packet_state": {
+                "members": 0,
+                "packets": 0
+              },
+              "history_identity": {
+                "members": 0,
+                "packets": 0
+              },
+              "rich_size": {
+                "members": 0,
+                "packets": 0
+              },
+              "rich_timing": {
+                "members": 0,
+                "packets": 0
+              },
+              "rich_ordinal": {
+                "members": 0,
+                "packets": 0
+              },
+              "rich_delivery": {
+                "members": 0,
+                "packets": 0
+              },
+              "rich_delivery_ordinal": {
+                "members": 0,
+                "packets": 0
+              },
+              "rich_generation": {
+                "members": 0,
+                "packets": 0
+              },
+              "rich_recovery": {
+                "members": 0,
+                "packets": 0
+              },
+              "rich_recovery_ordinal": {
+                "members": 0,
+                "packets": 0
+              },
+              "rich_recovery_state": {
+                "members": 0,
+                "packets": 0
+              },
+              "rich_registration": {
+                "members": 0,
+                "packets": 0
+              }
+            },
+            "native_packets_per_attempt": null,
+            "native_datagrams_per_attempt": null,
+            "handoff_bytes_mean": 38.003839825211735,
+            "handoff_datagrams_mean": 1.0
+          }
+        }
+      }
+    }
+  ],
+  "summary_sha256": "8d47c28cac61e0c175f80fe3a01a29b29263893b320bf6ff0b3a3c9aeaadcd3f"
+}

@@ -1,0 +1,146 @@
+{
+  "binary_sha256": "105e1c4f05e3baa6aeb07b19cf132cc9cab82233637130eb448b7c4de0a73352",
+  "commands": [
+    {
+      "profile": "unregistered",
+      "role": "server",
+      "profile_sha256": "bd1d2912d6408c4d01b8c4049f624dacd7cb214f266df01e8be83e568ddeb70c",
+      "command": [
+        "go",
+        "tool",
+        "pprof",
+        "-top",
+        "-nodefraction=0",
+        "-nodecount=180",
+        "/tmp/qgf-bbr-cost-1368-e10.test",
+        "docs/audits/2026-11-14-bbr-ordinary-cost-1368/e10-observed/stateless-pressure/unregistered/server.cpu.pprof"
+      ],
+      "exit": 0,
+      "output": "unregistered-server-flat.txt"
+    },
+    {
+      "profile": "unregistered",
+      "role": "server",
+      "profile_sha256": "bd1d2912d6408c4d01b8c4049f624dacd7cb214f266df01e8be83e568ddeb70c",
+      "command": [
+        "go",
+        "tool",
+        "pprof",
+        "-top",
+        "-nodefraction=0",
+        "-nodecount=180",
+        "-cum",
+        "/tmp/qgf-bbr-cost-1368-e10.test",
+        "docs/audits/2026-11-14-bbr-ordinary-cost-1368/e10-observed/stateless-pressure/unregistered/server.cpu.pprof"
+      ],
+      "exit": 0,
+      "output": "unregistered-server-cum.txt"
+    },
+    {
+      "profile": "unregistered",
+      "role": "client",
+      "profile_sha256": "c1e10874df3ede3a5b193513dc0856640c29ff312e9e2ad2c449538a3e56a2e6",
+      "command": [
+        "go",
+        "tool",
+        "pprof",
+        "-top",
+        "-nodefraction=0",
+        "-nodecount=180",
+        "/tmp/qgf-bbr-cost-1368-e10.test",
+        "docs/audits/2026-11-14-bbr-ordinary-cost-1368/e10-observed/stateless-pressure/unregistered/client.cpu.pprof"
+      ],
+      "exit": 0,
+      "output": "unregistered-client-flat.txt"
+    },
+    {
+      "profile": "unregistered",
+      "role": "client",
+      "profile_sha256": "c1e10874df3ede3a5b193513dc0856640c29ff312e9e2ad2c449538a3e56a2e6",
+      "command": [
+        "go",
+        "tool",
+        "pprof",
+        "-top",
+        "-nodefraction=0",
+        "-nodecount=180",
+        "-cum",
+        "/tmp/qgf-bbr-cost-1368-e10.test",
+        "docs/audits/2026-11-14-bbr-ordinary-cost-1368/e10-observed/stateless-pressure/unregistered/client.cpu.pprof"
+      ],
+      "exit": 0,
+      "output": "unregistered-client-cum.txt"
+    },
+    {
+      "profile": "opted-in",
+      "role": "server",
+      "profile_sha256": "3455a53e6afd62ccfe64ce258e57336df174d49869891611b2a5311814061821",
+      "command": [
+        "go",
+        "tool",
+        "pprof",
+        "-top",
+        "-nodefraction=0",
+        "-nodecount=180",
+        "/tmp/qgf-bbr-cost-1368-e10.test",
+        "docs/audits/2026-11-14-bbr-ordinary-cost-1368/e10-observed/stateless-pressure/opted-in/server.cpu.pprof"
+      ],
+      "exit": 0,
+      "output": "opted-in-server-flat.txt"
+    },
+    {
+      "profile": "opted-in",
+      "role": "server",
+      "profile_sha256": "3455a53e6afd62ccfe64ce258e57336df174d49869891611b2a5311814061821",
+      "command": [
+        "go",
+        "tool",
+        "pprof",
+        "-top",
+        "-nodefraction=0",
+        "-nodecount=180",
+        "-cum",
+        "/tmp/qgf-bbr-cost-1368-e10.test",
+        "docs/audits/2026-11-14-bbr-ordinary-cost-1368/e10-observed/stateless-pressure/opted-in/server.cpu.pprof"
+      ],
+      "exit": 0,
+      "output": "opted-in-server-cum.txt"
+    },
+    {
+      "profile": "opted-in",
+      "role": "client",
+      "profile_sha256": "2ffcaeb1b54cfdf039b5e2c277619ad691c12fdfcfa4202dace6e7bfa25cf121",
+      "command": [
+        "go",
+        "tool",
+        "pprof",
+        "-top",
+        "-nodefraction=0",
+        "-nodecount=180",
+        "/tmp/qgf-bbr-cost-1368-e10.test",
+        "docs/audits/2026-11-14-bbr-ordinary-cost-1368/e10-observed/stateless-pressure/opted-in/client.cpu.pprof"
+      ],
+      "exit": 0,
+      "output": "opted-in-client-flat.txt"
+    },
+    {
+      "profile": "opted-in",
+      "role": "client",
+      "profile_sha256": "2ffcaeb1b54cfdf039b5e2c277619ad691c12fdfcfa4202dace6e7bfa25cf121",
+      "command": [
+        "go",
+        "tool",
+        "pprof",
+        "-top",
+        "-nodefraction=0",
+        "-nodecount=180",
+        "-cum",
+        "/tmp/qgf-bbr-cost-1368-e10.test",
+        "docs/audits/2026-11-14-bbr-ordinary-cost-1368/e10-observed/stateless-pressure/opted-in/client.cpu.pprof"
+      ],
+      "exit": 0,
+      "output": "opted-in-client-cum.txt"
+    }
+  ],
+  "boundary": "Whole role CPU profile including setup/warmup/teardown. Cumulative functions overlap; not additive savings or matching-window CPU."
+}
