@@ -10981,3 +10981,30 @@ The actual [PR #1377 ready-head independent-peer job](https://github.com/the-sar
 ### Next
 
 No new optimization or follow-up task was created. [Deferred issue #1374 — BBR primary/backup aggregation](https://github.com/the-sarge/quic-go-fast/issues/1374) remains the live view: its ordinary-cost dependency is resolved, while primary/backup requalification and scoped aggregation design remain outstanding and deferred.
+
+---
+
+## BBR continuation handoff and deterministic completion fixture - 2026-11-15 10:59 EST
+
+**Main:** `76954048981e`
+**Actor:** Codex
+
+### Completed
+
+Published the owner-approved BBR primary/backup and aggregation continuation for [#1374](https://github.com/the-sarge/quic-go-fast/issues/1374) in [docs PR #1379](https://github.com/the-sarge/quic-go-fast/pull/1379), merged as `76954048981e4c0da3f1618ef3038fe1ca7d5576`. The [B plan](adr/2026-10-24-multipath-bbr-plan.md) now defines four audited slices: [B9 #1382](https://github.com/the-sarge/quic-go-fast/issues/1382) → [B10 #1383](https://github.com/the-sarge/quic-go-fast/issues/1383) → [B11 #1384](https://github.com/the-sarge/quic-go-fast/issues/1384) → [B12 #1385](https://github.com/the-sarge/quic-go-fast/issues/1385). Issues pin the verified default-branch plan commit and OmniFocus mirrors the linear dependency chain. No continuation implementation was dispatched.
+
+Separately authorized test repair [#1380](https://github.com/the-sarge/quic-go-fast/issues/1380), merged in [PR #1381](https://github.com/the-sarge/quic-go-fast/pull/1381) as `d06a00fdedc4fc49089bf410e9e249bdf5408d22`, made the local-completion equivalence fixture deterministic by putting its random packet-number skip outside the six-packet sequence. Production behavior and assertions are unchanged.
+
+### Decisions
+
+The [owner decision and scoped audit](audits/2026-11-15-bbr-1374-handoff.md) authorize planning experimental public BBR primary/backup using the exact accepted cost exceptions from [#1368](https://github.com/the-sarge/quic-go-fast/issues/1368), subject to candidate applicability and exact-head validation. A single paced byte-round-robin aggregation candidate gets a fixed four-arm comparison under unchanged thresholds. A valid negative result completes measurement and leads to unsupported publication and experiment retirement. Full BBR Q2 and adoption claims remain excluded.
+
+### Validation
+
+The independent slice audit passed after four bounded corrections. Replacement RAS review `20261115T154342-aca661c3d7133cfc7df6f3f2` required one historical navigation link correction; another proposed budget control was rejected because existing draft and reservation rules already govern it. The cheap docs-only correction used local recertification under the shared policy. All 17 applicable hosted checks passed on final docs head `52658bcebf7775df99917146db8d81bd61b68c6d`; relative links/anchors, slice graph, ledger arithmetic and immutable historical-table navigation passed. The merged files matched the audited contract.
+
+The repair's forced-skip overlay reproduced the original failure; focused assertions, the full ackhandler suite, vet and tidy passed. RAS review `20261115T153129-c555a9c3708daed7a467f30f` had no findings. All 18 hosted checks passed on `019a83ea06c041062a2d0a9252ed4fbda6d5b4ae`, including the [post-ready peer run](https://github.com/the-sarge/quic-go-fast/actions/runs/43730735152/job/132862348595). Both reviews used the configured panel: three reviewers succeeded and claude-fable exited 1; the panel was not narrowed. Reconstructing the peer matrix from raw logs matched its published result. Charge 16 instances and 227 occupied job-seconds once: cumulative consumption is 299/420 instances and 12815.07078762835985/28800 host-seconds. The new plan's 112 regular instances leave nine in reserve, subject to live admission and time accounting.
+
+### Next
+
+As of this entry, [B9 #1382](https://github.com/the-sarge/quic-go-fast/issues/1382) is the sole ready frontier; B10–B12 are blocked in sequence. The [live program tracker #646](https://github.com/the-sarge/quic-go-fast/issues/646), [B track #1014](https://github.com/the-sarge/quic-go-fast/issues/1014), and [continuation #1374](https://github.com/the-sarge/quic-go-fast/issues/1374) own current state. Operator dispatch uses `$implement-architecture-slice` in a fresh context. Public multipath remains Reno primary/backup until B9 implements its accepted change.
