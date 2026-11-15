@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Observe sustained fixture-core quiet after E05's intermittent interference.
+"""Observe sustained fixture-core quiet after intermittent interference.
 
 This read-only prelaunch observation does not run a workload or modify the
 ordinary-cost driver's measurement, contamination or acceptance rules.
@@ -39,7 +39,11 @@ def processes():
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", required=True, type=Path)
+    parser.add_argument("--consecutive-samples", type=int, default=CONSECUTIVE_SAMPLES,
+                        help="five-second quiet samples required; default: %(default)s")
     args = parser.parse_args()
+    if args.consecutive_samples < 1:
+        parser.error("--consecutive-samples must be positive")
     args.output.mkdir(parents=True, exist_ok=False)
     started = time.monotonic()
     metadata = {
@@ -47,11 +51,11 @@ def main():
         "fixture_cpus": CPUS,
         "quiet_share": QUIET_SHARE,
         "sample_s": SAMPLE_S,
-        "consecutive_samples_required": CONSECUTIVE_SAMPLES,
+        "consecutive_samples_required": args.consecutive_samples,
         "existing_wait_limit_s": WAIT_LIMIT_S,
         "processes_before": processes(),
         "ready": False,
-        "purpose": "Supplement the two-second prelaunch sample after two contaminated E05 pairs; original driver rules remain authoritative",
+        "purpose": "Supplement the two-second prelaunch sample after observed intermittent interference; original driver rules remain authoritative",
     }
     streak = 0
     samples = 0
@@ -69,7 +73,7 @@ def main():
                 samples += 1
                 output.write(json.dumps({"sample": samples, "unix_ns": time.time_ns(), "duration_s": duration, "shares": shares, "maximum_core_share": maximum, "quiet_streak": streak}) + "\n")
                 output.flush()
-                if streak == CONSECUTIVE_SAMPLES:
+                if streak == args.consecutive_samples:
                     metadata["ready"] = True
                     break
     finally:
