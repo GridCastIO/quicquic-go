@@ -24,7 +24,7 @@ Append-only plans and outcomes: [experiment ledger](2026-11-14-bbr-ordinary-cost
 
 ## Delivery state
 
-In progress: retained E09 has a valid goodput pass (0.969333090) and CPU/useful-byte miss (1.156907217). E11's guard expansion also has a clean CPU-only miss (0.958535502 /1.152107201), but granted absolute CPU/useful byte worsens 1.1208% versus E09. Reject E11 under its predeclared useful-benefit criterion and restore E09 plus the deterministic test-fixture fix. Reassess endpoint transaction/writer/timer coordination and repeated native protection setup before selecting the next experiment. Final ordinary-cost qualification, BBR interop, full-panel review, exact-head hosted checks, merge, journal and tracker closure remain. Recommendation: use source and current attribution to identify a structural discriminator; do not repeat the clean miss or qualify prematurely.
+The owner accepted proceeding with E09 after reviewing its valid goodput pass (0.969333090), residual CPU/useful-byte cost (1.156907217) and uncertain remaining optimization opportunities. Record the original 1.10 CPU ceiling as missed with an explicit scoped owner exception; do not change the harness verdict. E11 is rejected and reverted. Proceed with the existing 12 ordinary observations, six BBR interop cases, full-panel review, required ready-head checks and merge. Materially worse CPU behavior or another failed acceptance check requires returning the evidence before merge. Recommendation: qualify the retained E09 candidate unchanged and preserve the distinction between raw results and owner acceptance.
 
 ## Current design update — E02/E03, 2026-11-14
 
@@ -106,3 +106,8 @@ E10 timing is excluded and both observations are contaminated. Its counters neve
 ## Current design update — E11 rejected after valid comparison
 
 E11 passed correctness and actual timing validity but did not establish useful end-to-end benefit. Its single pair passes goodput and misses CPU/useful byte; both granted output and absolute CPU/useful byte are worse than valid E09. Reject the guard expansion and dedicated tests, retaining all immutable proof and raw evidence. The selected runtime returns to E09 with its deterministic test correction. Current pipeline reassessment examines endpoint-owner coordination and repeated protection setup against mandatory construction/registration; no next runtime experiment is selected yet. Program #646 usage is **249/420 instances /11393.61225322514615 host-seconds**, remaining **171 /17406.38774677485385**. No task workload or host modification remains.
+
+
+## Current delivery update — owner accepts E09 residual CPU cost
+
+The owner agreed to stop optimization and accept E09 subject to the existing final qualification, independent review and required checks. This is an explicit exception for the measured residual CPU cost, not a claim that the original ceiling passed or permission for materially worse behavior. Freeze runtime at E09 plus the deterministic fixture correction. Endpoint notification redesign remains an uncertain follow-up with broader shared-owner risk; registration has no strong current improvement lead. Final qualification begins from 249/420 instances /11393.61225322514615 seconds.
