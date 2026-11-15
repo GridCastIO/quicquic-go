@@ -11106,3 +11106,28 @@ The complete local Go suite, native root/ACK-handler suites, one focused native 
 ### Next
 
 B12 (#1385) is closed. This entry completes its post-merge journal step; the coordinator reconciles the mutable continuation and parent trackers and completes administrative cleanup. [Continuation #1374](https://github.com/the-sarge/quic-go-fast/issues/1374) and [program #646](https://github.com/the-sarge/quic-go-fast/issues/646) remain the live views. No further continuation slice or peer campaign is scheduled; full [Q2 (#599)](https://github.com/the-sarge/quic-go-fast/issues/599) remains outside this work.
+
+---
+
+## BBR ECN preserved across jumbo fallback - 2026-11-15 17:28 EST
+
+**Main:** `dcde26e859c5`
+**Actor:** Codex
+
+### Completed
+
+Fixed [BBR ECN after jumbo-MTU fallback (#1335)](https://github.com/the-sarge/quic-go-fast/issues/1335) through [PR #1401](https://github.com/the-sarge/quic-go-fast/pull/1401), merged as `dcde26e859c592d0bed65301740c7038b57740b7`. Both the tested stage-one reduction and the later reduction to the initial packet size now reset congestion samples without advancing the path generation or discarding validated ECN on the unchanged tuple. Recovery still retires old flight and restarts congestion control at the smaller size; actual migration retains its ECN counter and local-send drain fence.
+
+### Decisions
+
+The owner approved the sample-only reset in plan revision 1, recorded in the [implementation decision for issue #1335](https://github.com/the-sarge/quic-go-fast/issues/1335#issuecomment-6902250359). The change stays at the shared recovery owner and preserves connection-generation feedback, fallback confirmation, RTT, Reno behavior, fallback sizes and jumbo's stays-down contract. No public interface, wire format, dependency or multipath behavior changes were introduced.
+
+### Validation
+
+The connection regression reproduced ECT(0) becoming Not-ECT on the original reset. The fixed candidate `0708726d38d6064a4c722195634d488592210fe6` passed both fallback transitions and subsequent migration using real BBR, production ECN authority, packet construction and admitted ACK feedback, with a migration-only control. Recovery tests retain sample isolation, invalid-counter rejection and an active migration fence. Root, ACK-handler and congestion package suites, focused races including queued migration, affected-package vet, module tidiness, full lint and diff checks passed at the exact reviewed head.
+
+Independent Standards and Spec preparation found no issues. Full four-reviewer RAS run `20261115T221534-b70048587757f45d0ab80f4f` completed with no findings or follow-ups; no fix verification or replacement review was required. All applicable hosted checks passed, including the actual post-ready [independent-peer run for PR #1401](https://github.com/the-sarge/quic-go-fast/actions/runs/43768991829), which executed its fixed 16 cases and separate zero vectors. The live head matched local certification and the base remained unchanged before squash merge.
+
+### Next
+
+Issue #1335 is closed. [Jumbo release issue #1226](https://github.com/the-sarge/quic-go-fast/issues/1226) remains the live release view, with identity-transition [issue #1111](https://github.com/the-sarge/quic-go-fast/issues/1111) and consumer qualification still outstanding. This fix creates no review follow-up or additional qualification campaign.
