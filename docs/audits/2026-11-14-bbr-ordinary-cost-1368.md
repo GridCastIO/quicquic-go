@@ -24,7 +24,7 @@ Append-only plans and outcomes: [experiment ledger](2026-11-14-bbr-ordinary-cost
 
 ## Delivery state
 
-In progress: E02 is provisionally retained; E03 was rejected; E04 and E05 timing is excluded. E06's single larger member passed correctness and native checks and produced valid timing, but its 0.866 goodput and 1.222 CPU/useful-byte ratios miss both overall targets. Lower absolute CPU/useful byte accompanies lower throughput, so E06 is under revision rather than qualified for delivery. E07 will reassess credit/refusal, member geometry, model state and current CPU attribution with an observer-only pair. Final ordinary-cost qualification, independent review, exact-head hosted checks, merge, journal and issue/OmniFocus closure remain. Recommendation: resolve the new geometry's pipeline tradeoff before selecting the next runtime change.
+In progress: E07's bounded observer/profile pair identified repeated refusal of large native BBR reservations despite room for whole packets. E08 now tests up-to admission through the existing byte-credit owner, with request-consistent wakeup and ACK handling. E06's lower CPU/useful byte accompanied lower throughput, and its clean ratios of 0.866 / 1.222 still miss both overall targets. Observer runtime is excluded from the product branch. Final ordinary-cost qualification, independent review, exact-head hosted checks, merge, journal and issue/OmniFocus closure remain. Recommendation: test the narrow admission change before altering member caps or completion reconciliation.
 
 ## Current design update — E02/E03, 2026-11-14
 
@@ -51,3 +51,10 @@ Program #646 cumulative usage is 231/420 instances and 9939.170252017/28800 host
 The single-member E06 alternative reduces granted server CPU from E02's 95.280 to 88.037 seconds but lowers useful goodput from 7.761 to 7.523 Gbit/s; absolute granted CPU/useful byte improves about 4.69%. Its own control is 8.684 Gbit/s / 83.144 seconds. Both overall targets remain missed; one pair is not repeatability evidence. Keep the exact larger-member source as an experimental design under revision. Before further runtime changes, E07 repeats bounded observation for the new credit/request geometry and obtains current CPU attribution. E04's zero usable-partial-credit refusals described small requests, not this new regime.
 
 Program #646 usage is 233/420 instances and 10093.240678141/28800 host-seconds, leaving 187 instances /18706.759321859 seconds. The E06 process is complete; no shared-host state was changed.
+
+
+## Current design update — E07 admission witness and E08
+
+E07's profiled/observed timing is excluded, but its complete counters identify repeated admission refusal despite substantial free credit. Granted interior calls refused 10.5261% of ordinary requests; 99.5573% of refusals had usable partial room, with no old-generation or isolation cause. Mean requested/free bytes across refusal calls were 60,476 / 57,076. Healthy usable-sample counts and zero paced stops deprioritize widespread timing starvation. Current CPU attribution leaves rich completion as a separate later alternative.
+
+E08 keeps E06's single-member geometry and changes only eligible ordinary native BBR admission from exact N to a whole-packet range [M,N]. The existing synchronized credit owner chooses actual bytes, and both admission and waiter rearming use the same minimum-M predicate. ACK/control, generation, isolation and exactly-once completion remain explicit proof obligations. All other paths retain exact sizing. No performance gain is yet claimed. Program #646 usage is 235/420 instances and 10247.357461948/28800 host-seconds, leaving 185 / 18552.642538052.
