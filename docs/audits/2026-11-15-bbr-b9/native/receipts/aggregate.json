@@ -1,0 +1,24 @@
+{
+  "command": [
+    "python3",
+    "-B",
+    "/tmp/qgf-b9-1382-peer/source/interop/multipath/run.py",
+    "--controller",
+    "bbrv3",
+    "--validate-matrix",
+    "--output",
+    "/tmp/qgf-b9-1382-peer/results"
+  ],
+  "working_directory": "/home/josh",
+  "instances_charged": 0,
+  "remaining_instances_before": 115,
+  "remaining_host_seconds_before": "15955.00924501064015",
+  "reserved_host_seconds": "0",
+  "status": "passed",
+  "started_utc": "2026-11-15T16:33:31.848812+00:00",
+  "elapsed_host_seconds": "0.031452375",
+  "exit_code": 0,
+  "ended_utc": "2026-11-15T16:33:31.880408+00:00",
+  "remaining_instances_after": 115,
+  "remaining_host_seconds_after": "15954.97779263564015"
+}

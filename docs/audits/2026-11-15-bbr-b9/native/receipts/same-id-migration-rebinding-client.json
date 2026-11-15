@@ -1,0 +1,20 @@
+{
+  "command": [
+    "bash",
+    "/tmp/qgf-b9-1382-peer/peer-case.sh",
+    "same-id-migration-rebinding",
+    "client"
+  ],
+  "working_directory": "/home/josh",
+  "instances_charged": 1,
+  "remaining_instances_before": 117,
+  "remaining_host_seconds_before": "15956.13225802964015",
+  "reserved_host_seconds": "150",
+  "status": "passed",
+  "started_utc": "2026-11-15T16:33:08.270326+00:00",
+  "elapsed_host_seconds": "0.566982039",
+  "exit_code": 0,
+  "ended_utc": "2026-11-15T16:33:08.837426+00:00",
+  "remaining_instances_after": 116,
+  "remaining_host_seconds_after": "15955.56527599064015"
+}

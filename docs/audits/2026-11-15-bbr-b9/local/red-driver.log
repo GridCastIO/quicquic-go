@@ -1,0 +1,14 @@
+.E.......
+======================================================================
+ERROR: test_bbr_fixed_inventory_and_controller_identity (test_run.AccountingTests.test_bbr_fixed_inventory_and_controller_identity)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Volumes/worktrees/b9-1382-20261115/quic-go-fast/interop/multipath/test_run.py", line 78, in test_bbr_fixed_inventory_and_controller_identity
+    self.assertEqual(runner.matrix_expected("bbrv3"), expected)
+                     ^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: module 'peer_run' has no attribute 'matrix_expected'
+
+----------------------------------------------------------------------
+Ran 9 tests in 0.012s
+
+FAILED (errors=1)

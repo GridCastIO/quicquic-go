@@ -1,0 +1,20 @@
+{
+  "command": [
+    "bash",
+    "/tmp/qgf-b9-1382-peer/peer-case.sh",
+    "useful-transfer",
+    "client"
+  ],
+  "working_directory": "/home/josh",
+  "instances_charged": 1,
+  "remaining_instances_before": 121,
+  "remaining_host_seconds_before": "15958.71971791364015",
+  "reserved_host_seconds": "150",
+  "status": "passed",
+  "started_utc": "2026-11-15T16:32:50.060813+00:00",
+  "elapsed_host_seconds": "0.505600976",
+  "exit_code": 0,
+  "ended_utc": "2026-11-15T16:32:50.566553+00:00",
+  "remaining_instances_after": 120,
+  "remaining_host_seconds_after": "15958.21411693764015"
+}

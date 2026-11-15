@@ -1,0 +1,25 @@
+{
+  "source": "af39990685fceee5d70f08770c692701548198ef",
+  "tree": "c94c1bd720f03fee59cc87e0715c012a3c9dab4a",
+  "controller": "bbrv3",
+  "executed": [
+    "TestPicoquicMultipathMatrix/useful-transfer/client",
+    "TestPicoquicMultipathMatrix/useful-transfer/server",
+    "TestPicoquicMultipathMatrix/abandon-reopen-late-feedback/client",
+    "TestPicoquicMultipathMatrix/abandon-reopen-late-feedback/server",
+    "TestPicoquicMultipathMatrix/same-id-migration-rebinding/client",
+    "TestPicoquicMultipathMatrix/same-id-migration-rebinding/server"
+  ],
+  "instances": 6,
+  "host_seconds": "29.951419736",
+  "outer_envelope_only": true,
+  "no_replacements": true,
+  "local_commands": [
+    "go test ./...",
+    "go vet . ./internal/ackhandler",
+    "go mod tidy -diff",
+    "golangci-lint run ./...",
+    "python3 -B -m unittest discover -s interop/multipath -p 'test_*.py'"
+  ],
+  "native_focused_race": "GOMAXPROCS=4 go test -race -run=\"^TestMultipath(SupportedCombinations|BBRPublicTransferAndJoin|UnsupportedCombinations|ConfigSelection|OrdinaryPeerFallback)$|^TestNativeOrdinary.*(Completion|Close|Accepted)\" -count=1 -timeout=180s ."
+}
