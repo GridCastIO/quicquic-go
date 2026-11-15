@@ -1,6 +1,6 @@
 # Jumbo packets implementation plan
 
-**Date:** 2026-11-05. **Status:** In progress; F1, F2, F3, F4, F5, F6, F7, F8, F9 and F10 complete; consumer selection and release qualification remain pending. **Identity:** `JP-20261105-F`. **Parent:** [Jumbo packets (#1215)](https://github.com/the-sarge/quic-go-fast/issues/1215). **Depends on:** nothing for F1. **Normative scope:** current outcome, boundaries, invariants, acceptance evidence, blockers and stop conditions. **Audit history:** this plan's merging PR.
+**Date:** 2026-11-05. **Status:** In progress; F1 through F11 complete; release qualification remains pending. **Identity:** `JP-20261105-F`. **Parent:** [Jumbo packets (#1215)](https://github.com/the-sarge/quic-go-fast/issues/1215). **Depends on:** nothing for F1. **Normative scope:** current outcome, boundaries, invariants, acceptance evidence, blockers and stop conditions. **Audit history:** this plan's merging PR.
 
 This plan comes from a downstream consumer's owner-approved program. It stands on its own: an implementer needs nothing outside this repository. "The consumer" below means that downstream program, whose qualification results reach this repository through F11's and F12's issues.
 
@@ -83,10 +83,10 @@ Throwaway builds that raised the constant and pinned the size carried over 8 Gbp
 | [F8](#f8) | complete #1222 | Far-side detection: watching, liveness, re-check | F7 | n/a |
 | [F9](#f9) | complete #1223 | The exported opt-in, disclosed as experimental | F8 | F1's test setter |
 | [F10](#f10) | complete #1224 | Linux GSO batches of more than two jumbo packets | F5 | n/a |
-| [F11](#f11) | conditional | Several short DATAGRAMs in one jumbo packet, with weighted admission | F5; the consumer's comparison selecting this design | n/a |
+| [F11](#f11) | complete #1225 | Several short DATAGRAMs in one jumbo packet, with weighted admission | F5; the consumer's comparison selecting this design | n/a |
 | [F12](#f12) | new | The release that claims jumbo, at the qualified commit | The consumer's qualification; the first independent release | n/a |
 
-F1 #1208, F2 #1216, F3 #1217, F4 #1218, F5 #1219, F6 #1220, F7 #1221, F8 #1222, F9 #1223 and F10 #1224 are complete. There is no unconditional implementation frontier: F11 #1225 remains conditional on the consumer comparison selecting its design, and F12 #1226 awaits exact-commit consumer qualification, independent release #1111 and owner approval. Nothing here waits for the quicquic-go identity transition before F12, and that transition doesn't wait for this.
+F1 #1208, F2 #1216, F3 #1217, F4 #1218, F5 #1219, F6 #1220, F7 #1221, F8 #1222, F9 #1223 and F10 #1224 are complete. F11 #1225 implements the owner-selected packing direction A from [wiremux program #1872](https://github.com/GridSwarm/wiremux/issues/1872). ECN fallback fix #1335 is complete. F12 #1226 still awaits exact-commit consumer qualification, independent release #1111 and owner approval. Nothing here waits for the quicquic-go identity transition before F12, and that transition doesn't wait for this.
 
 ## Implementation slices
 
@@ -335,13 +335,15 @@ Scoped review evidence and technical disposition are linked from [PR #1233](http
 <a id="f11"></a>
 ### F11 — Pack several short DATAGRAMs into a jumbo packet (conditional)
 
+**Status:** complete; implemented for #1225 after the owner selected A for qualification in [wiremux program #1872](https://github.com/GridSwarm/wiremux/issues/1872). Selection and implementation do not change the published comparison verdicts or establish qualification.
+
 **Delivers:** when the size is above 1452, the packer fills a packet with queued DATAGRAM frames, leaving room so streams aren't starved, and receive admission is weighted by DATAGRAMs per packet so a discard stays visible to the sender. MTU 1500 packing doesn't change.
 
-**Disposition / blocked by:** conditional. Blocked by F5 and by the consumer's comparison selecting this design. There's no cycle: the comparison runs a throwaway patch the consumer owns, packing without weighted admission, built on a fork commit that contains F5. This slice is the real implementation, and qualification runs on the commit that contains it. It closes with no code if the comparison doesn't select it, because the consumer's rule tries this design first whenever it passes.
+**Disposition / blocked by:** complete. F5 #1219 is closed and the owner selected A on 2026-11-12 after the consumer comparison. This production implementation includes weighted receive admission omitted by the throwaway comparison patch. Qualification must run on the selected shipping commit; [wiremux W6 #2258](https://github.com/GridSwarm/wiremux/issues/2258) still requires the independent-module cutover #2175 before pinning that candidate.
 
 **Owner / authority:** the packer owns packing, and connection admission owns the weighting.
 
-**Seams / blast radius:** per-DATAGRAM work at about 910k/s is unmeasured until the consumer's comparison. Receive queues hold more entries per packet.
+**Seams / blast radius:** per-DATAGRAM work at about 910k/s remains unqualified until consumer qualification of the production implementation. Receive queues hold more entries per packet. The admission pre-scan materializes DATAGRAM frames and copies STREAM payloads through the existing parser, including STREAM-only packets on jumbo/DATAGRAM-enabled receivers; the operational cost belongs in the existing qualification assessment, with no new performance threshold or campaign.
 
 **Artifacts / representation / closure:** shipped behavior. Guarantee: example-level. Closure row: size at or below 1452 packs one frame per packet as today.
 

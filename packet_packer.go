@@ -561,9 +561,9 @@ func (p *packetPacker) AppendPacket(buf *packetBuffer, maxSize protocol.ByteCoun
 	return p.appendPacket(nil, ackhandler.AckCarriage{}, buf, false, maxSize, now, v)
 }
 
-// AppendDatagramPacket packs a packet carrying only the next queued DATAGRAM
-// frame, with maxSize as its limit. Unlike AppendPacket, it never discards a
-// frame that doesn't fit: it returns errNothingToPack and leaves the frame
+// AppendDatagramPacket packs queued DATAGRAM frames, with maxSize as its limit.
+// Standard-size packets carry one frame; jumbo packets can carry several.
+// Unlike AppendPacket, it never discards a frame that doesn't fit: it returns errNothingToPack and leaves the frame
 // queued, since a later packet with a larger limit can carry it.
 // It should be called after the handshake is confirmed.
 func (p *packetPacker) AppendDatagramPacket(route *pathRoute, buf *packetBuffer, maxSize protocol.ByteCount, v protocol.Version) (shortHeaderPacket, error) {
@@ -598,7 +598,11 @@ func (p *packetPacker) datagramPayload(route *pathRoute, f *wire.DatagramFrame, 
 	}
 	p.datagramQueue.Pop()
 	*p.pingCount(route) = 0
-	return payload{frames: []ackhandler.Frame{{Frame: f}}, length: size}, nil
+	pl := payload{frames: []ackhandler.Frame{{Frame: f}}, length: size}
+	if maxSize > protocol.MaxPacketBufferSize && f.DataLenPresent {
+		p.appendQueuedDatagrams(&pl, maxSize-wire.ShortHeaderLen(connID, pnLen)-protocol.ByteCount(sealer.Overhead()), v)
+	}
+	return pl, nil
 }
 
 // datagramRoom is the frame length a fresh packet on route can carry at maxSize. It
@@ -809,7 +813,7 @@ func (p *packetPacker) maybeGetAppDataPacketFor0RTT(sealer sealer, maxSize proto
 
 	hdr := p.getLongHeader(protocol.Encryption0RTT, v)
 	maxPayloadSize := maxSize - hdr.GetLength(v) - protocol.ByteCount(sealer.Overhead())
-	return hdr, p.maybeGetAppDataPacket(nil, ackhandler.AckCarriage{}, maxPayloadSize, false, false, now, v, nil)
+	return hdr, p.maybeGetAppDataPacket(nil, ackhandler.AckCarriage{}, maxPayloadSize, false, false, maxSize > protocol.MaxPacketBufferSize, now, v, nil)
 }
 
 func (p *packetPacker) maybeGetShortHeaderPacket(
@@ -823,19 +827,19 @@ func (p *packetPacker) maybeGetShortHeaderPacket(
 	streamStorage []ackhandler.StreamFrame,
 ) payload {
 	maxPayloadSize := maxPacketSize - hdrLen - protocol.ByteCount(sealer.Overhead())
-	return p.maybeGetAppDataPacket(route, acks, maxPayloadSize, onlyAck, true, now, v, streamStorage)
+	return p.maybeGetAppDataPacket(route, acks, maxPayloadSize, onlyAck, true, maxPacketSize > protocol.MaxPacketBufferSize, now, v, streamStorage)
 }
 
 func (p *packetPacker) maybeGetAppDataPacket(
 	route *pathRoute,
 	acks ackhandler.AckCarriage,
 	maxPayloadSize protocol.ByteCount,
-	onlyAck, ackAllowed bool,
+	onlyAck, ackAllowed, packDatagrams bool,
 	now monotime.Time,
 	v protocol.Version,
 	streamStorage []ackhandler.StreamFrame,
 ) payload {
-	pl := p.composeNextPacket(route, acks, maxPayloadSize, onlyAck, ackAllowed, now, v, streamStorage)
+	pl := p.composeNextPacket(route, acks, maxPayloadSize, onlyAck, ackAllowed, packDatagrams, now, v, streamStorage)
 
 	// check if we have anything to send
 	count := p.pingCount(route)
@@ -862,7 +866,7 @@ func (p *packetPacker) composeNextPacket(
 	route *pathRoute,
 	acks ackhandler.AckCarriage,
 	maxPayloadSize protocol.ByteCount,
-	onlyAck, ackAllowed bool,
+	onlyAck, ackAllowed, packDatagrams bool,
 	now monotime.Time,
 	v protocol.Version,
 	streamStorage []ackhandler.StreamFrame,
@@ -918,10 +922,6 @@ func (p *packetPacker) composeNextPacket(
 		}
 	}
 
-	if (pl.ack != nil || len(pl.frames) > 0) && !hasData && !hasRetransmission {
-		return pl
-	}
-
 	if hasRetransmission {
 		for {
 			remainingLen := maxPayloadSize - pl.length
@@ -957,7 +957,30 @@ func (p *packetPacker) composeNextPacket(
 			}
 		}
 	}
+	// Give retransmissions and STREAM/control data their ordinary turn before
+	// filling the remaining jumbo space with more DATAGRAMs.
+	if packDatagrams && p.datagramQueue != nil {
+		p.appendQueuedDatagrams(&pl, maxPayloadSize, v)
+	}
 	return pl
+}
+
+// appendQueuedDatagrams leaves the first non-fitting frame for the next packet.
+func (p *packetPacker) appendQueuedDatagrams(pl *payload, limit protocol.ByteCount, v protocol.Version) {
+	for _, frame := range pl.frames {
+		if d, ok := frame.Frame.(*wire.DatagramFrame); ok && !d.DataLenPresent {
+			return
+		}
+	}
+	for {
+		f := p.datagramQueue.Peek()
+		if f == nil || !f.DataLenPresent || f.Length(v) > limit-pl.length {
+			return
+		}
+		pl.frames = append(pl.frames, ackhandler.Frame{Frame: f})
+		pl.length += f.Length(v)
+		p.datagramQueue.Pop()
+	}
 }
 
 func (p *packetPacker) PackPTOProbePacket(
@@ -1041,7 +1064,7 @@ func (p *packetPacker) packPTOProbePacket1RTT(route *pathRoute, acks ackhandler.
 	context, numbers, connID := p.shortHeaderIdentity(route)
 	pn, pnLen := numbers.PeekPacketNumber(protocol.Encryption1RTT)
 	hdrLen := wire.ShortHeaderLen(connID, pnLen)
-	pl := p.maybeGetAppDataPacket(route, acks, maxPacketSize-protocol.ByteCount(s.Overhead())-hdrLen, false, true, now, v, nil)
+	pl := p.maybeGetAppDataPacket(route, acks, maxPacketSize-protocol.ByteCount(s.Overhead())-hdrLen, false, true, maxPacketSize > protocol.MaxPacketBufferSize, now, v, nil)
 	if pl.length == 0 {
 		if !addPingIfEmpty {
 			return nil, nil
@@ -1077,7 +1100,7 @@ func (p *packetPacker) packPingPacket1RTT(route *pathRoute, acks ackhandler.AckC
 	pn, pnLen := numbers.PeekPacketNumber(protocol.Encryption1RTT)
 	hdrLen := wire.ShortHeaderLen(connID, pnLen)
 	ping := &wire.PingFrame{}
-	pl := p.composeNextPacket(route, acks, maxPacketSize-protocol.ByteCount(s.Overhead())-hdrLen-ping.Length(v), true, true, now, v, nil)
+	pl := p.composeNextPacket(route, acks, maxPacketSize-protocol.ByteCount(s.Overhead())-hdrLen-ping.Length(v), true, true, false, now, v, nil)
 	pl.frames = append(pl.frames, ackhandler.Frame{Frame: ping, Handler: emptyHandler{}})
 	pl.length += ping.Length(v)
 	*p.pingCount(route) = 0
@@ -1388,10 +1411,25 @@ func (p *packetPacker) appendPacketPayload(raw []byte, pl payload, paddingLen pr
 	if paddingLen > 0 {
 		raw = append(raw, make([]byte, paddingLen)...)
 	}
-	// Randomize the order of the control frames.
-	// This makes sure that the receiver doesn't rely on the order in which frames are packed.
-	if len(pl.frames) > 1 {
-		p.rand.Shuffle(len(pl.frames), func(i, j int) { pl.frames[i], pl.frames[j] = pl.frames[j], pl.frames[i] })
+	// Randomize control frames, but preserve the queue-relative order of packed
+	// DATAGRAMs. Reverse partitioning keeps their order without extra storage.
+	shuffle := len(pl.frames)
+	datagrams := 0
+	for _, frame := range pl.frames {
+		if _, ok := frame.Frame.(*wire.DatagramFrame); ok {
+			datagrams++
+		}
+	}
+	if datagrams > 1 {
+		for i := len(pl.frames) - 1; i >= 0; i-- {
+			if _, ok := pl.frames[i].Frame.(*wire.DatagramFrame); ok {
+				shuffle--
+				pl.frames[i], pl.frames[shuffle] = pl.frames[shuffle], pl.frames[i]
+			}
+		}
+	}
+	if shuffle > 1 {
+		p.rand.Shuffle(shuffle, func(i, j int) { pl.frames[i], pl.frames[j] = pl.frames[j], pl.frames[i] })
 	}
 	for _, f := range pl.frames {
 		var err error
