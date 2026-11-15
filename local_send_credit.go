@@ -67,6 +67,33 @@ func (c *localSendCredit) reserve(n, limit protocol.ByteCount, ordinary, isolate
 		}
 		return nil
 	}
+	return c.take(n, isolated)
+}
+
+// reserveUpTo admits an ordinary whole-packet portion of maximum. The same
+// minimum packet governs admission and rearming; old-generation debt and probe
+// isolation still refuse the entire request, however much byte room remains.
+func (c *localSendCredit) reserveUpTo(maximum, limit, size protocol.ByteCount) *sendReservation {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if size <= 0 || maximum < size {
+		panic("invalid local send reservation range")
+	}
+	if !c.canReserve(size, limit, true, false) {
+		select {
+		case <-c.available:
+		default:
+		}
+		return nil
+	}
+	n := min(maximum, max(0, limit-c.pending))
+	n -= n % size
+	return c.take(n, false)
+}
+
+// take records an admitted reservation with mu held. Exact and up-to admission
+// share byte ownership and reservation reuse here.
+func (c *localSendCredit) take(n protocol.ByteCount, isolated bool) *sendReservation {
 	c.pending += n
 	c.current += n
 	c.isolated = isolated

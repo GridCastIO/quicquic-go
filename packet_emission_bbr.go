@@ -263,8 +263,18 @@ func (e *packetEmission) sendBounded(now monotime.Time, confirmed bool) (result 
 		return result
 	}
 	e.confirmSupplyGap(now)
-	if !e.reserveLocal(plan.request, true, false, now) {
-		return e.waitForReservation(now, confirmed, size, plan.request, true, false)
+	request := plan.request
+	if confirmed && e.largeNativeBBRGSO(e.route, size) {
+		e.reservation = p.credit.reserveUpTo(request, p.creditLimit(), size)
+		e.paceReservation, e.reservationTime, e.pacingBytes = true, now, 0
+		if e.reservation == nil {
+			// The ordinary request permits any whole-packet portion. Rearming
+			// its former maximum could lose a completion that makes M fit.
+			return e.waitForReservation(now, confirmed, size, size, true, false)
+		}
+		request = e.reservation.bytes
+	} else if !e.reserveLocal(request, true, false, now) {
+		return e.waitForReservation(now, confirmed, size, request, true, false)
 	}
 	if !confirmed {
 		result := e.coalesced(now)
@@ -272,7 +282,7 @@ func (e *packetEmission) sendBounded(now monotime.Time, confirmed bool) (result 
 		result.retry = result.progress
 		return result
 	}
-	return e.boundedDatagrams(now, size, plan.request)
+	return e.boundedDatagrams(now, size, request)
 }
 
 // boundedStep is the work a BBR opportunity does once its path turns are done.
@@ -289,7 +299,8 @@ const (
 	stepSteered                        // the steered DATAGRAM alone
 )
 
-// boundedPlan is an opportunity's step and the local reservation its work takes.
+// boundedPlan is an opportunity's step and its maximum local reservation.
+// Ordinary native standard-size sends may reserve a whole-packet portion.
 type boundedPlan struct {
 	step               boundedStep
 	request            protocol.ByteCount // zero for a step that sends only ACKs or a probe
