@@ -31,6 +31,7 @@ type matrixSession struct {
 	trace   *matrixTrace
 	dir     string
 	role    string
+	policy  string
 	remote  *net.UDPAddr
 	primary *Transport
 }
@@ -77,7 +78,11 @@ func newMatrixSession(t *testing.T, role string, negotiated, cidReceipt bool) *m
 		controller = "reno"
 	}
 	require.NoError(t, conf.SetCongestionControlV1(controller))
-	require.NoError(t, conf.ConfigureMultipathV1(true, 2, "primary-backup"))
+	s.policy = os.Getenv("PICOQUIC_POLICY")
+	if s.policy == "" {
+		s.policy = "primary-backup"
+	}
+	require.NoError(t, conf.ConfigureMultipathV1(true, 2, s.policy))
 	cert, key, ca := filepath.Join(dir, "cert.pem"), filepath.Join(dir, "key.pem"), filepath.Join(dir, "ca.pem")
 	mp := "1"
 	if !negotiated {
@@ -391,6 +396,38 @@ func matrixUsefulTransfer(s *matrixSession) {
 	s.echo(1)
 	s.datagram(1)
 	require.NoError(s.t, s.trace.wait(s.ctx, s.trace.usefulTrafficReady))
+	if s.policy == "aggregate" {
+		paths := []*Path{s.path(0), s.path(1)}
+		for _, path := range paths {
+			require.NoError(s.t, path.SetLocalUseV1("active"))
+		}
+		before0, _ := s.trace.traffic(0)
+		before1, _ := s.trace.traffic(1)
+		progressed := false
+		for round := 0; round < 64 && !progressed; round++ {
+			// Keep both routes active throughout this bounded offered-work phase.
+			for _, path := range paths {
+				state, err := path.StateV1()
+				require.NoError(s.t, err)
+				require.Equal(s.t, "active", state.LocalUse)
+				require.Equal(s.t, "live", state.Lifecycle)
+			}
+			payload := bytes.Repeat([]byte("aggregate useful STREAM\n"), 1024)
+			require.Equal(s.t, payload, s.exchange('E', 255, payload))
+			sent0, _ := s.trace.traffic(0)
+			sent1, _ := s.trace.traffic(1)
+			progressed = sent0.Stream > before0.Stream && sent1.Stream > before1.Stream
+		}
+		require.True(s.t, progressed, "new useful STREAM traffic on both simultaneously active paths")
+		for _, path := range paths {
+			state, err := path.StateV1()
+			require.NoError(s.t, err)
+			require.Equal(s.t, "active", state.LocalUse)
+			require.Equal(s.t, "live", state.Lifecycle)
+		}
+		s.t.Log("aggregate phase: new useful STREAM traffic on both live active paths")
+	}
+
 	for _, id := range []uint64{0, 1} {
 		sent, received := s.trace.traffic(id)
 		require.NotZero(s.t, sent.Stream, fmt.Sprintf("path %d sent useful STREAM", id))

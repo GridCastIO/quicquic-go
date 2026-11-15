@@ -39,22 +39,26 @@ const (
 
 // multipathSelection is the configured request, copied with the Config that holds it.
 type multipathSelection struct {
-	enabled  bool
-	maxPaths uint32
-	// experimentScheduler is selected before activation by in-package experiments.
-	// B12 removes this seam; public configuration always leaves it zero.
-	experimentScheduler pathScheduler
+	enabled   bool
+	maxPaths  uint32
+	scheduler pathScheduler // selected by ConfigureMultipathV1, copied into the registry at activation
 }
 
 // ConfigureMultipathV1 selects multipath for the connections using this Config, before
 // it reaches Dial, Listen or a GetConfigForClient return. maxPaths is 1 or 2, and counts
-// active and validating paths including path zero; policy is "primary-backup". Both are
+// active and validating paths including path zero; policy is "primary-backup" or "aggregate". Both are
 // ignored when disabling, which is the default. On error the Config is unchanged.
 //
 // Multipath is experimental and opt-in. Its one supported profile is draft-21 QUIC v1
 // with Reno or experimental BBR on Linux amd64, over a socket granted with
 // [Transport.ConfigureMultipathIOV1]. BBR retains its documented cost exceptions and
-// unqualified controller status; Reno remains the default.
+// unqualified controller status; Reno remains the default. Aggregate requires BBR and uses
+// uncoupled paced byte round-robin. It makes no general performance or fairness guarantee.
+// Additional validated paths start as local backups. Each sending endpoint must call
+// [Path.SetLocalUseV1] with "active" on paths it intends to use concurrently; selecting
+// aggregate alone does not activate them. [Path.StateV1] reports local use. Backups are
+// excluded from ordinary aggregate work while an active path is eligible; PTO keeps precedence.
+// The controller may be selected before or after the policy; constructors check the pair.
 // Elsewhere, or with a QUIC v2 version listed or another congestion controller, a public
 // constructor refuses an enabled Config with [ErrMultipathUnsupportedV1]. A connection
 // that negotiates QUIC v2, or whose peer doesn't negotiate multipath, stays ordinary.
@@ -69,10 +73,15 @@ func (c *Config) ConfigureMultipathV1(enabled bool, maxPaths uint32, policy stri
 	if maxPaths < 1 || maxPaths > 2 {
 		return fmt.Errorf("%w: %d paths outside [1, 2]", ErrMultipathInvalidConfigV1, maxPaths)
 	}
-	if policy != multipathPolicyPrimaryBackup {
+	var scheduler pathScheduler
+	switch policy {
+	case multipathPolicyPrimaryBackup:
+	case "aggregate":
+		scheduler = scheduleAggregate
+	default:
 		return fmt.Errorf("%w: unknown policy %q", ErrMultipathInvalidConfigV1, policy)
 	}
-	c.multipath = multipathSelection{enabled: true, maxPaths: maxPaths}
+	c.multipath = multipathSelection{enabled: true, maxPaths: maxPaths, scheduler: scheduler}
 	return nil
 }
 
@@ -122,6 +131,9 @@ func (t *Transport) admitMultipath(conf *Config) error {
 	}
 	if controller := conf.CongestionControlV1(); controller != "reno" && controller != "bbrv3" {
 		return fmt.Errorf("%w: multipath requires reno or bbrv3", ErrMultipathUnsupportedV1)
+	}
+	if conf.multipath.scheduler != schedulePrimaryBackup && (conf.multipath.scheduler != scheduleAggregate || conf.CongestionControlV1() != "bbrv3") {
+		return fmt.Errorf("%w: aggregate multipath requires bbrv3", ErrMultipathUnsupportedV1)
 	}
 	if slices.ContainsFunc(conf.Versions, func(v Version) bool { return v != Version1 }) {
 		return fmt.Errorf("%w: multipath requires QUIC v1", ErrMultipathUnsupportedV1)

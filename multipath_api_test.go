@@ -95,7 +95,7 @@ func TestMultipathConfigSelection(t *testing.T) {
 	for _, bad := range []struct {
 		paths  uint32
 		policy string
-	}{{0, "primary-backup"}, {3, "primary-backup"}, {2, "aggregate"}, {2, ""}} {
+	}{{0, "primary-backup"}, {3, "primary-backup"}, {2, ""}} {
 		require.ErrorIs(t, conf.ConfigureMultipathV1(true, bad.paths, bad.policy), ErrMultipathInvalidConfigV1)
 		require.False(t, conf.MultipathEnabledV1(), "an error doesn't mutate")
 	}
@@ -104,6 +104,8 @@ func TestMultipathConfigSelection(t *testing.T) {
 	require.Equal(t, multipathSelection{enabled: true, maxPaths: 1}, populateConfig(&conf).multipath, "the effective copy keeps it")
 	require.ErrorIs(t, conf.ConfigureMultipathV1(true, 9, "primary-backup"), ErrMultipathInvalidConfigV1)
 	require.Equal(t, uint32(1), conf.multipath.maxPaths)
+	require.NoError(t, conf.ConfigureMultipathV1(true, 2, "aggregate"))
+	require.Equal(t, conf.multipath, conf.Clone().multipath)
 	require.NoError(t, conf.ConfigureMultipathV1(false, 0, ""))
 	require.False(t, conf.MultipathEnabledV1())
 }

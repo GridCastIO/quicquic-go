@@ -9,8 +9,8 @@ import (
 
 // pathScheduler is a multipath connection's private scheduling policy. It owns the
 // choice of route only; emission keeps packing, credit, registration and each
-// DATAGRAM's eligibility. Aggregate is reachable only through the private experiment
-// selector; the public policy remains primary/backup.
+// DATAGRAM's eligibility. ConfigureMultipathV1 selects the policy, which admission
+// restricts to BBR for aggregate and the registry copies once at activation.
 type pathScheduler uint8
 
 const (

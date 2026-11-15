@@ -1,0 +1,6 @@
+{
+  "case": "same-id-migration-rebinding/server",
+  "instances": 1,
+  "duration_seconds": 0.5026242174208164,
+  "exit_code": 0
+}

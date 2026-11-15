@@ -1,0 +1,22 @@
+{"Time":"2026-11-15T20:00:08.496078267Z","Action":"start","Package":"github.com/quic-go/quic-go"}
+{"Time":"2026-11-15T20:00:08.497814325Z","Action":"output","Package":"github.com/quic-go/quic-go","Output":"Kernel Version: 7.0\n"}
+{"Time":"2026-11-15T20:00:08.497852136Z","Action":"output","Package":"github.com/quic-go/quic-go","Output":"\n"}
+{"Time":"2026-11-15T20:00:08.497941043Z","Action":"run","Package":"github.com/quic-go/quic-go","Test":"TestPicoquicMultipathMatrix"}
+{"Time":"2026-11-15T20:00:08.497942325Z","Action":"output","Package":"github.com/quic-go/quic-go","Test":"TestPicoquicMultipathMatrix","Output":"=== RUN   TestPicoquicMultipathMatrix\n","OutputType":"frame"}
+{"Time":"2026-11-15T20:00:08.497969556Z","Action":"run","Package":"github.com/quic-go/quic-go","Test":"TestPicoquicMultipathMatrix/useful-transfer"}
+{"Time":"2026-11-15T20:00:08.497976419Z","Action":"output","Package":"github.com/quic-go/quic-go","Test":"TestPicoquicMultipathMatrix/useful-transfer","Output":"=== RUN   TestPicoquicMultipathMatrix/useful-transfer\n","OutputType":"frame"}
+{"Time":"2026-11-15T20:00:08.498001546Z","Action":"run","Package":"github.com/quic-go/quic-go","Test":"TestPicoquicMultipathMatrix/useful-transfer/server"}
+{"Time":"2026-11-15T20:00:08.498002748Z","Action":"output","Package":"github.com/quic-go/quic-go","Test":"TestPicoquicMultipathMatrix/useful-transfer/server","Output":"=== RUN   TestPicoquicMultipathMatrix/useful-transfer/server\n","OutputType":"frame"}
+{"Time":"2026-11-15T20:00:08.572089144Z","Action":"output","Package":"github.com/quic-go/quic-go","Test":"TestPicoquicMultipathMatrix/useful-transfer/server","Output":"    multipath_picoquic_matrix_test.go:428: aggregate phase: new useful STREAM traffic on both live active paths\n"}
+{"Time":"2026-11-15T20:00:08.572932056Z","Action":"output","Package":"github.com/quic-go/quic-go","Test":"TestPicoquicMultipathMatrix/useful-transfer/server","Output":"    multipath_picoquic_matrix_test.go:384: retained peer evidence: /results/useful-transfer/server/matrix-server-2886333338\n"}
+{"Time":"2026-11-15T20:00:08.572940692Z","Action":"output","Package":"github.com/quic-go/quic-go","Test":"TestPicoquicMultipathMatrix/useful-transfer/server","Output":"    multipath_picoquic_matrix_test.go:384: path 0 sent {Stream:48185 Datagram:256 Packets:56 LastPN:55} received {Stream:33090 Datagram:256 Packets:52 LastPN:52}\n"}
+{"Time":"2026-11-15T20:00:08.572943247Z","Action":"output","Package":"github.com/quic-go/quic-go","Test":"TestPicoquicMultipathMatrix/useful-transfer/server","Output":"    multipath_picoquic_matrix_test.go:384: path 1 sent {Stream:25551 Datagram:256 Packets:42 LastPN:41} received {Stream:40640 Datagram:256 Packets:46 LastPN:45}\n"}
+{"Time":"2026-11-15T20:00:08.572945251Z","Action":"output","Package":"github.com/quic-go/quic-go","Test":"TestPicoquicMultipathMatrix/useful-transfer/server","Output":"    multipath_picoquic_matrix_test.go:384: path 2 sent {Stream:0 Datagram:0 Packets:0 LastPN:0} received {Stream:0 Datagram:0 Packets:0 LastPN:0}\n"}
+{"Time":"2026-11-15T20:00:08.573039929Z","Action":"output","Package":"github.com/quic-go/quic-go","Test":"TestPicoquicMultipathMatrix/useful-transfer/server","Output":"--- PASS: TestPicoquicMultipathMatrix/useful-transfer/server (0.08s)\n","OutputType":"frame"}
+{"Time":"2026-11-15T20:00:08.573047763Z","Action":"pass","Package":"github.com/quic-go/quic-go","Test":"TestPicoquicMultipathMatrix/useful-transfer/server","Elapsed":0.08}
+{"Time":"2026-11-15T20:00:08.573061639Z","Action":"output","Package":"github.com/quic-go/quic-go","Test":"TestPicoquicMultipathMatrix/useful-transfer","Output":"--- PASS: TestPicoquicMultipathMatrix/useful-transfer (0.08s)\n","OutputType":"frame"}
+{"Time":"2026-11-15T20:00:08.573064024Z","Action":"pass","Package":"github.com/quic-go/quic-go","Test":"TestPicoquicMultipathMatrix/useful-transfer","Elapsed":0.08}
+{"Time":"2026-11-15T20:00:08.573136069Z","Action":"output","Package":"github.com/quic-go/quic-go","Test":"TestPicoquicMultipathMatrix","Output":"--- PASS: TestPicoquicMultipathMatrix (0.08s)\n","OutputType":"frame"}
+{"Time":"2026-11-15T20:00:08.573143483Z","Action":"pass","Package":"github.com/quic-go/quic-go","Test":"TestPicoquicMultipathMatrix","Elapsed":0.08}
+{"Time":"2026-11-15T20:00:08.573239122Z","Action":"output","Package":"github.com/quic-go/quic-go","Output":"PASS\n","OutputType":"frame"}
+{"Time":"2026-11-15T20:00:08.574060724Z","Action":"pass","Package":"github.com/quic-go/quic-go","Elapsed":0.078}
