@@ -1,0 +1,67 @@
+--- product/multipath_api.go
++++ measurement/multipath_api.go
+@@ -115,7 +115,7 @@
+ 	if !multipathProfileSupported {
+ 		return errMultipathPlatform
+ 	}
+-	if conf.CongestionControlV1() != "reno" {
++	if conf.CongestionControlV1() != "reno" && conf.CongestionControlV1() != "bbrv3" {
+ 		return fmt.Errorf("%w: multipath requires reno", ErrMultipathUnsupportedV1)
+ 	}
+ 	if slices.ContainsFunc(conf.Versions, func(v Version) bool { return v != Version1 }) {
+--- product/ordinary_cost_test.go
++++ measurement/ordinary_cost_test.go
+@@ -92,7 +92,7 @@
+ 	case "reno":
+ 		return nil
+ 	case "bbrv3":
+-		if s.Cell == "stateless-pressure" {
++		if s.Cell == "stateless-pressure" || s.Cell == "mixed-bulk" {
+ 			return nil
+ 		}
+ 		return errors.New("BBR ordinary-cost diagnosis only supports stateless-pressure")
+@@ -488,6 +488,7 @@
+ }
+ 
+ type ordinaryCostServerConnResult struct {
++	Controller string `json:"controller"`
+ 	Label        string `json:"label"`
+ 	Multipath    bool   `json:"multipath_negotiated"`
+ 	PacketsSent  uint64 `json:"packets_sent"`
+@@ -522,8 +523,8 @@
+ 	binary.BigEndian.PutUint64(key[:], spec.Seed)
+ 	tr := ordinaryCostTransport(t, spec.Address, spec.granted())
+ 	tr.StatelessResetKey = &key
+-	// The BBR diagnostic exercises the endpoint grant without advertising multipath.
+-	listener, err := tr.Listen(ordinaryCostServerTLS(), ordinaryCostConfig(t, spec.granted() && spec.controller() == "reno", spec.controller()))
++	// Measurement-only: retain B5's granted-server multipath advertisement.
++	listener, err := tr.Listen(ordinaryCostServerTLS(), ordinaryCostConfig(t, spec.granted(), spec.controller()))
+ 	require.NoError(t, err)
+ 	s := &ordinaryCostServer{line: line, histograms: map[string]*ordinaryCostHistogram{}}
+ 	s.workers.Add(1)
+@@ -572,7 +573,7 @@
+ 		negotiated, err := entry.conn.MultipathNegotiatedV1()
+ 		require.NoError(t, err)
+ 		result.Connections = append(result.Connections, ordinaryCostServerConnResult{
+-			Label: label, Multipath: negotiated,
++			Label: label, Multipath: negotiated, Controller: entry.conn.CongestionControlV1(),
+ 			PacketsSent: stats.PacketsSent, PacketsLost: stats.PacketsLost, BytesSent: stats.BytesSent,
+ 			CloseCause: cause, TimeoutClose: timedOut,
+ 		})
+@@ -601,6 +602,7 @@
+ }
+ 
+ type ordinaryCostFlowResult struct {
++	Controller string `json:"controller"`
+ 	Label        string               `json:"label"`
+ 	Series       []uint64             `json:"series"`
+ 	UsefulBytes  uint64               `json:"useful_bytes"`
+@@ -872,7 +874,7 @@
+ 		}
+ 		cause, timedOut := ordinaryCostCloseCause(flow.conn)
+ 		flow.result = &ordinaryCostFlowResult{
+-			Label: flow.label, Series: series, UsefulBytes: useful,
++			Label: flow.label, Series: series, UsefulBytes: useful, Controller: flow.conn.CongestionControlV1(),
+ 			Drops: flow.conn.DatagramReceiveDropsV1(), Unprocessed: flow.conn.UnprocessedPacketDropsV1(),
+ 			CloseCause: cause, TimeoutClose: timedOut,
+ 		}

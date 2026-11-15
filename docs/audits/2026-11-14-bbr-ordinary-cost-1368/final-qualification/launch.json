@@ -1,0 +1,35 @@
+{
+  "product_sha": "a1c9442f110cca36cb4752b39ce24ae998d76f05",
+  "product_tree": "aa697c0ef117bdf4dc74e712cbf30182b4c8cb97",
+  "archive_sha256": "3a4c5b1013f2d3739965c939d6a03a83b7b830bac1040749133f49b3fd7f991a",
+  "archive_bytes": 135342080,
+  "remote_root": "/tmp/qgf-final-1368-a1c9442f1-stage",
+  "ordinary_command": [
+    "bash",
+    "/tmp/qgf-final-1368-a1c9442f1-stage/commands.sh",
+    "ordinary-run",
+    "/tmp/qgf-final-1368-a1c9442f1-stage",
+    "171",
+    "17401.39644237485385"
+  ],
+  "ordinary_setup_charge": {
+    "instances": 0,
+    "host_seconds": "4.9913044"
+  },
+  "cumulative_before_observations": {
+    "instances": 249,
+    "host_seconds": "11398.60355762514615"
+  },
+  "remaining_before_observations": {
+    "instances": 171,
+    "host_seconds": "17401.39644237485385"
+  },
+  "raw_cpu_ceiling": 1.1,
+  "owner_exception": "E09 measured residual CPU cost explicitly accepted subject to representative qualification; materially worse CPU or other failed checks return before merge. Original driver/verdict unchanged.",
+  "helper_sha256": {
+    "commands.sh": "f97244ee49282972b528caa025e2f015893837d53a87aac4c68ee18aa86b65f5",
+    "prepare-local.sh": "d261288a77b9d91a4684f325a5dea50869bdf9e743400f358fab138e0e25593f",
+    "receipt.py": "42f9b18057867498a35cf3942c22bc6a13909f37d8a68836346c2b179b7f16b7",
+    "interop-case.sh": "7c1de8c9a01c8576ae89fcc7554389965aa48bf1cc05a163c316aba0543b91d7"
+  }
+}

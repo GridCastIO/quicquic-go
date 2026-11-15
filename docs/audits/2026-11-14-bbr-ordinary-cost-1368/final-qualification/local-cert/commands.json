@@ -1,0 +1,318 @@
+[
+  {
+    "label": "01-source-head",
+    "argv": [
+      "git",
+      "rev-parse",
+      "HEAD"
+    ],
+    "environment_overrides": {},
+    "command": "git rev-parse HEAD",
+    "cwd": "/Volumes/worktrees/bbr-final-checks-1368/quic-go-fast",
+    "source": "a1c9442f110cca36cb4752b39ce24ae998d76f05",
+    "started_utc": "2026-11-15T04:14:31.799801+00:00",
+    "elapsed_seconds": 0.012541291012894362,
+    "exit_code": 0,
+    "output": "/tmp/qgf-final-local-cert-1368/01-source-head.log",
+    "output_sha256": "46149d905ded9fed47e50dd847963032ef499f99addaecc3ec4971908e96510b"
+  },
+  {
+    "label": "02-source-status",
+    "argv": [
+      "git",
+      "status",
+      "--porcelain=v1",
+      "--branch"
+    ],
+    "environment_overrides": {},
+    "command": "git status --porcelain=v1 --branch",
+    "cwd": "/Volumes/worktrees/bbr-final-checks-1368/quic-go-fast",
+    "source": "a1c9442f110cca36cb4752b39ce24ae998d76f05",
+    "started_utc": "2026-11-15T04:14:31.824360+00:00",
+    "elapsed_seconds": 0.10829029203159735,
+    "exit_code": 0,
+    "output": "/tmp/qgf-final-local-cert-1368/02-source-status.log",
+    "output_sha256": "02e6d8870c7319584e07b5b156c5addf28c4648eb131ea58241e9fb2dd2c77a0"
+  },
+  {
+    "label": "03-go-identity",
+    "argv": [
+      "git",
+      "diff",
+      "--exit-code",
+      "59ca2a3a3d6dc9419f9bd09ae4b1e6197153e103",
+      "a1c9442f110cca36cb4752b39ce24ae998d76f05",
+      "--",
+      "*.go"
+    ],
+    "environment_overrides": {},
+    "command": "git diff --exit-code 59ca2a3a3d6dc9419f9bd09ae4b1e6197153e103 a1c9442f110cca36cb4752b39ce24ae998d76f05 -- '*.go'",
+    "cwd": "/Volumes/worktrees/bbr-final-checks-1368/quic-go-fast",
+    "source": "a1c9442f110cca36cb4752b39ce24ae998d76f05",
+    "started_utc": "2026-11-15T04:14:31.932934+00:00",
+    "elapsed_seconds": 0.013415708031971008,
+    "exit_code": 0,
+    "output": "/tmp/qgf-final-local-cert-1368/03-go-identity.log",
+    "output_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "label": "04-module-identity",
+    "argv": [
+      "git",
+      "diff",
+      "--exit-code",
+      "59ca2a3a3d6dc9419f9bd09ae4b1e6197153e103",
+      "a1c9442f110cca36cb4752b39ce24ae998d76f05",
+      "--",
+      "go.mod",
+      "go.sum"
+    ],
+    "environment_overrides": {},
+    "command": "git diff --exit-code 59ca2a3a3d6dc9419f9bd09ae4b1e6197153e103 a1c9442f110cca36cb4752b39ce24ae998d76f05 -- go.mod go.sum",
+    "cwd": "/Volumes/worktrees/bbr-final-checks-1368/quic-go-fast",
+    "source": "a1c9442f110cca36cb4752b39ce24ae998d76f05",
+    "started_utc": "2026-11-15T04:14:31.946769+00:00",
+    "elapsed_seconds": 0.01291929098078981,
+    "exit_code": 0,
+    "output": "/tmp/qgf-final-local-cert-1368/04-module-identity.log",
+    "output_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "label": "05-toolchain",
+    "argv": [
+      "go",
+      "version"
+    ],
+    "environment_overrides": {},
+    "command": "go version",
+    "cwd": "/Volumes/worktrees/bbr-final-checks-1368/quic-go-fast",
+    "source": "a1c9442f110cca36cb4752b39ce24ae998d76f05",
+    "started_utc": "2026-11-15T04:14:31.960109+00:00",
+    "elapsed_seconds": 0.00818370800698176,
+    "exit_code": 0,
+    "output": "/tmp/qgf-final-local-cert-1368/05-toolchain.log",
+    "output_sha256": "c6f1c8d54aedc3afa72560d934397ad6c33b28f1b4d3546ec53176439b2397d5"
+  },
+  {
+    "label": "06-go-environment",
+    "argv": [
+      "go",
+      "env",
+      "-json",
+      "GOOS",
+      "GOARCH",
+      "CGO_ENABLED",
+      "GOVERSION",
+      "GOTOOLCHAIN"
+    ],
+    "environment_overrides": {},
+    "command": "go env -json GOOS GOARCH CGO_ENABLED GOVERSION GOTOOLCHAIN",
+    "cwd": "/Volumes/worktrees/bbr-final-checks-1368/quic-go-fast",
+    "source": "a1c9442f110cca36cb4752b39ce24ae998d76f05",
+    "started_utc": "2026-11-15T04:14:31.968638+00:00",
+    "elapsed_seconds": 0.007681208022404462,
+    "exit_code": 0,
+    "output": "/tmp/qgf-final-local-cert-1368/06-go-environment.log",
+    "output_sha256": "dd4a8b8e93315dfa14c3667778c154909a00555f2a649bf8990521cfe405bb89"
+  },
+  {
+    "label": "07-full-affected",
+    "argv": [
+      "go",
+      "test",
+      ".",
+      "./internal/ackhandler",
+      "./internal/congestion",
+      "-count=1"
+    ],
+    "environment_overrides": {},
+    "command": "go test . ./internal/ackhandler ./internal/congestion -count=1",
+    "cwd": "/Volumes/worktrees/bbr-final-checks-1368/quic-go-fast",
+    "source": "a1c9442f110cca36cb4752b39ce24ae998d76f05",
+    "started_utc": "2026-11-15T04:14:32.010054+00:00",
+    "elapsed_seconds": 31.206464207964018,
+    "exit_code": 0,
+    "output": "/tmp/qgf-final-local-cert-1368/07-full-affected.log",
+    "output_sha256": "a3c1108d799b9f5c111ce35171e7cd444e16e93837003fcb94be15f3bc6a5fb2"
+  },
+  {
+    "label": "08-focused-race",
+    "argv": [
+      "go",
+      "test",
+      "-race",
+      ".",
+      "./internal/ackhandler",
+      "-run",
+      "TestLocalBBR|TestLocalAcceptedSpan|TestLocalSendCredit|TestBBRNative|TestBBRUnregisteredCredit|TestNativeProtectionCoalesced|TestNativeOrdinary(Accepted|BBRAccepted)",
+      "-count=1"
+    ],
+    "environment_overrides": {},
+    "command": "go test -race . ./internal/ackhandler -run 'TestLocalBBR|TestLocalAcceptedSpan|TestLocalSendCredit|TestBBRNative|TestBBRUnregisteredCredit|TestNativeProtectionCoalesced|TestNativeOrdinary(Accepted|BBRAccepted)' -count=1",
+    "cwd": "/Volumes/worktrees/bbr-final-checks-1368/quic-go-fast",
+    "source": "a1c9442f110cca36cb4752b39ce24ae998d76f05",
+    "started_utc": "2026-11-15T04:15:03.217101+00:00",
+    "elapsed_seconds": 15.150062249973416,
+    "exit_code": 0,
+    "output": "/tmp/qgf-final-local-cert-1368/08-focused-race.log",
+    "output_sha256": "275aacad15fb2cdd0379cbd7b0c07781e97e097fd9f1a3e604537a05d737bd44"
+  },
+  {
+    "label": "09-vet",
+    "argv": [
+      "go",
+      "vet",
+      ".",
+      "./internal/ackhandler",
+      "./internal/congestion"
+    ],
+    "environment_overrides": {},
+    "command": "go vet . ./internal/ackhandler ./internal/congestion",
+    "cwd": "/Volumes/worktrees/bbr-final-checks-1368/quic-go-fast",
+    "source": "a1c9442f110cca36cb4752b39ce24ae998d76f05",
+    "started_utc": "2026-11-15T04:15:18.367586+00:00",
+    "elapsed_seconds": 0.7208035829826258,
+    "exit_code": 0,
+    "output": "/tmp/qgf-final-local-cert-1368/09-vet.log",
+    "output_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "label": "10-tidy",
+    "argv": [
+      "go",
+      "mod",
+      "tidy",
+      "-diff"
+    ],
+    "environment_overrides": {},
+    "command": "go mod tidy -diff",
+    "cwd": "/Volumes/worktrees/bbr-final-checks-1368/quic-go-fast",
+    "source": "a1c9442f110cca36cb4752b39ce24ae998d76f05",
+    "started_utc": "2026-11-15T04:15:19.088856+00:00",
+    "elapsed_seconds": 0.0377975840237923,
+    "exit_code": 0,
+    "output": "/tmp/qgf-final-local-cert-1368/10-tidy.log",
+    "output_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "label": "11-compile-linux",
+    "argv": [
+      "go",
+      "test",
+      "-c",
+      "-o",
+      "/tmp/qgf-final-local-cert-1368/quic-final-linux.test",
+      "."
+    ],
+    "environment_overrides": {
+      "GOOS": "linux",
+      "GOARCH": "amd64"
+    },
+    "command": "go test -c -o /tmp/qgf-final-local-cert-1368/quic-final-linux.test .",
+    "cwd": "/Volumes/worktrees/bbr-final-checks-1368/quic-go-fast",
+    "source": "a1c9442f110cca36cb4752b39ce24ae998d76f05",
+    "started_utc": "2026-11-15T04:15:19.127065+00:00",
+    "elapsed_seconds": 3.6146353340009227,
+    "exit_code": 0,
+    "output": "/tmp/qgf-final-local-cert-1368/11-compile-linux.log",
+    "output_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "label": "11-compile-freebsd",
+    "argv": [
+      "go",
+      "test",
+      "-c",
+      "-o",
+      "/tmp/qgf-final-local-cert-1368/quic-final-freebsd.test",
+      "."
+    ],
+    "environment_overrides": {
+      "GOOS": "freebsd",
+      "GOARCH": "amd64"
+    },
+    "command": "go test -c -o /tmp/qgf-final-local-cert-1368/quic-final-freebsd.test .",
+    "cwd": "/Volumes/worktrees/bbr-final-checks-1368/quic-go-fast",
+    "source": "a1c9442f110cca36cb4752b39ce24ae998d76f05",
+    "started_utc": "2026-11-15T04:15:22.753346+00:00",
+    "elapsed_seconds": 3.4777180000091903,
+    "exit_code": 0,
+    "output": "/tmp/qgf-final-local-cert-1368/11-compile-freebsd.log",
+    "output_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "label": "11-compile-windows",
+    "argv": [
+      "go",
+      "test",
+      "-c",
+      "-o",
+      "/tmp/qgf-final-local-cert-1368/quic-final-windows.test",
+      "."
+    ],
+    "environment_overrides": {
+      "GOOS": "windows",
+      "GOARCH": "amd64"
+    },
+    "command": "go test -c -o /tmp/qgf-final-local-cert-1368/quic-final-windows.test .",
+    "cwd": "/Volumes/worktrees/bbr-final-checks-1368/quic-go-fast",
+    "source": "a1c9442f110cca36cb4752b39ce24ae998d76f05",
+    "started_utc": "2026-11-15T04:15:26.242517+00:00",
+    "elapsed_seconds": 3.044183041958604,
+    "exit_code": 0,
+    "output": "/tmp/qgf-final-local-cert-1368/11-compile-windows.log",
+    "output_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "label": "12-final-head",
+    "argv": [
+      "git",
+      "rev-parse",
+      "HEAD"
+    ],
+    "environment_overrides": {},
+    "command": "git rev-parse HEAD",
+    "cwd": "/Volumes/worktrees/bbr-final-checks-1368/quic-go-fast",
+    "source": "a1c9442f110cca36cb4752b39ce24ae998d76f05",
+    "started_utc": "2026-11-15T04:15:29.297400+00:00",
+    "elapsed_seconds": 0.01249750005081296,
+    "exit_code": 0,
+    "output": "/tmp/qgf-final-local-cert-1368/12-final-head.log",
+    "output_sha256": "46149d905ded9fed47e50dd847963032ef499f99addaecc3ec4971908e96510b"
+  },
+  {
+    "label": "13-final-status",
+    "argv": [
+      "git",
+      "status",
+      "--porcelain=v1",
+      "--branch"
+    ],
+    "environment_overrides": {},
+    "command": "git status --porcelain=v1 --branch",
+    "cwd": "/Volumes/worktrees/bbr-final-checks-1368/quic-go-fast",
+    "source": "a1c9442f110cca36cb4752b39ce24ae998d76f05",
+    "started_utc": "2026-11-15T04:15:29.310539+00:00",
+    "elapsed_seconds": 0.0286372079863213,
+    "exit_code": 0,
+    "output": "/tmp/qgf-final-local-cert-1368/13-final-status.log",
+    "output_sha256": "02e6d8870c7319584e07b5b156c5addf28c4648eb131ea58241e9fb2dd2c77a0"
+  },
+  {
+    "label": "14-diff-check",
+    "argv": [
+      "git",
+      "diff",
+      "--check"
+    ],
+    "environment_overrides": {},
+    "command": "git diff --check",
+    "cwd": "/Volumes/worktrees/bbr-final-checks-1368/quic-go-fast",
+    "source": "a1c9442f110cca36cb4752b39ce24ae998d76f05",
+    "started_utc": "2026-11-15T04:15:29.339675+00:00",
+    "elapsed_seconds": 0.013540292042307556,
+    "exit_code": 0,
+    "output": "/tmp/qgf-final-local-cert-1368/14-diff-check.log",
+    "output_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  }
+]
