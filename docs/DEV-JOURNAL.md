@@ -11058,3 +11058,26 @@ The [accepted B10 contract](adr/2026-10-24-multipath-bbr-plan.md#b10--replace-pr
 ### Next
 
 [B11 (#1384)](https://github.com/the-sarge/quic-go-fast/issues/1384) is the committed next frontier for the existing fixed comparison; [B12 (#1385)](https://github.com/the-sarge/quic-go-fast/issues/1385) remains dependent on its valid positive or negative result. [Continuation #1374](https://github.com/the-sarge/quic-go-fast/issues/1374) is the live coordination view. Aggregate support and application adoption remain unclaimed.
+
+---
+
+## Positive BBR aggregation comparison - 2026-11-15 14:36 EST
+
+**Main:** `e85e3957bbc5`
+**Actor:** Codex
+
+### Summary
+
+[PR #1391](https://github.com/the-sarge/quic-go-fast/pull/1391) completed [B11 (#1384)](https://github.com/the-sarge/quic-go-fast/issues/1384) with a valid positive comparison of the frozen private paced byte-round-robin BBR candidate. The finite fixture preserves B5's workload, topologies, original seeds and useful-byte boundaries while using four arms and exact ABCE/CEAB/EABC orders. Production runtime and public aggregation refusal are unchanged. The [comparison receipt](audits/2026-11-15-bbr-b11/README.md) retains raw observations, source/binary/driver/venue identities and independent source and arithmetic audits.
+
+### Validation
+
+All 36 required observations are valid. One contaminated unequal-path baseline was replaced once after the existing quiet gate; all 37 attempts remain charged and retained, with no clean reruns. Median round-paired ratios pass the unchanged gates: balanced E/better single 1.990457023 against 1.20, balanced E/independent pair 0.991018403 against 0.95, and shared ordinary Reno competitor 1.044398214 against 0.90. The individual shared round at 0.893054277 remains visible. Unequal-path STREAM completion and DATAGRAM delivery/latency are separate, unthresholded diagnostics; neither numerical service-gap guarantees nor full Q2/application-adoption claims follow.
+
+Thirteen driver regressions and three native Linux fixture checks passed. Separate Standards and Spec preparation reported no actionable findings. Full four-reviewer RAS `20261115T191911-03f4677058dee6b5cf8d301f` produced one bounded documentation correction: remove a misleading zero-loss interpretation of a counter BBR does not maintain. Raw counters and relay drops were preserved; the shared low/nit policy skipped another RAS cycle for that two-file documentation polish. Final head `2c75fbb7399237d23059ff1357cfec196757f630` passed fresh uncached ordinary Go tests including integration, driver tests, Linux fixture vet, tidy, diff, links and evidence checksums. The product merge tree matches that head. [Exact-head certification receipt for PR #1391](https://github.com/the-sarge/quic-go-fast/pull/1391#issuecomment-6899982639).
+
+All applicable hosted checks passed. The actual post-ready [peer job for PR #1391](https://github.com/the-sarge/quic-go-fast/actions/runs/43752495317/job/132929325787) passed 16 Reno cases and separate negotiated-zero vectors on the certified head. Native campaign charges were 37 instances /2850.03670255187898 host-seconds plus 4.9198307460173965 setup seconds; the hosted job adds 16 instances /155 seconds as one outer envelope. The coordinator reconciled [program #646](https://github.com/the-sarge/quic-go-fast/issues/646) to 390/420 instances and 16174.9787406622562265/28800 host-seconds, leaving 30 instances and 12625.0212593377437735 seconds. No inner duration was double-counted.
+
+### Next
+
+The committed plan and index identify [B12 (#1385)](https://github.com/the-sarge/quic-go-fast/issues/1385) as the sole successor, following its positive publication branch: public admission, the accepted independent-peer evidence, and removal of private activation and the finite comparison apparatus. [Continuation #1374](https://github.com/the-sarge/quic-go-fast/issues/1374) is the live coordination view. B11 (#1384) introduces no follow-up issue or additional campaign.
