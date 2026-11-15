@@ -7,3 +7,4 @@ review-tool/compatibility.patch -whitespace
 
 # Preserve go version -m tabular output, including its empty replacement field.
 review-tool/build-info.txt -whitespace
+e10-observer.patch -whitespace

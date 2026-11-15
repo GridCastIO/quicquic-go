@@ -1,0 +1,15 @@
+{
+  "valid_nonzero_and_zero_denominators": "passed",
+  "rejections": [
+    "native conservation",
+    "rich conservation",
+    "bin conservation",
+    "snapshot truncation",
+    "missing final",
+    "cadence",
+    "uint64 overflow",
+    "counter regression"
+  ],
+  "matching_intervals": "passed",
+  "status": "passed"
+}

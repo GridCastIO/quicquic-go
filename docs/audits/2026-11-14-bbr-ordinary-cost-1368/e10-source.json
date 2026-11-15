@@ -1,0 +1,67 @@
+{
+  "source": "738ead192547bc107b7b0c142cdd8b7a0146a205",
+  "instances": 0,
+  "commands": [
+    [
+      "tar",
+      "-xzf",
+      "/tmp/qgf-bbr-cost-1368-e10.tar.gz",
+      "-C",
+      "/tmp/qgf-bbr-cost-1368/e10-source"
+    ],
+    [
+      "go",
+      "test",
+      "-c",
+      "-tags",
+      "ordinarycost",
+      "-o",
+      "/tmp/qgf-bbr-cost-1368/e10.test",
+      "."
+    ],
+    [
+      "/tmp/qgf-bbr-cost-1368/e10.test",
+      "-test.run",
+      "Test(E10|NativeOrdinaryAccepted|NativeOrdinaryBBRAccepted|OrdinaryCostController)",
+      "-test.v"
+    ],
+    [
+      "go",
+      "test",
+      "./internal/ackhandler",
+      "-run",
+      "Test(E10|LocalBBRAcceptedMember|LocalAcceptedSpan)",
+      "-count=1",
+      "-v"
+    ]
+  ],
+  "started_utc": "2026-11-15T03:33:43.233242+00:00",
+  "result": "passed",
+  "environment": {
+    "CGO_ENABLED": "1",
+    "GOAMD64": "v1",
+    "GOARCH": "amd64",
+    "GOEXPERIMENT": "",
+    "GOFLAGS": "",
+    "GOOS": "linux",
+    "GOVERSION": "go1.27.4"
+  },
+  "binary_sha256": "105e1c4f05e3baa6aeb07b19cf132cc9cab82233637130eb448b7c4de0a73352",
+  "archive_sha256": "2d06aaf51afa3585c91e1714f718e165838d9d1e3a1f6e2c68e8d78f00a1303c",
+  "elapsed_host_seconds": 7.66593832,
+  "ended_utc": "2026-11-15T03:33:50.899230+00:00",
+  "runtime_control": "76f64bd9418bcf403c6b0eaecdffc69ca611073c",
+  "observer_patch_base": "872af89701460a94fcde7861fb156321bb2d9afa",
+  "observer_patch_sha256": "a774fb8d475d17798430162b70fcd3f1ee2adce89c9ea10702940e3cf33c2454",
+  "product_test_correction": "59ca2a3a3d6dc9419f9bd09ae4b1e6197153e103",
+  "test_note": "Five-line deterministic skip fixture correction is included in observer and separately integrated into product; non-test product Go remains byte-identical to measured E09.",
+  "readiness_command": "python3 /tmp/qgf-bbr-cost-1368/e08-repeat-observe-readiness.py --output /tmp/qgf-bbr-cost-1368/e10-readiness --consecutive-samples 18",
+  "readiness_script_sha256": "aacc7b9ad2c32d37e7e5822c1a9523f5c1787b3bb38a9dd283e7eb9511367166",
+  "measurement_command": "python3 interop/multipath/ordinary_cost.py --candidate 738ead192547bc107b7b0c142cdd8b7a0146a205 --binary /tmp/qgf-bbr-cost-1368/e10.test --output /tmp/qgf-bbr-cost-1368/e10-observed --remaining-instances 175 --remaining-host-seconds 17722.78438895054039 --timeout-seconds 135 --controller bbrv3 --diagnostic-cell stateless-pressure --cpu-profile",
+  "timing_qualification": false,
+  "qualification_exclusion": "Observer and both-role CPU profiles add overhead. All E10 timing is excluded, even uncontaminated. Counts and overlapping whole-role attribution select the next question only.",
+  "cumulative_instances_before_observation": 245,
+  "cumulative_host_seconds_before_observation": "11077.21561104945961",
+  "remaining_host_seconds_before_observation": "17722.78438895054039",
+  "independent_review": "Production and final observer-test audits found no material findings; source/schema unchanged after 1bd96d917."
+}

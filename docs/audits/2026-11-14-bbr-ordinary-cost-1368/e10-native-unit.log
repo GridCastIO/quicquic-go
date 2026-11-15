@@ -1,0 +1,205 @@
+Kernel Version: 7.0
+
+=== RUN   TestE10NativeMemberDeclines
+--- PASS: TestE10NativeMemberDeclines (0.00s)
+=== RUN   TestE10MemberGeometryBoundaries
+--- PASS: TestE10MemberGeometryBoundaries (0.00s)
+=== RUN   TestE10MemberSnapshotsBoundedAndFrozen
+--- PASS: TestE10MemberSnapshotsBoundedAndFrozen (0.00s)
+=== RUN   TestNativeOrdinaryAcceptedCompletion
+=== RUN   TestNativeOrdinaryAcceptedCompletion/accepted
+=== RUN   TestNativeOrdinaryAcceptedCompletion/partial
+=== RUN   TestNativeOrdinaryAcceptedCompletion/error
+=== RUN   TestNativeOrdinaryAcceptedCompletion/MTU
+=== RUN   TestNativeOrdinaryAcceptedCompletion/coalesced
+--- PASS: TestNativeOrdinaryAcceptedCompletion (0.00s)
+    --- PASS: TestNativeOrdinaryAcceptedCompletion/accepted (0.00s)
+    --- PASS: TestNativeOrdinaryAcceptedCompletion/partial (0.00s)
+    --- PASS: TestNativeOrdinaryAcceptedCompletion/error (0.00s)
+    --- PASS: TestNativeOrdinaryAcceptedCompletion/MTU (0.00s)
+    --- PASS: TestNativeOrdinaryAcceptedCompletion/coalesced (0.00s)
+=== RUN   TestNativeOrdinaryAcceptedSuffix
+=== RUN   TestNativeOrdinaryAcceptedSuffix/one
+=== RUN   TestNativeOrdinaryAcceptedSuffix/two
+=== RUN   TestNativeOrdinaryAcceptedSuffix/three
+=== RUN   TestNativeOrdinaryAcceptedSuffix/limit
+=== RUN   TestNativeOrdinaryAcceptedSuffix/oversize
+=== RUN   TestNativeOrdinaryAcceptedSuffix/partial
+=== RUN   TestNativeOrdinaryAcceptedSuffix/error
+=== RUN   TestNativeOrdinaryAcceptedSuffix/coalesced_shape
+=== RUN   TestNativeOrdinaryAcceptedSuffix/consumed_prefix
+=== RUN   TestNativeOrdinaryAcceptedSuffix/invalid_suffix
+=== RUN   TestNativeOrdinaryAcceptedSuffix/prefix_MTU
+=== RUN   TestNativeOrdinaryAcceptedSuffix/suffix_MTU
+--- PASS: TestNativeOrdinaryAcceptedSuffix (0.01s)
+    --- PASS: TestNativeOrdinaryAcceptedSuffix/one (0.00s)
+    --- PASS: TestNativeOrdinaryAcceptedSuffix/two (0.00s)
+    --- PASS: TestNativeOrdinaryAcceptedSuffix/three (0.00s)
+    --- PASS: TestNativeOrdinaryAcceptedSuffix/limit (0.00s)
+    --- PASS: TestNativeOrdinaryAcceptedSuffix/oversize (0.00s)
+    --- PASS: TestNativeOrdinaryAcceptedSuffix/partial (0.00s)
+    --- PASS: TestNativeOrdinaryAcceptedSuffix/error (0.00s)
+    --- PASS: TestNativeOrdinaryAcceptedSuffix/coalesced_shape (0.00s)
+    --- PASS: TestNativeOrdinaryAcceptedSuffix/consumed_prefix (0.00s)
+    --- PASS: TestNativeOrdinaryAcceptedSuffix/invalid_suffix (0.00s)
+    --- PASS: TestNativeOrdinaryAcceptedSuffix/prefix_MTU (0.00s)
+    --- PASS: TestNativeOrdinaryAcceptedSuffix/suffix_MTU (0.00s)
+=== RUN   TestNativeOrdinaryBBRAcceptedMembers
+--- PASS: TestNativeOrdinaryBBRAcceptedMembers (0.00s)
+=== RUN   TestNativeOrdinaryAcceptedReceiptSurvivesDeadlineResetFailure
+--- PASS: TestNativeOrdinaryAcceptedReceiptSurvivesDeadlineResetFailure (0.00s)
+=== RUN   TestOrdinaryCostController
+--- PASS: TestOrdinaryCostController (0.00s)
+PASS
+=== RUN   TestLocalBBRAcceptedMemberScalarEquivalence
+=== RUN   TestLocalBBRAcceptedMemberScalarEquivalence/unmarked/2
+=== RUN   TestLocalBBRAcceptedMemberScalarEquivalence/unmarked/64
+=== RUN   TestLocalBBRAcceptedMemberScalarEquivalence/testing/2
+=== RUN   TestLocalBBRAcceptedMemberScalarEquivalence/testing/64
+=== RUN   TestLocalBBRAcceptedMemberScalarEquivalence/capable/2
+=== RUN   TestLocalBBRAcceptedMemberScalarEquivalence/capable/64
+=== RUN   TestLocalBBRAcceptedMemberScalarEquivalence/draining/2
+=== RUN   TestLocalBBRAcceptedMemberScalarEquivalence/draining/64
+=== RUN   TestLocalBBRAcceptedMemberScalarEquivalence/skipped/2
+=== RUN   TestLocalBBRAcceptedMemberScalarEquivalence/skipped/64
+--- PASS: TestLocalBBRAcceptedMemberScalarEquivalence (0.48s)
+    --- PASS: TestLocalBBRAcceptedMemberScalarEquivalence/unmarked/2 (0.05s)
+    --- PASS: TestLocalBBRAcceptedMemberScalarEquivalence/unmarked/64 (0.05s)
+    --- PASS: TestLocalBBRAcceptedMemberScalarEquivalence/testing/2 (0.05s)
+    --- PASS: TestLocalBBRAcceptedMemberScalarEquivalence/testing/64 (0.05s)
+    --- PASS: TestLocalBBRAcceptedMemberScalarEquivalence/capable/2 (0.05s)
+    --- PASS: TestLocalBBRAcceptedMemberScalarEquivalence/capable/64 (0.05s)
+    --- PASS: TestLocalBBRAcceptedMemberScalarEquivalence/draining/2 (0.05s)
+    --- PASS: TestLocalBBRAcceptedMemberScalarEquivalence/draining/64 (0.05s)
+    --- PASS: TestLocalBBRAcceptedMemberScalarEquivalence/skipped/2 (0.05s)
+    --- PASS: TestLocalBBRAcceptedMemberScalarEquivalence/skipped/64 (0.05s)
+=== RUN   TestLocalBBRAcceptedMemberQualificationOrder
+=== RUN   TestLocalBBRAcceptedMemberQualificationOrder/pending_predecessor
+=== RUN   TestLocalBBRAcceptedMemberQualificationOrder/newer_predecessor
+=== RUN   TestLocalBBRAcceptedMemberQualificationOrder/interstitial_and_suffix
+=== RUN   TestLocalBBRAcceptedMemberQualificationOrder/evicted_prefix
+--- PASS: TestLocalBBRAcceptedMemberQualificationOrder (0.16s)
+    --- PASS: TestLocalBBRAcceptedMemberQualificationOrder/pending_predecessor (0.07s)
+    --- PASS: TestLocalBBRAcceptedMemberQualificationOrder/newer_predecessor (0.04s)
+    --- PASS: TestLocalBBRAcceptedMemberQualificationOrder/interstitial_and_suffix (0.05s)
+    --- PASS: TestLocalBBRAcceptedMemberQualificationOrder/evicted_prefix (0.00s)
+=== RUN   TestLocalBBRAcceptedMemberRecoveryDiagnostics
+=== RUN   TestLocalBBRAcceptedMemberRecoveryDiagnostics/entered
+=== RUN   TestLocalBBRAcceptedMemberRecoveryDiagnostics/exit_and_undo
+=== RUN   TestLocalBBRAcceptedMemberRecoveryDiagnostics/pending_recovery
+--- PASS: TestLocalBBRAcceptedMemberRecoveryDiagnostics (0.14s)
+    --- PASS: TestLocalBBRAcceptedMemberRecoveryDiagnostics/entered (0.05s)
+    --- PASS: TestLocalBBRAcceptedMemberRecoveryDiagnostics/exit_and_undo (0.05s)
+    --- PASS: TestLocalBBRAcceptedMemberRecoveryDiagnostics/pending_recovery (0.05s)
+=== RUN   TestLocalBBRAcceptedMemberDeclinesAtomically
+=== RUN   TestLocalBBRAcceptedMemberDeclinesAtomically/missing_delivery
+=== RUN   TestLocalBBRAcceptedMemberDeclinesAtomically/retained_delivery
+=== RUN   TestLocalBBRAcceptedMemberDeclinesAtomically/wrong_ordinal
+=== RUN   TestLocalBBRAcceptedMemberDeclinesAtomically/old_generation
+=== RUN   TestLocalBBRAcceptedMemberDeclinesAtomically/missing_local_fact
+=== RUN   TestLocalBBRAcceptedMemberDeclinesAtomically/excluded_outcome
+=== RUN   TestLocalBBRAcceptedMemberDeclinesAtomically/missing_timing
+=== RUN   TestLocalBBRAcceptedMemberDeclinesAtomically/early_ACK
+=== RUN   TestLocalBBRAcceptedMemberDeclinesAtomically/pending_ECN
+=== RUN   TestLocalBBRAcceptedMemberDeclinesAtomically/ECN_constraint
+=== RUN   TestLocalBBRAcceptedMemberDeclinesAtomically/foreign_suffix
+=== RUN   TestLocalBBRAcceptedMemberDeclinesAtomically/duplicate_suffix
+=== RUN   TestLocalBBRAcceptedMemberDeclinesAtomically/old_epoch
+=== RUN   TestLocalBBRAcceptedMemberDeclinesAtomically/backward_return
+=== RUN   TestLocalBBRAcceptedMemberDeclinesAtomically/oversize
+--- PASS: TestLocalBBRAcceptedMemberDeclinesAtomically (0.01s)
+    --- PASS: TestLocalBBRAcceptedMemberDeclinesAtomically/missing_delivery (0.00s)
+    --- PASS: TestLocalBBRAcceptedMemberDeclinesAtomically/retained_delivery (0.00s)
+    --- PASS: TestLocalBBRAcceptedMemberDeclinesAtomically/wrong_ordinal (0.00s)
+    --- PASS: TestLocalBBRAcceptedMemberDeclinesAtomically/old_generation (0.00s)
+    --- PASS: TestLocalBBRAcceptedMemberDeclinesAtomically/missing_local_fact (0.00s)
+    --- PASS: TestLocalBBRAcceptedMemberDeclinesAtomically/excluded_outcome (0.00s)
+    --- PASS: TestLocalBBRAcceptedMemberDeclinesAtomically/missing_timing (0.00s)
+    --- PASS: TestLocalBBRAcceptedMemberDeclinesAtomically/early_ACK (0.00s)
+    --- PASS: TestLocalBBRAcceptedMemberDeclinesAtomically/pending_ECN (0.00s)
+    --- PASS: TestLocalBBRAcceptedMemberDeclinesAtomically/ECN_constraint (0.00s)
+    --- PASS: TestLocalBBRAcceptedMemberDeclinesAtomically/foreign_suffix (0.00s)
+    --- PASS: TestLocalBBRAcceptedMemberDeclinesAtomically/duplicate_suffix (0.00s)
+    --- PASS: TestLocalBBRAcceptedMemberDeclinesAtomically/old_epoch (0.00s)
+    --- PASS: TestLocalBBRAcceptedMemberDeclinesAtomically/backward_return (0.00s)
+    --- PASS: TestLocalBBRAcceptedMemberDeclinesAtomically/oversize (0.00s)
+=== RUN   TestLocalBBRAcceptedMemberFallsBackForEvents
+=== RUN   TestLocalBBRAcceptedMemberFallsBackForEvents/delayed_CE
+=== RUN   TestLocalBBRAcceptedMemberFallsBackForEvents/lower_pending_loss
+--- PASS: TestLocalBBRAcceptedMemberFallsBackForEvents (0.05s)
+    --- PASS: TestLocalBBRAcceptedMemberFallsBackForEvents/delayed_CE (0.03s)
+    --- PASS: TestLocalBBRAcceptedMemberFallsBackForEvents/lower_pending_loss (0.02s)
+=== RUN   TestLocalAcceptedSpanScalarEquivalence
+=== RUN   TestLocalAcceptedSpanScalarEquivalence/plain
+=== RUN   TestLocalAcceptedSpanScalarEquivalence/ECN
+--- PASS: TestLocalAcceptedSpanScalarEquivalence (0.00s)
+    --- PASS: TestLocalAcceptedSpanScalarEquivalence/plain (0.00s)
+    --- PASS: TestLocalAcceptedSpanScalarEquivalence/ECN (0.00s)
+=== RUN   TestLocalAcceptedSpanDeclinesAtomically
+=== RUN   TestLocalAcceptedSpanDeclinesAtomically/duplicate
+=== RUN   TestLocalAcceptedSpanDeclinesAtomically/reversed
+=== RUN   TestLocalAcceptedSpanDeclinesAtomically/foreign
+=== RUN   TestLocalAcceptedSpanDeclinesAtomically/old_epoch
+=== RUN   TestLocalAcceptedSpanDeclinesAtomically/consumed
+=== RUN   TestLocalAcceptedSpanDeclinesAtomically/early_ACK
+=== RUN   TestLocalAcceptedSpanDeclinesAtomically/rich
+=== RUN   TestLocalAcceptedSpanDeclinesAtomically/pending_ECN
+=== RUN   TestLocalAcceptedSpanDeclinesAtomically/lost_queue
+=== RUN   TestLocalAcceptedSpanDeclinesAtomically/MTU
+=== RUN   TestLocalAcceptedSpanDeclinesAtomically/handshake
+=== RUN   TestLocalAcceptedSpanDeclinesAtomically/backward_time
+=== RUN   TestLocalAcceptedSpanDeclinesAtomically/physical_prefix
+--- PASS: TestLocalAcceptedSpanDeclinesAtomically (0.00s)
+    --- PASS: TestLocalAcceptedSpanDeclinesAtomically/duplicate (0.00s)
+    --- PASS: TestLocalAcceptedSpanDeclinesAtomically/reversed (0.00s)
+    --- PASS: TestLocalAcceptedSpanDeclinesAtomically/foreign (0.00s)
+    --- PASS: TestLocalAcceptedSpanDeclinesAtomically/old_epoch (0.00s)
+    --- PASS: TestLocalAcceptedSpanDeclinesAtomically/consumed (0.00s)
+    --- PASS: TestLocalAcceptedSpanDeclinesAtomically/early_ACK (0.00s)
+    --- PASS: TestLocalAcceptedSpanDeclinesAtomically/rich (0.00s)
+    --- PASS: TestLocalAcceptedSpanDeclinesAtomically/pending_ECN (0.00s)
+    --- PASS: TestLocalAcceptedSpanDeclinesAtomically/lost_queue (0.00s)
+    --- PASS: TestLocalAcceptedSpanDeclinesAtomically/MTU (0.00s)
+    --- PASS: TestLocalAcceptedSpanDeclinesAtomically/handshake (0.00s)
+    --- PASS: TestLocalAcceptedSpanDeclinesAtomically/backward_time (0.00s)
+    --- PASS: TestLocalAcceptedSpanDeclinesAtomically/physical_prefix (0.00s)
+=== RUN   TestLocalAcceptedSpanAfterScalarPrefix
+=== RUN   TestLocalAcceptedSpanAfterScalarPrefix/plain
+=== RUN   TestLocalAcceptedSpanAfterScalarPrefix/ECN
+=== RUN   TestLocalAcceptedSpanAfterScalarPrefix/ACK-retired_prefix
+=== RUN   TestLocalAcceptedSpanAfterScalarPrefix/consumed_suffix
+=== RUN   TestLocalAcceptedSpanAfterScalarPrefix/ACK-retired_suffix
+--- PASS: TestLocalAcceptedSpanAfterScalarPrefix (0.00s)
+    --- PASS: TestLocalAcceptedSpanAfterScalarPrefix/plain (0.00s)
+    --- PASS: TestLocalAcceptedSpanAfterScalarPrefix/ECN (0.00s)
+    --- PASS: TestLocalAcceptedSpanAfterScalarPrefix/ACK-retired_prefix (0.00s)
+    --- PASS: TestLocalAcceptedSpanAfterScalarPrefix/consumed_suffix (0.00s)
+    --- PASS: TestLocalAcceptedSpanAfterScalarPrefix/ACK-retired_suffix (0.00s)
+=== RUN   TestE10MemberObservationPreservesCompletion
+--- PASS: TestE10MemberObservationPreservesCompletion (0.09s)
+=== RUN   TestE10MemberObservationFirstDecline
+=== RUN   TestE10MemberObservationFirstDecline/A
+=== RUN   TestE10MemberObservationFirstDecline/J
+=== RUN   TestE10MemberObservationFirstDecline/K
+=== RUN   TestE10MemberObservationFirstDecline/L
+=== RUN   TestE10MemberObservationFirstDecline/O
+=== RUN   TestE10MemberObservationFirstDecline/S
+=== RUN   TestE10MemberObservationFirstDecline/X
+=== RUN   TestE10MemberObservationFirstDecline/Y
+=== RUN   TestE10MemberObservationFirstDecline/[
+=== RUN   TestE10MemberObservationFirstDecline/]
+=== RUN   TestE10MemberObservationFirstDecline/a
+--- PASS: TestE10MemberObservationFirstDecline (0.00s)
+    --- PASS: TestE10MemberObservationFirstDecline/A (0.00s)
+    --- PASS: TestE10MemberObservationFirstDecline/J (0.00s)
+    --- PASS: TestE10MemberObservationFirstDecline/K (0.00s)
+    --- PASS: TestE10MemberObservationFirstDecline/L (0.00s)
+    --- PASS: TestE10MemberObservationFirstDecline/O (0.00s)
+    --- PASS: TestE10MemberObservationFirstDecline/S (0.00s)
+    --- PASS: TestE10MemberObservationFirstDecline/X (0.00s)
+    --- PASS: TestE10MemberObservationFirstDecline/Y (0.00s)
+    --- PASS: TestE10MemberObservationFirstDecline/[ (0.00s)
+    --- PASS: TestE10MemberObservationFirstDecline/] (0.00s)
+    --- PASS: TestE10MemberObservationFirstDecline/a (0.00s)
+PASS
+ok  	github.com/quic-go/quic-go/internal/ackhandler	0.933s
