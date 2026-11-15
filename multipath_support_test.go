@@ -220,8 +220,8 @@ func TestMultipathSupportedCombinations(t *testing.T) {
 	})
 }
 
-// Both paths carry useful application data through public BBR admission, then every
-// granted endpoint returns its native write authority after close.
+// Useful application transfer succeeds before and after selecting a new primary
+// through public BBR admission, then every granted endpoint joins after close.
 func TestMultipathBBRPublicTransferAndJoin(t *testing.T) {
 	requireMultipathProfile(t)
 	conf := multipathConfig(t)
