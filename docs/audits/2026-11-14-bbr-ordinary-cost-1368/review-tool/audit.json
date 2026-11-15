@@ -1,0 +1,15 @@
+{
+  "reviewed_source": "d66c51d35e0f295345316e843c7bb40e18ca1e3b",
+  "base": "de615a0d2175b0187e5e1d8db8a9dfdc492d91a4",
+  "independent_audit": "No material findings; exact task/repository placement, collision tuple, owner authority, recorded/legacy compatibility and cleanup reviewed.",
+  "scope": "Task-local tooling only. Installed RAS, global config, full default panel, models, budgets, and quic product source unchanged.",
+  "panel": [
+    "codex-astra",
+    "codex-sol",
+    "claude-fable",
+    "claude-opus"
+  ],
+  "invocation_template": "/Volumes/worktrees/bbr-review-tool-1368/artifacts/ras review <PR-URL> --prompt-file <absolute-review-brief>",
+  "validation": "Affected placement/cleanup/reviewround/runner suites and vet passed; source worktree clean; embedded vcs.modified=false.",
+  "patch_sha256": "f030b021cf414c99e18ef1d95b8818ad9c93f6dd41fbdadffb3ddd716428a808"
+}

@@ -1,0 +1,42 @@
+{
+  "purpose": "Task-local RAS path compatibility for quic-go-fast #1368 full-panel review",
+  "source_repository": "/Users/josh/code/github.com/the-sarge/ras",
+  "worktree": "/Volumes/worktrees/bbr-review-tool-1368/ras",
+  "branch": "codex/bbr-review-tool-1368",
+  "base_commit": "de615a0d2175b0187e5e1d8db8a9dfdc492d91a4",
+  "source_commit": "d66c51d35e0f295345316e843c7bb40e18ca1e3b",
+  "source_git_archive_tar_sha256": "f727133eaacab0b47c26c9fd8bda6f94696b0ac1ba3144339c42a4d9e4fd9915",
+  "binary": "/Volumes/worktrees/bbr-review-tool-1368/artifacts/ras",
+  "binary_sha256": "5bc023f2c684bd8756bd53d62c7de08904536c9349e7382373cc9fd0d51ca607",
+  "build_command": "go build -o /Volumes/worktrees/bbr-review-tool-1368/artifacts/ras ./cmd/ras",
+  "build_cwd": "/Volumes/worktrees/bbr-review-tool-1368/ras",
+  "go_version": "go1.27.4",
+  "goos": "darwin",
+  "goarch": "arm64",
+  "cgo_enabled": "1",
+  "embedded_vcs_revision": "d66c51d35e0f295345316e843c7bb40e18ca1e3b",
+  "embedded_vcs_modified": false,
+  "validation": [
+    {
+      "command": "go test ./internal/worktreeplacement ./internal/cleanup ./internal/runner/reviewround ./internal/runner",
+      "exit_code": 0,
+      "packages": {
+        "internal/worktreeplacement": "PASS (4.695s)",
+        "internal/cleanup": "PASS (15.848s)",
+        "internal/runner/reviewround": "PASS (249.684s)",
+        "internal/runner": "PASS (52.737s)"
+      }
+    },
+    {
+      "command": "go vet ./internal/worktreeplacement ./internal/cleanup ./internal/runner/reviewround ./internal/runner",
+      "exit_code": 0
+    },
+    {
+      "command": "git diff --check",
+      "exit_code": 0
+    }
+  ],
+  "scope": "Only new configured-root review/verify placement; recorded paths, empty-root legacy paths, other workflow layouts, ownership, cleanup, configuration, models, panel, and budgets unchanged.",
+  "intended_invocation": "/Volumes/worktrees/bbr-review-tool-1368/artifacts/ras review <PR-URL> --prompt-file <absolute-review-brief>",
+  "use_status": "Built and validated locally; pending independent source review before use. No review or verification launched by the builder."
+}
