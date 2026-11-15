@@ -11131,3 +11131,30 @@ Independent Standards and Spec preparation found no issues. Full four-reviewer R
 ### Next
 
 Issue #1335 is closed. [Jumbo release issue #1226](https://github.com/the-sarge/quic-go-fast/issues/1226) remains the live release view, with identity-transition [issue #1111](https://github.com/the-sarge/quic-go-fast/issues/1111) and consumer qualification still outstanding. This fix creates no review follow-up or additional qualification campaign.
+
+---
+
+## Jumbo DATAGRAM packing implemented - 2026-11-15 18:11 EST
+
+**Main:** `355e3b096975`
+**Actor:** Codex
+
+### Completed
+
+Implemented [F11 jumbo DATAGRAM packing (#1225)](https://github.com/the-sarge/quic-go-fast/issues/1225) through [PR #1402](https://github.com/the-sarge/quic-go-fast/pull/1402), merged as `355e3b09697518458bc716ca8da95859597b5621`. Packet budgets above 1,452 bytes can pack multiple queued DATAGRAM frames in queue order while STREAM and control frames retain their turn. Standard-size packets retain singleton DATAGRAM packing. Authenticated jumbo receive admission counts DATAGRAMs before frame delivery and acknowledgment, refusing the whole packet when the receive queue lacks room; the existing drop counter and captured qlog identity record the refusal.
+
+### Decisions
+
+Reconciled the conditional slice with the owner's A-selection in [wiremux program #1872](https://github.com/GridSwarm/wiremux/issues/1872): one 1,099-byte record per Send, with QUIC packing several frames. The original comparison nonpasses and inconclusive verdicts remain unchanged. The separate agent's [ECN fallback fix (#1335)](https://github.com/the-sarge/quic-go-fast/issues/1335), delivered in [PR #1401](https://github.com/the-sarge/quic-go-fast/pull/1401) and [journal PR #1403](https://github.com/the-sarge/quic-go-fast/pull/1403), was incorporated before final certification.
+
+### Validation
+
+Failing-first tests covered eight 1,099-byte DATAGRAMs in an 8,957-byte packet, STREAM progress with a full DATAGRAM queue, and lagging-reader refusal before ACK. Review fixes retain deterministic serialized queue order and the captured pre-decryption checksum for 0-RTT and coalesced 1-RTT refusal. Initial full-panel RAS run `20261115T221859-dc40daf75552eb2dce14d06a` and exact-head verification resolved those two roots; replacement run `20261115T223331-c407dc2551bf0cd57ef60a06` required no immediate fixes or follow-ups. Independent Standards/Spec preparation was clean.
+
+Hosted Linux tests exposed an obsolete singleton assumption in the existing GSO aggregate-bound fixture. The corrected short-segment row still crosses the 65,507-byte IPv4 limit before the 65,535-byte storage limit. Josh authorized one additional full-panel review after the original review allowance was consumed; [the CI disposition on PR #1402](https://github.com/the-sarge/quic-go-fast/pull/1402#issuecomment-6902695998) records the scope. Additional RAS run `20261115T225121-d8f8c49a3dd5592cc3428aea` completed all four reviewers and synthesis with zero findings on final head `d1a5c92ef76cc982403e7205c3ef85ef23fb730a`.
+
+That exact head passed Go 1.27.4 Darwin/arm64 full package tests, focused packing/admission/queue race tests, vet, module-tidiness and lint checks. Linux/amd64 reproduced the fixture red, passed its correction and the focused jumbo tests, and passed the root-package suite with the socket capability required by its buffer-forcing tests. All 18 hosted checks passed, including the actual post-ready [independent-peer run for PR #1402](https://github.com/the-sarge/quic-go-fast/actions/runs/43772929042), with 16 cases and separate zero vectors. The live head and unchanged base were checked before guarded squash merge. [Final certification on PR #1402](https://github.com/the-sarge/quic-go-fast/pull/1402#issuecomment-6902890493) retains the evidence and limits.
+
+### Next
+
+[F11 issue #1225](https://github.com/the-sarge/quic-go-fast/issues/1225) is closed. The merged plan records F1–F11 complete. [Wiremux W6 #2258](https://github.com/GridSwarm/wiremux/issues/2258) still needs [module cutover #2175](https://github.com/GridSwarm/wiremux/issues/2175) before pinning the shipping candidate; [jumbo release #1226](https://github.com/the-sarge/quic-go-fast/issues/1226) awaits exact-commit qualification, [independent release #1111](https://github.com/the-sarge/quic-go-fast/issues/1111) and owner approval. These issues are the live frontier views. The materializing admission pre-scan still adds parsing/allocation and STREAM-copy costs, including on STREAM-only packets on jumbo/DATAGRAM-enabled receivers; its operational impact belongs to existing consumer qualification. No performance pass, new campaign or release authorization is claimed.
