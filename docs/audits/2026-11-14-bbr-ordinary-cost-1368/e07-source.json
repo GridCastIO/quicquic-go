@@ -1,0 +1,24 @@
+{
+  "source": "c1853e6b4f67c7859bf45f1d43e3ce18eb8396de",
+  "runtime_control": "7bce93381e36ea3338ab29a35b50f72d5b06079f",
+  "observer_patch_sha256": "2383dd7940d7ff8c49990f6cfe5d688fcfaf8041415d4c003f2e3e107c58b589",
+  "archive_sha256": "084fa87555203dcfa03044a0be1f3d0429ab851c886a5126be7b16ad61ce3817",
+  "binary_sha256": "f46026aca1229fc2cbaad7a5ac0b1bf7950b16972ae4377878ce87d72ab4672c",
+  "build_command": "go test -c -tags ordinarycost -o /tmp/qgf-bbr-cost-1368/e07.test .",
+  "build_environment": {
+    "GOVERSION": "go1.27.4",
+    "GOOS": "linux",
+    "GOARCH": "amd64",
+    "GOAMD64": "v1",
+    "CGO_ENABLED": "1",
+    "GOFLAGS": "",
+    "GOEXPERIMENT": ""
+  },
+  "native_unit_command": "/tmp/qgf-bbr-cost-1368/e07.test -test.run \"Test(BBRObserv|BBRNativeLarge|OrdinaryCostController)\" -test.v",
+  "native_unit_result": "passed; see e07-native-unit.log; mechanism/configuration checks, not ordinary observations",
+  "readiness_command": "python3 docs/audits/2026-11-14-bbr-ordinary-cost-1368/observe_readiness.py --output /tmp/qgf-bbr-cost-1368/e07-readiness",
+  "measurement_command": "python3 interop/multipath/ordinary_cost.py --candidate c1853e6b4f67c7859bf45f1d43e3ce18eb8396de --binary /tmp/qgf-bbr-cost-1368/e07.test --output /tmp/qgf-bbr-cost-1368/e07-observed --remaining-instances 187 --remaining-host-seconds 18706.759321859023 --timeout-seconds 135 --controller bbrv3 --diagnostic-cell stateless-pressure --cpu-profile",
+  "timing_qualification": false,
+  "qualification_exclusion": "E07 observer and CPU profiles add overhead. All timing descriptive, including an otherwise uncontaminated pair. Whole-process CPU attribution overlaps and is not additive removable cost.",
+  "independent_review": "Pinned observer source/test audit found no material decision, ownership, lifetime or E06 geometry changes."
+}

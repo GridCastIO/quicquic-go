@@ -1,2 +1,3 @@
 # Preserve unified-diff context indentation in frozen observer evidence.
 e04-observer.patch -whitespace
+e07-observer.patch -whitespace
