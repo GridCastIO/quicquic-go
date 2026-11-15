@@ -1,0 +1,24 @@
+{
+  "command": [
+    "python3",
+    "-B",
+    "/tmp/qgf-final-1368-a1c9442f1-stage/interop-bundle/run_b5.py",
+    "--controller",
+    "bbrv3",
+    "--validate-matrix",
+    "--output",
+    "/tmp/qgf-final-1368-a1c9442f1-stage/interop-results"
+  ],
+  "working_directory": "/home/josh",
+  "instances_charged": 0,
+  "remaining_instances_before": 153,
+  "remaining_host_seconds_before": "16435.95792715964015",
+  "reserved_host_seconds": "0",
+  "status": "passed",
+  "started_utc": "2026-11-15T04:32:40.165520+00:00",
+  "elapsed_host_seconds": "0.028714788",
+  "exit_code": 0,
+  "ended_utc": "2026-11-15T04:32:40.194310+00:00",
+  "remaining_instances_after": 153,
+  "remaining_host_seconds_after": "16435.92921237164015"
+}

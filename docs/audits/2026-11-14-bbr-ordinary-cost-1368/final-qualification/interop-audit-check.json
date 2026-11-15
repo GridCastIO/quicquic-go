@@ -1,0 +1,21 @@
+{
+  "synthetic_receipts_only": true,
+  "frozen_case_artifacts": "docs/audits/2026-11-14-multipath-b5/interop/",
+  "operational_tests_run": 0,
+  "checks": [
+    {
+      "case": "six-frozen-case-shapes-and-wrapper-charge",
+      "passed": true
+    },
+    {
+      "case": "reject-stale-aggregate-binary",
+      "passed": true,
+      "reason": "aggregate differs from original validator"
+    },
+    {
+      "case": "reject-undercharged-wrapper",
+      "passed": true,
+      "reason": "wrong post-time balance"
+    }
+  ]
+}

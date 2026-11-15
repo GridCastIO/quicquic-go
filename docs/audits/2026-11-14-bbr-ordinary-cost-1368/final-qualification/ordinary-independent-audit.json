@@ -1,0 +1,1462 @@
+{
+  "audit_source_pin": "a1c9442f110cca36cb4752b39ce24ae998d76f05",
+  "selected_Go_module_equivalence": "59ca2a3a3d6dc9419f9bd09ae4b1e6197153e103",
+  "driver_sha256": "37433087ea2b921bc47ed5603d52d7d55939347fbcab7208e62de3a6885f3d03",
+  "runtime_source": "a1c9442f110cca36cb4752b39ce24ae998d76f05",
+  "binary_sha256": "b11e8b59b4782679617fec6eff4768e8db2a08b0298af63b5cb7b54e3cd83a3a",
+  "audit_checks": "passed",
+  "campaign_complete": true,
+  "original_raw_verdict": {
+    "passed": false,
+    "failed_cells": [
+      "mixed-bulk",
+      "stateless-pressure"
+    ],
+    "cells": {
+      "mixed-bulk": {
+        "cell": "mixed-bulk",
+        "passed": false,
+        "failures": [
+          "goodput ratio 0.944 below 0.95",
+          "CPU per useful byte ratio 1.208 above 1.1"
+        ],
+        "goodput_ratio": {
+          "median": 0.944295141271208,
+          "range": [
+            0.935848183342453,
+            0.9501029935985184
+          ],
+          "rounds": [
+            0.935848183342453,
+            0.9501029935985184,
+            0.944295141271208
+          ]
+        },
+        "cpu_per_useful_byte_ratio": {
+          "median": 1.2081314772756437,
+          "range": [
+            1.200693793100144,
+            1.2117051214687207
+          ],
+          "rounds": [
+            1.2117051214687207,
+            1.200693793100144,
+            1.2081314772756437
+          ]
+        },
+        "control_p99_margin_us": {
+          "median": -967.232,
+          "range": [
+            -967.2320000000001,
+            -950.8480000000001
+          ],
+          "rounds": [
+            -967.232,
+            -950.8480000000001,
+            -967.2320000000001
+          ]
+        },
+        "application_send_call_p99_margin_us": {
+          "median": -983.616,
+          "range": [
+            -991.808,
+            -983.616
+          ],
+          "rounds": [
+            -983.616,
+            -983.616,
+            -991.808
+          ]
+        },
+        "control_p99_us": {
+          "unregistered": [
+            278.527,
+            278.527,
+            294.911
+          ],
+          "opted-in": [
+            311.295,
+            327.679,
+            327.679
+          ]
+        },
+        "application_send_call_p99_us": {
+          "unregistered": [
+            180.223,
+            180.223,
+            188.415
+          ],
+          "opted-in": [
+            196.607,
+            196.607,
+            196.607
+          ]
+        },
+        "empty_seconds": {
+          "unregistered": [
+            0,
+            0,
+            0
+          ],
+          "opted-in": [
+            0,
+            0,
+            0
+          ]
+        },
+        "background_bytes": {
+          "unregistered": [
+            2516582400,
+            2516582400,
+            2516582400
+          ],
+          "opted-in": [
+            2516582400,
+            2516582400,
+            2516602112
+          ]
+        },
+        "stateless_reset_share": {
+          "unregistered": [],
+          "opted-in": []
+        },
+        "stateless_offered_packets": {
+          "unregistered": [
+            0,
+            0,
+            0
+          ],
+          "opted-in": [
+            0,
+            0,
+            0
+          ]
+        },
+        "stateless_resets_received": {
+          "unregistered": [
+            0,
+            0,
+            0
+          ],
+          "opted-in": [
+            0,
+            0,
+            0
+          ]
+        },
+        "peak_rss_kb": {
+          "unregistered": [
+            27872,
+            27848,
+            27872
+          ],
+          "opted-in": [
+            30928,
+            30224,
+            30456
+          ]
+        },
+        "packets_lost": {
+          "unregistered": [
+            0,
+            0,
+            0
+          ],
+          "opted-in": [
+            0,
+            0,
+            0
+          ]
+        },
+        "datagram_drops": {
+          "unregistered": [
+            0,
+            0,
+            0
+          ],
+          "opted-in": [
+            0,
+            0,
+            0
+          ]
+        },
+        "write_errors": {
+          "unregistered": [
+            0,
+            0,
+            0
+          ],
+          "opted-in": [
+            0,
+            0,
+            0
+          ]
+        }
+      },
+      "stateless-pressure": {
+        "cell": "stateless-pressure",
+        "passed": false,
+        "failures": [
+          "CPU per useful byte ratio 1.159 above 1.1"
+        ],
+        "goodput_ratio": {
+          "median": 0.9590708299335772,
+          "range": [
+            0.9433100297817495,
+            0.9675854164276761
+          ],
+          "rounds": [
+            0.9675854164276761,
+            0.9433100297817495,
+            0.9590708299335772
+          ]
+        },
+        "cpu_per_useful_byte_ratio": {
+          "median": 1.1593702973325581,
+          "range": [
+            1.154364269060065,
+            1.1684781038459158
+          ],
+          "rounds": [
+            1.154364269060065,
+            1.1684781038459158,
+            1.1593702973325581
+          ]
+        },
+        "control_p99_margin_us": {
+          "median": -1000.0,
+          "range": [
+            -1016.384,
+            -1000.0
+          ],
+          "rounds": [
+            -1000.0,
+            -1016.384,
+            -1000.0
+          ]
+        },
+        "application_send_call_p99_margin_us": {
+          "median": -1000.0,
+          "range": [
+            -1000.0,
+            -983.616
+          ],
+          "rounds": [
+            -1000.0,
+            -983.616,
+            -1000.0
+          ]
+        },
+        "control_p99_us": {
+          "unregistered": [
+            294.911,
+            294.911,
+            294.911
+          ],
+          "opted-in": [
+            294.911,
+            278.527,
+            294.911
+          ]
+        },
+        "application_send_call_p99_us": {
+          "unregistered": [
+            188.415,
+            180.223,
+            188.415
+          ],
+          "opted-in": [
+            188.415,
+            196.607,
+            188.415
+          ]
+        },
+        "empty_seconds": {
+          "unregistered": [
+            0,
+            0,
+            0
+          ],
+          "opted-in": [
+            0,
+            0,
+            0
+          ]
+        },
+        "background_bytes": {
+          "unregistered": [
+            0,
+            0,
+            0
+          ],
+          "opted-in": [
+            0,
+            0,
+            0
+          ]
+        },
+        "stateless_reset_share": {
+          "unregistered": [
+            0.6900666666666667,
+            0.6845133333333333,
+            0.6845033333333334
+          ],
+          "opted-in": [
+            0.7431283333333333,
+            0.74439,
+            0.741675
+          ]
+        },
+        "stateless_offered_packets": {
+          "unregistered": [
+            600000,
+            600000,
+            600000
+          ],
+          "opted-in": [
+            600000,
+            600000,
+            600000
+          ]
+        },
+        "stateless_resets_received": {
+          "unregistered": [
+            414040,
+            410708,
+            410702
+          ],
+          "opted-in": [
+            445877,
+            446634,
+            445005
+          ]
+        },
+        "peak_rss_kb": {
+          "unregistered": [
+            21864,
+            21740,
+            21764
+          ],
+          "opted-in": [
+            24776,
+            24976,
+            24772
+          ]
+        },
+        "packets_lost": {
+          "unregistered": [
+            0,
+            0,
+            0
+          ],
+          "opted-in": [
+            0,
+            0,
+            0
+          ]
+        },
+        "datagram_drops": {
+          "unregistered": [
+            0,
+            0,
+            0
+          ],
+          "opted-in": [
+            0,
+            0,
+            0
+          ]
+        },
+        "write_errors": {
+          "unregistered": [
+            0,
+            0,
+            0
+          ],
+          "opted-in": [
+            0,
+            0,
+            0
+          ]
+        }
+      }
+    },
+    "contaminated_observations": 0
+  },
+  "incomplete_error": null,
+  "retained_observations": 12,
+  "superseded_observations": 0,
+  "replacement_pairs": 0,
+  "superseded_pairs_without_launched_replacement": [],
+  "observations": [
+    {
+      "cell": "mixed-bulk",
+      "round": 0,
+      "attempt": 0,
+      "profile": "unregistered",
+      "ordinary_useful_bytes": 65396560512,
+      "background_useful_bytes": 2516582400,
+      "all_useful_bytes_cpu_denominator": 67913142912,
+      "ordinary_goodput_gbit_s": 8.7195414016,
+      "all_flow_goodput_gbit_s": 9.055085721600001,
+      "server_window_cpu_s": 83.643262,
+      "client_window_cpu_s_descriptive_only": 66.670317,
+      "server_cpu_ns_per_all_useful_byte": 1.231621132722169,
+      "foreign_cpu_s": 0.08018712599999844,
+      "stored_contaminated": false,
+      "foreign_limit_at_final_charged_duration": 3.8526645899750296,
+      "occupied_s": 77.05329179950058,
+      "quiet": {
+        "waited_s": 0.0,
+        "fixture_busy_share": 0.0001793155,
+        "named_process_present": false
+      },
+      "control_p99_us": 278.527,
+      "send_p99_us": 180.223,
+      "rss_kb_at_20s": 27836,
+      "rss_kb_end": 27872,
+      "all_flow_empty_seconds": 0,
+      "packets_lost": 0,
+      "datagram_drops": 0,
+      "unprocessed_drops": 0,
+      "write_errors": 0,
+      "timeout_closes": 0,
+      "nonempty_close_causes": [],
+      "joined": false,
+      "flood": null
+    },
+    {
+      "cell": "mixed-bulk",
+      "round": 0,
+      "attempt": 0,
+      "profile": "opted-in",
+      "ordinary_useful_bytes": 61201252352,
+      "background_useful_bytes": 2516582400,
+      "all_useful_bytes_cpu_denominator": 63717834752,
+      "ordinary_goodput_gbit_s": 8.160166980266666,
+      "all_flow_goodput_gbit_s": 8.495711300266667,
+      "server_window_cpu_s": 95.090052,
+      "client_window_cpu_s_descriptive_only": 67.281552,
+      "server_cpu_ns_per_all_useful_byte": 1.492361634228559,
+      "foreign_cpu_s": 0.28272181400006957,
+      "stored_contaminated": false,
+      "foreign_limit_at_final_charged_duration": 3.852694638678804,
+      "occupied_s": 77.05389277357608,
+      "quiet": {
+        "waited_s": 0.0,
+        "fixture_busy_share": 0.000293839,
+        "named_process_present": false
+      },
+      "control_p99_us": 311.295,
+      "send_p99_us": 196.607,
+      "rss_kb_at_20s": 30744,
+      "rss_kb_end": 30928,
+      "all_flow_empty_seconds": 0,
+      "packets_lost": 0,
+      "datagram_drops": 0,
+      "unprocessed_drops": 0,
+      "write_errors": 0,
+      "timeout_closes": 0,
+      "nonempty_close_causes": [],
+      "joined": true,
+      "flood": null
+    },
+    {
+      "cell": "mixed-bulk",
+      "round": 1,
+      "attempt": 0,
+      "profile": "opted-in",
+      "ordinary_useful_bytes": 61380571520,
+      "background_useful_bytes": 2516582400,
+      "all_useful_bytes_cpu_denominator": 63897153920,
+      "ordinary_goodput_gbit_s": 8.184076202666667,
+      "all_flow_goodput_gbit_s": 8.519620522666667,
+      "server_window_cpu_s": 95.22961,
+      "client_window_cpu_s_descriptive_only": 67.432947,
+      "server_cpu_ns_per_all_useful_byte": 1.4903576162285506,
+      "foreign_cpu_s": 0.11141890100000751,
+      "stored_contaminated": false,
+      "foreign_limit_at_final_charged_duration": 3.8527812261600047,
+      "occupied_s": 77.0556245232001,
+      "quiet": {
+        "waited_s": 0.0,
+        "fixture_busy_share": 0.0002781545,
+        "named_process_present": false
+      },
+      "control_p99_us": 327.679,
+      "send_p99_us": 196.607,
+      "rss_kb_at_20s": 30036,
+      "rss_kb_end": 30224,
+      "all_flow_empty_seconds": 0,
+      "packets_lost": 0,
+      "datagram_drops": 0,
+      "unprocessed_drops": 0,
+      "write_errors": 0,
+      "timeout_closes": 0,
+      "nonempty_close_causes": [],
+      "joined": true,
+      "flood": null
+    },
+    {
+      "cell": "mixed-bulk",
+      "round": 1,
+      "attempt": 0,
+      "profile": "unregistered",
+      "ordinary_useful_bytes": 64604123904,
+      "background_useful_bytes": 2516582400,
+      "all_useful_bytes_cpu_denominator": 67120706304,
+      "ordinary_goodput_gbit_s": 8.6138831872,
+      "all_flow_goodput_gbit_s": 8.949427507200001,
+      "server_window_cpu_s": 83.313378,
+      "client_window_cpu_s_descriptive_only": 66.434374,
+      "server_cpu_ns_per_all_useful_byte": 1.2412470396640478,
+      "foreign_cpu_s": 0.07301544400002058,
+      "stored_contaminated": false,
+      "foreign_limit_at_final_charged_duration": 3.8520550782326612,
+      "occupied_s": 77.04110156465322,
+      "quiet": {
+        "waited_s": 0.0,
+        "fixture_busy_share": 0.000211881,
+        "named_process_present": false
+      },
+      "control_p99_us": 278.527,
+      "send_p99_us": 180.223,
+      "rss_kb_at_20s": 27848,
+      "rss_kb_end": 27848,
+      "all_flow_empty_seconds": 0,
+      "packets_lost": 0,
+      "datagram_drops": 0,
+      "unprocessed_drops": 0,
+      "write_errors": 0,
+      "timeout_closes": 0,
+      "nonempty_close_causes": [],
+      "joined": false,
+      "flood": null
+    },
+    {
+      "cell": "mixed-bulk",
+      "round": 2,
+      "attempt": 0,
+      "profile": "unregistered",
+      "ordinary_useful_bytes": 64904822784,
+      "background_useful_bytes": 2516582400,
+      "all_useful_bytes_cpu_denominator": 67421405184,
+      "ordinary_goodput_gbit_s": 8.6539763712,
+      "all_flow_goodput_gbit_s": 8.989520691200001,
+      "server_window_cpu_s": 83.413439,
+      "client_window_cpu_s_descriptive_only": 66.390828,
+      "server_cpu_ns_per_all_useful_byte": 1.2371952019148234,
+      "foreign_cpu_s": 0.06865821100009839,
+      "stored_contaminated": false,
+      "foreign_limit_at_final_charged_duration": 3.852632653154433,
+      "occupied_s": 77.05265306308866,
+      "quiet": {
+        "waited_s": 0.0,
+        "fixture_busy_share": 0.000214531,
+        "named_process_present": false
+      },
+      "control_p99_us": 294.911,
+      "send_p99_us": 188.415,
+      "rss_kb_at_20s": 27640,
+      "rss_kb_end": 27872,
+      "all_flow_empty_seconds": 0,
+      "packets_lost": 0,
+      "datagram_drops": 0,
+      "unprocessed_drops": 0,
+      "write_errors": 0,
+      "timeout_closes": 0,
+      "nonempty_close_causes": [],
+      "joined": false,
+      "flood": null
+    },
+    {
+      "cell": "mixed-bulk",
+      "round": 2,
+      "attempt": 0,
+      "profile": "opted-in",
+      "ordinary_useful_bytes": 61289308800,
+      "background_useful_bytes": 2516602112,
+      "all_useful_bytes_cpu_denominator": 63805910912,
+      "ordinary_goodput_gbit_s": 8.17190784,
+      "all_flow_goodput_gbit_s": 8.507454788266667,
+      "server_window_cpu_s": 95.370342,
+      "client_window_cpu_s_descriptive_only": 67.449144,
+      "server_cpu_ns_per_all_useful_byte": 1.4946944669676938,
+      "foreign_cpu_s": 0.09422351099996717,
+      "stored_contaminated": false,
+      "foreign_limit_at_final_charged_duration": 3.852654660260305,
+      "occupied_s": 77.0530932052061,
+      "quiet": {
+        "waited_s": 0.0,
+        "fixture_busy_share": 0.0001261005,
+        "named_process_present": false
+      },
+      "control_p99_us": 327.679,
+      "send_p99_us": 196.607,
+      "rss_kb_at_20s": 30236,
+      "rss_kb_end": 30456,
+      "all_flow_empty_seconds": 0,
+      "packets_lost": 0,
+      "datagram_drops": 0,
+      "unprocessed_drops": 0,
+      "write_errors": 0,
+      "timeout_closes": 0,
+      "nonempty_close_causes": [],
+      "joined": true,
+      "flood": null
+    },
+    {
+      "cell": "stateless-pressure",
+      "round": 0,
+      "attempt": 0,
+      "profile": "unregistered",
+      "ordinary_useful_bytes": 65412923392,
+      "background_useful_bytes": 0,
+      "all_useful_bytes_cpu_denominator": 65412923392,
+      "ordinary_goodput_gbit_s": 8.721723118933333,
+      "all_flow_goodput_gbit_s": 8.721723118933333,
+      "server_window_cpu_s": 82.75365,
+      "client_window_cpu_s_descriptive_only": 66.993976,
+      "server_cpu_ns_per_all_useful_byte": 1.2650963404292792,
+      "foreign_cpu_s": 0.06819807900006936,
+      "stored_contaminated": false,
+      "foreign_limit_at_final_charged_duration": 3.8530089870095257,
+      "occupied_s": 77.0601797401905,
+      "quiet": {
+        "waited_s": 0.0,
+        "fixture_busy_share": 0.000136541,
+        "named_process_present": false
+      },
+      "control_p99_us": 294.911,
+      "send_p99_us": 188.415,
+      "rss_kb_at_20s": 21812,
+      "rss_kb_end": 21864,
+      "all_flow_empty_seconds": 0,
+      "packets_lost": 0,
+      "datagram_drops": 0,
+      "unprocessed_drops": 0,
+      "write_errors": 0,
+      "timeout_closes": 0,
+      "nonempty_close_causes": [],
+      "joined": false,
+      "flood": {
+        "sent": 600000,
+        "resets": 414040
+      }
+    },
+    {
+      "cell": "stateless-pressure",
+      "round": 0,
+      "attempt": 0,
+      "profile": "opted-in",
+      "ordinary_useful_bytes": 63292590720,
+      "background_useful_bytes": 0,
+      "all_useful_bytes_cpu_denominator": 63292590720,
+      "ordinary_goodput_gbit_s": 8.439012096,
+      "all_flow_goodput_gbit_s": 8.439012096,
+      "server_window_cpu_s": 92.431361,
+      "client_window_cpu_s_descriptive_only": 64.730561,
+      "server_cpu_ns_per_all_useful_byte": 1.460382012310208,
+      "foreign_cpu_s": 0.10962049000002594,
+      "stored_contaminated": false,
+      "foreign_limit_at_final_charged_duration": 3.8526777045801284,
+      "occupied_s": 77.05355409160256,
+      "quiet": {
+        "waited_s": 0.0,
+        "fixture_busy_share": 0.000234739,
+        "named_process_present": false
+      },
+      "control_p99_us": 294.911,
+      "send_p99_us": 188.415,
+      "rss_kb_at_20s": 24636,
+      "rss_kb_end": 24776,
+      "all_flow_empty_seconds": 0,
+      "packets_lost": 0,
+      "datagram_drops": 0,
+      "unprocessed_drops": 0,
+      "write_errors": 0,
+      "timeout_closes": 0,
+      "nonempty_close_causes": [],
+      "joined": true,
+      "flood": {
+        "sent": 600000,
+        "resets": 445877
+      }
+    },
+    {
+      "cell": "stateless-pressure",
+      "round": 1,
+      "attempt": 0,
+      "profile": "opted-in",
+      "ordinary_useful_bytes": 62032052224,
+      "background_useful_bytes": 0,
+      "all_useful_bytes_cpu_denominator": 62032052224,
+      "ordinary_goodput_gbit_s": 8.270940296533334,
+      "all_flow_goodput_gbit_s": 8.270940296533334,
+      "server_window_cpu_s": 91.511183,
+      "client_window_cpu_s_descriptive_only": 63.76319,
+      "server_cpu_ns_per_all_useful_byte": 1.4752241739407523,
+      "foreign_cpu_s": 0.11471456800018132,
+      "stored_contaminated": false,
+      "foreign_limit_at_final_charged_duration": 3.8528036705683917,
+      "occupied_s": 77.05607341136783,
+      "quiet": {
+        "waited_s": 0.0,
+        "fixture_busy_share": 0.0007124405,
+        "named_process_present": false
+      },
+      "control_p99_us": 278.527,
+      "send_p99_us": 196.607,
+      "rss_kb_at_20s": 24800,
+      "rss_kb_end": 24976,
+      "all_flow_empty_seconds": 0,
+      "packets_lost": 0,
+      "datagram_drops": 0,
+      "unprocessed_drops": 0,
+      "write_errors": 0,
+      "timeout_closes": 0,
+      "nonempty_close_causes": [],
+      "joined": true,
+      "flood": {
+        "sent": 600000,
+        "resets": 446634
+      }
+    },
+    {
+      "cell": "stateless-pressure",
+      "round": 1,
+      "attempt": 0,
+      "profile": "unregistered",
+      "ordinary_useful_bytes": 65759983744,
+      "background_useful_bytes": 0,
+      "all_useful_bytes_cpu_denominator": 65759983744,
+      "ordinary_goodput_gbit_s": 8.767997832533332,
+      "all_flow_goodput_gbit_s": 8.767997832533332,
+      "server_window_cpu_s": 83.023137,
+      "client_window_cpu_s_descriptive_only": 67.178744,
+      "server_cpu_ns_per_all_useful_byte": 1.2625176022427944,
+      "foreign_cpu_s": 0.06349133899996673,
+      "stored_contaminated": false,
+      "foreign_limit_at_final_charged_duration": 3.852725609811023,
+      "occupied_s": 77.05451219622046,
+      "quiet": {
+        "waited_s": 0.0,
+        "fixture_busy_share": 0.000147576,
+        "named_process_present": false
+      },
+      "control_p99_us": 294.911,
+      "send_p99_us": 180.223,
+      "rss_kb_at_20s": 21504,
+      "rss_kb_end": 21740,
+      "all_flow_empty_seconds": 0,
+      "packets_lost": 0,
+      "datagram_drops": 0,
+      "unprocessed_drops": 0,
+      "write_errors": 0,
+      "timeout_closes": 0,
+      "nonempty_close_causes": [],
+      "joined": false,
+      "flood": {
+        "sent": 600000,
+        "resets": 410708
+      }
+    },
+    {
+      "cell": "stateless-pressure",
+      "round": 2,
+      "attempt": 0,
+      "profile": "unregistered",
+      "ordinary_useful_bytes": 65349471872,
+      "background_useful_bytes": 0,
+      "all_useful_bytes_cpu_denominator": 65349471872,
+      "ordinary_goodput_gbit_s": 8.713262916266666,
+      "all_flow_goodput_gbit_s": 8.713262916266666,
+      "server_window_cpu_s": 82.668335,
+      "client_window_cpu_s_descriptive_only": 66.876049,
+      "server_cpu_ns_per_all_useful_byte": 1.2650191750887054,
+      "foreign_cpu_s": 0.06896877700003756,
+      "stored_contaminated": false,
+      "foreign_limit_at_final_charged_duration": 3.852610102714971,
+      "occupied_s": 77.05220205429941,
+      "quiet": {
+        "waited_s": 0.0,
+        "fixture_busy_share": 0.000156703,
+        "named_process_present": false
+      },
+      "control_p99_us": 294.911,
+      "send_p99_us": 188.415,
+      "rss_kb_at_20s": 21772,
+      "rss_kb_end": 21764,
+      "all_flow_empty_seconds": 0,
+      "packets_lost": 0,
+      "datagram_drops": 0,
+      "unprocessed_drops": 0,
+      "write_errors": 0,
+      "timeout_closes": 0,
+      "nonempty_close_causes": [],
+      "joined": false,
+      "flood": {
+        "sent": 600000,
+        "resets": 410702
+      }
+    },
+    {
+      "cell": "stateless-pressure",
+      "round": 2,
+      "attempt": 0,
+      "profile": "opted-in",
+      "ordinary_useful_bytes": 62674772224,
+      "background_useful_bytes": 0,
+      "all_useful_bytes_cpu_denominator": 62674772224,
+      "ordinary_goodput_gbit_s": 8.356636296533333,
+      "all_flow_goodput_gbit_s": 8.356636296533333,
+      "server_window_cpu_s": 91.920429,
+      "client_window_cpu_s_descriptive_only": 64.236159,
+      "server_cpu_ns_per_all_useful_byte": 1.46662565715398,
+      "foreign_cpu_s": 0.11287973300022713,
+      "stored_contaminated": false,
+      "foreign_limit_at_final_charged_duration": 3.852761128265411,
+      "occupied_s": 77.05522256530821,
+      "quiet": {
+        "waited_s": 0.0,
+        "fixture_busy_share": 0.001254308,
+        "named_process_present": false
+      },
+      "control_p99_us": 294.911,
+      "send_p99_us": 188.415,
+      "rss_kb_at_20s": 24632,
+      "rss_kb_end": 24772,
+      "all_flow_empty_seconds": 0,
+      "packets_lost": 0,
+      "datagram_drops": 0,
+      "unprocessed_drops": 0,
+      "write_errors": 0,
+      "timeout_closes": 0,
+      "nonempty_close_causes": [],
+      "joined": true,
+      "flood": {
+        "sent": 600000,
+        "resets": 445005
+      }
+    }
+  ],
+  "comparisons": {
+    "mixed-bulk": {
+      "pairs": [
+        {
+          "round": 0,
+          "control": {
+            "cell": "mixed-bulk",
+            "round": 0,
+            "attempt": 0,
+            "profile": "unregistered",
+            "ordinary_useful_bytes": 65396560512,
+            "background_useful_bytes": 2516582400,
+            "all_useful_bytes_cpu_denominator": 67913142912,
+            "ordinary_goodput_gbit_s": 8.7195414016,
+            "all_flow_goodput_gbit_s": 9.055085721600001,
+            "server_window_cpu_s": 83.643262,
+            "client_window_cpu_s_descriptive_only": 66.670317,
+            "server_cpu_ns_per_all_useful_byte": 1.231621132722169,
+            "foreign_cpu_s": 0.08018712599999844,
+            "stored_contaminated": false,
+            "foreign_limit_at_final_charged_duration": 3.8526645899750296,
+            "occupied_s": 77.05329179950058,
+            "quiet": {
+              "waited_s": 0.0,
+              "fixture_busy_share": 0.0001793155,
+              "named_process_present": false
+            },
+            "control_p99_us": 278.527,
+            "send_p99_us": 180.223,
+            "rss_kb_at_20s": 27836,
+            "rss_kb_end": 27872,
+            "all_flow_empty_seconds": 0,
+            "packets_lost": 0,
+            "datagram_drops": 0,
+            "unprocessed_drops": 0,
+            "write_errors": 0,
+            "timeout_closes": 0,
+            "nonempty_close_causes": [],
+            "joined": false,
+            "flood": null
+          },
+          "granted": {
+            "cell": "mixed-bulk",
+            "round": 0,
+            "attempt": 0,
+            "profile": "opted-in",
+            "ordinary_useful_bytes": 61201252352,
+            "background_useful_bytes": 2516582400,
+            "all_useful_bytes_cpu_denominator": 63717834752,
+            "ordinary_goodput_gbit_s": 8.160166980266666,
+            "all_flow_goodput_gbit_s": 8.495711300266667,
+            "server_window_cpu_s": 95.090052,
+            "client_window_cpu_s_descriptive_only": 67.281552,
+            "server_cpu_ns_per_all_useful_byte": 1.492361634228559,
+            "foreign_cpu_s": 0.28272181400006957,
+            "stored_contaminated": false,
+            "foreign_limit_at_final_charged_duration": 3.852694638678804,
+            "occupied_s": 77.05389277357608,
+            "quiet": {
+              "waited_s": 0.0,
+              "fixture_busy_share": 0.000293839,
+              "named_process_present": false
+            },
+            "control_p99_us": 311.295,
+            "send_p99_us": 196.607,
+            "rss_kb_at_20s": 30744,
+            "rss_kb_end": 30928,
+            "all_flow_empty_seconds": 0,
+            "packets_lost": 0,
+            "datagram_drops": 0,
+            "unprocessed_drops": 0,
+            "write_errors": 0,
+            "timeout_closes": 0,
+            "nonempty_close_causes": [],
+            "joined": true,
+            "flood": null
+          },
+          "goodput_ratio": 0.935848183342453,
+          "cpu_per_all_useful_byte_ratio": 1.2117051214687204
+        },
+        {
+          "round": 1,
+          "control": {
+            "cell": "mixed-bulk",
+            "round": 1,
+            "attempt": 0,
+            "profile": "unregistered",
+            "ordinary_useful_bytes": 64604123904,
+            "background_useful_bytes": 2516582400,
+            "all_useful_bytes_cpu_denominator": 67120706304,
+            "ordinary_goodput_gbit_s": 8.6138831872,
+            "all_flow_goodput_gbit_s": 8.949427507200001,
+            "server_window_cpu_s": 83.313378,
+            "client_window_cpu_s_descriptive_only": 66.434374,
+            "server_cpu_ns_per_all_useful_byte": 1.2412470396640478,
+            "foreign_cpu_s": 0.07301544400002058,
+            "stored_contaminated": false,
+            "foreign_limit_at_final_charged_duration": 3.8520550782326612,
+            "occupied_s": 77.04110156465322,
+            "quiet": {
+              "waited_s": 0.0,
+              "fixture_busy_share": 0.000211881,
+              "named_process_present": false
+            },
+            "control_p99_us": 278.527,
+            "send_p99_us": 180.223,
+            "rss_kb_at_20s": 27848,
+            "rss_kb_end": 27848,
+            "all_flow_empty_seconds": 0,
+            "packets_lost": 0,
+            "datagram_drops": 0,
+            "unprocessed_drops": 0,
+            "write_errors": 0,
+            "timeout_closes": 0,
+            "nonempty_close_causes": [],
+            "joined": false,
+            "flood": null
+          },
+          "granted": {
+            "cell": "mixed-bulk",
+            "round": 1,
+            "attempt": 0,
+            "profile": "opted-in",
+            "ordinary_useful_bytes": 61380571520,
+            "background_useful_bytes": 2516582400,
+            "all_useful_bytes_cpu_denominator": 63897153920,
+            "ordinary_goodput_gbit_s": 8.184076202666667,
+            "all_flow_goodput_gbit_s": 8.519620522666667,
+            "server_window_cpu_s": 95.22961,
+            "client_window_cpu_s_descriptive_only": 67.432947,
+            "server_cpu_ns_per_all_useful_byte": 1.4903576162285506,
+            "foreign_cpu_s": 0.11141890100000751,
+            "stored_contaminated": false,
+            "foreign_limit_at_final_charged_duration": 3.8527812261600047,
+            "occupied_s": 77.0556245232001,
+            "quiet": {
+              "waited_s": 0.0,
+              "fixture_busy_share": 0.0002781545,
+              "named_process_present": false
+            },
+            "control_p99_us": 327.679,
+            "send_p99_us": 196.607,
+            "rss_kb_at_20s": 30036,
+            "rss_kb_end": 30224,
+            "all_flow_empty_seconds": 0,
+            "packets_lost": 0,
+            "datagram_drops": 0,
+            "unprocessed_drops": 0,
+            "write_errors": 0,
+            "timeout_closes": 0,
+            "nonempty_close_causes": [],
+            "joined": true,
+            "flood": null
+          },
+          "goodput_ratio": 0.9501029935985184,
+          "cpu_per_all_useful_byte_ratio": 1.200693793100144
+        },
+        {
+          "round": 2,
+          "control": {
+            "cell": "mixed-bulk",
+            "round": 2,
+            "attempt": 0,
+            "profile": "unregistered",
+            "ordinary_useful_bytes": 64904822784,
+            "background_useful_bytes": 2516582400,
+            "all_useful_bytes_cpu_denominator": 67421405184,
+            "ordinary_goodput_gbit_s": 8.6539763712,
+            "all_flow_goodput_gbit_s": 8.989520691200001,
+            "server_window_cpu_s": 83.413439,
+            "client_window_cpu_s_descriptive_only": 66.390828,
+            "server_cpu_ns_per_all_useful_byte": 1.2371952019148234,
+            "foreign_cpu_s": 0.06865821100009839,
+            "stored_contaminated": false,
+            "foreign_limit_at_final_charged_duration": 3.852632653154433,
+            "occupied_s": 77.05265306308866,
+            "quiet": {
+              "waited_s": 0.0,
+              "fixture_busy_share": 0.000214531,
+              "named_process_present": false
+            },
+            "control_p99_us": 294.911,
+            "send_p99_us": 188.415,
+            "rss_kb_at_20s": 27640,
+            "rss_kb_end": 27872,
+            "all_flow_empty_seconds": 0,
+            "packets_lost": 0,
+            "datagram_drops": 0,
+            "unprocessed_drops": 0,
+            "write_errors": 0,
+            "timeout_closes": 0,
+            "nonempty_close_causes": [],
+            "joined": false,
+            "flood": null
+          },
+          "granted": {
+            "cell": "mixed-bulk",
+            "round": 2,
+            "attempt": 0,
+            "profile": "opted-in",
+            "ordinary_useful_bytes": 61289308800,
+            "background_useful_bytes": 2516602112,
+            "all_useful_bytes_cpu_denominator": 63805910912,
+            "ordinary_goodput_gbit_s": 8.17190784,
+            "all_flow_goodput_gbit_s": 8.507454788266667,
+            "server_window_cpu_s": 95.370342,
+            "client_window_cpu_s_descriptive_only": 67.449144,
+            "server_cpu_ns_per_all_useful_byte": 1.4946944669676938,
+            "foreign_cpu_s": 0.09422351099996717,
+            "stored_contaminated": false,
+            "foreign_limit_at_final_charged_duration": 3.852654660260305,
+            "occupied_s": 77.0530932052061,
+            "quiet": {
+              "waited_s": 0.0,
+              "fixture_busy_share": 0.0001261005,
+              "named_process_present": false
+            },
+            "control_p99_us": 327.679,
+            "send_p99_us": 196.607,
+            "rss_kb_at_20s": 30236,
+            "rss_kb_end": 30456,
+            "all_flow_empty_seconds": 0,
+            "packets_lost": 0,
+            "datagram_drops": 0,
+            "unprocessed_drops": 0,
+            "write_errors": 0,
+            "timeout_closes": 0,
+            "nonempty_close_causes": [],
+            "joined": true,
+            "flood": null
+          },
+          "goodput_ratio": 0.944295141271208,
+          "cpu_per_all_useful_byte_ratio": 1.2081314772756437
+        }
+      ],
+      "cpu_ratios": {
+        "median": 1.2081314772756437,
+        "range": [
+          1.200693793100144,
+          1.2117051214687204
+        ]
+      },
+      "non_cpu_original_failures": [
+        "goodput ratio 0.944 below 0.95"
+      ],
+      "cpu_original_failures": [
+        "CPU per useful byte ratio 1.208 above 1.1"
+      ]
+    },
+    "stateless-pressure": {
+      "pairs": [
+        {
+          "round": 0,
+          "control": {
+            "cell": "stateless-pressure",
+            "round": 0,
+            "attempt": 0,
+            "profile": "unregistered",
+            "ordinary_useful_bytes": 65412923392,
+            "background_useful_bytes": 0,
+            "all_useful_bytes_cpu_denominator": 65412923392,
+            "ordinary_goodput_gbit_s": 8.721723118933333,
+            "all_flow_goodput_gbit_s": 8.721723118933333,
+            "server_window_cpu_s": 82.75365,
+            "client_window_cpu_s_descriptive_only": 66.993976,
+            "server_cpu_ns_per_all_useful_byte": 1.2650963404292792,
+            "foreign_cpu_s": 0.06819807900006936,
+            "stored_contaminated": false,
+            "foreign_limit_at_final_charged_duration": 3.8530089870095257,
+            "occupied_s": 77.0601797401905,
+            "quiet": {
+              "waited_s": 0.0,
+              "fixture_busy_share": 0.000136541,
+              "named_process_present": false
+            },
+            "control_p99_us": 294.911,
+            "send_p99_us": 188.415,
+            "rss_kb_at_20s": 21812,
+            "rss_kb_end": 21864,
+            "all_flow_empty_seconds": 0,
+            "packets_lost": 0,
+            "datagram_drops": 0,
+            "unprocessed_drops": 0,
+            "write_errors": 0,
+            "timeout_closes": 0,
+            "nonempty_close_causes": [],
+            "joined": false,
+            "flood": {
+              "sent": 600000,
+              "resets": 414040
+            }
+          },
+          "granted": {
+            "cell": "stateless-pressure",
+            "round": 0,
+            "attempt": 0,
+            "profile": "opted-in",
+            "ordinary_useful_bytes": 63292590720,
+            "background_useful_bytes": 0,
+            "all_useful_bytes_cpu_denominator": 63292590720,
+            "ordinary_goodput_gbit_s": 8.439012096,
+            "all_flow_goodput_gbit_s": 8.439012096,
+            "server_window_cpu_s": 92.431361,
+            "client_window_cpu_s_descriptive_only": 64.730561,
+            "server_cpu_ns_per_all_useful_byte": 1.460382012310208,
+            "foreign_cpu_s": 0.10962049000002594,
+            "stored_contaminated": false,
+            "foreign_limit_at_final_charged_duration": 3.8526777045801284,
+            "occupied_s": 77.05355409160256,
+            "quiet": {
+              "waited_s": 0.0,
+              "fixture_busy_share": 0.000234739,
+              "named_process_present": false
+            },
+            "control_p99_us": 294.911,
+            "send_p99_us": 188.415,
+            "rss_kb_at_20s": 24636,
+            "rss_kb_end": 24776,
+            "all_flow_empty_seconds": 0,
+            "packets_lost": 0,
+            "datagram_drops": 0,
+            "unprocessed_drops": 0,
+            "write_errors": 0,
+            "timeout_closes": 0,
+            "nonempty_close_causes": [],
+            "joined": true,
+            "flood": {
+              "sent": 600000,
+              "resets": 445877
+            }
+          },
+          "goodput_ratio": 0.9675854164276761,
+          "cpu_per_all_useful_byte_ratio": 1.154364269060065
+        },
+        {
+          "round": 1,
+          "control": {
+            "cell": "stateless-pressure",
+            "round": 1,
+            "attempt": 0,
+            "profile": "unregistered",
+            "ordinary_useful_bytes": 65759983744,
+            "background_useful_bytes": 0,
+            "all_useful_bytes_cpu_denominator": 65759983744,
+            "ordinary_goodput_gbit_s": 8.767997832533332,
+            "all_flow_goodput_gbit_s": 8.767997832533332,
+            "server_window_cpu_s": 83.023137,
+            "client_window_cpu_s_descriptive_only": 67.178744,
+            "server_cpu_ns_per_all_useful_byte": 1.2625176022427944,
+            "foreign_cpu_s": 0.06349133899996673,
+            "stored_contaminated": false,
+            "foreign_limit_at_final_charged_duration": 3.852725609811023,
+            "occupied_s": 77.05451219622046,
+            "quiet": {
+              "waited_s": 0.0,
+              "fixture_busy_share": 0.000147576,
+              "named_process_present": false
+            },
+            "control_p99_us": 294.911,
+            "send_p99_us": 180.223,
+            "rss_kb_at_20s": 21504,
+            "rss_kb_end": 21740,
+            "all_flow_empty_seconds": 0,
+            "packets_lost": 0,
+            "datagram_drops": 0,
+            "unprocessed_drops": 0,
+            "write_errors": 0,
+            "timeout_closes": 0,
+            "nonempty_close_causes": [],
+            "joined": false,
+            "flood": {
+              "sent": 600000,
+              "resets": 410708
+            }
+          },
+          "granted": {
+            "cell": "stateless-pressure",
+            "round": 1,
+            "attempt": 0,
+            "profile": "opted-in",
+            "ordinary_useful_bytes": 62032052224,
+            "background_useful_bytes": 0,
+            "all_useful_bytes_cpu_denominator": 62032052224,
+            "ordinary_goodput_gbit_s": 8.270940296533334,
+            "all_flow_goodput_gbit_s": 8.270940296533334,
+            "server_window_cpu_s": 91.511183,
+            "client_window_cpu_s_descriptive_only": 63.76319,
+            "server_cpu_ns_per_all_useful_byte": 1.4752241739407523,
+            "foreign_cpu_s": 0.11471456800018132,
+            "stored_contaminated": false,
+            "foreign_limit_at_final_charged_duration": 3.8528036705683917,
+            "occupied_s": 77.05607341136783,
+            "quiet": {
+              "waited_s": 0.0,
+              "fixture_busy_share": 0.0007124405,
+              "named_process_present": false
+            },
+            "control_p99_us": 278.527,
+            "send_p99_us": 196.607,
+            "rss_kb_at_20s": 24800,
+            "rss_kb_end": 24976,
+            "all_flow_empty_seconds": 0,
+            "packets_lost": 0,
+            "datagram_drops": 0,
+            "unprocessed_drops": 0,
+            "write_errors": 0,
+            "timeout_closes": 0,
+            "nonempty_close_causes": [],
+            "joined": true,
+            "flood": {
+              "sent": 600000,
+              "resets": 446634
+            }
+          },
+          "goodput_ratio": 0.9433100297817495,
+          "cpu_per_all_useful_byte_ratio": 1.1684781038459155
+        },
+        {
+          "round": 2,
+          "control": {
+            "cell": "stateless-pressure",
+            "round": 2,
+            "attempt": 0,
+            "profile": "unregistered",
+            "ordinary_useful_bytes": 65349471872,
+            "background_useful_bytes": 0,
+            "all_useful_bytes_cpu_denominator": 65349471872,
+            "ordinary_goodput_gbit_s": 8.713262916266666,
+            "all_flow_goodput_gbit_s": 8.713262916266666,
+            "server_window_cpu_s": 82.668335,
+            "client_window_cpu_s_descriptive_only": 66.876049,
+            "server_cpu_ns_per_all_useful_byte": 1.2650191750887054,
+            "foreign_cpu_s": 0.06896877700003756,
+            "stored_contaminated": false,
+            "foreign_limit_at_final_charged_duration": 3.852610102714971,
+            "occupied_s": 77.05220205429941,
+            "quiet": {
+              "waited_s": 0.0,
+              "fixture_busy_share": 0.000156703,
+              "named_process_present": false
+            },
+            "control_p99_us": 294.911,
+            "send_p99_us": 188.415,
+            "rss_kb_at_20s": 21772,
+            "rss_kb_end": 21764,
+            "all_flow_empty_seconds": 0,
+            "packets_lost": 0,
+            "datagram_drops": 0,
+            "unprocessed_drops": 0,
+            "write_errors": 0,
+            "timeout_closes": 0,
+            "nonempty_close_causes": [],
+            "joined": false,
+            "flood": {
+              "sent": 600000,
+              "resets": 410702
+            }
+          },
+          "granted": {
+            "cell": "stateless-pressure",
+            "round": 2,
+            "attempt": 0,
+            "profile": "opted-in",
+            "ordinary_useful_bytes": 62674772224,
+            "background_useful_bytes": 0,
+            "all_useful_bytes_cpu_denominator": 62674772224,
+            "ordinary_goodput_gbit_s": 8.356636296533333,
+            "all_flow_goodput_gbit_s": 8.356636296533333,
+            "server_window_cpu_s": 91.920429,
+            "client_window_cpu_s_descriptive_only": 64.236159,
+            "server_cpu_ns_per_all_useful_byte": 1.46662565715398,
+            "foreign_cpu_s": 0.11287973300022713,
+            "stored_contaminated": false,
+            "foreign_limit_at_final_charged_duration": 3.852761128265411,
+            "occupied_s": 77.05522256530821,
+            "quiet": {
+              "waited_s": 0.0,
+              "fixture_busy_share": 0.001254308,
+              "named_process_present": false
+            },
+            "control_p99_us": 294.911,
+            "send_p99_us": 188.415,
+            "rss_kb_at_20s": 24632,
+            "rss_kb_end": 24772,
+            "all_flow_empty_seconds": 0,
+            "packets_lost": 0,
+            "datagram_drops": 0,
+            "unprocessed_drops": 0,
+            "write_errors": 0,
+            "timeout_closes": 0,
+            "nonempty_close_causes": [],
+            "joined": true,
+            "flood": {
+              "sent": 600000,
+              "resets": 445005
+            }
+          },
+          "goodput_ratio": 0.9590708299335772,
+          "cpu_per_all_useful_byte_ratio": 1.1593702973325581
+        }
+      ],
+      "cpu_ratios": {
+        "median": 1.1593702973325581,
+        "range": [
+          1.154364269060065,
+          1.1684781038459155
+        ]
+      },
+      "non_cpu_original_failures": [],
+      "cpu_original_failures": [
+        "CPU per useful byte ratio 1.159 above 1.1"
+      ]
+    },
+    "prior_valid_E09_stateless_pair_descriptive_only": {
+      "cpu_ratio": 1.1569072171177908,
+      "observations": [
+        {
+          "cell": "stateless-pressure",
+          "round": 0,
+          "attempt": 0,
+          "profile": "unregistered",
+          "ordinary_useful_bytes": 65883032832,
+          "background_useful_bytes": 0,
+          "all_useful_bytes_cpu_denominator": 65883032832,
+          "ordinary_goodput_gbit_s": 8.7844043776,
+          "all_flow_goodput_gbit_s": 8.7844043776,
+          "server_window_cpu_s": 82.347343,
+          "client_window_cpu_s_descriptive_only": 66.969409,
+          "server_cpu_ns_per_all_useful_byte": 1.2499021289742922,
+          "foreign_cpu_s": 0.06432824600000231,
+          "stored_contaminated": false,
+          "foreign_limit_at_final_charged_duration": 3.8528288906440142,
+          "occupied_s": 77.05657781288028,
+          "quiet": {
+            "waited_s": 0.0,
+            "fixture_busy_share": 0.0007057085,
+            "named_process_present": false
+          },
+          "control_p99_us": 294.911,
+          "send_p99_us": 188.415,
+          "rss_kb_at_20s": 23768,
+          "rss_kb_end": 23992,
+          "all_flow_empty_seconds": 0,
+          "packets_lost": 0,
+          "datagram_drops": 0,
+          "unprocessed_drops": 0,
+          "write_errors": 0,
+          "timeout_closes": 0,
+          "nonempty_close_causes": [],
+          "joined": false,
+          "flood": {
+            "sent": 600000,
+            "resets": 411649
+          }
+        },
+        {
+          "cell": "stateless-pressure",
+          "round": 0,
+          "attempt": 0,
+          "profile": "opted-in",
+          "ordinary_useful_bytes": 63862603776,
+          "background_useful_bytes": 0,
+          "all_useful_bytes_cpu_denominator": 63862603776,
+          "ordinary_goodput_gbit_s": 8.5150138368,
+          "all_flow_goodput_gbit_s": 8.5150138368,
+          "server_window_cpu_s": 92.346653,
+          "client_window_cpu_s_descriptive_only": 64.874898,
+          "server_cpu_ns_per_all_useful_byte": 1.4460207937012506,
+          "foreign_cpu_s": 0.12152544299993906,
+          "stored_contaminated": false,
+          "foreign_limit_at_final_charged_duration": 3.8523825138341636,
+          "occupied_s": 77.04765027668327,
+          "quiet": {
+            "waited_s": 0.0,
+            "fixture_busy_share": 0.000127263,
+            "named_process_present": false
+          },
+          "control_p99_us": 294.911,
+          "send_p99_us": 180.223,
+          "rss_kb_at_20s": 27048,
+          "rss_kb_end": 27068,
+          "all_flow_empty_seconds": 0,
+          "packets_lost": 0,
+          "datagram_drops": 0,
+          "unprocessed_drops": 0,
+          "write_errors": 0,
+          "timeout_closes": 0,
+          "nonempty_close_causes": [],
+          "joined": true,
+          "flood": {
+            "sent": 600000,
+            "resets": 444331
+          }
+        }
+      ],
+      "interpretation": "A prior single pair is descriptive context, not a new numeric ceiling. Mixed-bulk has different background work and must not be treated as a direct like-for-like stateless comparison."
+    }
+  },
+  "owner_exception": {
+    "accepted_reference_cpu_ratio": 1.1569072171177908,
+    "original_cpu_ceiling_unchanged": 1.1,
+    "source": "a1c9442f110cca36cb4752b39ce24ae998d76f05",
+    "automatic_acceptance": false,
+    "scope": "Residual E09 CPU cost only. Qualification validity, non-CPU requirements, material-worsening review, six interop cases and review/hosted checks remain separate."
+  },
+  "charge": {
+    "instances": 12,
+    "host_seconds": "924.6414009882137",
+    "cumulative_instances": 261,
+    "cumulative_host_seconds": "12323.24495861335985",
+    "remaining_instances": 159,
+    "remaining_host_seconds": "16476.75504138664015"
+  },
+  "limitations": [
+    "Foreign CPU source schedstat/softirq endpoints are not saved. Stored original contamination flags remain authoritative; final ledger occupied duration is slightly longer than the inner classification interval.",
+    "The historical verdict reports loss/drop totals but does not itself fail on every nonzero counter. Those raw counters are exposed for the separately required correctness interpretation; no thresholds are invented here.",
+    "Assess material worsening using all three paired values, range/consistency, granted absolute CPU per all useful byte and output, comparator movement and background progress. Do not turn the E09 reference or sampling variation into an invented numeric acceptance ceiling.",
+    "Build/setup charges are supplied in the prior cumulative total and must be independently reconciled to their setup receipts. This audit adds operational attempt charges only."
+  ]
+}

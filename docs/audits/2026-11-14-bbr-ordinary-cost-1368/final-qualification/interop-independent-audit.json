@@ -1,0 +1,399 @@
+{
+  "audit_pin": "ad97d3282e398c1b29d844d4bb3d3025c79f1c25",
+  "runtime_source": "a1c9442f110cca36cb4752b39ce24ae998d76f05",
+  "selected_Go_module_equivalence": "59ca2a3a3d6dc9419f9bd09ae4b1e6197153e103",
+  "frozen_runner_sha256": "7de31bd73bfb026c7aa24989139fd38032c5caac730498f4967c3b5dde4c1990",
+  "checks": "passed",
+  "qualification_complete": true,
+  "wrapper_receipts": [
+    {
+      "name": "interop-image",
+      "status": "passed",
+      "exit_code": 0,
+      "instances": 0,
+      "host_seconds": "17.511274898",
+      "started_utc": "2026-11-15T04:30:33.080779+00:00",
+      "ended_utc": "2026-11-15T04:30:50.592170+00:00",
+      "command": [
+        "bash",
+        "-eu",
+        "-c",
+        "\n      bundle=$1; source=$2; sha=$3\n      mkdir \"$source\"\n      tar -xf \"$bundle/source.tar\" -C \"$source\"\n      tree=$(python3 -c 'import json,sys;print(json.load(open(sys.argv[1]))[\"product_tree\"])' \"$bundle/manifest.json\")\n      timeout 1200s podman build --platform linux/amd64 -f \"$source/interop/multipath/Dockerfile\" \\\n        --build-arg QGF_SOURCE_COMMIT=\"$sha\" --build-arg QGF_SOURCE_TREE=\"$tree\" -t qgf-bbr-interop-1368 \"$source\" > \"$bundle/image-build.log\" 2>&1\n      podman image inspect qgf-bbr-interop-1368 > \"$bundle/image-inspect.json\"\n      digest=$(podman image inspect qgf-bbr-interop-1368 --format \"{{.Id}}\")\n      image_id=\"sha256:${digest#sha256:}\"\n      test \"$(podman image inspect \"$image_id\" --format \"{{.Architecture}}\")\" = amd64\n      printf \"%s\\n\" \"$image_id\" > \"$bundle/image-id.txt\"\n      container=$(podman create \"$image_id\")\n      trap 'podman rm -f \"$container\" >/dev/null' EXIT\n      podman cp --archive=false \"$container:/src/build-packages.txt\" \"$bundle/build-packages.txt\"\n    ",
+        "bash",
+        "/tmp/qgf-final-1368-a1c9442f1-stage/interop-bundle",
+        "/tmp/qgf-final-1368-a1c9442f1-stage/interop-source",
+        "a1c9442f110cca36cb4752b39ce24ae998d76f05"
+      ]
+    },
+    {
+      "name": "interop-build",
+      "status": "passed",
+      "exit_code": 0,
+      "instances": 0,
+      "host_seconds": "6.353650698",
+      "started_utc": "2026-11-15T04:30:55.542820+00:00",
+      "ended_utc": "2026-11-15T04:31:01.896586+00:00",
+      "command": [
+        "timeout",
+        "1200s",
+        "podman",
+        "run",
+        "--rm",
+        "--platform",
+        "linux/amd64",
+        "--network",
+        "none",
+        "-e",
+        "QGF_IMAGE_ID=sha256:4f07478e800375ddcbf617c9a86d1f101cd140c56903e28a0c2d6d0d4c226411",
+        "-e",
+        "PYTHONDONTWRITEBYTECODE=1",
+        "-v",
+        "/tmp/qgf-final-1368-a1c9442f1-stage/interop-source:/product:ro",
+        "-v",
+        "/tmp/qgf-final-1368-a1c9442f1-stage/interop-bundle:/bundle",
+        "--entrypoint",
+        "python3",
+        "sha256:4f07478e800375ddcbf617c9a86d1f101cd140c56903e28a0c2d6d0d4c226411",
+        "/bundle/build.py",
+        "--bundle",
+        "/bundle",
+        "--source",
+        "/product"
+      ]
+    },
+    {
+      "name": "interop-useful-transfer-client",
+      "status": "passed",
+      "exit_code": 0,
+      "instances": 1,
+      "host_seconds": "5.441068806",
+      "started_utc": "2026-11-15T04:32:23.035700+00:00",
+      "ended_utc": "2026-11-15T04:32:28.476892+00:00",
+      "command": [
+        "bash",
+        "/tmp/qgf-final-1368-a1c9442f1-stage/interop-case.sh",
+        "/tmp/qgf-final-1368-a1c9442f1-stage",
+        "useful-transfer",
+        "client"
+      ]
+    },
+    {
+      "name": "interop-useful-transfer-server",
+      "status": "passed",
+      "exit_code": 0,
+      "instances": 1,
+      "host_seconds": "2.135034932",
+      "started_utc": "2026-11-15T04:32:28.512877+00:00",
+      "ended_utc": "2026-11-15T04:32:30.648040+00:00",
+      "command": [
+        "bash",
+        "/tmp/qgf-final-1368-a1c9442f1-stage/interop-case.sh",
+        "/tmp/qgf-final-1368-a1c9442f1-stage",
+        "useful-transfer",
+        "server"
+      ]
+    },
+    {
+      "name": "interop-abandon-reopen-late-feedback-client",
+      "status": "passed",
+      "exit_code": 0,
+      "instances": 1,
+      "host_seconds": "2.469606735",
+      "started_utc": "2026-11-15T04:32:30.679903+00:00",
+      "ended_utc": "2026-11-15T04:32:33.149621+00:00",
+      "command": [
+        "bash",
+        "/tmp/qgf-final-1368-a1c9442f1-stage/interop-case.sh",
+        "/tmp/qgf-final-1368-a1c9442f1-stage",
+        "abandon-reopen-late-feedback",
+        "client"
+      ]
+    },
+    {
+      "name": "interop-abandon-reopen-late-feedback-server",
+      "status": "passed",
+      "exit_code": 0,
+      "instances": 1,
+      "host_seconds": "2.475646816",
+      "started_utc": "2026-11-15T04:32:33.181872+00:00",
+      "ended_utc": "2026-11-15T04:32:35.657623+00:00",
+      "command": [
+        "bash",
+        "/tmp/qgf-final-1368-a1c9442f1-stage/interop-case.sh",
+        "/tmp/qgf-final-1368-a1c9442f1-stage",
+        "abandon-reopen-late-feedback",
+        "server"
+      ]
+    },
+    {
+      "name": "interop-same-id-migration-rebinding-client",
+      "status": "passed",
+      "exit_code": 0,
+      "instances": 1,
+      "host_seconds": "2.196326545",
+      "started_utc": "2026-11-15T04:32:35.690212+00:00",
+      "ended_utc": "2026-11-15T04:32:37.886642+00:00",
+      "command": [
+        "bash",
+        "/tmp/qgf-final-1368-a1c9442f1-stage/interop-case.sh",
+        "/tmp/qgf-final-1368-a1c9442f1-stage",
+        "same-id-migration-rebinding",
+        "client"
+      ]
+    },
+    {
+      "name": "interop-same-id-migration-rebinding-server",
+      "status": "passed",
+      "exit_code": 0,
+      "instances": 1,
+      "host_seconds": "2.214504797",
+      "started_utc": "2026-11-15T04:32:37.919088+00:00",
+      "ended_utc": "2026-11-15T04:32:40.133697+00:00",
+      "command": [
+        "bash",
+        "/tmp/qgf-final-1368-a1c9442f1-stage/interop-case.sh",
+        "/tmp/qgf-final-1368-a1c9442f1-stage",
+        "same-id-migration-rebinding",
+        "server"
+      ]
+    },
+    {
+      "name": "interop-aggregate",
+      "status": "passed",
+      "exit_code": 0,
+      "instances": 0,
+      "host_seconds": "0.028714788",
+      "started_utc": "2026-11-15T04:32:40.165520+00:00",
+      "ended_utc": "2026-11-15T04:32:40.194310+00:00",
+      "command": [
+        "python3",
+        "-B",
+        "/tmp/qgf-final-1368-a1c9442f1-stage/interop-bundle/run_b5.py",
+        "--controller",
+        "bbrv3",
+        "--validate-matrix",
+        "--output",
+        "/tmp/qgf-final-1368-a1c9442f1-stage/interop-results"
+      ]
+    }
+  ],
+  "charge": {
+    "instances": 6,
+    "host_seconds": "40.82582901500000",
+    "cumulative_instances": 267,
+    "cumulative_host_seconds": "12364.07078762835985",
+    "remaining_instances": 153,
+    "remaining_host_seconds": "16435.92921237164015"
+  },
+  "cases": [
+    {
+      "case": "TestPicoquicMultipathMatrix/useful-transfer/client",
+      "status": "pass",
+      "duration_seconds_inner": 1.8680781945586205,
+      "charged_wrapper_seconds": "5.441068806",
+      "peer_evidence_directory": "/tmp/qgf-final-1368-a1c9442f1-stage/interop-results/useful-transfer/client/matrix-client-1980521914",
+      "peer_log_sha256": "c23dbbfcd7c387111d10f2c438dd7a7c8f4c78b2f58455fe6be901694b332ca7",
+      "path_trace_lines": [
+        [
+          "0",
+          "{Stream:24578 Datagram:256 Packets:35 LastPN:34} received {Stream:24576 Datagram:256 Packets:47 LastPN:46}"
+        ],
+        [
+          "1",
+          "{Stream:24578 Datagram:256 Packets:36 LastPN:35} received {Stream:24576 Datagram:256 Packets:28 LastPN:27}"
+        ],
+        [
+          "2",
+          "{Stream:0 Datagram:0 Packets:0 LastPN:0} received {Stream:0 Datagram:0 Packets:0 LastPN:0}"
+        ]
+      ],
+      "late_feedback_witness": [],
+      "container_id": "c894ee9087318a35a5fd0a31cb9512379d0097861acd6648a44815a8f0361278",
+      "container_exit_code": 0
+    },
+    {
+      "case": "TestPicoquicMultipathMatrix/useful-transfer/server",
+      "status": "pass",
+      "duration_seconds_inner": 1.9200853379443288,
+      "charged_wrapper_seconds": "2.135034932",
+      "peer_evidence_directory": "/tmp/qgf-final-1368-a1c9442f1-stage/interop-results/useful-transfer/server/matrix-server-2275886585",
+      "peer_log_sha256": "4bc66c4a6a72ee0eea1b865843aad1da1c0119a464b714da18d1c520b1b1f73d",
+      "path_trace_lines": [
+        [
+          "0",
+          "{Stream:24580 Datagram:256 Packets:36 LastPN:35} received {Stream:24578 Datagram:256 Packets:47 LastPN:46}"
+        ],
+        [
+          "1",
+          "{Stream:24578 Datagram:256 Packets:36 LastPN:35} received {Stream:24576 Datagram:256 Packets:26 LastPN:25}"
+        ],
+        [
+          "2",
+          "{Stream:0 Datagram:0 Packets:0 LastPN:0} received {Stream:0 Datagram:0 Packets:0 LastPN:0}"
+        ]
+      ],
+      "late_feedback_witness": [],
+      "container_id": "51f6a8bf577a054297c7a3ed720c7a6b6e927ac2d4cbb33b77bd6f7aa920188a",
+      "container_exit_code": 0
+    },
+    {
+      "case": "TestPicoquicMultipathMatrix/abandon-reopen-late-feedback/client",
+      "status": "pass",
+      "duration_seconds_inner": 2.173600741662085,
+      "charged_wrapper_seconds": "2.469606735",
+      "peer_evidence_directory": "/tmp/qgf-final-1368-a1c9442f1-stage/interop-results/abandon-reopen-late-feedback/client/matrix-client-338044855",
+      "peer_log_sha256": "02868e95a919e1880d88ad45bb9b3735754ceb7352ad8702a9b8221c7879413e",
+      "path_trace_lines": [
+        [
+          "0",
+          "{Stream:24588 Datagram:0 Packets:40 LastPN:39} received {Stream:24582 Datagram:0 Packets:76 LastPN:75}"
+        ],
+        [
+          "1",
+          "{Stream:24582 Datagram:0 Packets:31 LastPN:30} received {Stream:24578 Datagram:0 Packets:24 LastPN:24}"
+        ],
+        [
+          "2",
+          "{Stream:49158 Datagram:0 Packets:61 LastPN:60} received {Stream:49154 Datagram:0 Packets:51 LastPN:50}"
+        ]
+      ],
+      "late_feedback_witness": [
+        "replayed 55-byte packet disposition: unknown_connection_id; retired PATH_ACK(1) observed"
+      ],
+      "container_id": "1986868243bc53133ffac9f3022365922f7b4fe1e024f34244c9e566fcd5e2dc",
+      "container_exit_code": 0
+    },
+    {
+      "case": "TestPicoquicMultipathMatrix/abandon-reopen-late-feedback/server",
+      "status": "pass",
+      "duration_seconds_inner": 2.221285386942327,
+      "charged_wrapper_seconds": "2.475646816",
+      "peer_evidence_directory": "/tmp/qgf-final-1368-a1c9442f1-stage/interop-results/abandon-reopen-late-feedback/server/matrix-server-215087219",
+      "peer_log_sha256": "25636168fe772dde5f9949f8cea27f2dfc805449290c0d8962ed1e9174bc298c",
+      "path_trace_lines": [
+        [
+          "0",
+          "{Stream:24582 Datagram:0 Packets:41 LastPN:40} received {Stream:24582 Datagram:0 Packets:76 LastPN:75}"
+        ],
+        [
+          "1",
+          "{Stream:24582 Datagram:0 Packets:32 LastPN:31} received {Stream:24578 Datagram:0 Packets:24 LastPN:24}"
+        ],
+        [
+          "2",
+          "{Stream:49158 Datagram:0 Packets:58 LastPN:57} received {Stream:49154 Datagram:0 Packets:51 LastPN:50}"
+        ]
+      ],
+      "late_feedback_witness": [
+        "replayed 55-byte packet disposition: unknown_connection_id; retired PATH_ACK(1) observed"
+      ],
+      "container_id": "a326ae2e952462bb498f0183de985a611d14914fba57152a89ed048f74a742eb",
+      "container_exit_code": 0
+    },
+    {
+      "case": "TestPicoquicMultipathMatrix/same-id-migration-rebinding/client",
+      "status": "pass",
+      "duration_seconds_inner": 1.8720987075939775,
+      "charged_wrapper_seconds": "2.196326545",
+      "peer_evidence_directory": "/tmp/qgf-final-1368-a1c9442f1-stage/interop-results/same-id-migration-rebinding/client/matrix-client-3706076343",
+      "peer_log_sha256": "865749c6c034a82ed1440f1edfb231c29d465f056a1745168d72015d246924cc",
+      "path_trace_lines": [
+        [
+          "0",
+          "{Stream:24578 Datagram:0 Packets:34 LastPN:33} received {Stream:24576 Datagram:0 Packets:57 LastPN:56}"
+        ],
+        [
+          "1",
+          "{Stream:49156 Datagram:0 Packets:65 LastPN:64} received {Stream:49152 Datagram:0 Packets:54 LastPN:54}"
+        ],
+        [
+          "2",
+          "{Stream:0 Datagram:0 Packets:0 LastPN:0} received {Stream:0 Datagram:0 Packets:0 LastPN:0}"
+        ]
+      ],
+      "late_feedback_witness": [],
+      "container_id": "54dcd1a976bd548998736ff56a065c1b04f05e19d87b1fc6279550b1ad74bacf",
+      "container_exit_code": 0
+    },
+    {
+      "case": "TestPicoquicMultipathMatrix/same-id-migration-rebinding/server",
+      "status": "pass",
+      "duration_seconds_inner": 1.9182828487828374,
+      "charged_wrapper_seconds": "2.214504797",
+      "peer_evidence_directory": "/tmp/qgf-final-1368-a1c9442f1-stage/interop-results/same-id-migration-rebinding/server/matrix-server-3997907307",
+      "peer_log_sha256": "a4faf8be5bd317157edac984c3aabd4b62eb4fd3a3975a061a08f08d08e3be02",
+      "path_trace_lines": [
+        [
+          "0",
+          "{Stream:24580 Datagram:0 Packets:34 LastPN:33} received {Stream:24578 Datagram:0 Packets:61 LastPN:60}"
+        ],
+        [
+          "1",
+          "{Stream:49158 Datagram:0 Packets:61 LastPN:60} received {Stream:49154 Datagram:0 Packets:57 LastPN:56}"
+        ],
+        [
+          "2",
+          "{Stream:0 Datagram:0 Packets:0 LastPN:0} received {Stream:0 Datagram:0 Packets:0 LastPN:0}"
+        ]
+      ],
+      "late_feedback_witness": [],
+      "container_id": "0e3d546b37866696c5afcfa9f5c01dc71b91dc7bafff807e6fbe1a4bbe78e3cf",
+      "container_exit_code": 0
+    }
+  ],
+  "original_matrix_verdict": {
+    "status": "pass",
+    "executed": [
+      "TestPicoquicMultipathMatrix/useful-transfer/client",
+      "TestPicoquicMultipathMatrix/useful-transfer/server",
+      "TestPicoquicMultipathMatrix/abandon-reopen-late-feedback/client",
+      "TestPicoquicMultipathMatrix/abandon-reopen-late-feedback/server",
+      "TestPicoquicMultipathMatrix/same-id-migration-rebinding/client",
+      "TestPicoquicMultipathMatrix/same-id-migration-rebinding/server"
+    ],
+    "identity": {
+      "candidate": "a1c9442f110cca36cb4752b39ce24ae998d76f05",
+      "tree": "aa697c0ef117bdf4dc74e712cbf30182b4c8cb97",
+      "image": "sha256:4f07478e800375ddcbf617c9a86d1f101cd140c56903e28a0c2d6d0d4c226411",
+      "go": "go version go1.27.4 linux/amd64",
+      "kernel": {
+        "system": "Linux",
+        "release": "7.0.0-30-generic",
+        "version": "#30-Ubuntu SMP PREEMPT_DYNAMIC Fri Jul 31 18:22:54 UTC 2026",
+        "machine": "x86_64"
+      },
+      "picoquic": "fbd46d9a1f54ebf9397f2ee6355b5019ab379fb7",
+      "picotls": "e446233b4100ebcdec60901c05bfb7f4cd369c5d",
+      "peer_binary_sha256": "52e8e7cfb6f098370b84494c7b466f8628d027d769df235e22e0c3b18f04960c",
+      "test_binary_sha256": "666a1b3d9a4e2b6a068cffb14fb2d3462c4f2f1eaa64568b311c5426ca3418df",
+      "runner_sha256": "7de31bd73bfb026c7aa24989139fd38032c5caac730498f4967c3b5dde4c1990",
+      "peer_driver_sha256": "ccd8f167f2c02aa5f347324abf13bfab713bbb826dbe4ec697cc8420eb3781e4"
+    },
+    "controller": "bbrv3",
+    "guarantee": "example-level; fixed draft-21 QUIC v1 scenarios only"
+  },
+  "identity": {
+    "candidate": "a1c9442f110cca36cb4752b39ce24ae998d76f05",
+    "tree": "aa697c0ef117bdf4dc74e712cbf30182b4c8cb97",
+    "image": "sha256:4f07478e800375ddcbf617c9a86d1f101cd140c56903e28a0c2d6d0d4c226411",
+    "go": "go version go1.27.4 linux/amd64",
+    "kernel": {
+      "system": "Linux",
+      "release": "7.0.0-30-generic",
+      "version": "#30-Ubuntu SMP PREEMPT_DYNAMIC Fri Jul 31 18:22:54 UTC 2026",
+      "machine": "x86_64"
+    },
+    "picoquic": "fbd46d9a1f54ebf9397f2ee6355b5019ab379fb7",
+    "picotls": "e446233b4100ebcdec60901c05bfb7f4cd369c5d",
+    "peer_binary_sha256": "52e8e7cfb6f098370b84494c7b466f8628d027d769df235e22e0c3b18f04960c",
+    "test_binary_sha256": "666a1b3d9a4e2b6a068cffb14fb2d3462c4f2f1eaa64568b311c5426ca3418df",
+    "runner_sha256": "7de31bd73bfb026c7aa24989139fd38032c5caac730498f4967c3b5dde4c1990",
+    "peer_driver_sha256": "ccd8f167f2c02aa5f347324abf13bfab713bbb826dbe4ec697cc8420eb3781e4"
+  },
+  "limitations": [
+    "The six existing example-level draft-21 QUIC-v1 scenarios do not replace the separate hosted 16-case Reno and negotiated-zero checks.",
+    "Path traces are bounded original in-test observations, not complete exported qlogs; unchanged source and passing assertions supply the scenario semantics.",
+    "Wrapper occupied time includes setup and container creation/inspection/removal. Inner driver durations are descriptive and are not charged a second time.",
+    "Ordinary-cost qualification and its owner-accepted CPU exception remain separate; this script makes no performance claim."
+  ]
+}

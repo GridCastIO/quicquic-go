@@ -1,0 +1,24 @@
+{
+  "command": [
+    "bash",
+    "-eu",
+    "-c",
+    "\n      bundle=$1; source=$2; sha=$3\n      mkdir \"$source\"\n      tar -xf \"$bundle/source.tar\" -C \"$source\"\n      tree=$(python3 -c 'import json,sys;print(json.load(open(sys.argv[1]))[\"product_tree\"])' \"$bundle/manifest.json\")\n      timeout 1200s podman build --platform linux/amd64 -f \"$source/interop/multipath/Dockerfile\" \\\n        --build-arg QGF_SOURCE_COMMIT=\"$sha\" --build-arg QGF_SOURCE_TREE=\"$tree\" -t qgf-bbr-interop-1368 \"$source\" > \"$bundle/image-build.log\" 2>&1\n      podman image inspect qgf-bbr-interop-1368 > \"$bundle/image-inspect.json\"\n      digest=$(podman image inspect qgf-bbr-interop-1368 --format \"{{.Id}}\")\n      image_id=\"sha256:${digest#sha256:}\"\n      test \"$(podman image inspect \"$image_id\" --format \"{{.Architecture}}\")\" = amd64\n      printf \"%s\\n\" \"$image_id\" > \"$bundle/image-id.txt\"\n      container=$(podman create \"$image_id\")\n      trap 'podman rm -f \"$container\" >/dev/null' EXIT\n      podman cp --archive=false \"$container:/src/build-packages.txt\" \"$bundle/build-packages.txt\"\n    ",
+    "bash",
+    "/tmp/qgf-final-1368-a1c9442f1-stage/interop-bundle",
+    "/tmp/qgf-final-1368-a1c9442f1-stage/interop-source",
+    "a1c9442f110cca36cb4752b39ce24ae998d76f05"
+  ],
+  "working_directory": "/home/josh",
+  "instances_charged": 0,
+  "remaining_instances_before": 159,
+  "remaining_host_seconds_before": "16476.75504138664015",
+  "reserved_host_seconds": "1200",
+  "status": "passed",
+  "started_utc": "2026-11-15T04:30:33.080779+00:00",
+  "elapsed_host_seconds": "17.511274898",
+  "exit_code": 0,
+  "ended_utc": "2026-11-15T04:30:50.592170+00:00",
+  "remaining_instances_after": 159,
+  "remaining_host_seconds_after": "16459.24376648864015"
+}

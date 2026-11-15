@@ -9,3 +9,4 @@ review-tool/compatibility.patch -whitespace
 review-tool/build-info.txt -whitespace
 e10-observer.patch -whitespace
 final-qualification/ordinary/overlay.patch -whitespace
+final-qualification/interop/overlay.patch -whitespace

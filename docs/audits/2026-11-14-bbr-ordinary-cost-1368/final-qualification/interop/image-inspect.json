@@ -1,0 +1,231 @@
+[
+     {
+          "Id": "4f07478e800375ddcbf617c9a86d1f101cd140c56903e28a0c2d6d0d4c226411",
+          "Digest": "sha256:9a39be34654e9969239fb494d2bde2afc5056de633c588be913f41bb2f9220b3",
+          "RepoTags": [
+               "localhost/qgf-bbr-interop-1368:latest"
+          ],
+          "RepoDigests": [
+               "localhost/qgf-bbr-interop-1368@sha256:9a39be34654e9969239fb494d2bde2afc5056de633c588be913f41bb2f9220b3"
+          ],
+          "Parent": "c70e0e3c79ca6c03a51c9a7493c435bf95ffd2fec210a7ff207475543869c082",
+          "Comment": "debuerreotype 0.17",
+          "Created": "2026-11-15T04:30:49.830860183Z",
+          "Config": {
+               "Env": [
+                    "PATH=/go/bin:/usr/local/go/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+                    "GOLANG_VERSION=1.27.3",
+                    "GOPATH=/go",
+                    "QGF_SOURCE_COMMIT=a1c9442f110cca36cb4752b39ce24ae998d76f05",
+                    "QGF_SOURCE_TREE=aa697c0ef117bdf4dc74e712cbf30182b4c8cb97",
+                    "GOTOOLCHAIN=local"
+               ],
+               "Entrypoint": [
+                    "python3",
+                    "interop/multipath/run.py",
+                    "--binary",
+                    "/usr/local/bin/picoquicdemo"
+               ],
+               "WorkingDir": "/repo",
+               "Labels": {
+                    "io.buildah.version": "1.42.1"
+               }
+          },
+          "Version": "",
+          "Author": "",
+          "Architecture": "amd64",
+          "Os": "linux",
+          "Size": 1795105478,
+          "VirtualSize": 1795105478,
+          "GraphDriver": {
+               "Name": "overlay",
+               "Data": {
+                    "LowerDir": "/srv/infra/podman/storage/overlay/b6d27f80d1fe194437efe29862f1d295b49f6d8cb7deb7b12e0a000c7cc2338b/diff:/srv/infra/podman/storage/overlay/466622bb5dd5b9cdb5a77530aa1b0d37614b434858b3bf5370ae4cdb1579abf1/diff:/srv/infra/podman/storage/overlay/6272c21b2bfebb98a680e17cf2a75e68cef9b24f6260e7545aa761ba25a12f90/diff:/srv/infra/podman/storage/overlay/52e36b444c45f19efdfdf0ca03b171fab025d585445c8f20e629b1b05f91d8be/diff:/srv/infra/podman/storage/overlay/f9027523c888307b3870734c38a9e0f487324515549c334c6af87fec684ba64e/diff:/srv/infra/podman/storage/overlay/e118c2ef9ace7146cf075223125d7b475d6bf5e4b5946987384b0cf890974ee1/diff:/srv/infra/podman/storage/overlay/1d365a184e72a1817b89c8324d1835f6520b8e87586ff72c675958afe7b90f45/diff:/srv/infra/podman/storage/overlay/046ce1c886fe11f6a15e0594e68fccdb837eff868f80c9d246793de1fb4bd1a6/diff:/srv/infra/podman/storage/overlay/160ee49e3ded4234ef9d427acfb1bd877a94f5f15b6482362254a8980cd7a2f6/diff:/srv/infra/podman/storage/overlay/b85b15d48a5c7a0bde08649f819c0a58d46abfefcab1cd5c586908d06492ef6b/diff:/srv/infra/podman/storage/overlay/dd23d6ddbfb8a26249d57d593c4e65cfb4344153e6a423b2a61d607adfa0d8b6/diff:/srv/infra/podman/storage/overlay/fc817b025919607140df272fdf270d7491ba533905e527f21f3d9abd08e413c0/diff:/srv/infra/podman/storage/overlay/5f7b10173a9785b87e234ec3cb175d8949db7159f5ebe403ced554868c42ca81/diff:/srv/infra/podman/storage/overlay/03937fef209dfc67922d5123a51586d8cc2d9b6c447763ef6afcec7ec1430b79/diff:/srv/infra/podman/storage/overlay/f39273ea50d97d909d31bd4bf3ca79119e31a75cabb86eb2d574cfc27d37847d/diff:/srv/infra/podman/storage/overlay/ba5f7170b6115b77890f3d8f941548aee3cb78a603d29e8f52f2aa136ff21b8c/diff:/srv/infra/podman/storage/overlay/5a09977ebe2d3fa8c57042d9c92852b69089df6b0a8334c4d9dc7d484f8e5e4f/diff",
+                    "UpperDir": "/srv/infra/podman/storage/overlay/8735aa29a354ded9a0998a8a81c8aeec4fcc6eb023214df17ad2ae360fee2cd6/diff",
+                    "WorkDir": "/srv/infra/podman/storage/overlay/8735aa29a354ded9a0998a8a81c8aeec4fcc6eb023214df17ad2ae360fee2cd6/work"
+               }
+          },
+          "RootFS": {
+               "Type": "layers",
+               "Layers": [
+                    "sha256:5a09977ebe2d3fa8c57042d9c92852b69089df6b0a8334c4d9dc7d484f8e5e4f",
+                    "sha256:8ce3aa3b3f608dc75a56272e1ea1f5d40e6682f05bf7cfe49059b3926b633086",
+                    "sha256:2250b32e1d799424bb3dafba7ed78eff36813996f6cc9626a4d9e2f863d20116",
+                    "sha256:657c11feef07a01e7d8d07326c771bc4ccf2404272b49904ff8072694e7c482c",
+                    "sha256:18f1d4d65e2dcd0c975641af4dbcc84b4165b8fe37596492d94f38d87633a5b0",
+                    "sha256:5429b059b243a6c05eafd62334e1a5f92f2aba8f9d1fde64886fe89bb8bfdeb5",
+                    "sha256:5f70bf18a086007016e948b04aed3b82103a36bea41755b6cddfaf10ace3c6ef",
+                    "sha256:9cc8c475fbe5ce118fc386d59bd540a4ab52557d6b8af6d84378de99bc4c592e",
+                    "sha256:2241709fd3e0c9c3bbdc9b46f393aada46ec61d75251e04409aea9b76f424349",
+                    "sha256:06c702cbe6ea4c662449943f6529ac94fbc3b2888d7e0fa6a206d254fa4b3482",
+                    "sha256:7d76115a8c8c3c34780eb78a3c7b7074e53ebd6868af67d40b12494302dc3f54",
+                    "sha256:b093c38456046e38aa49e085d7669b83329e2efaa9c8e3276baf6ceb018f0ca8",
+                    "sha256:e2d249ae4658d6ab9cd891e7b7c31f24eee5a0b0b4913735b2c3a4e8b70a7984",
+                    "sha256:cb37a0152d8f3c361c9614fdae145d808921724d40c595431446aea5347fa199",
+                    "sha256:4bac342ba3756aa5e49514fc8dff518fdc44f49b9869de576f1f299e7c94293d",
+                    "sha256:f05770c0c4edea2109296fcd459abda20c31c45a3fcbfb38c6e1f6f76df5f000",
+                    "sha256:c9d0866835123f24919cffc22dee968c9549995ed43cb7c342cfe0586bbb8d8e",
+                    "sha256:bc90b27d6ecf0a0e8c9143cbbbac8bc258a7ee23269466eb9aaeef8eaf201eb4"
+               ]
+          },
+          "Labels": {
+               "io.buildah.version": "1.42.1"
+          },
+          "Annotations": {
+               "com.docker.official-images.bashbrew.arch": "amd64",
+               "org.opencontainers.image.base.digest": "sha256:e482b31b5d30c31f9e495f4b8cbdf41429b2d74955dfbcd9c0a904483d738390",
+               "org.opencontainers.image.base.name": "docker.io/library/golang@sha256:d9b6a1beb9474adc2a1ce842573639b44b2a0dd49b6669f51d3821baf9ec37c9",
+               "org.opencontainers.image.created": "2026-11-15T04:30:49.830860183Z",
+               "org.opencontainers.image.revision": "41d9b4da70324ae7b6461ac2cc401b06719ff57d",
+               "org.opencontainers.image.source": "https://github.com/docker-library/golang.git#41d9b4da70324ae7b6461ac2cc401b06719ff57d:1.27/bookworm",
+               "org.opencontainers.image.url": "https://hub.docker.com/_/golang",
+               "org.opencontainers.image.version": "1.27.3-bookworm"
+          },
+          "ManifestType": "application/vnd.oci.image.manifest.v1+json",
+          "User": "",
+          "History": [
+               {
+                    "created": "2026-10-27T00:00:00Z",
+                    "created_by": "# debian.sh --arch 'amd64' out/ 'bookworm' '@1793059200'",
+                    "comment": "debuerreotype 0.17"
+               },
+               {
+                    "created": "2026-10-28T01:39:34.266652827Z",
+                    "created_by": "RUN /bin/sh -c set -eux; \tapt-get update; \tapt-get install -y --no-install-recommends \t\tca-certificates \t\tcurl \t\tgnupg \t\tnetbase \t\tsq \t\twget \t; \trm -rf /var/lib/apt/lists/* # buildkit",
+                    "comment": "buildkit.dockerfile.v0"
+               },
+               {
+                    "created": "2026-10-28T02:23:00.206144296Z",
+                    "created_by": "RUN /bin/sh -c set -eux; \tapt-get update; \tapt-get install -y --no-install-recommends \t\tgit \t\tmercurial \t\topenssh-client \t\tsubversion \t\t\t\tprocps \t; \trm -rf /var/lib/apt/lists/* # buildkit",
+                    "comment": "buildkit.dockerfile.v0"
+               },
+               {
+                    "created": "2026-10-28T03:15:15.253493809Z",
+                    "created_by": "RUN /bin/sh -c set -eux; \tapt-get update; \tapt-get install -y --no-install-recommends \t\tg++ \t\tgcc \t\tlibc6-dev \t\tmake \t\tpkg-config \t; \tdpkgArch=\"$(dpkg --print-architecture)\"; \tif [ \"$dpkgArch\" = 'arm64' ]; then \t\tapt-get install -y --no-install-recommends binutils-gold; \tfi; \trm -rf /var/lib/apt/lists/* # buildkit",
+                    "comment": "buildkit.dockerfile.v0"
+               },
+               {
+                    "created": "2026-10-28T03:15:12.209896229Z",
+                    "created_by": "ENV GOLANG_VERSION=1.27.3",
+                    "comment": "buildkit.dockerfile.v0",
+                    "empty_layer": true
+               },
+               {
+                    "created": "2026-10-28T03:15:12.209896229Z",
+                    "created_by": "ENV GOTOOLCHAIN=local",
+                    "comment": "buildkit.dockerfile.v0",
+                    "empty_layer": true
+               },
+               {
+                    "created": "2026-10-28T03:15:12.209896229Z",
+                    "created_by": "ENV GOPATH=/go",
+                    "comment": "buildkit.dockerfile.v0",
+                    "empty_layer": true
+               },
+               {
+                    "created": "2026-10-28T03:15:12.209896229Z",
+                    "created_by": "ENV PATH=/go/bin:/usr/local/go/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+                    "comment": "buildkit.dockerfile.v0",
+                    "empty_layer": true
+               },
+               {
+                    "created": "2026-10-28T03:15:12.209896229Z",
+                    "created_by": "COPY /target/ / # buildkit",
+                    "comment": "buildkit.dockerfile.v0"
+               },
+               {
+                    "created": "2026-10-28T03:15:16.414255319Z",
+                    "created_by": "RUN /bin/sh -c mkdir -p \"$GOPATH/src\" \"$GOPATH/bin\" && chmod -R 1777 \"$GOPATH\" # buildkit",
+                    "comment": "buildkit.dockerfile.v0"
+               },
+               {
+                    "created": "2026-10-28T03:15:16.458404732Z",
+                    "created_by": "WORKDIR /go",
+                    "comment": "buildkit.dockerfile.v0"
+               },
+               {
+                    "created": "2026-11-14T02:54:02.123143657Z",
+                    "created_by": "/bin/sh -c test \"$(dpkg --print-architecture)\" = amd64 &&     curl --fail --silent --show-error --location https://go.dev/dl/go1.27.4.linux-amd64.tar.gz -o /tmp/go1274.tar.gz &&     printf '%s\\n' '7226736c2339719cda28fbf3a54d71aa63bcefe376e98cef00034268dab24840  /tmp/go1274.tar.gz' | sha256sum -c - &&     rm -rf /usr/local/go && tar -C /usr/local -xzf /tmp/go1274.tar.gz &&     rm /tmp/go1274.tar.gz &&     test \"$(GOTOOLCHAIN=local /usr/local/go/bin/go version)\" = 'go version go1.27.4 linux/amd64'",
+                    "comment": "FROM docker.io/library/golang@sha256:d9b6a1beb9474adc2a1ce842573639b44b2a0dd49b6669f51d3821baf9ec37c9"
+               },
+               {
+                    "created": "2026-11-14T02:54:11.387255179Z",
+                    "created_by": "/bin/sh -c rm -f /etc/apt/sources.list.d/debian.sources &&     printf '%s\\n'       'deb [check-valid-until=no] https://snapshot.debian.org/archive/debian/20261031T000000Z bookworm main'       'deb [check-valid-until=no] https://snapshot.debian.org/archive/debian/20261031T000000Z bookworm-updates main'       'deb [check-valid-until=no] https://snapshot.debian.org/archive/debian-security/20261031T000000Z bookworm-security main' > /etc/apt/sources.list &&     apt-get update && apt-get install -y --no-install-recommends cmake libssl-dev python3 &&     rm -rf /var/lib/apt/lists/*"
+               },
+               {
+                    "created": "2026-11-14T02:54:11.690784468Z",
+                    "created_by": "/bin/sh -c #(nop) WORKDIR /src/picoquic",
+                    "empty_layer": true
+               },
+               {
+                    "created": "2026-11-14T03:28:10.650700882Z",
+                    "created_by": "/bin/sh -c #(nop) COPY file:8750e560da11bcc7690116d3cd27f5c62f91038d4928f6543e2e5682245c4d0f in /src/r17-peer.c      "
+               },
+               {
+                    "created": "2026-11-14T03:28:20.443437108Z",
+                    "created_by": "/bin/sh -c git init -q && git remote add origin https://github.com/private-octopus/picoquic.git &&     git fetch -q --depth 1 origin fbd46d9a1f54ebf9397f2ee6355b5019ab379fb7 && git checkout -q FETCH_HEAD &&     test \"$(git rev-parse HEAD)\" = fbd46d9a1f54ebf9397f2ee6355b5019ab379fb7 &&     printf '%s\\n' 'add_executable(qgf-r17-peer /src/r17-peer.c)'       'target_include_directories(qgf-r17-peer PRIVATE ${PTLS_INCLUDE_DIRS})'       'target_link_libraries(qgf-r17-peer PRIVATE picoquic-core)' >> CMakeLists.txt &&     cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DPICOQUIC_FETCH_PTLS=ON       -DPICOQUIC_FETCH_PTLS_TAG=e446233b4100ebcdec60901c05bfb7f4cd369c5d -DBUILD_TESTING=OFF &&     test \"$(git -C build/_deps/picotls-src rev-parse HEAD)\" = e446233b4100ebcdec60901c05bfb7f4cd369c5d &&     cmake --build build --target picoquicdemo qgf-r17-peer -j 4 &&     cp build/picoquicdemo /usr/local/bin/picoquicdemo &&     cp build/qgf-r17-peer /usr/local/bin/qgf-r17-peer &&     dpkg-query -W > /src/build-packages.txt"
+               },
+               {
+                    "created": "2026-11-14T03:28:20.638357887Z",
+                    "created_by": "/bin/sh -c #(nop) WORKDIR /repo",
+                    "empty_layer": true
+               },
+               {
+                    "created": "2026-11-14T03:28:20.666487478Z",
+                    "created_by": "/bin/sh -c #(nop) ARG QGF_SOURCE_COMMIT",
+                    "empty_layer": true
+               },
+               {
+                    "created": "2026-11-14T03:28:20.69538501Z",
+                    "created_by": "/bin/sh -c #(nop) ARG QGF_SOURCE_COMMIT QGF_SOURCE_TREE",
+                    "empty_layer": true
+               },
+               {
+                    "created": "2026-11-14T03:28:20.723335905Z",
+                    "created_by": "/bin/sh -c #(nop) ENV QGF_SOURCE_COMMIT=$QGF_SOURCE_COMMIT QGF_SOURCE_TREE=$QGF_SOURCE_TREE",
+                    "empty_layer": true
+               },
+               {
+                    "created": "2026-11-14T03:28:20.752405009Z",
+                    "created_by": "/bin/sh -c #(nop) ENV GOTOOLCHAIN=local",
+                    "empty_layer": true
+               },
+               {
+                    "created": "2026-11-14T03:28:20.827861862Z",
+                    "created_by": "/bin/sh -c #(nop) COPY multi:5bb02a168aef08616bf3b73facd17c38467fbb35fb9301788060b6dd28002605 in ./      "
+               },
+               {
+                    "created": "2026-11-15T04:30:36.45988423Z",
+                    "created_by": "|2 QGF_SOURCE_COMMIT=a1c9442f110cca36cb4752b39ce24ae998d76f05 QGF_SOURCE_TREE=aa697c0ef117bdf4dc74e712cbf30182b4c8cb97 /bin/sh -c go mod download"
+               },
+               {
+                    "created": "2026-11-15T04:30:37.171006297Z",
+                    "created_by": "/bin/sh -c #(nop) COPY dir:c282ba62013df84938186b1dafe5bb7a9d7f9e10ee19aecec5ff87eb379c0607 in .      "
+               },
+               {
+                    "created": "2026-11-15T04:30:43.25141161Z",
+                    "created_by": "|2 QGF_SOURCE_COMMIT=a1c9442f110cca36cb4752b39ce24ae998d76f05 QGF_SOURCE_TREE=aa697c0ef117bdf4dc74e712cbf30182b4c8cb97 /bin/sh -c go test -c -tags=picoquic -o /src/peer-control.test ./integrationtests/self"
+               },
+               {
+                    "created": "2026-11-15T04:30:48.547421165Z",
+                    "created_by": "|2 QGF_SOURCE_COMMIT=a1c9442f110cca36cb4752b39ce24ae998d76f05 QGF_SOURCE_TREE=aa697c0ef117bdf4dc74e712cbf30182b4c8cb97 /bin/sh -c go test -c -tags=picoquic -o /src/peer-smoke.test ."
+               },
+               {
+                    "created": "2026-11-15T04:30:48.998591306Z",
+                    "created_by": "|2 QGF_SOURCE_COMMIT=a1c9442f110cca36cb4752b39ce24ae998d76f05 QGF_SOURCE_TREE=aa697c0ef117bdf4dc74e712cbf30182b4c8cb97 /bin/sh -c cp /src/peer-smoke.test /src/peer-matrix.test"
+               },
+               {
+                    "created": "2026-11-15T04:30:49.778018593Z",
+                    "created_by": "|2 QGF_SOURCE_COMMIT=a1c9442f110cca36cb4752b39ce24ae998d76f05 QGF_SOURCE_TREE=aa697c0ef117bdf4dc74e712cbf30182b4c8cb97 /bin/sh -c PYTHONDONTWRITEBYTECODE=1 python3 -B -m unittest discover -s interop/multipath -p test_run.py &&     go test -tags=picoquic -run='^TestPicoquicMatrix(AwaitsTraceConsumption|CIDReceipt|ReplayDispositions|MTUFinalLossObservation|MTUProgress)$' -count=1 ."
+               },
+               {
+                    "created": "2026-11-15T04:30:49.831031103Z",
+                    "created_by": "/bin/sh -c #(nop) ENTRYPOINT [\"python3\", \"interop/multipath/run.py\", \"--binary\", \"/usr/local/bin/picoquicdemo\"]",
+                    "empty_layer": true
+               }
+          ],
+          "NamesHistory": [
+               "localhost/qgf-bbr-interop-1368:latest"
+          ]
+     }
+]

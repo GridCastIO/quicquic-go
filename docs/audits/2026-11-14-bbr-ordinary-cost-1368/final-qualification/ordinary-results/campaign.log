@@ -1,0 +1,13 @@
+04:15:34 mixed-bulk round 0 unregistered attempt 0: foreign 0.08 s, contaminated False
+04:16:53 mixed-bulk round 0 opted-in attempt 0: foreign 0.28 s, contaminated False
+04:18:12 mixed-bulk round 1 opted-in attempt 0: foreign 0.11 s, contaminated False
+04:19:31 mixed-bulk round 1 unregistered attempt 0: foreign 0.07 s, contaminated False
+04:20:50 mixed-bulk round 2 unregistered attempt 0: foreign 0.07 s, contaminated False
+04:22:09 mixed-bulk round 2 opted-in attempt 0: foreign 0.09 s, contaminated False
+04:23:28 stateless-pressure round 0 unregistered attempt 0: foreign 0.07 s, contaminated False
+04:24:47 stateless-pressure round 0 opted-in attempt 0: foreign 0.11 s, contaminated False
+04:26:06 stateless-pressure round 1 opted-in attempt 0: foreign 0.11 s, contaminated False
+04:27:25 stateless-pressure round 1 unregistered attempt 0: foreign 0.06 s, contaminated False
+04:28:44 stateless-pressure round 2 unregistered attempt 0: foreign 0.07 s, contaminated False
+04:30:04 stateless-pressure round 2 opted-in attempt 0: foreign 0.11 s, contaminated False
+04:30:04 done: mode campaign, passed False, charged 12

@@ -1,0 +1,21 @@
+{
+  "command": [
+    "bash",
+    "/tmp/qgf-final-1368-a1c9442f1-stage/interop-case.sh",
+    "/tmp/qgf-final-1368-a1c9442f1-stage",
+    "abandon-reopen-late-feedback",
+    "server"
+  ],
+  "working_directory": "/home/josh",
+  "instances_charged": 1,
+  "remaining_instances_before": 156,
+  "remaining_host_seconds_before": "16442.84440531764015",
+  "reserved_host_seconds": "150",
+  "status": "passed",
+  "started_utc": "2026-11-15T04:32:33.181872+00:00",
+  "elapsed_host_seconds": "2.475646816",
+  "exit_code": 0,
+  "ended_utc": "2026-11-15T04:32:35.657623+00:00",
+  "remaining_instances_after": 155,
+  "remaining_host_seconds_after": "16440.36875850164015"
+}

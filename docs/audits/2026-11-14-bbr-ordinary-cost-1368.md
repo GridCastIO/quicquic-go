@@ -24,7 +24,7 @@ Append-only plans and outcomes: [experiment ledger](2026-11-14-bbr-ordinary-cost
 
 ## Delivery state
 
-The owner accepted proceeding with E09 after reviewing its valid goodput pass (0.969333090), residual CPU/useful-byte cost (1.156907217) and uncertain remaining optimization opportunities. Record the original 1.10 CPU ceiling as missed with an explicit scoped owner exception; do not change the harness verdict. E11 is rejected and reverted. Proceed with the existing 12 ordinary observations, six BBR interop cases, full-panel review, required ready-head checks and merge. Materially worse CPU behavior or another failed acceptance check requires returning the evidence before merge. Recommendation: qualify the retained E09 candidate unchanged and preserve the distinction between raw results and owner acceptance.
+The complete 12-observation ordinary campaign is valid, with zero replacements. Original medians are mixed-bulk 0.944295141 goodput /1.208131477 CPU/useful byte and stateless-pressure 0.959070830 /1.159370297. The owner explicitly accepted these exact final measured exceptions after reviewing the wider result; preserve the original 0.95 /1.10 targets and raw failed verdicts. All other ordinary checks pass. Six BBR interop cases and their aggregate have passed independent identity/trace audit. Complete full-panel review, exact ready-head checks and authorized merge; E11 remains rejected and reverted. Recommendation: deliver retained E09 under the documented exact-result exceptions after remaining checks.
 
 ## Current design update — E02/E03, 2026-11-14
 
@@ -111,3 +111,13 @@ E11 passed correctness and actual timing validity but did not establish useful e
 ## Current delivery update — owner accepts E09 residual CPU cost
 
 The owner agreed to stop optimization and accept E09 subject to the existing final qualification, independent review and required checks. This is an explicit exception for the measured residual CPU cost, not a claim that the original ceiling passed or permission for materially worse behavior. Freeze runtime at E09 plus the deterministic fixture correction. Endpoint notification redesign remains an uncertain follow-up with broader shared-owner risk; registration has no strong current improvement lead. Final qualification begins from 249/420 instances /11393.61225322514615 seconds.
+
+
+## Current delivery update — final measured exceptions accepted
+
+The final ordinary campaign and independent audit are complete. The owner explicitly accepts mixed-bulk goodput 0.944295141 and CPU/useful byte 1.208131477, plus stateless CPU/useful byte 1.159370297; stateless goodput 0.959070830 passes. Original raw failures remain. All other ordinary checks pass. Six BBR interoperability cases and aggregation pass, pending independent artifact audit. Ordinary completion usage is 261/420 instances /12323.24495861335985 seconds; subsequent interop receipts are preserved separately. No optimization or valid-result retry is selected.
+
+
+## Current delivery update — native qualification complete
+
+All six BBR interop cases and original aggregate pass independent audit, with exact source/image/binary/peer identity and retained bounded trace evidence. The final ordinary results are accepted by the owner as exact-result exceptions while their raw failed verdicts remain. Local correctness/cross-compilation evidence passes at the same Go/module source. Program #646 usage is 267/420 instances /12364.07078762835985 seconds, remaining 153 /16435.92921237164015. Proceed to full-panel review and required ready-head checks, then merge. No native workload, temporary container or shared-host policy change remains.

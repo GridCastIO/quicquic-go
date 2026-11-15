@@ -1,0 +1,21 @@
+{
+  "command": [
+    "bash",
+    "/tmp/qgf-final-1368-a1c9442f1-stage/interop-case.sh",
+    "/tmp/qgf-final-1368-a1c9442f1-stage",
+    "useful-transfer",
+    "server"
+  ],
+  "working_directory": "/home/josh",
+  "instances_charged": 1,
+  "remaining_instances_before": 158,
+  "remaining_host_seconds_before": "16447.44904698464015",
+  "reserved_host_seconds": "150",
+  "status": "passed",
+  "started_utc": "2026-11-15T04:32:28.512877+00:00",
+  "elapsed_host_seconds": "2.135034932",
+  "exit_code": 0,
+  "ended_utc": "2026-11-15T04:32:30.648040+00:00",
+  "remaining_instances_after": 157,
+  "remaining_host_seconds_after": "16445.31401205264015"
+}
