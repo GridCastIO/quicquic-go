@@ -13,7 +13,9 @@ import (
 func ResetForMTUReduction(handler SentPacketHandler, now monotime.Time, size protocol.ByteCount, acked func(PacketContext, protocol.ByteCount, protocol.PacketNumber)) {
 	h := handler.(*sentPacketHandler)
 	h.mtuAcked = acked
-	h.resetCongestionCapture(true)
+	// A smaller packet budget changes sampling, not the tuple. Preserve ECN
+	// validation and its ledger; only migration advances the path and fences it.
+	h.resetCongestionCapture(false)
 	h.resetForPacketSize(now, size)
 }
 
