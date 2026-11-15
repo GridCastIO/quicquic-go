@@ -11033,3 +11033,28 @@ Final head `38e22d9ebe5bcdfb2e048863a0d3350c2355ed8c`, base `40642102a8d83660d16
 ### Next
 
 [B10 — Replace private aggregation with paced byte-round-robin (#1383)](https://github.com/the-sarge/quic-go-fast/issues/1383) is the next frontier under the accepted [continuation #1374](https://github.com/the-sarge/quic-go-fast/issues/1374), which remains the live coordination view. B11 (#1384) and B12 (#1385) remain blocked in sequence. The coordinator owns successor and parent mirror reconciliation after this journal closes.
+
+---
+
+## Private paced byte-round-robin landed (#1383) - 2026-11-15 12:49 EST
+
+**Main:** `c48a2aad43e3`
+**Actor:** Codex
+
+### Summary
+
+Merged [PR #1389 — paced byte-round-robin for B10 (#1383)](https://github.com/the-sarge/quic-go-fast/pull/1389) as `c48a2aad43e3fd465d449a5b6723318ca4806977`, completing [B10 (#1383)](https://github.com/the-sarge/quic-go-fast/issues/1383) under [continuation #1374](https://github.com/the-sarge/quic-go-fast/issues/1374). The connection-owned private scheduler now uses pacing then served bytes, with arrival-ranking code and obsolete view inputs removed. Public aggregate remains refused; a copied private config selector is captured once at activation and remains scheduled for B12 (#1385) removal. The product merge includes B10 completion and B11 (#1384) as the sole next frontier.
+
+### Validation
+
+Standards and Spec preparation found no required changes. Initial full-panel RAS `20261115T171756-a530656f534c1341c2d20a44` led to finite test-oracle and metadata repairs, verified at final head `f4b931529cda7d20a74e4f0f7a4790d32129fc1d`; replacement `20261115T173246-fe49cb0109a8f2e62c50b9d4` had no immediate fixes or stop. Complete `go test ./...`, native Linux root/ACK suites, focused native race, vet, tidy and lint passed. The real two-connection fixture verifies payloads, actual STREAM/DATAGRAM carriage on both active paths, and endpoint joins within finite fixture bounds. [Exact-head certification for PR #1389](https://github.com/the-sarge/quic-go-fast/pull/1389#issuecomment-6898602111) and [hosted receipt for PR #1389](https://github.com/the-sarge/quic-go-fast/pull/1389#issuecomment-6898668410) retain the detailed evidence.
+
+All applicable hosted checks passed on the reviewed head, including the actual post-ready [16-case Reno peer job for PR #1389](https://github.com/the-sarge/quic-go-fast/actions/runs/43742671596/job/132899049193). It charged 16 instances and 154 host-seconds once to [program #646](https://github.com/the-sarge/quic-go-fast/issues/646), bringing recorded consumption to 337/420 instances and 13165.02220736435985/28800 seconds. No performance campaign ran in B10. Ordinary/native evidence carries under the [candidate-specific applicability receipt](audits/2026-11-15-bbr-b10-scheduler.md) with its original limitations and exact accepted cost exceptions.
+
+### Decisions
+
+The [accepted B10 contract](adr/2026-10-24-multipath-bbr-plan.md#b10--replace-private-aggregation-with-paced-byte-round-robin) owns pacing-first byte balancing and unchanged rebasing; no equal-share or bounded application-delay promise is made. Replacement review identified an inherited one-handoff-bound comment that overstates the inter-member ledger guarantee. It was independently deferred, revalidated at the merged scheduler, and handed to the coordinator for existing B11 (#1384) interpretation rather than a new policy, campaign or automatic follow-up issue; [disposition for PR #1389](https://github.com/the-sarge/quic-go-fast/pull/1389#issuecomment-6898587489).
+
+### Next
+
+[B11 (#1384)](https://github.com/the-sarge/quic-go-fast/issues/1384) is the committed next frontier for the existing fixed comparison; [B12 (#1385)](https://github.com/the-sarge/quic-go-fast/issues/1385) remains dependent on its valid positive or negative result. [Continuation #1374](https://github.com/the-sarge/quic-go-fast/issues/1374) is the live coordination view. Aggregate support and application adoption remain unclaimed.
