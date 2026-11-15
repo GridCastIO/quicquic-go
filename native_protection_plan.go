@@ -59,7 +59,7 @@ func newNativeProtectionPlan(buffer *packetBuffer) *nativeProtectionPlan {
 			p = &storage.plan
 			p.entries = storage.entries[:0]
 		}
-	case protocol.MaxLargePacketBufferSize:
+	case protocol.MaxLargePacketBufferSize, protocol.MaxCoalescedPacketBufferSize:
 		if cached := nativeProtectionLargePool.Get(); cached != nil {
 			p = cached.(*nativeProtectionPlan)
 		} else {
@@ -130,7 +130,7 @@ func (p *nativeProtectionPlan) validFor(buffer *packetBuffer) bool {
 	case 1:
 		return cap(buffer.Data) == protocol.MaxPacketBufferSize
 	case maxGSOSegments + 3:
-		return cap(buffer.Data) == protocol.MaxLargePacketBufferSize
+		return cap(buffer.Data) == protocol.MaxLargePacketBufferSize || cap(buffer.Data) == protocol.MaxCoalescedPacketBufferSize
 	default:
 		return false
 	}

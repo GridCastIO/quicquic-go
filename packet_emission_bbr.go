@@ -150,9 +150,9 @@ func (p *bbrSendPolicy) resetGeneration(generation uint64, now monotime.Time) {
 	p.supplyGap = congestion.SendUnknown
 }
 
-// sendBounded normally performs one owned handoff per opportunity. Ordinary
-// native sending can group a second buffer before the same call finishes its
-// request. Continuation returns through the connection's receive/timer/close loop.
+// sendBounded performs at most one owned handoff per opportunity. Continuation
+// goes through the connection loop, which services receive, timer and close
+// events on every pass.
 // ACK/PTO exemptions bypass only ordinary pacing, never local byte ownership.
 func (e *packetEmission) sendBounded(now monotime.Time, confirmed bool) (result emissionResult) {
 	e.inOpportunity = true
@@ -272,8 +272,7 @@ func (e *packetEmission) sendBounded(now monotime.Time, confirmed bool) (result 
 		result.retry = result.progress
 		return result
 	}
-	result = e.boundedDatagrams(now, size, plan.request)
-	return e.groupBoundedNative(now, size, result)
+	return e.boundedDatagrams(now, size, plan.request)
 }
 
 // boundedStep is the work a BBR opportunity does once its path turns are done.
@@ -337,7 +336,7 @@ func (e *packetEmission) planBounded(route *pathRoute, p *bbrSendPolicy, mode ac
 	}
 	limit, ceiling := size, size
 	if confirmed && e.boundedGSOOn(route) {
-		ceiling = min(p.budget(now), gsoPacketSendLimit(size))
+		ceiling = min(p.budget(now), e.boundedGSOSendLimit(route, size))
 		ceiling -= ceiling % size
 		limit = min(ceiling, allowance-allowance%size)
 	}
@@ -350,7 +349,11 @@ func (e *packetEmission) boundedDatagrams(now monotime.Time, size, limit protoco
 	buf := getPacketBufferForCeiling(packetCeiling(size))
 	if gso {
 		buf.Release()
-		buf = getGSOPacketBuffer(size)
+		if e.largeNativeBBRGSO(e.route, size) && limit > protocol.MaxLargePacketBufferSize {
+			buf = getCoalescedPacketBuffer()
+		} else {
+			buf = getGSOPacketBuffer(size)
+		}
 	}
 	if !e.reserveNativeBuffer(buf) {
 		buf.Release()
@@ -388,9 +391,9 @@ func (e *packetEmission) boundedDatagrams(now monotime.Time, size, limit protoco
 		}
 	}
 	e.handoff(buf, batch.gsoSize(), ecn, sendMetadata{}, &protection)
-	// An ordinary native opportunity can append one more bounded buffer. After
-	// the opportunity, the connection makes its next full pass (close, receive,
-	// timers, capacity) without a scheduling token, timer re-arm or select.
+	// Continue as Reno's receive-yield stop does: the connection makes its next
+	// full pass (close, receive, timers, capacity) without a scheduling token,
+	// timer re-arm or select between consecutive datagrams.
 	return emissionResult{progress: true, deadline: deadlineSendImmediately, supplyExhausted: exhausted}
 }
 

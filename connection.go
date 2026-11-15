@@ -3128,8 +3128,6 @@ func (c *Conn) emissionReceivePending() bool {
 	return !c.receivedPackets.Empty()
 }
 
-func (c *Conn) emissionClosePending() bool { return c.closeErr.Load() != nil }
-
 func (c *Conn) logPathProbe(p shortHeaderPacket, addr net.Addr, size protocol.ByteCount, checksum qlog.DatagramPayloadChecksum) {
 	if addr == nil {
 		c.logger.Debugf("sending path probe packet from %s", c.LocalAddr())

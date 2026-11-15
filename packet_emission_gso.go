@@ -14,6 +14,22 @@ import (
 // rejects more than 64 (UDP_MAX_SEGMENTS) with EINVAL.
 const maxGSOSegments = 64
 
+// The IPv4 UDP payload bound also keeps IPv6 segmented sends conservative.
+const maxGSOUDPPayload = 65507
+
+// largeNativeBBRGSO uses the current packet size, including a jumbo-configured
+// path still sending standard packets. Active jumbo paths keep their old tier.
+func (e *packetEmission) largeNativeBBRGSO(route *pathRoute, size protocol.ByteCount) bool {
+	return e.bbr != nil && e.local != nil && e.queue == e.local && e.pathCredit == nil && route == nil && size <= protocol.MaxPacketBufferSize
+}
+
+func (e *packetEmission) boundedGSOSendLimit(route *pathRoute, size protocol.ByteCount) protocol.ByteCount {
+	if e.largeNativeBBRGSO(route, size) {
+		return maxGSOUDPPayload
+	}
+	return gsoPacketSendLimit(size)
+}
+
 // gsoPacketBufferSize keeps standard-size batches at the existing limit.
 // Only Linux jumbo segments use the existing 64 KiB tier.
 func gsoPacketBufferSize(size protocol.ByteCount) protocol.ByteCount {
@@ -29,7 +45,7 @@ func gsoPacketBufferSize(size protocol.ByteCount) protocol.ByteCount {
 func gsoPacketSendLimit(size protocol.ByteCount) protocol.ByteCount {
 	capacity := gsoPacketBufferSize(size)
 	if capacity == protocol.MaxCoalescedPacketBufferSize {
-		return 65507
+		return maxGSOUDPPayload
 	}
 	return capacity
 }
