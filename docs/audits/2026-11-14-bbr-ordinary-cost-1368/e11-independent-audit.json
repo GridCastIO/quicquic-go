@@ -1,0 +1,234 @@
+{
+  "source_pin": "555a7275be114ce638601e63d8faa4be961f8fc0",
+  "runtime_source": "e89a22c0889fc87a65b93be4327514aea997c0c1",
+  "binary_sha256": "dcd494b72f446c32f38035105b5d480db0492b48f4500baf23371aa626d15379",
+  "raw_copies_roles_rusage_series_driver_judgment_identity_accounting_checks": "passed",
+  "observations": [
+    {
+      "profile": "unregistered",
+      "useful_bytes": 65184333824,
+      "goodput_gbit_s": 8.691244509866667,
+      "server_window_cpu_s": 82.730473,
+      "client_window_cpu_s": 65.697652,
+      "server_cpu_ns_per_useful_byte": 1.2691772416264189,
+      "foreign_cpu_s": 0.08045163200000616,
+      "foreign_limit_at_charged_occupied_s": 3.852843195432797,
+      "foreign_limit_multiple": 0.020881107254864254,
+      "occupied_s": 77.05686390865594,
+      "rss_kb_at_20s": 23768,
+      "rss_kb_end": 24128,
+      "joined": false,
+      "control_p99_us": 278.527,
+      "send_p99_us": 188.415,
+      "flood": {
+        "sent": 600000,
+        "resets": 407109
+      },
+      "quiet": {
+        "waited_s": 0.0,
+        "fixture_busy_share": 0.000175022,
+        "named_process_present": false
+      }
+    },
+    {
+      "profile": "opted-in",
+      "useful_bytes": 62481498112,
+      "goodput_gbit_s": 8.330866414933334,
+      "server_window_cpu_s": 91.362211,
+      "client_window_cpu_s": 63.132932,
+      "server_cpu_ns_per_useful_byte": 1.4622282397299509,
+      "foreign_cpu_s": 0.12436219599996434,
+      "foreign_limit_at_charged_occupied_s": 3.8529552625492216,
+      "foreign_limit_multiple": 0.03227709317280857,
+      "occupied_s": 77.05910525098443,
+      "rss_kb_at_20s": 26760,
+      "rss_kb_end": 26908,
+      "joined": true,
+      "control_p99_us": 294.911,
+      "send_p99_us": 196.607,
+      "flood": {
+        "sent": 600000,
+        "resets": 444687
+      },
+      "quiet": {
+        "waited_s": 0.0,
+        "fixture_busy_share": 0.0001272975,
+        "named_process_present": false
+      }
+    }
+  ],
+  "diagnostic": {
+    "cell": "stateless-pressure",
+    "passed": false,
+    "failures": [
+      "CPU per useful byte ratio 1.152 above 1.1"
+    ],
+    "goodput_ratio": {
+      "median": 0.9585355015010547,
+      "range": [
+        0.9585355015010547,
+        0.9585355015010547
+      ],
+      "rounds": [
+        0.9585355015010547
+      ]
+    },
+    "cpu_per_useful_byte_ratio": {
+      "median": 1.1521072012417604,
+      "range": [
+        1.1521072012417604,
+        1.1521072012417604
+      ],
+      "rounds": [
+        1.1521072012417604
+      ]
+    },
+    "control_p99_margin_us": {
+      "median": -983.616,
+      "range": [
+        -983.616,
+        -983.616
+      ],
+      "rounds": [
+        -983.616
+      ]
+    },
+    "application_send_call_p99_margin_us": {
+      "median": -991.808,
+      "range": [
+        -991.808,
+        -991.808
+      ],
+      "rounds": [
+        -991.808
+      ]
+    },
+    "control_p99_us": {
+      "unregistered": [
+        278.527
+      ],
+      "opted-in": [
+        294.911
+      ]
+    },
+    "application_send_call_p99_us": {
+      "unregistered": [
+        188.415
+      ],
+      "opted-in": [
+        196.607
+      ]
+    },
+    "empty_seconds": {
+      "unregistered": [
+        0
+      ],
+      "opted-in": [
+        0
+      ]
+    },
+    "background_bytes": {
+      "unregistered": [
+        0
+      ],
+      "opted-in": [
+        0
+      ]
+    },
+    "stateless_reset_share": {
+      "unregistered": [
+        0.678515
+      ],
+      "opted-in": [
+        0.741145
+      ]
+    },
+    "stateless_offered_packets": {
+      "unregistered": [
+        600000
+      ],
+      "opted-in": [
+        600000
+      ]
+    },
+    "stateless_resets_received": {
+      "unregistered": [
+        407109
+      ],
+      "opted-in": [
+        444687
+      ]
+    },
+    "peak_rss_kb": {
+      "unregistered": [
+        24128
+      ],
+      "opted-in": [
+        26908
+      ]
+    },
+    "packets_lost": {
+      "unregistered": [
+        0
+      ],
+      "opted-in": [
+        0
+      ]
+    },
+    "datagram_drops": {
+      "unregistered": [
+        0
+      ],
+      "opted-in": [
+        0
+      ]
+    },
+    "write_errors": {
+      "unregistered": [
+        0
+      ],
+      "opted-in": [
+        0
+      ]
+    }
+  },
+  "timing_valid": true,
+  "reason": "Validity follows unchanged contamination and role checks. A valid single diagnostic pair still does not establish repeatability or satisfy final qualification.",
+  "comparison_to_E09_valid_pair_descriptive_only": [
+    {
+      "profile": "unregistered",
+      "old_goodput_gbit_s": 8.7844043776,
+      "new_goodput_gbit_s": 8.691244509866667,
+      "goodput_change_pct": -1.0605143357344415,
+      "old_server_cpu_s": 82.347343,
+      "new_server_cpu_s": 82.730473,
+      "server_cpu_change_pct": 0.46526091315417517,
+      "old_cpu_ns_per_byte": 1.2499021289742922,
+      "new_cpu_ns_per_byte": 1.2691772416264189,
+      "cpu_per_byte_change_pct": 1.542129756026922,
+      "both_compared_pairs_timing_valid": true
+    },
+    {
+      "profile": "opted-in",
+      "old_goodput_gbit_s": 8.5150138368,
+      "new_goodput_gbit_s": 8.330866414933334,
+      "goodput_change_pct": -2.1626203479649275,
+      "old_server_cpu_s": 92.346653,
+      "new_server_cpu_s": 91.362211,
+      "server_cpu_change_pct": -1.066028890077908,
+      "old_cpu_ns_per_byte": 1.4460207937012506,
+      "new_cpu_ns_per_byte": 1.4622282397299509,
+      "cpu_per_byte_change_pct": 1.1208307722336164,
+      "both_compared_pairs_timing_valid": true
+    }
+  ],
+  "charge": {
+    "instances": 2,
+    "host_seconds": "154.11596915964037",
+    "cumulative_instances": 249,
+    "cumulative_host_seconds": "11393.61225322514615",
+    "remaining_instances": 171,
+    "remaining_host_seconds": "17406.38774677485385"
+  },
+  "limitations": "Foreign CPU is checked against stored driver accounting and source formula; raw schedstat/softirq endpoints are not saved, so it is not reconstructed independently. Foreign limit shown uses slightly longer final ledger occupied time; classification must also respect the stored original contamination flag, computed before the final ledger write. The exact inner occupied interval is not separately saved."
+}
