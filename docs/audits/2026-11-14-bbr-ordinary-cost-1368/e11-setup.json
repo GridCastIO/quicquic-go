@@ -1,0 +1,53 @@
+{
+  "source": "e89a22c0889fc87a65b93be4327514aea997c0c1",
+  "instances": 0,
+  "commands": [
+    [
+      "tar",
+      "-xzf",
+      "/tmp/qgf-bbr-cost-1368-e11.tar.gz",
+      "-C",
+      "/tmp/qgf-bbr-cost-1368/e11-source"
+    ],
+    [
+      "go",
+      "test",
+      "-c",
+      "-tags",
+      "ordinarycost",
+      "-o",
+      "/tmp/qgf-bbr-cost-1368/e11.test",
+      "."
+    ],
+    [
+      "/tmp/qgf-bbr-cost-1368/e11.test",
+      "-test.run",
+      "Test(NativeOrdinaryAccepted|NativeOrdinaryBBR|BBRNative|BBRUnregisteredCredit|LocalSendCredit|OrdinaryCostController)",
+      "-test.v"
+    ],
+    [
+      "go",
+      "test",
+      "./internal/ackhandler",
+      "-run",
+      "Test(LocalBBR|LocalRenoMemberStill|LocalAcceptedSpan)",
+      "-count=1",
+      "-v"
+    ]
+  ],
+  "started_utc": "2026-11-15T03:59:36.682807+00:00",
+  "result": "passed",
+  "environment": {
+    "CGO_ENABLED": "1",
+    "GOAMD64": "v1",
+    "GOARCH": "amd64",
+    "GOEXPERIMENT": "",
+    "GOFLAGS": "",
+    "GOOS": "linux",
+    "GOVERSION": "go1.27.4"
+  },
+  "binary_sha256": "dcd494b72f446c32f38035105b5d480db0492b48f4500baf23371aa626d15379",
+  "archive_sha256": "8d11bb6d5941a395707e04e0452f45fa8a3b7d62db12c197dd1876f52785143c",
+  "elapsed_host_seconds": 8.15337763,
+  "ended_utc": "2026-11-15T03:59:44.836228+00:00"
+}

@@ -1,0 +1,69 @@
+{
+  "controller": "bbrv3",
+  "go": "go1.27.4",
+  "granted": true,
+  "gso_capable": true,
+  "window_cpu_s": 95.090052,
+  "window_rusage": {
+    "start": {
+      "user_cpu_ns": 13179844000,
+      "system_cpu_ns": 3416793000,
+      "voluntary_context_switches": 763362,
+      "involuntary_context_switches": 4545
+    },
+    "end": {
+      "user_cpu_ns": 89430224000,
+      "system_cpu_ns": 22256465000,
+      "voluntary_context_switches": 5287000,
+      "involuntary_context_switches": 31572
+    },
+    "delta": {
+      "user_cpu_ns": 76250380000,
+      "system_cpu_ns": 18839672000,
+      "voluntary_context_switches": 4523638,
+      "involuntary_context_switches": 27027
+    }
+  },
+  "rss_kb_at_20s": 30744,
+  "rss_kb_end": 30928,
+  "heap_inuse_end": 12132352,
+  "write_errors": 0,
+  "joined": true,
+  "application_send_call": {
+    "background": {
+      "count": 38400,
+      "p50_us": 122.879,
+      "p99_us": 491.519,
+      "max_us": 1721.21
+    },
+    "ordinary": {
+      "count": 933857,
+      "p50_us": 57.343,
+      "p99_us": 196.607,
+      "max_us": 564.92
+    }
+  },
+  "application_send_call_boundary": "elapsed Stream.Write / SendDatagram call time; neither native return nor peer delivery",
+  "connections": [
+    {
+      "controller": "bbrv3",
+      "label": "ordinary",
+      "multipath_negotiated": false,
+      "packets_sent": 51825252,
+      "packets_lost": 0,
+      "bytes_sent": 73969728397,
+      "close_cause": "",
+      "timeout_close": false
+    },
+    {
+      "controller": "bbrv3",
+      "label": "background",
+      "multipath_negotiated": true,
+      "packets_sent": 2105854,
+      "packets_lost": 0,
+      "bytes_sent": 3002428749,
+      "close_cause": "",
+      "timeout_close": false
+    }
+  ]
+}

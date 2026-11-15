@@ -1,0 +1,12 @@
+{
+  "source": "4ac6188557144a2a0e57436f173f40b62b92ed2c",
+  "runtime_and_tests_equal_to": "8c7605a1097414decf8efbddadfdf2854bd9e284",
+  "control": "eab1ff6179644fba867bd14c71ba3bd96eee5c91",
+  "archive_sha256": "7065d48344e5f3911e1452b44016dadbca42b2d4f3fb2670fb99b773cbfed423",
+  "binary_sha256": "b80dd7dadb74e2b1eea3cc263fb86e3c217d17ce0b28da8081f6edd90fb4d205",
+  "build_command": "go test -c -tags ordinarycost -o /tmp/qgf-bbr-cost-1368/e06.test .",
+  "native_unit_command": "/tmp/qgf-bbr-cost-1368/e06.test -test.run \"Test(BBRNativeLarge|NativeProtectionCoalesced|OrdinaryCostController)\" -test.v",
+  "native_unit_result": "passed; see e06-native-unit.log; deterministic mechanism/configuration tests, not operational performance observations",
+  "readiness_command": "python3 docs/audits/2026-11-14-bbr-ordinary-cost-1368/observe_readiness.py --output /tmp/qgf-bbr-cost-1368/e06-readiness",
+  "measurement_command": "python3 interop/multipath/ordinary_cost.py --candidate 4ac6188557144a2a0e57436f173f40b62b92ed2c --binary /tmp/qgf-bbr-cost-1368/e06.test --output /tmp/qgf-bbr-cost-1368/e06-timing --remaining-instances 189 --remaining-host-seconds 18860.82974798317 --timeout-seconds 135 --controller bbrv3 --diagnostic-cell stateless-pressure"
+}

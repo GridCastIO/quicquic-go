@@ -1,0 +1,300 @@
+commit d66c51d35e0f295345316e843c7bb40e18ca1e3b
+Author: Joshua Sargent <the-sarge@the-sarge.com>
+Date:   Sat Nov 14 20:14:28 2026 -0500
+
+    Keep task-local RAS review worktrees in task/repository layout
+
+diff --git a/internal/cleanup/worktree_root_test.go b/internal/cleanup/worktree_root_test.go
+index 310d0efb..1644f90b 100644
+--- a/internal/cleanup/worktree_root_test.go
++++ b/internal/cleanup/worktree_root_test.go
+@@ -53,6 +53,16 @@ func TestCleanupUsesRecordedRootAndPreservesActiveAndOperatorWorktrees(t *testin
+ 	if _, err := os.Stat(done); !os.IsNotExist(err) {
+ 		t.Fatalf("completed worktree remains: %v", err)
+ 	}
++	for _, path := range []string{done + ".reservation", filepath.Dir(done)} {
++		if _, err := os.Stat(path); !os.IsNotExist(err) {
++			t.Fatalf("completed task storage remains %s: %v", path, err)
++		}
++	}
++	for _, path := range []string{root, filepath.Dir(active)} {
++		if _, err := os.Stat(path); err != nil {
++			t.Fatalf("shared or active task storage removed %s: %v", path, err)
++		}
++	}
+ }
+ 
+ func TestCleanupRecordedImplementationAndResolution(t *testing.T) {
+diff --git a/internal/worktreeplacement/placement.go b/internal/worktreeplacement/placement.go
+index d81a7900..3f7e8c3d 100644
+--- a/internal/worktreeplacement/placement.go
++++ b/internal/worktreeplacement/placement.go
+@@ -79,6 +79,18 @@ func preparePath(ctx context.Context, st *store.Store, spec Spec) (string, error
+ 		repoLabel = filepath.Base(spec.RepoIdentity)
+ 	}
+ 	parent := filepath.Join(root, component(repoLabel, identity), component(spec.Kind+"-"+spec.ExecutionID, spec.Kind+":"+spec.ExecutionID))
++	leaf := component(spec.Slot, spec.Slot)
++	if spec.Kind == "review" || spec.Kind == "verify" {
++		// Task-local compatibility layout: keep the existing collision identity
++		// in one bounded task directory and use the repository name as its leaf.
++		// OwnerID remains a separately checked authority, not a path namespace.
++		if repoLabel == "" || repoLabel == "." || repoLabel == ".." || filepath.IsAbs(repoLabel) {
++			return "", fmt.Errorf("invalid worktree repository leaf %q", repoLabel)
++		}
++		taskIdentity := fmt.Sprintf("%q", []string{identity, spec.Kind, spec.ExecutionID, spec.Slot})
++		parent = filepath.Join(root, component("ras-"+spec.Kind+"-"+spec.Slot, taskIdentity))
++		leaf = repoLabel
++	}
+ 	for _, dir := range []string{filepath.Dir(parent), parent} {
+ 		if err := os.Mkdir(dir, 0o750); err != nil && !errors.Is(err, os.ErrExist) {
+ 			return "", fmt.Errorf("create worktree destination %s: %w", dir, err)
+@@ -88,7 +100,7 @@ func preparePath(ctx context.Context, st *store.Store, spec Spec) (string, error
+ 			return "", fmt.Errorf("unsafe worktree destination %s", dir)
+ 		}
+ 	}
+-	path := filepath.Join(parent, component(spec.Slot, spec.Slot))
++	path := filepath.Join(parent, leaf)
+ 	if _, err := os.Lstat(path); !errors.Is(err, os.ErrNotExist) {
+ 		return "", fmt.Errorf("worktree destination already exists or cannot be inspected: %s", path)
+ 	}
+diff --git a/internal/worktreeplacement/placement_test.go b/internal/worktreeplacement/placement_test.go
+index 581edcbc..2f2ff9af 100644
+--- a/internal/worktreeplacement/placement_test.go
++++ b/internal/worktreeplacement/placement_test.go
+@@ -54,7 +54,7 @@ func TestCreatedLocationSurvivesRootChange(t *testing.T) {
+ 	if err != nil {
+ 		t.Fatal(err)
+ 	}
+-	if filepath.Dir(filepath.Dir(filepath.Dir(path))) != canonicalRoot {
++	if filepath.Dir(filepath.Dir(path)) != canonicalRoot || filepath.Base(path) != "same-name" {
+ 		t.Fatalf("outside configured layout: %s", path)
+ 	}
+ 	if err := gitutil.AddWorktree(t.Context(), repo, path, "HEAD"); err != nil {
+@@ -127,7 +127,7 @@ func TestPlacementSeparatesRepositoriesExecutionsAndAgentNames(t *testing.T) {
+ 		}()
+ 	}
+ 	seen := map[string]bool{}
+-	groups := map[string]bool{}
++	tasks := map[string]bool{}
+ 	for range specs {
+ 		r := <-results
+ 		if r.err != nil {
+@@ -137,15 +137,26 @@ func TestPlacementSeparatesRepositoriesExecutionsAndAgentNames(t *testing.T) {
+ 			t.Fatalf("reused path %s", r.path)
+ 		}
+ 		seen[r.path] = true
+-		groups[filepath.Dir(filepath.Dir(r.path))] = true
++		tasks[filepath.Dir(r.path)] = true
+ 	}
+-	if len(groups) != 2 {
+-		t.Fatalf("repository groups=%v", groups)
++	if len(tasks) != len(specs) {
++		t.Fatalf("task directories=%v", tasks)
+ 	}
+ 	// A different history store cannot reserve an already allocated filesystem destination.
+ 	if _, err := preparePath(t.Context(), database(t), specs[0]); err == nil {
+ 		t.Fatal("cross-store collision accepted")
+ 	}
++	otherOwner := specs[0]
++	otherOwner.OwnerID = "other-owner"
++	if _, err := preparePath(t.Context(), database(t), otherOwner); err == nil {
++		t.Fatal("owner identity bypassed cross-store collision")
++	}
++	otherRepo := specs[0]
++	otherRepo.SourceRepo = repoB
++	path, err := preparePath(t.Context(), database(t), otherRepo)
++	if err != nil || seen[path] {
++		t.Fatalf("different repository with the same execution/slot collided: %s %v", path, err)
++	}
+ }
+ 
+ func TestUnavailableRootDoesNotCreateFallback(t *testing.T) {
+@@ -197,7 +208,7 @@ func TestRecordedOwnershipRejectsForeignSourceAndOperatorReplacement(t *testing.
+ 	}
+ }
+ 
+-func TestLinkedOperatorCheckoutsShareRepositoryGroup(t *testing.T) {
++func TestLinkedOperatorCheckoutsShareRepositoryIdentity(t *testing.T) {
+ 	st, repo, root := database(t), repository(t), t.TempDir()
+ 	linked := filepath.Join(t.TempDir(), "different-checkout-name")
+ 	cmd := exec.CommandContext(t.Context(), "git", "worktree", "add", "--detach", linked, "HEAD")
+@@ -205,17 +216,20 @@ func TestLinkedOperatorCheckoutsShareRepositoryGroup(t *testing.T) {
+ 	if out, err := cmd.CombinedOutput(); err != nil {
+ 		t.Fatalf("linked checkout: %v %s", err, out)
+ 	}
+-	var groups []string
+ 	for i, source := range []string{repo, linked} {
+ 		id := []string{"main-run", "linked-run"}[i]
+ 		path, err := preparePath(t.Context(), st, worktreeplacement.Spec{Root: root, SourceRepo: source, Kind: "review", OwnerID: id, ExecutionID: id, Slot: "agent"})
+ 		if err != nil {
+ 			t.Fatal(err)
+ 		}
+-		groups = append(groups, filepath.Dir(filepath.Dir(path)))
++		if filepath.Base(path) != "same-name" {
++			t.Fatalf("linked checkout changed repository leaf: %s", path)
++		}
+ 	}
+-	if groups[0] != groups[1] {
+-		t.Fatalf("same Git repository received different groups: %s and %s", groups[0], groups[1])
++	// Same repository, execution and slot remain one collision identity even
++	// when a different operator checkout and history store request the path.
++	if _, err := preparePath(t.Context(), database(t), worktreeplacement.Spec{Root: root, SourceRepo: linked, Kind: "review", OwnerID: "main-run", ExecutionID: "main-run", Slot: "agent"}); err == nil {
++		t.Fatal("linked checkout bypassed the existing reservation")
+ 	}
+ }
+ 
+@@ -262,12 +276,8 @@ func TestFailedDurableReservationCanBeRetried(t *testing.T) {
+ 	if err != nil {
+ 		t.Fatal(err)
+ 	}
+-	if len(entries) != 1 {
+-		t.Fatalf("shared group not retained: %v", entries)
+-	}
+-	children, err := os.ReadDir(filepath.Join(root, entries[0].Name()))
+-	if err != nil || len(children) != 0 {
+-		t.Fatalf("unrecorded reservation retained: %v %v", children, err)
++	if len(entries) != 0 {
++		t.Fatalf("unrecorded task reservation retained: %v", entries)
+ 	}
+ 	if _, err := preparePath(t.Context(), st, spec); err != nil {
+ 		t.Fatalf("retry: %v", err)
+diff --git a/internal/worktreeplacement/review_layout_test.go b/internal/worktreeplacement/review_layout_test.go
+new file mode 100644
+index 00000000..13ac7579
+--- /dev/null
++++ b/internal/worktreeplacement/review_layout_test.go
+@@ -0,0 +1,134 @@
++package worktreeplacement_test
++
++import (
++	"os"
++	"path/filepath"
++	"strings"
++	"testing"
++
++	gitutil "github.com/the-sarge/ras/internal/git"
++	"github.com/the-sarge/ras/internal/store"
++	"github.com/the-sarge/ras/internal/worktreeplacement"
++)
++
++func TestConfiguredReviewAndVerifyUseTaskRepositoryLayout(t *testing.T) {
++	st, repo, root := database(t), repository(t), t.TempDir()
++	canonical, err := filepath.EvalSymlinks(root)
++	if err != nil {
++		t.Fatal(err)
++	}
++	for _, kind := range []string{"review", "verify", "implement", "review-loop", "consider-resolve"} {
++		t.Run(kind, func(t *testing.T) {
++			spec := worktreeplacement.Spec{Root: root, SourceRepo: repo, RepoIdentity: "the-sarge/quic-go-fast", Kind: kind, OwnerID: "owner", ExecutionID: "execution", Slot: "agent"}
++			path, err := preparePath(t.Context(), st, spec)
++			if err != nil {
++				t.Fatal(err)
++			}
++			rel, err := filepath.Rel(canonical, path)
++			if err != nil {
++				t.Fatal(err)
++			}
++			parts := strings.Split(rel, string(filepath.Separator))
++			if kind == "review" || kind == "verify" {
++				if len(parts) != 2 || parts[1] != "quic-go-fast" || !strings.HasPrefix(parts[0], "ras-"+kind+"-agent-") || len(parts[0]) > 65 {
++					t.Fatalf("expected task/repository layout, got %s", rel)
++				}
++			} else if len(parts) != 3 || !strings.HasPrefix(parts[0], "quic-go-fast-") || !strings.HasPrefix(parts[2], "agent-") {
++				t.Fatalf("non-review layout changed: %s", rel)
++			}
++		})
++	}
++}
++
++func TestReviewLayoutPreservesRecordedAndLegacyPaths(t *testing.T) {
++	st, repo, root := database(t), repository(t), t.TempDir()
++	canonical, err := filepath.EvalSymlinks(root)
++	if err != nil {
++		t.Fatal(err)
++	}
++	oldPath := filepath.Join(canonical, "old-repository-group", "old-execution", "old-agent")
++	spec := worktreeplacement.Spec{SourceRepo: repo, Kind: "review", OwnerID: "owner", ExecutionID: "old", Slot: "agent", LegacyPath: oldPath}
++	if path, err := preparePath(t.Context(), st, spec); err != nil || path != oldPath {
++		t.Fatalf("legacy path = %s, %v", path, err)
++	}
++	if _, err := os.Stat(filepath.Dir(oldPath)); !os.IsNotExist(err) {
++		t.Fatalf("legacy preparation materialized storage: %v", err)
++	}
++	common, err := gitutil.CommonDir(t.Context(), repo)
++	if err != nil {
++		t.Fatal(err)
++	}
++	common, err = filepath.EvalSymlinks(common)
++	if err != nil {
++		t.Fatal(err)
++	}
++	if err := st.ReserveWorktreeLocation(store.WorktreeLocation{Kind: spec.Kind, OwnerID: spec.OwnerID, ExecutionID: spec.ExecutionID, Slot: spec.Slot, Path: oldPath, SourceRepo: repo, CommonDir: common}); err != nil {
++		t.Fatal(err)
++	}
++	if err := gitutil.AddWorktree(t.Context(), repo, oldPath, "HEAD"); err != nil {
++		t.Fatal(err)
++	}
++	if err := worktreeplacement.Created(t.Context(), st, oldPath); err != nil {
++		t.Fatal(err)
++	}
++	spec.Root = filepath.Join(canonical, "unavailable-new-root")
++	if path, err := preparePath(t.Context(), st, spec); err != nil || path != oldPath {
++		t.Fatalf("recorded old layout = %s, %v", path, err)
++	}
++	otherOwner := spec
++	otherOwner.OwnerID = "different-owner"
++	if _, err := preparePath(t.Context(), st, otherOwner); err == nil {
++		t.Fatal("recorded owner mismatch accepted")
++	}
++	if _, err := worktreeplacement.Remove(t.Context(), st, repo, oldPath); err != nil {
++		t.Fatal(err)
++	}
++	if err := worktreeplacement.CanReconcileMissing(t.Context(), st, repo, oldPath); err != nil {
++		t.Fatalf("removed old layout no longer reconciles: %v", err)
++	}
++}
++
++func TestReviewTaskCleanupPreservesUnownedSibling(t *testing.T) {
++	for _, kind := range []string{"review", "verify"} {
++		t.Run(kind, func(t *testing.T) {
++			st, repo := database(t), repository(t)
++			spec := worktreeplacement.Spec{Root: t.TempDir(), SourceRepo: repo, Kind: kind, OwnerID: "owner", ExecutionID: "execution", Slot: "agent"}
++			path, err := preparePath(t.Context(), st, spec)
++			if err != nil {
++				t.Fatal(err)
++			}
++			if err := gitutil.AddWorktree(t.Context(), repo, path, "HEAD"); err != nil {
++				t.Fatal(err)
++			}
++			if err := worktreeplacement.Created(t.Context(), st, path); err != nil {
++				t.Fatal(err)
++			}
++			sibling := filepath.Join(filepath.Dir(path), "operator-note")
++			if err := os.WriteFile(sibling, []byte("keep"), 0o600); err != nil {
++				t.Fatal(err)
++			}
++			if _, err := worktreeplacement.Remove(t.Context(), st, repo, path); err != nil {
++				t.Fatal(err)
++			}
++			if body, err := os.ReadFile(sibling); err != nil || string(body) != "keep" {
++				t.Fatalf("unowned sibling changed: %q %v", body, err)
++			}
++			for _, removed := range []string{path, path + ".reservation"} {
++				if _, err := os.Stat(removed); !os.IsNotExist(err) {
++					t.Fatalf("owned path remains: %s %v", removed, err)
++				}
++			}
++		})
++	}
++}
++
++func TestReviewLayoutRejectsNonLeafRepositoryName(t *testing.T) {
++	for _, identity := range []string{".", "..", string(filepath.Separator)} {
++		t.Run(identity, func(t *testing.T) {
++			spec := worktreeplacement.Spec{Root: t.TempDir(), SourceRepo: repository(t), RepoIdentity: identity, Kind: "review", OwnerID: "owner", ExecutionID: "execution", Slot: "agent"}
++			if _, err := preparePath(t.Context(), database(t), spec); err == nil {
++				t.Fatal("non-leaf repository name accepted")
++			}
++		})
++	}
++}

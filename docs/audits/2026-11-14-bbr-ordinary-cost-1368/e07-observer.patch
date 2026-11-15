@@ -1,0 +1,1370 @@
+diff --git a/bbr_controller.go b/bbr_controller.go
+index d95220b9c..8a9cc83fd 100644
+--- a/bbr_controller.go
++++ b/bbr_controller.go
+@@ -18,6 +18,12 @@ func (e *packetEmission) enableBBR(now monotime.Time, ceiling protocol.ByteCount
+ 	b := ackhandler.EnableBBRWithPacketCeiling(*e.recovery, size, ceiling, func() protocol.ByteCount {
+ 		return e.bbrPendingBytes(e.bbr)
+ 	})
++	ackhandler.ObserveBBRProgress(*e.recovery, func() (bool, bool) {
++		if local, ok := e.local.(interface{ bbrProgressHint() (bool, bool) }); ok {
++			return local.bbrProgressHint()
++		}
++		return false, false
++	})
+ 	if f, ok := e.packer.framer.(*framer); ok {
+ 		f.enableDeliveryObservations()
+ 	}
+diff --git a/bbr_diagnostics.go b/bbr_diagnostics.go
+index 73f5da83d..74c1b859a 100644
+--- a/bbr_diagnostics.go
++++ b/bbr_diagnostics.go
+@@ -11,6 +11,7 @@ import (
+ // Trace at most one snapshot per second of send opportunities. Disabled tracing
+ // does not format snapshots or allocate per-packet diagnostics.
+ func (c *Conn) traceBBR(now monotime.Time) {
++	c.observeBBR(now)
+ 	p := c.emission.bbr
+ 	if c.qlogger == nil || p == nil || p.controller == nil || (!p.lastTrace.IsZero() && now.Sub(p.lastTrace) < time.Second) {
+ 		return
+diff --git a/bbr_native_large_test.go b/bbr_native_large_test.go
+index 6a37a0473..67b26f907 100644
+--- a/bbr_native_large_test.go
++++ b/bbr_native_large_test.go
+@@ -130,6 +130,12 @@ func TestBBRNativeLargeMemberOutcomes(t *testing.T) {
+ 				result := c.emission.send(now, true)
+ 				require.NoError(t, result.err)
+ 				require.True(t, result.progress)
++				require.EqualValues(t, 1, c.emission.observer.Handoffs)
++				require.EqualValues(t, 1, c.emission.observer.GSOHandoffs)
++				require.Zero(t, c.emission.observer.ScalarHandoffs)
++				require.Equal(t, [7]uint64{0, 0, 0, 0, 0, 1}, c.emission.observer.HandoffSizeBuckets)
++				require.EqualValues(t, 64800, c.emission.observer.HandoffBytes)
++				require.EqualValues(t, 54, c.emission.observer.HandoffDatagrams)
+ 				require.Nil(t, sender.pending)
+ 				record := largeBBRRecord(t, sender)
+ 				require.Len(t, record.members, 1)
+@@ -169,6 +175,12 @@ func TestBBRNativeLargeMemberOutcomes(t *testing.T) {
+ 				require.Nil(t, protection.buffer)
+ 				require.Zero(t, c.emission.bbr.credit.pending)
+ 				require.NoError(t, sender.consume())
++				observation := sender.bbrNativeObservation()
++				require.EqualValues(t, 1, observation.ConsumeClockReads, "one read per result, independent of GSO fallback or packet count")
++				require.EqualValues(t, 1, observation.Members)
++				require.EqualValues(t, 64800, observation.MemberBytes)
++				require.NoError(t, sender.consume())
++				require.Equal(t, observation, sender.bbrNativeObservation(), "repeated consumption does not recount the large member")
+ 				for _, packet := range tokens {
+ 					require.Error(t, sender.recovery.CompleteLocalPacket(packet.token, ackhandler.LocalPacketAccepted, monotime.Now()), "every registration has already settled")
+ 				}
+diff --git a/bbr_observer.go b/bbr_observer.go
+new file mode 100644
+index 000000000..a95643265
+--- /dev/null
++++ b/bbr_observer.go
+@@ -0,0 +1,84 @@
++package quic
++
++import (
++	"time"
++
++	"github.com/quic-go/quic-go/internal/ackhandler"
++	"github.com/quic-go/quic-go/internal/congestion"
++	"github.com/quic-go/quic-go/internal/monotime"
++)
++
++const bbrObservationSnapshots = 128
++
++type bbrConnectionSnapshot struct {
++	MonoNS     int64                             `json:"mono_ns"`
++	UnixNS     int64                             `json:"unix_ns"`
++	PacingRate uint64                            `json:"effective_pacing_rate"`
++	Quantum    int64                             `json:"quantum"`
++	Pending    int64                             `json:"pending_bytes"`
++	Current    int64                             `json:"current_pending_bytes"`
++	Model      congestion.BBRModelObservation    `json:"model"`
++	Recovery   ackhandler.BBRRecoveryObservation `json:"recovery"`
++	Emission   bbrEmissionObservation            `json:"emission"`
++	Native     BBRNativeObservation              `json:"native"`
++}
++
++// E07 measurement-only (ported from E04) storage. The connection owns it until Context completion.
++// Cadence follows send opportunities: inactive intervals produce no observations.
++// Snapshots are cumulative lifetime evidence, not exact fixture-window counts.
++type bbrConnectionObservation struct {
++	Snapshots     [bbrObservationSnapshots]bbrConnectionSnapshot `json:"snapshots"`
++	SnapshotCount int                                            `json:"snapshot_count"`
++	Overflow      uint64                                         `json:"snapshot_overflow"`
++	Final         bbrConnectionSnapshot                          `json:"final_before_teardown"`
++	FinalRecorded bool                                           `json:"final_recorded"`
++	last          monotime.Time
++}
++
++func (c *Conn) bbrObservationSnapshot(now monotime.Time) bbrConnectionSnapshot {
++	e := &c.emission
++	p := e.bbr
++	r := bbrConnectionSnapshot{MonoNS: int64(now), UnixNS: now.ToTime().UnixNano(), PacingRate: p.rate, Quantum: int64(p.quantum), Model: p.controller.Observation(), Emission: e.observer}
++	p.credit.mu.Lock()
++	r.Pending, r.Current = int64(p.credit.pending), int64(p.credit.current)
++	p.credit.mu.Unlock()
++	if h, ok := c.sentPacketHandler.(interface {
++		BBRObservation() ackhandler.BBRRecoveryObservation
++	}); ok {
++		r.Recovery = h.BBRObservation()
++	}
++	if local, ok := e.local.(interface{ bbrNativeObservation() BBRNativeObservation }); ok {
++		r.Native = local.bbrNativeObservation()
++	}
++	return r
++}
++
++func (c *Conn) observeBBR(now monotime.Time) {
++	p := c.emission.bbr
++	if p == nil || p.controller == nil {
++		return
++	}
++	if c.bbrObservation == nil {
++		c.bbrObservation = new(bbrConnectionObservation)
++	}
++	o := c.bbrObservation
++	if o.FinalRecorded || (!o.last.IsZero() && now.Sub(o.last) < time.Second) {
++		return
++	}
++	o.last = now
++	if o.SnapshotCount == len(o.Snapshots) {
++		o.Overflow++
++		return
++	}
++	o.Snapshots[o.SnapshotCount] = c.bbrObservationSnapshot(now)
++	o.SnapshotCount++
++}
++
++func (c *Conn) freezeBBRObservation() {
++	if c.bbrObservation != nil && !c.bbrObservation.FinalRecorded {
++		// One final observation clock, never a per-packet clock. Freeze before
++		// lifecycle teardown clears the controller and delivery sampler.
++		c.bbrObservation.Final = c.bbrObservationSnapshot(monotime.Now())
++		c.bbrObservation.FinalRecorded = true
++	}
++}
+diff --git a/bbr_observer_emission.go b/bbr_observer_emission.go
+new file mode 100644
+index 000000000..1743ff3bd
+--- /dev/null
++++ b/bbr_observer_emission.go
+@@ -0,0 +1,195 @@
++package quic
++
++import (
++	"time"
++
++	"github.com/quic-go/quic-go/internal/monotime"
++	"github.com/quic-go/quic-go/internal/protocol"
++)
++
++// E07 observer for #1368, ported from E04. These connection-owned scalars never govern sending.
++// Retry intervals span the first refusal to the next ordinary reservation, so
++// they include intervening protocol work and are not pure credit-wait time.
++// EndpointCapacityRefusals counts native sender WouldBlock results, including
++// registration/sidecar capacity; it does not prove the endpoint mailbox is full.
++type bbrEmissionObservation struct {
++	OrdinaryAttempts, OrdinarySuccesses, OrdinaryRefusals                        uint64
++	OrdinaryRequestedBytes, OrdinaryReservedBytes                                uint64
++	Handoffs, HandoffBytes, HandoffDatagrams                                     uint64
++	HandoffSizeBuckets                                                           [7]uint64
++	GSOHandoffs, ScalarHandoffs                                                  uint64
++	RefusedRequestedBytes, RefusedPendingBytes, RefusedFreeBytes                 int64
++	RefusedMaxRequestedBytes, RefusedMaxPendingBytes, RefusedMaxFreeBytes        int64
++	RefusedWithPacketRoom, RefusedUsablePartialRoom                              uint64
++	RefusedOldGeneration, RefusedIsolated                                        uint64
++	RetryIntervals, RetryNanoseconds, RetryMaxNanoseconds, RetryClockRegressions uint64
++	RetryOpen                                                                    bool
++	QueueCapacityChecks, QueueCapacityRefusals, EndpointCapacityRefusals         uint64
++	Opportunities, Progress, SupplyExhausted, Errors                             uint64
++	NoData, QueueFull, HardBlocked, Paced, ReceivePending                        uint64
++	CongestionLimited, ProbePending, SendAny, ProbeSent                          uint64
++	DefaultStopWithProgress                                                      uint64
++	retryStartedAt                                                               monotime.Time
++}
++
++// HandoffSizeBuckets classify actual buffer bytes with inclusive bounds 1452,
++// 16384, 20480, 32768, 49152, 65507 and +Inf. GSOHandoffs counts a nonzero handoff
++// segment size, including a handoff that later takes native scalar fallback.
++func (o *bbrEmissionObservation) handoff(bytes protocol.ByteCount, gso uint16) {
++	o.Handoffs++
++	o.HandoffBytes += uint64(bytes)
++	datagrams := uint64(1)
++	if gso != 0 {
++		o.GSOHandoffs++
++		datagrams = (uint64(bytes) + uint64(gso) - 1) / uint64(gso)
++	} else {
++		o.ScalarHandoffs++
++	}
++	o.HandoffDatagrams += datagrams
++	for i, bound := range [...]protocol.ByteCount{1452, 16384, 20480, 32768, 49152, 65507} {
++		if bytes <= bound {
++			o.HandoffSizeBuckets[i]++
++			return
++		}
++	}
++	o.HandoffSizeBuckets[len(o.HandoffSizeBuckets)-1]++
++}
++
++// reserve observes the exact state under localSendCredit.mu. Only the connection
++// calls this method; the worker owns no observation pointer.
++func (o *bbrEmissionObservation) reserve(c *localSendCredit, requested, limit, size protocol.ByteCount, accepted bool, now monotime.Time) {
++	o.OrdinaryAttempts++
++	o.OrdinaryRequestedBytes += uint64(requested)
++	if accepted {
++		o.OrdinarySuccesses++
++		o.OrdinaryReservedBytes += uint64(requested)
++		if o.RetryOpen {
++			if now.Before(o.retryStartedAt) {
++				o.RetryClockRegressions++
++			} else {
++				delay := uint64(now.Sub(o.retryStartedAt))
++				o.RetryIntervals++
++				o.RetryNanoseconds += delay
++				o.RetryMaxNanoseconds = max(o.RetryMaxNanoseconds, delay)
++			}
++			o.RetryOpen, o.retryStartedAt = false, 0
++		}
++		return
++	}
++	o.OrdinaryRefusals++
++	free := max(0, limit-c.pending)
++	o.RefusedRequestedBytes += int64(requested)
++	o.RefusedPendingBytes += int64(c.pending)
++	o.RefusedFreeBytes += int64(free)
++	o.RefusedMaxRequestedBytes = max(o.RefusedMaxRequestedBytes, int64(requested))
++	o.RefusedMaxPendingBytes = max(o.RefusedMaxPendingBytes, int64(c.pending))
++	o.RefusedMaxFreeBytes = max(o.RefusedMaxFreeBytes, int64(free))
++	if free >= size {
++		o.RefusedWithPacketRoom++
++		if !c.isolated && c.pending == c.current && requested > free {
++			o.RefusedUsablePartialRoom++
++		}
++	}
++	if c.pending != c.current {
++		o.RefusedOldGeneration++
++	}
++	if c.isolated {
++		o.RefusedIsolated++
++	}
++	if !o.RetryOpen {
++		o.RetryOpen, o.retryStartedAt = true, now
++	}
++}
++
++func (e *packetEmission) observedQueueWouldBlock() bool {
++	blocked := e.queue.WouldBlock()
++	if e.bbr != nil {
++		e.observer.QueueCapacityChecks++
++		if blocked {
++			e.observer.QueueCapacityRefusals++
++			if e.local != nil {
++				e.observer.EndpointCapacityRefusals++
++			}
++		}
++	}
++	return blocked
++}
++
++func (o *bbrEmissionObservation) result(r emissionResult) {
++	o.Opportunities++
++	if r.progress {
++		o.Progress++
++	}
++	if r.supplyExhausted {
++		o.SupplyExhausted++
++	}
++	if r.err != nil {
++		o.Errors++
++	}
++	switch r.stop {
++	case emissionNoData:
++		if r.progress {
++			// Ordinary successful handoffs leave the zero-valued stop unchanged.
++			o.DefaultStopWithProgress++
++		} else {
++			o.NoData++
++		}
++	case emissionQueueFull:
++		o.QueueFull++
++	case emissionHardBlocked:
++		o.HardBlocked++
++	case emissionPaced:
++		o.Paced++
++	case emissionReceivePending:
++		o.ReceivePending++
++	case emissionCongestionLimited:
++		o.CongestionLimited++
++	case emissionProbePending:
++		o.ProbePending++
++	case emissionSendAny:
++		o.SendAny++
++	case emissionProbeSent:
++		o.ProbeSent++
++	}
++}
++
++// BBRNativeObservation is a value snapshot, written and copied only on the
++// connection. OpportunityToReturn starts at the batch's existing reservation
++// timestamp (also the ordinary packets' registration timestamp), not handoff.
++// ReturnToConsume includes endpoint reconciliation and connection scheduling.
++// AcceptedBytes counts only fully accepted members; AcceptedDatagrams also
++// includes a partial member's accepted prefix without guessing its byte count.
++type BBRNativeObservation struct {
++	Members, AcceptedMembers, AcceptedBytes, ConsumeClockReads uint64
++	MemberBytes, Datagrams, AcceptedDatagrams                  uint64
++	OpportunityToReturn, ReturnToConsume                       bbrDurationObservation
++}
++
++// Buckets have inclusive upper bounds of 10, 25, 50, 100, 250, 500 and 1000
++// microseconds, followed by +Inf. Missing and backwards timestamps are excluded.
++type bbrDurationObservation struct {
++	Count, Nanoseconds, MaxNanoseconds, Missing, Negative uint64
++	Buckets                                               [8]uint64
++}
++
++func (o *bbrDurationObservation) interval(start, end monotime.Time) {
++	if start.IsZero() || end.IsZero() {
++		o.Missing++
++		return
++	}
++	if end.Before(start) {
++		o.Negative++
++		return
++	}
++	d := end.Sub(start)
++	o.Count++
++	o.Nanoseconds += uint64(d)
++	o.MaxNanoseconds = max(o.MaxNanoseconds, uint64(d))
++	for i, bound := range [...]time.Duration{10, 25, 50, 100, 250, 500, 1000} {
++		if d <= bound*time.Microsecond {
++			o.Buckets[i]++
++			return
++		}
++	}
++	o.Buckets[len(o.Buckets)-1]++
++}
+diff --git a/bbr_observer_emission_test.go b/bbr_observer_emission_test.go
+new file mode 100644
+index 000000000..1b1527d02
+--- /dev/null
++++ b/bbr_observer_emission_test.go
+@@ -0,0 +1,123 @@
++package quic
++
++import (
++	"testing"
++	"time"
++
++	"github.com/quic-go/quic-go/internal/monotime"
++	"github.com/quic-go/quic-go/internal/protocol"
++	"github.com/quic-go/quic-go/internal/wire"
++	"github.com/stretchr/testify/require"
++)
++
++func TestBBRObserverPartialCreditRetry(t *testing.T) {
++	c := newEmissionTestConnection(t, true).conn
++	now := monotime.Now()
++	c.emission.bbr = newBBRSendPolicy(1_000_000, 1200, now)
++	held := c.emission.bbr.credit.reserve(3000, 4800, true, false)
++	require.NotNil(t, held)
++	t.Cleanup(func() {
++		if held != nil {
++			held.complete()
++		}
++	})
++	require.NoError(t, c.datagramQueue.Add(&wire.DatagramFrame{DataLenPresent: true, Data: []byte("wait for the full reservation")}))
++	for _, at := range []monotime.Time{now, now.Add(25 * time.Microsecond)} {
++		result := c.triggerSending(at)
++		require.NoError(t, result.err)
++		require.False(t, result.progress)
++		require.Equal(t, emissionQueueFull, result.stop)
++		require.NotNil(t, c.datagramQueue.Peek(), "observation does not admit a smaller batch")
++	}
++	o := c.emission.observer
++	require.EqualValues(t, 2, o.OrdinaryRefusals)
++	require.EqualValues(t, 2, o.RefusedWithPacketRoom)
++	require.EqualValues(t, 2, o.RefusedUsablePartialRoom)
++	require.EqualValues(t, 4800, o.RefusedRequestedBytes)
++	require.EqualValues(t, 6000, o.RefusedPendingBytes)
++	require.EqualValues(t, 3600, o.RefusedFreeBytes)
++	require.True(t, o.RetryOpen)
++	require.Zero(t, o.RetryIntervals)
++	require.Zero(t, o.QueueCapacityRefusals, "ordinary credit is distinct from queue capacity")
++	held.complete()
++	held = nil
++	result := c.triggerSending(now.Add(100 * time.Microsecond))
++	require.NoError(t, result.err)
++	require.True(t, result.progress)
++	entry := <-c.emission.queue.(*sendQueue).queue
++	defer entry.release()
++	o = c.emission.observer
++	require.EqualValues(t, 3, o.OrdinaryAttempts)
++	require.EqualValues(t, 1, o.OrdinarySuccesses)
++	require.EqualValues(t, 7200, o.OrdinaryRequestedBytes)
++	require.EqualValues(t, 2400, o.OrdinaryReservedBytes)
++	require.EqualValues(t, 1, o.RetryIntervals)
++	require.EqualValues(t, 100*time.Microsecond, o.RetryNanoseconds)
++	require.Equal(t, o.RetryNanoseconds, o.RetryMaxNanoseconds)
++	require.False(t, o.RetryOpen)
++	require.EqualValues(t, 1, o.Handoffs)
++	require.EqualValues(t, entry.buf.Len(), o.HandoffBytes)
++	require.EqualValues(t, 1, o.HandoffDatagrams)
++	require.EqualValues(t, 1, o.ScalarHandoffs)
++	require.Zero(t, o.GSOHandoffs)
++	require.Equal(t, [7]uint64{1}, o.HandoffSizeBuckets)
++}
++
++func TestBBRObserverHandoffSizeBoundaries(t *testing.T) {
++	for _, tc := range []struct {
++		bytes  protocol.ByteCount
++		bucket int
++	}{
++		{1, 0}, {1451, 0}, {1452, 0}, {1453, 1},
++		{16383, 1}, {16384, 1}, {16385, 2},
++		{20479, 2}, {20480, 2}, {20481, 3},
++		{32767, 3}, {32768, 3}, {32769, 4},
++		{49151, 4}, {49152, 4}, {49153, 5},
++		{65506, 5}, {65507, 5}, {65508, 6}, {65535, 6},
++	} {
++		var o bbrEmissionObservation
++		o.handoff(tc.bytes, 0)
++		var expected [7]uint64
++		expected[tc.bucket] = 1
++		require.Equal(t, expected, o.HandoffSizeBuckets, "bytes=%d", tc.bytes)
++		require.EqualValues(t, tc.bytes, o.HandoffBytes)
++		require.EqualValues(t, 1, o.Handoffs)
++		require.EqualValues(t, 1, o.ScalarHandoffs)
++		require.Zero(t, o.GSOHandoffs)
++	}
++	var o bbrEmissionObservation
++	o.handoff(64800, 1200)
++	o.handoff(2401, 1200)
++	o.handoff(1200, 0)
++	require.Equal(t, [7]uint64{1, 1, 0, 0, 0, 1}, o.HandoffSizeBuckets)
++	require.EqualValues(t, 3, o.Handoffs)
++	require.EqualValues(t, 2, o.GSOHandoffs)
++	require.EqualValues(t, 1, o.ScalarHandoffs)
++	require.EqualValues(t, 58, o.HandoffDatagrams, "last short GSO segment is still one datagram")
++}
++
++func TestBBRObserverGenerationDebtIsNotUsablePartialRoom(t *testing.T) {
++	c := newLocalSendCredit()
++	held := c.reserve(1200, 4800, true, false)
++	require.NotNil(t, held)
++	defer held.complete()
++	c.resetGeneration(1)
++	var o bbrEmissionObservation
++	require.Nil(t, c.reserveObserved(2400, 4800, true, false, &o, protocol.ByteCount(1200), monotime.Now()))
++	require.EqualValues(t, 1, o.RefusedWithPacketRoom)
++	require.EqualValues(t, 1, o.RefusedOldGeneration)
++	require.Zero(t, o.RefusedUsablePartialRoom)
++}
++
++func TestBBRObserverInvalidTimingIsVisible(t *testing.T) {
++	var o bbrDurationObservation
++	now := monotime.Now()
++	o.interval(0, now)
++	o.interval(now, now.Add(-time.Microsecond))
++	o.interval(now, now.Add(25*time.Microsecond))
++	require.EqualValues(t, 1, o.Missing)
++	require.EqualValues(t, 1, o.Negative)
++	require.EqualValues(t, 1, o.Count)
++	require.EqualValues(t, 25*time.Microsecond, o.Nanoseconds)
++	require.Equal(t, [8]uint64{0, 1}, o.Buckets)
++}
+diff --git a/bbr_observer_native_test.go b/bbr_observer_native_test.go
+new file mode 100644
+index 000000000..2cf5e28a5
+--- /dev/null
++++ b/bbr_observer_native_test.go
+@@ -0,0 +1,52 @@
++//go:build darwin || linux || freebsd
++
++package quic
++
++import (
++	"testing"
++	"testing/synctest"
++	"time"
++
++	"github.com/quic-go/quic-go/internal/monotime"
++	"github.com/quic-go/quic-go/internal/wire"
++	"github.com/stretchr/testify/require"
++)
++
++func TestBBRObserverNativeReturnAndConsumption(t *testing.T) {
++	nativeOrdinaryTest(t, func(t *testing.T) {
++		tc, sender, socket := nativeProbeRecoveryConnection(t, "bbrv3")
++		socket.result = func(data []byte) (int, error) {
++			time.Sleep(25 * time.Microsecond)
++			return len(data), nil
++		}
++		require.NoError(t, tc.conn.datagramQueue.Add(&wire.DatagramFrame{DataLenPresent: true, Data: []byte("observe native return")}))
++		result := tc.conn.emission.send(monotime.Now(), true)
++		require.NoError(t, result.err)
++		require.True(t, result.progress)
++		time.Sleep(100 * time.Microsecond)
++		synctest.Wait()
++		require.Len(t, socket.writes, 1)
++		for range 2 {
++			hint, deferred := sender.bbrProgressHint()
++			require.True(t, hint, "observing a hint must not consume it")
++			require.False(t, deferred)
++		}
++		require.NoError(t, sender.consume())
++		o := sender.bbrNativeObservation()
++		require.EqualValues(t, 1, o.ConsumeClockReads)
++		require.EqualValues(t, 1, o.Members)
++		require.EqualValues(t, 1, o.AcceptedMembers)
++		require.EqualValues(t, 1, o.Datagrams)
++		require.EqualValues(t, 1, o.AcceptedDatagrams)
++		require.EqualValues(t, len(socket.writes[0].data), o.MemberBytes)
++		require.Equal(t, o.MemberBytes, o.AcceptedBytes)
++		require.EqualValues(t, 25*time.Microsecond, o.OpportunityToReturn.Nanoseconds)
++		require.EqualValues(t, 75*time.Microsecond, o.ReturnToConsume.Nanoseconds)
++		require.EqualValues(t, 1, o.OpportunityToReturn.Count)
++		require.EqualValues(t, 1, o.ReturnToConsume.Count)
++		require.Zero(t, o.OpportunityToReturn.Missing)
++		require.Zero(t, o.ReturnToConsume.Negative)
++		require.NoError(t, sender.consume())
++		require.Equal(t, o, sender.bbrNativeObservation(), "empty consumption does not duplicate observations")
++	})
++}
+diff --git a/bbr_observer_test.go b/bbr_observer_test.go
+new file mode 100644
+index 000000000..8afaea2df
+--- /dev/null
++++ b/bbr_observer_test.go
+@@ -0,0 +1,41 @@
++package quic
++
++import (
++	"testing"
++	"time"
++
++	"github.com/quic-go/quic-go/internal/congestion"
++	"github.com/quic-go/quic-go/internal/monotime"
++	"github.com/stretchr/testify/require"
++)
++
++func TestBBRObservationBoundedSnapshotsAndFreeze(t *testing.T) {
++	now := monotime.Now()
++	c := &Conn{}
++	c.traceBBR(now)
++	require.Nil(t, c.bbrObservation, "Reno creates no snapshot storage")
++	p := newBBRSendPolicy(1000000, 1200, now)
++	p.controller = congestion.NewBBRSender(1200)
++	c.emission.bbr = p
++	model := p.controller.Observation()
++	c.traceBBR(now)
++	require.Nil(t, c.qlogger, "observer never enables qlog")
++	require.Equal(t, 1, c.bbrObservation.SnapshotCount)
++	c.traceBBR(now.Add(time.Second / 2))
++	require.Equal(t, 1, c.bbrObservation.SnapshotCount)
++	for i := 1; i < bbrObservationSnapshots+3; i++ {
++		c.traceBBR(now.Add(time.Duration(i) * time.Second))
++	}
++	require.Equal(t, bbrObservationSnapshots, c.bbrObservation.SnapshotCount)
++	require.EqualValues(t, 3, c.bbrObservation.Overflow)
++	require.Equal(t, now.ToTime().UnixNano(), c.bbrObservation.Snapshots[0].UnixNS)
++	require.Equal(t, model, p.controller.Observation(), "snapshotting changes no model facts")
++	c.freezeBBRObservation()
++	final := c.bbrObservation.Final
++	require.True(t, c.bbrObservation.FinalRecorded)
++	p.rate++
++	c.freezeBBRObservation()
++	c.traceBBR(now.Add(time.Hour))
++	require.Equal(t, final, c.bbrObservation.Final, "frozen final evidence cannot be overwritten during teardown")
++	require.EqualValues(t, 3, c.bbrObservation.Overflow)
++}
+diff --git a/connection.go b/connection.go
+index 54ca0eb04..0a8df13db 100644
+--- a/connection.go
++++ b/connection.go
+@@ -132,8 +132,9 @@ const (
+ //   - [StatelessResetError]: when we receive a stateless reset
+ //   - [VersionNegotiationError]: returned by the client, when there's no version overlap between the peers
+ type Conn struct {
+-	packetCeiling packetCeiling
+-	pathCredit    *pathCreditRegistry
++	bbrObservation *bbrConnectionObservation
++	packetCeiling  packetCeiling
++	pathCredit     *pathCreditRegistry
+ 	// pathSurface is set before the connection runs, and only if it advertises multipath.
+ 	pathSurface *multipathSurface
+ 	// pathOpen holds the one local path operation, from request until its fence resolves.
+@@ -678,6 +679,7 @@ func (c *Conn) run() (err error) {
+ 	if c.emission.local != nil {
+ 		defer c.emission.local.Close()
+ 	}
++	defer c.freezeBBRObservation()
+ 
+ 	c.timer = time.NewTimer(monotime.Until(c.idleTimeoutStartTime().Add(c.config.HandshakeIdleTimeout)))
+ 	if c.emission.bbr != nil {
+@@ -896,6 +898,7 @@ runLoop:
+ 		c.pathManager.Close()
+ 	}
+ 	c.cryptoStreamHandler.Close()
++	c.freezeBBRObservation()
+ 	c.emission.drain() // close the send queue before sending the CONNECTION_CLOSE
+ 	c.handleCloseError(closeErr)
+ 	if c.emission.local != nil {
+diff --git a/docs/audits/2026-11-14-bbr-ordinary-cost-1368/e07-observer-schema.md b/docs/audits/2026-11-14-bbr-ordinary-cost-1368/e07-observer-schema.md
+new file mode 100644
+index 000000000..2f7c19ba9
+--- /dev/null
++++ b/docs/audits/2026-11-14-bbr-ordinary-cost-1368/e07-observer-schema.md
+@@ -0,0 +1,21 @@
++# E07 observer source notes (#1368)
++
++This disposable observer is based on `7bce93381e36ea3338ab29a35b50f72d5b06079f`, whose Go source and tests equal the E06 candidate `4ac6188557144a2a0e57436f173f40b62b92ed2c`. It ports E04 observer `809eafc410e4bb58cdf7b47ffbd7e691179ba849` and implements the committed E07 plan. No observer code belongs in the final product change. Run only the planned stateless-pressure observer pair with the existing CPU-profile option. Instrumented/profiled timing is descriptive and cannot qualify performance, regardless of contamination. Whole-process profiles overlap; attribution is not an additive removable-cost estimate.
++
++The fixture adds `bbr_observation` to both server connection results and client flow results. The connection writes a fixed array of 128 cumulative snapshots at the existing send-opportunity tracing point, with no qlogger. Only the first `snapshot_count` entries are valid; trailing zero entries have no meaning. `snapshot_overflow` records omitted eligible observations. The cadence is at most once per second; an inactive connection produces gaps rather than a synthetic sample. `mono_ns` is process-local monotonic time. `unix_ns` is derived from that existing timestamp through `monotime.ToTime`, without reading another clock. Correlate snapshots with the fixture timeline and report adjacent snapshot deltas; they are not exact measurement-window counters.
++
++`final_before_teardown` captures the connection's last state before local drain and controller/sampler disposal. `final_recorded` establishes that this freeze occurred. The ordinary fixture reads observer pointers only after connection `Context().Done()`: server extraction also follows listener/transport closure and worker completion, and client extraction follows `CloseWithError`. No live controller state is read by the fixture goroutine. Final totals include startup and warmup, and omit teardown work after the freeze.
++
++Recovery counters count actual ACK feedback events after sampler qualification. Empty local completion events, including E02's explicit empty diagnostic sample, do not increment valid or invalid sample counts. `delivered_bytes` counts new logical delivery in those ACK events; `sample_rate_sum/min/max` aggregate valid sample rates, not byte-weighted throughput. Excluded and timing-generation-mismatched packet/byte counts overlap and must not be added. Delivery-registration counters include ACK-eliciting, non-path-probe registrations. First-local-ACK and early-ACK counters count each local registration once across both live history and retained ECN receipts; they include handshake/control registrations. Timing-fence totals accumulate across sampler replacement, and sampler reset counts expose lifecycle boundaries. Snapshots also expose live generation and qualification ordinals; a difference between the ordinals is a position gap, not a duration or necessarily a number of pending packets.
++
++Controller counters distinguish feedback reaching the model from usable delivery samples. `clock_rejected` includes zero or backward event timestamps; `ack_clock_rejected` restricts this to ACK feedback. `model_usable_samples` increments only after the model's clock, round-evidence and sample-validity checks. Controller and recovery counters survive resets. Model bandwidth, pacing and delivery rates are bytes per second; `effective_pacing_rate` includes emission's existing one-percent margin. Controller minimum RTT and recovery minimum/smoothed RTT remain separate facts.
++
++`early_ack_with_participant_hint` is advisory. The atomic participant hint can signal a terminal result, readiness, fault, revocation or retirement. The writer's raw return publication can precede endpoint reconciliation and this hint. A positive value does not identify the ACK's exact packet result; a zero value does not prove that native I/O has not returned. `early_ack_with_deferred_facts` independently reports a nonempty connection-owned deferred-result list. Observation neither consumes hints nor acquires endpoint control.
++
++Emission's `OrdinaryAttempts/Successes/Refusals` observe the existing reservation predicate under the existing credit lock. `RefusedUsablePartialRoom` requires at least one packet of free credit, a requested reservation larger than that free credit, no isolated reservation and no old-generation pending bytes. It establishes only that a smaller credit reservation could fit; it does not establish that a complete alternative send is legal. `RetryNanoseconds` spans first ordinary refusal to next ordinary success using existing opportunity timestamps, including intervening protocol and pacing work. `RetryOpen` identifies an unfinished interval. Queue-capacity checks and refusals count calls, potentially several per opportunity. `EndpointCapacityRefusals` means native sender `WouldBlock`, including registration and local-sidecar limits; it does not prove endpoint mailbox exhaustion. `DefaultStopWithProgress` separates successful handoffs from the zero-valued `NoData` stop. Handoff totals include BBR control/probe traffic as well as ordinary data.
++
++Native `OpportunityToReturn` begins at the existing BBR reservation/opportunity timestamp, also used for the ordinary batch's packet registration, and ends at the member's native-return timestamp. `ReturnToConsume` ends at one monotonic clock read at the start of consuming that result, before per-member recovery work. It includes endpoint reconciliation and connection scheduling. `ConsumeClockReads` records this observer overhead. Histograms use inclusive upper bounds of 10, 25, 50, 100, 250, 500 and 1000 microseconds, followed by infinity. Missing or backward timestamps are counted separately and excluded from duration totals and buckets. `AcceptedBytes` includes only fully accepted members; `AcceptedDatagrams` also includes a partial accepted prefix without guessing its byte count. No packet receives an additional clock read, allocation, formatting or I/O operation.
++
++E07 adds `emission.HandoffSizeBuckets`, a fixed seven-element array with inclusive byte bounds `[1452, 16384, 20480, 32768, 49152, 65507, infinity]`. Each handoff increments one bucket using its actual buffer length, not its allocation capacity, planned reservation or accepted bytes. `emission.GSOHandoffs` counts handoffs with a nonzero GSO segment-size argument, and `emission.ScalarHandoffs` counts the remainder. GSO intent does not prove a segmented native syscall: unsupported native GSO or an EIO fallback can issue scalar writes for the same handoff. These counters include BBR control/probe traffic, as the existing handoff totals do; the control profile also records them. Bucket sum and GSO-plus-scalar sum each equal `Handoffs`. Subtract arrays element by element between adjacent snapshots to obtain interior counts; lifetime and snapshot boundaries retain all E04 qualifications. Native result counters and duration histograms are unchanged.
++
++The new counters use fixed scalar/array storage and no clocks. Boundary tests cover each inclusive byte limit and its neighbors, plus a final short GSO segment. The real large-member outcome tests retain their original readiness, Q/2Q, deadline, crypto, fallback and exact-once settlement assertions while checking the new histogram and one clock read per native result. The original observer tests retain reservation-decision, timing, snapshot bound/freeze, recovery reset and controller reset coverage. The fixture extraction ordering is unchanged from E04.
+diff --git a/internal/ackhandler/bbr_observer.go b/internal/ackhandler/bbr_observer.go
+new file mode 100644
+index 000000000..3c1fe0e5c
+--- /dev/null
++++ b/internal/ackhandler/bbr_observer.go
+@@ -0,0 +1,156 @@
++package ackhandler
++
++import (
++	"github.com/quic-go/quic-go/internal/congestion"
++	"github.com/quic-go/quic-go/internal/protocol"
++)
++
++// E07 measurement-only (ported from E04) state. The connection owns every read and update. Keep
++// lifetime counters outside the sampler, which lifecycle transitions replace.
++type BBRAckObservation struct {
++	ACKEvents                    uint64 `json:"ack_events"`
++	DeliveredBytes               uint64 `json:"delivered_bytes"`
++	ValidSamples                 uint64 `json:"valid_samples"`
++	InvalidSamples               uint64 `json:"invalid_samples"`
++	UnanchoredSamples            uint64 `json:"unanchored_samples"`
++	RawRTTSamples                uint64 `json:"raw_rtt_samples"`
++	SampleRateSum                uint64 `json:"sample_rate_sum"`
++	SampleRateMin                uint64 `json:"sample_rate_min"`
++	SampleRateMax                uint64 `json:"sample_rate_max"`
++	ACKedPackets                 uint64 `json:"acked_packets"`
++	ACKedBytes                   uint64 `json:"acked_bytes"`
++	TimingExcludedPackets        uint64 `json:"timing_excluded_packets"`
++	TimingExcludedBytes          uint64 `json:"timing_excluded_bytes"`
++	TimingMismatchedPackets      uint64 `json:"timing_mismatched_packets"`
++	TimingMismatchedBytes        uint64 `json:"timing_mismatched_bytes"`
++	DeliveryRegistrations        uint64 `json:"delivery_registrations"`
++	InvalidRegistrationSnapshots uint64 `json:"invalid_registration_snapshots"`
++	OriginlessRegistrations      uint64 `json:"originless_registrations"`
++	FirstLocalACKs               uint64 `json:"first_local_acks"`
++	EarlyACKs                    uint64 `json:"early_acks"`
++	EarlyACKWithParticipantHint  uint64 `json:"early_ack_with_participant_hint"`
++	EarlyACKWithDeferredFacts    uint64 `json:"early_ack_with_deferred_facts"`
++	TimingFences                 uint64 `json:"timing_fences"`
++	SamplerResets                uint64 `json:"sampler_resets"`
++}
++
++type BBRRecoveryObservation struct {
++	Counters         BBRAckObservation `json:"counters"`
++	BytesInFlight    int64             `json:"bytes_in_flight"`
++	MinRTTNS         int64             `json:"min_rtt_ns"`
++	SmoothedRTTNS    int64             `json:"smoothed_rtt_ns"`
++	Delivered        uint64            `json:"delivered"`
++	Lost             uint64            `json:"lost"`
++	TimingGeneration uint64            `json:"timing_generation"`
++	SampleGeneration uint64            `json:"sample_generation"`
++	Registration     uint64            `json:"registration_ordinal"`
++	Qualified        uint64            `json:"qualified_ordinal"`
++	Live             int               `json:"live"`
++	Retained         int               `json:"retained"`
++	Evicted          uint64            `json:"evicted"`
++	Expired          uint64            `json:"expired"`
++	Missing          uint64            `json:"missing"`
++	EvidenceLost     bool              `json:"evidence_lost"`
++	Originless       bool              `json:"originless"`
++}
++
++// ObserveBBRProgress installs only an advisory observation, before registration.
++// A participant hint can mean readiness or retirement, not this packet's return.
++func ObserveBBRProgress(handler SentPacketHandler, hint func() (bool, bool)) {
++	handler.(*sentPacketHandler).bbrObservationHint = hint
++}
++
++func (h *sentPacketHandler) BBRObservation() BBRRecoveryObservation {
++	r := BBRRecoveryObservation{Counters: h.bbrObservation, BytesInFlight: int64(h.bytesInFlight), MinRTTNS: int64(h.rttStats.MinRTT()), SmoothedRTTNS: int64(h.rttStats.SmoothedRTT())}
++	if d := h.congestionEvents; d != nil {
++		s := &d.sampler
++		r.Counters.TimingFences += s.timingGeneration
++		r.Delivered, r.Lost = s.delivered, s.lost
++		r.TimingGeneration, r.SampleGeneration = s.timingGeneration, d.sampleGeneration
++		r.Registration = d.ordinal
++		if d.recovery.local != nil {
++			r.Qualified = d.recovery.local.qualifiedOrdinal
++		}
++		r.Live, r.Retained = d.packets.len(), len(s.retained)
++		r.Evicted, r.Expired, r.Missing = s.evicted, s.expired, s.missing
++		r.EvidenceLost, r.Originless = s.evidenceLost, s.sendOrigin.IsZero()
++	}
++	return r
++}
++
++func (h *sentPacketHandler) observeBBRLocalACK(r *localRegistration) {
++	if h.congestionEvents == nil {
++		return
++	}
++	o := &h.bbrObservation
++	if !r.acked {
++		o.FirstLocalACKs++
++	}
++	if r.outcome == localPacketPending && !r.earlyACK {
++		o.EarlyACKs++
++		if h.bbrObservationHint != nil {
++			hint, deferred := h.bbrObservationHint()
++			if hint {
++				o.EarlyACKWithParticipantHint++
++			}
++			if deferred {
++				o.EarlyACKWithDeferredFacts++
++			}
++		}
++	}
++}
++
++func (h *sentPacketHandler) observeBBRRegistration(p congestion.PacketInfo) {
++	if !p.AckEliciting || p.PathProbe {
++		return
++	}
++	h.bbrObservation.DeliveryRegistrations++
++	if !p.Delivery.Valid {
++		h.bbrObservation.InvalidRegistrationSnapshots++
++	}
++	if p.Delivery.SendOrigin.IsZero() {
++		h.bbrObservation.OriginlessRegistrations++
++	}
++}
++
++func (h *sentPacketHandler) observeBBRFeedback(e *congestion.FeedbackEvent, deliveredBefore uint64) {
++	// Empty local completion events deliberately carry no sample, including E02.
++	if !e.HasAck {
++		return
++	}
++	o := &h.bbrObservation
++	o.ACKEvents++
++	o.DeliveredBytes += e.Delivery.Delivered - deliveredBefore
++	if e.Delivery.Ordinal == 0 {
++		o.UnanchoredSamples++
++	}
++	if e.RawRTT > 0 {
++		o.RawRTTSamples++
++	}
++	if e.Delivery.Valid {
++		rate := e.Delivery.BytesPerSecond
++		o.ValidSamples++
++		o.SampleRateSum += rate
++		if o.ValidSamples == 1 || rate < o.SampleRateMin {
++			o.SampleRateMin = rate
++		}
++		o.SampleRateMax = max(o.SampleRateMax, rate)
++	} else {
++		o.InvalidSamples++
++	}
++}
++
++func (h *sentPacketHandler) observeBBRAckedPacket(p congestion.PacketInfo, generation uint64) {
++	o := &h.bbrObservation
++	bytes := uint64(max(p.Length, protocol.ByteCount(0)))
++	o.ACKedPackets++
++	o.ACKedBytes += bytes
++	if p.TimingExcluded {
++		o.TimingExcludedPackets++
++		o.TimingExcludedBytes += bytes
++	}
++	if p.TimingGeneration != generation {
++		o.TimingMismatchedPackets++
++		o.TimingMismatchedBytes += bytes
++	}
++}
+diff --git a/internal/ackhandler/bbr_observer_test.go b/internal/ackhandler/bbr_observer_test.go
+new file mode 100644
+index 000000000..1077d6d5e
+--- /dev/null
++++ b/internal/ackhandler/bbr_observer_test.go
+@@ -0,0 +1,52 @@
++package ackhandler
++
++import (
++	"testing"
++	"time"
++
++	"github.com/quic-go/quic-go/internal/monotime"
++	"github.com/quic-go/quic-go/internal/protocol"
++	"github.com/stretchr/testify/require"
++)
++
++func TestBBRObservationACKSamplesAndEarlyACK(t *testing.T) {
++	h, _ := newLocalRichHandler(t)
++	ObserveBBRProgress(h, func() (bool, bool) { return true, false })
++	now := monotime.Now()
++	pn, token := localRichPacket(t, h, now)
++	require.NoError(t, h.CompleteLocalPacket(token, LocalPacketAccepted, now.Add(time.Millisecond)))
++	require.Zero(t, h.BBRObservation().Counters.ACKEvents, "E02 empty completion is not an invalid ACK sample")
++	acknowledgeRecoveryPacket(t, h, protocol.EncryptionInitial, now.Add(10*time.Millisecond), pn)
++	before := h.BBRObservation()
++	require.EqualValues(t, 1, before.Counters.ValidSamples)
++	require.Zero(t, before.Counters.InvalidSamples)
++	require.EqualValues(t, 1200, before.Counters.DeliveredBytes)
++	require.EqualValues(t, 1, before.Counters.FirstLocalACKs)
++	require.Zero(t, before.Counters.EarlyACKs)
++
++	early, earlyToken := localRichPacket(t, h, now.Add(20*time.Millisecond))
++	acknowledgeRecoveryPacket(t, h, protocol.EncryptionInitial, now.Add(30*time.Millisecond), early)
++	observed := h.BBRObservation()
++	require.EqualValues(t, 2, observed.Counters.ACKEvents)
++	require.EqualValues(t, 1, observed.Counters.InvalidSamples)
++	require.EqualValues(t, 1, observed.Counters.UnanchoredSamples)
++	require.EqualValues(t, 2, observed.Counters.FirstLocalACKs)
++	require.EqualValues(t, 1, observed.Counters.EarlyACKs)
++	require.EqualValues(t, 1, observed.Counters.EarlyACKWithParticipantHint)
++	require.Zero(t, observed.Counters.EarlyACKWithDeferredFacts)
++	require.EqualValues(t, 1, observed.Counters.TimingExcludedPackets)
++	require.Positive(t, observed.Counters.TimingFences)
++	require.EqualValues(t, 2400, observed.Counters.DeliveredBytes)
++
++	acknowledgeRecoveryPacket(t, h, protocol.EncryptionInitial, now.Add(31*time.Millisecond), early)
++	require.NoError(t, h.CompleteLocalPacket(earlyToken, LocalPacketAccepted, now.Add(32*time.Millisecond)))
++	require.Equal(t, observed.Counters.FirstLocalACKs, h.BBRObservation().Counters.FirstLocalACKs)
++	require.Equal(t, observed.Counters.EarlyACKs, h.BBRObservation().Counters.EarlyACKs)
++	h.resetCongestionCapture(false)
++	reset := h.BBRObservation()
++	require.Equal(t, observed.Counters.TimingFences, reset.Counters.TimingFences, "fence total survives sampler replacement")
++	require.EqualValues(t, 1, reset.Counters.SamplerResets)
++	require.Equal(t, observed.Counters.EarlyACKs, reset.Counters.EarlyACKs)
++	h.CloseDelivery()
++	require.Equal(t, reset.Counters, h.BBRObservation().Counters)
++}
+diff --git a/internal/ackhandler/congestion_dispatch.go b/internal/ackhandler/congestion_dispatch.go
+index 38e0784d0..732dd264d 100644
+--- a/internal/ackhandler/congestion_dispatch.go
++++ b/internal/ackhandler/congestion_dispatch.go
+@@ -133,6 +133,7 @@ func (h *sentPacketHandler) captureCongestionSend(pn protocol.PacketNumber, p *p
+ 			d.sampler.markLimited(congestion.SendProbeRTTLimited)
+ 		}
+ 		d.sampler.sent(&info, prior, h.bytesInFlight)
++		h.observeBBRRegistration(info)
+ 		d.reserveRecord()
+ 		d.packets.set(congestionKey(p.EncryptionLevel, pn), info)
+ 	} else {
+@@ -243,17 +244,20 @@ func (h *sentPacketHandler) finishCongestionFeedback() {
+ 	// feedback, without altering their registration identity or delivery totals.
+ 	for i := range d.event.Acked {
+ 		p := &d.event.Acked[i]
++		h.observeBBRAckedPacket(*p, d.sampler.timingGeneration)
+ 		if p.TimingExcluded || p.TimingGeneration != d.sampler.timingGeneration {
+ 			p.Delivery.Valid = false
+ 		}
+ 	}
+ 	slices.SortFunc(d.event.Lost, func(a, b congestion.PacketInfo) int { return cmp.Compare(a.Ordinal, b.Ordinal) })
++	deliveredBefore := d.sampler.delivered
+ 	d.sampler.feedback(&d.event)
+ 	d.recovery.feedback(&d.event, h.rttStats.PTO(true))
+ 	// A timer scan may run early or against a stale loss deadline. Preserve
+ 	// MTU retirement flight changes even though they are not congestion loss.
+ 	// A delayed local ECN result also reaches the sink without replaying an ACK.
+ 	if d.event.HasAck || d.event.ECNChecked || len(d.event.Lost) > 0 || d.event.PriorInFlight != d.event.PostInFlight {
++		h.observeBBRFeedback(&d.event, deliveredBefore)
+ 		d.sink.Feedback(d.event)
+ 		if b, ok := h.congestion.(*congestion.BBRSender); ok {
+ 			if d.event.PersistentCongestion.EndOrdinal != 0 {
+@@ -330,6 +334,8 @@ func (h *sentPacketHandler) resetCongestionCapture(pathChanged bool) {
+ 		d.event = congestion.FeedbackEvent{}
+ 		d.scratch = nil
+ 		d.discovered = nil
++		h.bbrObservation.TimingFences += d.sampler.timingGeneration
++		h.bbrObservation.SamplerResets++
+ 		d.sampler = deliverySampler{delivered: d.sampler.delivered, lost: d.sampler.lost}
+ 		if b, ok := h.congestion.(*congestion.BBRSender); ok {
+ 			b.Reset(d.pathGeneration, d.sampleGeneration, d.sampler.delivered)
+diff --git a/internal/ackhandler/delivery_sampler.go b/internal/ackhandler/delivery_sampler.go
+index 1095fc156..ff340287a 100644
+--- a/internal/ackhandler/delivery_sampler.go
++++ b/internal/ackhandler/delivery_sampler.go
+@@ -382,6 +382,9 @@ func (h *sentPacketHandler) CloseDelivery() {
+ 	if b, ok := h.congestion.(*congestion.BBRSender); ok {
+ 		b.Close()
+ 	}
++	if d := h.congestionEvents; d != nil {
++		h.bbrObservation.TimingFences += d.sampler.timingGeneration
++	}
+ 	h.congestionEvents = nil
+ 	if h.bbrECN != nil {
+ 		h.bbrECN.closed = true
+diff --git a/internal/ackhandler/local_completion.go b/internal/ackhandler/local_completion.go
+index 2b673fede..f02b87e52 100644
+--- a/internal/ackhandler/local_completion.go
++++ b/internal/ackhandler/local_completion.go
+@@ -325,6 +325,7 @@ func (h *sentPacketHandler) CompleteLocalPacket(token LocalCompletionToken, outc
+ func (h *sentPacketHandler) retireLocal(p *packet, acked bool) {
+ 	if r := p.local; r != nil {
+ 		if acked {
++			h.observeBBRLocalACK(r)
+ 			if r.outcome == localPacketPending && !r.earlyACK {
+ 				r.earlyACK = true
+ 				if d := h.congestionEvents; d != nil {
+diff --git a/internal/ackhandler/local_ecn.go b/internal/ackhandler/local_ecn.go
+index 12276bb86..cc18dc69c 100644
+--- a/internal/ackhandler/local_ecn.go
++++ b/internal/ackhandler/local_ecn.go
+@@ -475,6 +475,7 @@ func (e *localECNEvidence) feedback(h *sentPacketHandler, ack *wire.AckFrame, pr
+ 			part := r
+ 			part.pn, part.last = first, last
+ 			if reg := part.registration; reg != nil {
++				h.observeBBRLocalACK(reg)
+ 				reg.acked = true
+ 				if reg.outcome == localPacketPending && !reg.earlyACK {
+ 					reg.earlyACK = true
+diff --git a/internal/ackhandler/sent_packet_handler.go b/internal/ackhandler/sent_packet_handler.go
+index abd439497..27667bdcf 100644
+--- a/internal/ackhandler/sent_packet_handler.go
++++ b/internal/ackhandler/sent_packet_handler.go
+@@ -83,8 +83,10 @@ type alarmTimer struct {
+ }
+ 
+ type sentPacketHandler struct {
+-	pathID   protocol.PathID
+-	pathRoot *sentPacketHandler
++	bbrObservation     BBRAckObservation
++	bbrObservationHint func() (bool, bool)
++	pathID             protocol.PathID
++	pathRoot           *sentPacketHandler
+ 	// retiredPath is set at this context's abandonment signal.
+ 	retiredPath bool
+ 	// largestPath is the highest ID the root has admitted. An absent ID at or below
+diff --git a/internal/congestion/bbr_observer.go b/internal/congestion/bbr_observer.go
+new file mode 100644
+index 000000000..89209dba5
+--- /dev/null
++++ b/internal/congestion/bbr_observer.go
+@@ -0,0 +1,38 @@
++package congestion
++
++// E07 measurement-only (ported from E04) counters remain outside resettable model facts.
++type BBRModelCounters struct {
++	FeedbackEvents     uint64 `json:"feedback_events"`
++	ACKEvents          uint64 `json:"ack_events"`
++	ClockRejected      uint64 `json:"clock_rejected"`
++	ACKClockRejected   uint64 `json:"ack_clock_rejected"`
++	ModelUsableSamples uint64 `json:"model_usable_samples"`
++	Resets             uint64 `json:"resets"`
++	Closes             uint64 `json:"closes"`
++}
++
++type BBRModelObservation struct {
++	Counters       BBRModelCounters `json:"counters"`
++	Phase          string           `json:"phase"`
++	PacingRate     uint64           `json:"pacing_rate"`
++	DeliveryRate   uint64           `json:"delivery_rate"`
++	Bandwidth      uint64           `json:"bandwidth"`
++	BandwidthShort uint64           `json:"bandwidth_short"`
++	Window         int64            `json:"window"`
++	MinRTTNS       int64            `json:"min_rtt_ns"`
++	Round          uint64           `json:"round"`
++	CEActive       bool             `json:"ce_active"`
++	CERate         uint64           `json:"ce_rate"`
++	InRecovery     bool             `json:"in_recovery"`
++}
++
++func (b *BBRSender) Observation() BBRModelObservation {
++	return BBRModelObservation{
++		Counters:   b.observation,
++		Phase:      [...]string{"Startup", "Drain", "Down", "Cruise", "Refill", "Up", "ProbeRTT"}[b.phase],
++		PacingRate: b.PacingRate(), DeliveryRate: b.DeliveryRateEstimate(),
++		Bandwidth: b.bandwidth, BandwidthShort: b.bandwidthShort,
++		Window: int64(b.window), MinRTTNS: int64(b.minimumRTT), Round: b.round,
++		CEActive: b.ce.active, CERate: b.ce.rate, InRecovery: b.InRecovery(),
++	}
++}
+diff --git a/internal/congestion/bbr_observer_test.go b/internal/congestion/bbr_observer_test.go
+new file mode 100644
+index 000000000..01c0c23e8
+--- /dev/null
++++ b/internal/congestion/bbr_observer_test.go
+@@ -0,0 +1,31 @@
++package congestion
++
++import (
++	"testing"
++	"time"
++
++	"github.com/quic-go/quic-go/internal/monotime"
++	"github.com/stretchr/testify/require"
++)
++
++func TestBBRObservationModelRejectionAndReset(t *testing.T) {
++	b := NewBBRSender(1200)
++	feedbackRound(b, 1, 1200, 100000, SendUnknown, 20000)
++	require.EqualValues(t, 1, b.Observation().Counters.ModelUsableSamples)
++	feedbackRound(b, 0, 2400, 100000, SendUnknown, 20000)
++	o := b.Observation()
++	require.EqualValues(t, 2, o.Counters.ACKEvents)
++	require.EqualValues(t, 1, o.Counters.ACKClockRejected)
++	require.EqualValues(t, 1, o.Counters.ModelUsableSamples)
++	require.Equal(t, b.PacingRate(), o.PacingRate)
++	require.Equal(t, b.DeliveryRateEstimate(), o.DeliveryRate)
++	b.Feedback(FeedbackEvent{Time: monotime.Time(time.Nanosecond)})
++	require.EqualValues(t, 2, b.Observation().Counters.ClockRejected)
++	require.EqualValues(t, 1, b.Observation().Counters.ACKClockRejected)
++	b.Reset(1, 1, 2400)
++	require.EqualValues(t, 1, b.Observation().Counters.Resets)
++	require.EqualValues(t, 1, b.Observation().Counters.ModelUsableSamples)
++	b.Close()
++	require.EqualValues(t, 1, b.Observation().Counters.Closes)
++	require.EqualValues(t, 1, b.Observation().Counters.ModelUsableSamples)
++}
+diff --git a/internal/congestion/bbr_sender.go b/internal/congestion/bbr_sender.go
+index 507d92f31..a1335556f 100644
+--- a/internal/congestion/bbr_sender.go
++++ b/internal/congestion/bbr_sender.go
+@@ -27,6 +27,7 @@ const (
+ // BBRSender owns the private BBR model on the connection goroutine. Recovery
+ // owns the input facts; emission owns pacing debt and applies the 1% margin.
+ type BBRSender struct {
++	observation                        BBRModelCounters
+ 	persistentEnd                      uint64
+ 	persistentWaiting, persistentModel bool
+ 	pacingSeed                         uint64
+@@ -160,6 +161,10 @@ func (b *BBRSender) Feedback(e FeedbackEvent) {
+ 	if b.closed || e.PathGeneration != b.pathGeneration || e.SampleGeneration < b.modelSampleFloor {
+ 		return
+ 	}
++	b.observation.FeedbackEvents++
++	if e.HasAck {
++		b.observation.ACKEvents++
++	}
+ 	preRate, preWindow, prePhase := b.effectiveRate(), b.window, b.phase
+ 	probeHolding := b.probeRTTHoldUntil != 0
+ 	defer func() {
+@@ -183,6 +188,10 @@ func (b *BBRSender) Feedback(e FeedbackEvent) {
+ 	if clockValid {
+ 		b.lastEvent = e.Time
+ 	} else {
++		b.observation.ClockRejected++
++		if e.HasAck {
++			b.observation.ACKClockRejected++
++		}
+ 		e.RawRTT = 0
+ 		e.Delivery.Valid = false
+ 	}
+@@ -230,6 +239,7 @@ func (b *BBRSender) Feedback(e FeedbackEvent) {
+ 		b.applyACK(e, timed)
+ 		return
+ 	}
++	b.observation.ModelUsableSamples++
+ 	b.updateMaxBandwidth(s)
+ 	volume := s.Delivered - anchor.Delivery.Delivered
+ 	b.latestRate = max(b.latestRate, s.BytesPerSecond)
+@@ -543,12 +553,19 @@ func (b *BBRSender) Reset(path, sample, delivered uint64) {
+ 		return
+ 	}
+ 	size, ceiling, random := b.size, b.ceiling, b.random
++	observation := b.observation
++	observation.Resets++
+ 	*b = *NewBBRSenderWithPacketCeiling(size, ceiling)
++	b.observation = observation
+ 	b.random = random
+ 	b.pathGeneration, b.sampleGeneration, b.modelSampleFloor = path, sample, sample
+ 	b.delivered, b.deliveryBase, b.nextRound = delivered, delivered, delivered
+ }
+-func (b *BBRSender) Close() { *b = BBRSender{closed: true} }
++func (b *BBRSender) Close() {
++	observation := b.observation
++	observation.Closes++
++	*b = BBRSender{closed: true, observation: observation}
++}
+ func (b *BBRSender) SetMaxDatagramSize(size protocol.ByteCount) {
+ 	if b.closed {
+ 		return
+diff --git a/local_send_credit.go b/local_send_credit.go
+index e84b2fefb..df036a3f0 100644
+--- a/local_send_credit.go
++++ b/local_send_credit.go
+@@ -3,6 +3,7 @@ package quic
+ import (
+ 	"sync"
+ 
++	"github.com/quic-go/quic-go/internal/monotime"
+ 	"github.com/quic-go/quic-go/internal/protocol"
+ )
+ 
+@@ -54,12 +55,20 @@ func (c *localSendCredit) admits(n, limit protocol.ByteCount, ordinary, isolated
+ }
+ 
+ func (c *localSendCredit) reserve(n, limit protocol.ByteCount, ordinary, isolated bool) *sendReservation {
++	return c.reserveObserved(n, limit, ordinary, isolated, nil, 0, 0)
++}
++
++func (c *localSendCredit) reserveObserved(n, limit protocol.ByteCount, ordinary, isolated bool, observer *bbrEmissionObservation, size protocol.ByteCount, now monotime.Time) *sendReservation {
+ 	c.mu.Lock()
+ 	defer c.mu.Unlock()
+ 	if n <= 0 {
+ 		panic("invalid local send reservation")
+ 	}
+-	if !c.canReserve(n, limit, ordinary, isolated) {
++	accepted := c.canReserve(n, limit, ordinary, isolated)
++	if observer != nil && ordinary {
++		observer.reserve(c, n, limit, size, accepted, now)
++	}
++	if !accepted {
+ 		// Test capacity and consume stale wakeups under the completion lock.
+ 		select {
+ 		case <-c.available:
+diff --git a/native_ordinary.go b/native_ordinary.go
+index 590f59a61..8f6734125 100644
+--- a/native_ordinary.go
++++ b/native_ordinary.go
+@@ -107,6 +107,7 @@ type nativeOrdinarySender struct {
+ 	consuming         bool
+ 	processing        bool
+ 	protectionScratch *handshake.PacketProtectionScratch
++	observation       BBRNativeObservation // E07 only; connection-owned
+ }
+ 
+ type nativeOrdinaryConn struct {
+@@ -263,6 +264,14 @@ func (s *nativeOrdinarySender) Available() <-chan struct{} { return s.participan
+ func (s *nativeOrdinarySender) completed() <-chan struct{} { return s.participant.completed }
+ func (s *nativeOrdinarySender) Run() error                 { return nil }
+ 
++func (s *nativeOrdinarySender) bbrNativeObservation() BBRNativeObservation { return s.observation }
++
++// These hints are advisory; readiness, faults and revocation also publish them.
++// Observation never drains a hint or accesses endpoint-owned mutable state.
++func (s *nativeOrdinarySender) bbrProgressHint() (participantHint, deferredFacts bool) {
++	return s.participant != nil && s.participant.notification.Load() != 0, len(s.deferred) != 0
++}
++
+ // faulted stays ready once its endpoint has faulted, so a connection that continues
+ // can't keep it in the select.
+ func (s *nativeOrdinarySender) faulted() <-chan struct{} {
+@@ -836,6 +845,11 @@ func (s *nativeOrdinarySender) consumeResult(participant *endpointParticipant, t
+ 			break
+ 		}
+ 		record.state = ordinaryTerminalProcessing
++		var consumedAt monotime.Time
++		if s.connection != nil && s.connection.emission.bbr != nil {
++			consumedAt = monotime.Now() // E07: one clock read per consumed result, not packet.
++			s.observation.ConsumeClockReads++
++		}
+ 		start := 0
+ 		for memberIndex, member := range record.members {
+ 			result := terminal.members[memberIndex]
+@@ -843,6 +857,18 @@ func (s *nativeOrdinarySender) consumeResult(participant *endpointParticipant, t
+ 				s.err = errors.Join(s.err, errEndpointRequest)
+ 				break
+ 			}
++			if !consumedAt.IsZero() {
++				s.observation.Members++
++				s.observation.MemberBytes += uint64(member.bytes)
++				s.observation.Datagrams += uint64(member.datagrams)
++				s.observation.AcceptedDatagrams += uint64(result.accepted)
++				s.observation.OpportunityToReturn.interval(member.metadata.bbrOpportunityAt, result.returnedAt)
++				s.observation.ReturnToConsume.interval(result.returnedAt, consumedAt)
++				if result.accepted == member.datagrams && result.err == nil {
++					s.observation.AcceptedMembers++
++					s.observation.AcceptedBytes += uint64(member.bytes)
++				}
++			}
+ 			if result.accepted == member.datagrams && result.err == nil {
+ 				for _, receipt := range member.metadata.terminalReceipts {
+ 					if receipt != nil {
+diff --git a/ordinary_cost_test.go b/ordinary_cost_test.go
+index 52f5d8f3b..6386277bd 100644
+--- a/ordinary_cost_test.go
++++ b/ordinary_cost_test.go
+@@ -488,13 +488,14 @@ func (s *ordinaryCostServer) handle(entry *ordinaryCostServerConn) {
+ }
+ 
+ type ordinaryCostServerConnResult struct {
+-	Label        string `json:"label"`
+-	Multipath    bool   `json:"multipath_negotiated"`
+-	PacketsSent  uint64 `json:"packets_sent"`
+-	PacketsLost  uint64 `json:"packets_lost"`
+-	BytesSent    uint64 `json:"bytes_sent"`
+-	CloseCause   string `json:"close_cause"`
+-	TimeoutClose bool   `json:"timeout_close"`
++	BBRObservation *bbrConnectionObservation `json:"bbr_observation,omitempty"`
++	Label          string                    `json:"label"`
++	Multipath      bool                      `json:"multipath_negotiated"`
++	PacketsSent    uint64                    `json:"packets_sent"`
++	PacketsLost    uint64                    `json:"packets_lost"`
++	BytesSent      uint64                    `json:"bytes_sent"`
++	CloseCause     string                    `json:"close_cause"`
++	TimeoutClose   bool                      `json:"timeout_close"`
+ }
+ 
+ type ordinaryCostServerResult struct {
+@@ -593,6 +594,14 @@ func ordinaryCostRunServer(t testing.TB, spec ordinaryCostSpec) *ordinaryCostSer
+ 	s.workers.Wait()
+ 	s.mutex.Lock()
+ 	defer s.mutex.Unlock()
++	for i, entry := range s.conns {
++		<-entry.conn.Context().Done()
++		// Context completion follows the connection-owned final snapshot. No
++		// diagnostic state is read while the connection can still mutate it.
++		if i < len(result.Connections) {
++			result.Connections[i].BBRObservation = entry.conn.bbrObservation
++		}
++	}
+ 	result.WriteErrors = s.writeErrors
+ 	for label, histogram := range s.histograms {
+ 		result.ApplicationSendCall[label] = histogram.summary()
+@@ -601,16 +610,17 @@ func ordinaryCostRunServer(t testing.TB, spec ordinaryCostSpec) *ordinaryCostSer
+ }
+ 
+ type ordinaryCostFlowResult struct {
+-	Label        string               `json:"label"`
+-	Series       []uint64             `json:"series"`
+-	UsefulBytes  uint64               `json:"useful_bytes"`
+-	Control      *ordinaryCostLatency `json:"control"`
+-	Drops        uint64               `json:"datagram_drops"`
+-	Unprocessed  uint64               `json:"unprocessed_drops"`
+-	CloseCause   string               `json:"close_cause"`
+-	TimeoutClose bool                 `json:"timeout_close"`
+-	Negotiated   bool                 `json:"multipath_negotiated"`
+-	Paths        []string             `json:"paths"`
++	BBRObservation *bbrConnectionObservation `json:"bbr_observation,omitempty"`
++	Label          string                    `json:"label"`
++	Series         []uint64                  `json:"series"`
++	UsefulBytes    uint64                    `json:"useful_bytes"`
++	Control        *ordinaryCostLatency      `json:"control"`
++	Drops          uint64                    `json:"datagram_drops"`
++	Unprocessed    uint64                    `json:"unprocessed_drops"`
++	CloseCause     string                    `json:"close_cause"`
++	TimeoutClose   bool                      `json:"timeout_close"`
++	Negotiated     bool                      `json:"multipath_negotiated"`
++	Paths          []string                  `json:"paths"`
+ }
+ 
+ type ordinaryCostFloodResult struct {
+@@ -890,6 +900,8 @@ func ordinaryCostRunClient(t testing.TB, spec ordinaryCostSpec) *ordinaryCostCli
+ 	time.Sleep(ordinaryCostDrain)
+ 	for _, flow := range flows {
+ 		require.NoError(t, flow.conn.CloseWithError(0, ""))
++		<-flow.conn.Context().Done()
++		flow.result.BBRObservation = flow.conn.bbrObservation
+ 	}
+ 	wait.Wait()
+ 	ordinary.result.Control = ordinary.echo.summary()
+diff --git a/packet_emission.go b/packet_emission.go
+index 801233564..3177ea2dd 100644
+--- a/packet_emission.go
++++ b/packet_emission.go
+@@ -26,7 +26,8 @@ type packetEmission struct {
+ 	held             bool       // no path may carry ordinary work now
+ 	terminalReceipts []*pathAbandonReceipt
+ 	bbr              *bbrSendPolicy
+-	reservation      *sendReservation // connection-owned until handoff
++	observer         bbrEmissionObservation // E07 only; connection-owned
++	reservation      *sendReservation       // connection-owned until handoff
+ 	paceReservation  bool
+ 	pacingBytes      protocol.ByteCount
+ 	reservationTime  monotime.Time
+@@ -138,7 +139,7 @@ func (e *packetEmission) capacity() <-chan struct{} {
+ 			return nil // nothing to wait on, and admission probes still need their turn
+ 		}
+ 	}
+-	if e.queue.WouldBlock() {
++	if e.observedQueueWouldBlock() {
+ 		return e.queue.Available()
+ 	}
+ 	return nil
+@@ -157,6 +158,9 @@ func (e *packetEmission) finish(result emissionResult) emissionResult {
+ }
+ 
+ func (e *packetEmission) send(now monotime.Time, confirmed bool) (result emissionResult) {
++	if e.bbr != nil {
++		defer func() { e.observer.result(result) }()
++	}
+ 	if e.local != nil {
+ 		defer e.local.finish()
+ 	}
+diff --git a/packet_emission_bbr.go b/packet_emission_bbr.go
+index 4978eb9d1..d6b2a899a 100644
+--- a/packet_emission_bbr.go
++++ b/packet_emission_bbr.go
+@@ -19,6 +19,7 @@ func (e *packetEmission) handoff(buf *packetBuffer, gso uint16, ecn protocol.ECN
+ 	metadata.pathGeneration = e.policy.sendPathGeneration()
+ 
+ 	if e.bbr != nil {
++		e.observer.handoff(buf.Len(), gso)
+ 		if e.reservation == nil {
+ 			panic("BBR handoff without reservation")
+ 		}
+@@ -30,6 +31,7 @@ func (e *packetEmission) handoff(buf *packetBuffer, gso uint16, ecn protocol.ECN
+ 			p.sent(e.pacingBytes, e.reservationTime)
+ 		}
+ 		metadata.credit = e.reservation
++		metadata.bbrOpportunityAt = e.reservationTime
+ 		if p == e.bbr {
+ 			// Only path zero's credit generation is the connection's path generation.
+ 			metadata.pathGeneration = e.reservation.generation
+@@ -62,7 +64,11 @@ func (e *packetEmission) reserveLocal(n protocol.ByteCount, ordinary, isolated b
+ }
+ 
+ func (e *packetEmission) reserveOn(p *bbrSendPolicy, n protocol.ByteCount, ordinary, isolated bool, now monotime.Time) bool {
+-	e.reservation = p.credit.reserve(n, p.creditLimit(), ordinary, isolated)
++	if ordinary && p == e.bbr {
++		e.reservation = p.credit.reserveObserved(n, p.creditLimit(), ordinary, isolated, &e.observer, e.packetSize(), now)
++	} else {
++		e.reservation = p.credit.reserve(n, p.creditLimit(), ordinary, isolated)
++	}
+ 	e.paceReservation, e.reservationTime, e.pacingBytes = ordinary, now, 0
+ 	return e.reservation != nil
+ }
+@@ -175,7 +181,7 @@ func (e *packetEmission) sendBounded(now monotime.Time, confirmed bool) (result
+ 			}
+ 		}
+ 	}()
+-	if e.queue.WouldBlock() {
++	if e.observedQueueWouldBlock() {
+ 		return emissionResult{stop: emissionQueueFull, available: e.queue.Available(), blocked: blockModeHardBlocked}
+ 	}
+ 	if !confirmed {
+@@ -188,7 +194,7 @@ func (e *packetEmission) sendBounded(now monotime.Time, confirmed bool) (result
+ 		}
+ 		// Selection can move the opportunity off the route whose native
+ 		// construction capacity the first check reserved, so take it again.
+-		if e.queue.WouldBlock() {
++		if e.observedQueueWouldBlock() {
+ 			return emissionResult{stop: emissionQueueFull, available: e.queue.Available(), blocked: blockModeHardBlocked}
+ 		}
+ 	}
+diff --git a/send_queue.go b/send_queue.go
+index d86dd50a2..f39164c5a 100644
+--- a/send_queue.go
++++ b/send_queue.go
+@@ -21,6 +21,7 @@ type sender interface {
+ 
+ // sendMetadata is captured by the connection loop, never read from it by the worker.
+ type sendMetadata struct {
++	bbrOpportunityAt           monotime.Time         // E07 only; copied at BBR handoff
+ 	terminalReceipts           []*pathAbandonReceipt // nil unless the packet carries PATH_ABANDON
+ 	credit                     *sendReservation
+ 	handshake                  bool

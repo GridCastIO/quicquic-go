@@ -52,6 +52,7 @@ SERVER_ADDRESS = "127.0.0.1:47438"
 METRIC_BOUNDARIES = {
     "application_send_call": "elapsed Stream.Write / SendDatagram call time; neither native return nor peer delivery",
     "control": "application echo round trip",
+    "cpu_profile": "sampled CPU across the entire role process, including setup, warmup and cleanup; not window CPU",
     "useful_bytes": "receiver-counted application content within the measurement window",
 }
 
@@ -88,6 +89,10 @@ def flows(record, label):
 def check_observation(record):
     cell, profile = record["cell"], record["profile"]
     server, client = record["server"], record["client"]
+    controller = record.get("controller", "reno")
+    if controller not in ("reno", "bbrv3") or any(
+            role.get("controller", "reno") != controller for role in (server, client)):
+        raise ValueError(f"{cell}: controller does not match both roles")
     if server["application_send_call_boundary"] != METRIC_BOUNDARIES["application_send_call"]:
         raise ValueError(f"{cell}: application send-call metric boundary mismatch")
     if client["go"] != GO_VERSION:
@@ -147,8 +152,9 @@ def check_mixed(record):
 
 
 def check_accounting(records, cells=None):
-    if any(record.get("mode") != "campaign" for record in records):
-        raise ValueError("diagnostic/smoke records cannot satisfy campaign inventory")
+    if any(record.get("mode") != "campaign" or record.get("cpu_profile", False)
+           or record.get("controller", "reno") != "reno" for record in records):
+        raise ValueError("diagnostic/smoke, profiled or BBR records cannot satisfy the Reno campaign inventory")
     expected = sorted(schedule(cells))
     actual = sorted((record["cell"], record["round"], record["profile"], record["seed"]) for record in records)
     if actual != expected:
@@ -330,8 +336,11 @@ def wait_quiet(log):
             raise RuntimeError(f"host stayed busy for {waited:.0f} s")
 
 
-def role_command(binary):
-    return [binary, "-test.run=^TestOrdinaryCostRole$", "-test.count=1", "-test.v", f"-test.timeout={SETUP_S + WARMUP_S + WINDOW_S + 60}s"]
+def role_command(binary, cpu_profile=None):
+    command = [binary, "-test.run=^TestOrdinaryCostRole$", "-test.count=1", "-test.v", f"-test.timeout={SETUP_S + WARMUP_S + WINDOW_S + 60}s"]
+    if cpu_profile is not None:
+        command.append(f"-test.cpuprofile={cpu_profile}")
+    return command
 
 
 def check_role_log(role, output):
@@ -340,12 +349,12 @@ def check_role_log(role, output):
 
 
 def run_observation(binary, directory, cell, round_, profile, seed, warmup_s=WARMUP_S,
-                    window_s=WINDOW_S, timeout_s=135, record=None):
+                    window_s=WINDOW_S, timeout_s=135, record=None, controller="reno", cpu_profile=False):
     """One instance; every launched child is reaped, including a partial launch."""
     record = record if record is not None else {}
     directory.mkdir(parents=True, exist_ok=False)
     spec = {
-        "cell": cell, "profile": profile, "seed": seed, "address": SERVER_ADDRESS,
+        "cell": cell, "profile": profile, "seed": seed, "address": SERVER_ADDRESS, "controller": controller,
         "start_at_unix_ns": time.time_ns() + SETUP_S * 10**9,
         "warmup_ns": warmup_s * 10**9, "window_ns": window_s * 10**9,
     }
@@ -373,7 +382,7 @@ def run_observation(binary, directory, cell, round_, profile, seed, warmup_s=WAR
             role_spec = dict(spec, role=role, output=str(directory / f"{role}.json"))
             with (directory / f"{role}.log").open("w") as log:
                 processes[role] = subprocess.Popen(
-                    ["taskset", "-c", cpus, *role_command(binary)],
+                    ["taskset", "-c", cpus, *role_command(binary, directory / f"{role}.cpu.pprof" if cpu_profile else None)],
                     env=dict(process_env, ORDINARY_COST_SPEC=json.dumps(role_spec)),
                     stdout=log, stderr=subprocess.STDOUT,
                 )
@@ -390,8 +399,8 @@ def run_observation(binary, directory, cell, round_, profile, seed, warmup_s=WAR
             if process.returncode is None:
                 reap(role, process)
         occupied = time.monotonic() - begun
-        record.update(cell=cell, round=round_, profile=profile, seed=seed,
-                      occupied_s=occupied, process_cpu_s=usage,
+        record.update(cell=cell, round=round_, profile=profile, seed=seed, controller=controller,
+                      cpu_profile=cpu_profile, timing_eligible=not cpu_profile, occupied_s=occupied, process_cpu_s=usage,
                       exit={role: process.returncode for role, process in processes.items()})
     running = schedstat_running_ns()
     foreign = (sum(running[cpu] - before[cpu] for cpu in FIXTURE_CPUS)
@@ -403,6 +412,11 @@ def run_observation(binary, directory, cell, round_, profile, seed, warmup_s=WAR
             raise ValueError(f"{role}: nonfinite JSON number {value}")
         record[role] = json.loads((directory / f"{role}.json").read_text(), parse_constant=reject_nonfinite)
     check_observation(record)
+    if cpu_profile:
+        paths = {role: directory / f"{role}.cpu.pprof" for role in processes}
+        if any(not path.is_file() or path.stat().st_size == 0 for path in paths.values()):
+            raise ValueError("missing CPU profile")
+        record["cpu_profiles"] = {role: str(path) for role, path in paths.items()}
     return record
 
 
@@ -442,7 +456,7 @@ class AttemptLedger:
             raise ValueError("insufficient remaining instance/host-time allowance")
 
     def observe(self, binary, directory, cell, round_, profile, seed, candidate, mode,
-                attempt=0, warmup_s=WARMUP_S):
+                attempt=0, warmup_s=WARMUP_S, controller="reno", cpu_profile=False):
         self.require_capacity()
         record = dict(cell=cell, round=round_, profile=profile, seed=seed, candidate=candidate,
                       mode=mode, attempt=attempt, status="started", occupied_s=0,
@@ -452,7 +466,8 @@ class AttemptLedger:
         begun = time.monotonic()
         try:
             run_observation(binary, directory, cell, round_, profile, seed,
-                            warmup_s=warmup_s, timeout_s=self.timeout_s, record=record)
+                            warmup_s=warmup_s, timeout_s=self.timeout_s, record=record,
+                            controller=controller, cpu_profile=cpu_profile)
             record["status"] = "succeeded"
             return record
         except BaseException as error:
@@ -519,6 +534,10 @@ def binary_identity(binary):
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--controller", choices=("reno", "bbrv3"), default="reno",
+                        help="BBR is restricted to the stateless-pressure diagnostic; no multipath activation")
+    parser.add_argument("--cpu-profile", action="store_true",
+                        help="profile both diagnostic roles; timings are attribution-only, not qualification")
     parser.add_argument("--candidate", required=True, help="the exact 40-character product commit under measurement")
     parser.add_argument("--binary", required=True, help="the test binary built with -tags ordinarycost")
     parser.add_argument("--output", required=True, type=Path)
@@ -536,6 +555,10 @@ def main(argv=None):
     if len(args.candidate) != 40 or any(c not in "0123456789abcdef" for c in args.candidate):
         parser.error("--candidate must be a full lowercase commit SHA")
     cell_choice = args.smoke_cell or args.diagnostic_cell
+    if args.controller == "bbrv3" and cell_choice != "stateless-pressure":
+        parser.error("BBR requires a stateless-pressure diagnostic, not a campaign or multipath cell")
+    if args.cpu_profile and not cell_choice:
+        parser.error("CPU profiling requires diagnostic or smoke mode")
     if args.revalidate_cell and cell_choice:
         parser.error("--revalidate-cell selects campaign cells")
     if bool(args.revalidate_cell) != bool(args.cause):
@@ -545,7 +568,8 @@ def main(argv=None):
     mode = "smoke" if args.smoke_cell else "diagnostic" if args.diagnostic_cell else "campaign"
     warmup = 2 if mode == "smoke" else WARMUP_S
     identity = {
-        "candidate": args.candidate, "binary": binary,
+        "candidate": args.candidate, "binary": binary, "controller": args.controller,
+        "cpu_profile": args.cpu_profile, "timing_eligible": not args.cpu_profile,
         "comparator": {"candidate": args.candidate, "binary_sha256": binary["sha256"], "profile": CONTROL},
         "kernel": platform.platform(), "uname": " ".join(platform.uname()), "go": GO_VERSION,
         "server_cpus": SERVER_CPUS, "client_cpus": CLIENT_CPUS, "fixture_cpus_and_siblings": FIXTURE_CPUS,
@@ -568,7 +592,8 @@ def main(argv=None):
 
     previous_sigterm = signal.signal(signal.SIGTERM, interrupt_on_sigterm)
     ledger = None
-    summary = {"passed": False, "mode": mode, "campaign_complete": False, "metric_boundaries": METRIC_BOUNDARIES}
+    summary = {"passed": False, "mode": mode, "campaign_complete": False, "metric_boundaries": METRIC_BOUNDARIES,
+               "controller": args.controller, "cpu_profile": args.cpu_profile, "timing_eligible": not args.cpu_profile}
     try:
         ledger = AttemptLedger(args.output, args.remaining_instances, args.remaining_host_seconds, args.timeout_seconds)
         if args.timeout_seconds < SETUP_S + warmup + WINDOW_S + 10:
@@ -585,7 +610,8 @@ def main(argv=None):
             for profile in (CONTROL, OPTED_IN):
                 quiet = wait_quiet(log)
                 record = ledger.observe(binary["path"], args.output / cell / profile, cell, 0,
-                                        profile, BASE_SEED, args.candidate, mode, warmup_s=warmup)
+                                        profile, BASE_SEED, args.candidate, mode, warmup_s=warmup,
+                                        controller=args.controller, cpu_profile=args.cpu_profile)
                 record["quiet"] = quiet
                 records.append(record)
                 with (args.output / f"{mode}.jsonl").open("a") as file:

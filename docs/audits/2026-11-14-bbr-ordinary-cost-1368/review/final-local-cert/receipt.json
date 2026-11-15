@@ -1,0 +1,123 @@
+{
+  "head": "fc5193dd346d9991c12ad7771f2d970f2b687e51",
+  "base": "62247738352d9f645935518fa9259fe4e2f48dc8",
+  "worktree": "/Volumes/worktrees/bbr-ordinary-cost-1368/quic-go-fast",
+  "checks": [
+    {
+      "argv": [
+        "go",
+        "version"
+      ],
+      "started": "2026-11-15T04:56:47.789168+00:00",
+      "seconds": 0.00750145799247548,
+      "exit": 0,
+      "log": "01.log",
+      "sha256": "c6f1c8d54aedc3afa72560d934397ad6c33b28f1b4d3546ec53176439b2397d5"
+    },
+    {
+      "argv": [
+        "go",
+        "test",
+        "-count=1",
+        ".",
+        "./internal/ackhandler"
+      ],
+      "started": "2026-11-15T04:56:47.796863+00:00",
+      "seconds": 26.85753541701706,
+      "exit": 0,
+      "log": "02.log",
+      "sha256": "7e14a392473d6dc6a55ec56bb20469d83db71ab5f48dd9311485b2f18a88a9b7"
+    },
+    {
+      "argv": [
+        "go",
+        "test",
+        "-race",
+        "-count=1",
+        "-run",
+        "TestBBRNativeLargeMemberOutcomes|TestBBRNativeLargeMemberSelection|TestLocalBBRAcceptedMemberRecoveryDiagnostics",
+        ".",
+        "./internal/ackhandler"
+      ],
+      "started": "2026-11-15T04:57:14.654739+00:00",
+      "seconds": 10.640195624961052,
+      "exit": 0,
+      "log": "03.log",
+      "sha256": "bd12b8963173c66736fa6c004b2cc04bfa116ac2df4c28faf95a1a12f24282ee"
+    },
+    {
+      "argv": [
+        "go",
+        "vet",
+        ".",
+        "./internal/ackhandler"
+      ],
+      "started": "2026-11-15T04:57:25.295141+00:00",
+      "seconds": 0.17692258401075378,
+      "exit": 0,
+      "log": "04.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "argv": [
+        "go",
+        "mod",
+        "tidy",
+        "-diff"
+      ],
+      "started": "2026-11-15T04:57:25.472277+00:00",
+      "seconds": 0.0277904579997994,
+      "exit": 0,
+      "log": "05.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "argv": [
+        "golangci-lint",
+        "run",
+        "--timeout=3m",
+        "./..."
+      ],
+      "started": "2026-11-15T04:57:25.500336+00:00",
+      "seconds": 0.5831056659808382,
+      "exit": 0,
+      "log": "06.log",
+      "sha256": "e92606b0bf483111dff0a120c315ea165821348f31365020e2468a0059095c47"
+    },
+    {
+      "argv": [
+        "git",
+        "diff",
+        "--exit-code",
+        "a1c9442f110cca36cb4752b39ce24ae998d76f05",
+        "fc5193dd346d9991c12ad7771f2d970f2b687e51",
+        "--",
+        "*.go",
+        ":!*_test.go",
+        "go.mod",
+        "go.sum",
+        "interop/multipath"
+      ],
+      "started": "2026-11-15T04:57:26.083634+00:00",
+      "seconds": 0.01566737500252202,
+      "exit": 0,
+      "log": "07.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "argv": [
+        "git",
+        "diff",
+        "--check",
+        "62247738352d9f645935518fa9259fe4e2f48dc8...fc5193dd346d9991c12ad7771f2d970f2b687e51"
+      ],
+      "started": "2026-11-15T04:57:26.099519+00:00",
+      "seconds": 0.1250932079856284,
+      "exit": 0,
+      "log": "08.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  ],
+  "clean_final_head": "fc5193dd346d9991c12ad7771f2d970f2b687e51",
+  "passed": true
+}

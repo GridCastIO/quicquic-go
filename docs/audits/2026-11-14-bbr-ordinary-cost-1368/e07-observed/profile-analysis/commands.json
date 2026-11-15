@@ -1,0 +1,146 @@
+{
+  "binary_sha256": "f46026aca1229fc2cbaad7a5ac0b1bf7950b16972ae4377878ce87d72ab4672c",
+  "commands": [
+    {
+      "profile": "unregistered",
+      "role": "server",
+      "profile_sha256": "de67b10694db9130b6729834e1621c524f3933afa10605d86e0be2e6ec946c07",
+      "command": [
+        "go",
+        "tool",
+        "pprof",
+        "-top",
+        "-nodefraction=0",
+        "-nodecount=160",
+        "/tmp/qgf-bbr-cost-1368/e07.test",
+        "/tmp/qgf-bbr-cost-1368/e07-observed/stateless-pressure/unregistered/server.cpu.pprof"
+      ],
+      "exit": 0,
+      "output": "unregistered-server-flat.txt"
+    },
+    {
+      "profile": "unregistered",
+      "role": "server",
+      "profile_sha256": "de67b10694db9130b6729834e1621c524f3933afa10605d86e0be2e6ec946c07",
+      "command": [
+        "go",
+        "tool",
+        "pprof",
+        "-top",
+        "-nodefraction=0",
+        "-nodecount=160",
+        "-cum",
+        "/tmp/qgf-bbr-cost-1368/e07.test",
+        "/tmp/qgf-bbr-cost-1368/e07-observed/stateless-pressure/unregistered/server.cpu.pprof"
+      ],
+      "exit": 0,
+      "output": "unregistered-server-cum.txt"
+    },
+    {
+      "profile": "unregistered",
+      "role": "client",
+      "profile_sha256": "c16300babb0c313cc884b03125c48923010687239828cff5c41b6c30d095618f",
+      "command": [
+        "go",
+        "tool",
+        "pprof",
+        "-top",
+        "-nodefraction=0",
+        "-nodecount=160",
+        "/tmp/qgf-bbr-cost-1368/e07.test",
+        "/tmp/qgf-bbr-cost-1368/e07-observed/stateless-pressure/unregistered/client.cpu.pprof"
+      ],
+      "exit": 0,
+      "output": "unregistered-client-flat.txt"
+    },
+    {
+      "profile": "unregistered",
+      "role": "client",
+      "profile_sha256": "c16300babb0c313cc884b03125c48923010687239828cff5c41b6c30d095618f",
+      "command": [
+        "go",
+        "tool",
+        "pprof",
+        "-top",
+        "-nodefraction=0",
+        "-nodecount=160",
+        "-cum",
+        "/tmp/qgf-bbr-cost-1368/e07.test",
+        "/tmp/qgf-bbr-cost-1368/e07-observed/stateless-pressure/unregistered/client.cpu.pprof"
+      ],
+      "exit": 0,
+      "output": "unregistered-client-cum.txt"
+    },
+    {
+      "profile": "opted-in",
+      "role": "server",
+      "profile_sha256": "00de56545f56897fa5aef9f19cadd4b3316568c44697bad0613c5c6a5cfddd7f",
+      "command": [
+        "go",
+        "tool",
+        "pprof",
+        "-top",
+        "-nodefraction=0",
+        "-nodecount=160",
+        "/tmp/qgf-bbr-cost-1368/e07.test",
+        "/tmp/qgf-bbr-cost-1368/e07-observed/stateless-pressure/opted-in/server.cpu.pprof"
+      ],
+      "exit": 0,
+      "output": "opted-in-server-flat.txt"
+    },
+    {
+      "profile": "opted-in",
+      "role": "server",
+      "profile_sha256": "00de56545f56897fa5aef9f19cadd4b3316568c44697bad0613c5c6a5cfddd7f",
+      "command": [
+        "go",
+        "tool",
+        "pprof",
+        "-top",
+        "-nodefraction=0",
+        "-nodecount=160",
+        "-cum",
+        "/tmp/qgf-bbr-cost-1368/e07.test",
+        "/tmp/qgf-bbr-cost-1368/e07-observed/stateless-pressure/opted-in/server.cpu.pprof"
+      ],
+      "exit": 0,
+      "output": "opted-in-server-cum.txt"
+    },
+    {
+      "profile": "opted-in",
+      "role": "client",
+      "profile_sha256": "707cc8f7e23bb89ecbb1d2f50382fa84c292c7d6435552c217154dea5642d4e5",
+      "command": [
+        "go",
+        "tool",
+        "pprof",
+        "-top",
+        "-nodefraction=0",
+        "-nodecount=160",
+        "/tmp/qgf-bbr-cost-1368/e07.test",
+        "/tmp/qgf-bbr-cost-1368/e07-observed/stateless-pressure/opted-in/client.cpu.pprof"
+      ],
+      "exit": 0,
+      "output": "opted-in-client-flat.txt"
+    },
+    {
+      "profile": "opted-in",
+      "role": "client",
+      "profile_sha256": "707cc8f7e23bb89ecbb1d2f50382fa84c292c7d6435552c217154dea5642d4e5",
+      "command": [
+        "go",
+        "tool",
+        "pprof",
+        "-top",
+        "-nodefraction=0",
+        "-nodecount=160",
+        "-cum",
+        "/tmp/qgf-bbr-cost-1368/e07.test",
+        "/tmp/qgf-bbr-cost-1368/e07-observed/stateless-pressure/opted-in/client.cpu.pprof"
+      ],
+      "exit": 0,
+      "output": "opted-in-client-cum.txt"
+    }
+  ],
+  "boundary": "Whole-role CPU samples, including setup/warmup/cleanup. Cumulative entries overlap and cannot be added as removable cost."
+}

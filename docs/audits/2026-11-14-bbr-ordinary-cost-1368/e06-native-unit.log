@@ -1,0 +1,75 @@
+Kernel Version: 7.0
+
+=== RUN   TestBBRNativeLargeMemberOutcomes
+=== RUN   TestBBRNativeLargeMemberOutcomes/GSO
+=== RUN   TestBBRNativeLargeMemberOutcomes/EIO_fallback
+=== RUN   TestBBRNativeLargeMemberOutcomes/partial
+=== RUN   TestBBRNativeLargeMemberOutcomes/revoked
+=== RUN   TestBBRNativeLargeMemberOutcomes/expired
+--- PASS: TestBBRNativeLargeMemberOutcomes (0.01s)
+    --- PASS: TestBBRNativeLargeMemberOutcomes/GSO (0.00s)
+    --- PASS: TestBBRNativeLargeMemberOutcomes/EIO_fallback (0.00s)
+    --- PASS: TestBBRNativeLargeMemberOutcomes/partial (0.00s)
+    --- PASS: TestBBRNativeLargeMemberOutcomes/revoked (0.00s)
+    --- PASS: TestBBRNativeLargeMemberOutcomes/expired (0.00s)
+=== RUN   TestBBRNativeLargeMemberSelection
+=== RUN   TestBBRNativeLargeMemberSelection/standard
+=== RUN   TestBBRNativeLargeMemberSelection/jumbo_configured_standard
+=== RUN   TestBBRNativeLargeMemberSelection/active_jumbo
+=== RUN   TestBBRNativeLargeMemberSelection/UDP_ceiling
+=== RUN   TestBBRNativeLargeMemberSelection/small_allowance
+=== RUN   TestBBRNativeLargeMemberSelection/small_pacing_balance
+=== RUN   TestBBRNativeLargeMemberSelection/short_datagrams
+=== RUN   TestBBRNativeLargeMemberSelection/GSO_disabled
+--- PASS: TestBBRNativeLargeMemberSelection (0.02s)
+    --- PASS: TestBBRNativeLargeMemberSelection/standard (0.00s)
+    --- PASS: TestBBRNativeLargeMemberSelection/jumbo_configured_standard (0.00s)
+    --- PASS: TestBBRNativeLargeMemberSelection/active_jumbo (0.00s)
+    --- PASS: TestBBRNativeLargeMemberSelection/UDP_ceiling (0.00s)
+    --- PASS: TestBBRNativeLargeMemberSelection/small_allowance (0.00s)
+    --- PASS: TestBBRNativeLargeMemberSelection/small_pacing_balance (0.00s)
+    --- PASS: TestBBRNativeLargeMemberSelection/short_datagrams (0.00s)
+    --- PASS: TestBBRNativeLargeMemberSelection/GSO_disabled (0.00s)
+=== RUN   TestBBRNativeLargeCreditRefusalPreservesControl
+=== RUN   TestBBRNativeLargeCreditRefusalPreservesControl/no_ACK
+=== RUN   TestBBRNativeLargeCreditRefusalPreservesControl/due_ACK
+--- PASS: TestBBRNativeLargeCreditRefusalPreservesControl (0.00s)
+    --- PASS: TestBBRNativeLargeCreditRefusalPreservesControl/no_ACK (0.00s)
+    --- PASS: TestBBRNativeLargeCreditRefusalPreservesControl/due_ACK (0.00s)
+=== RUN   TestBBRNativeLargePlanScope
+=== RUN   TestBBRNativeLargePlanScope/unregistered
+=== RUN   TestBBRNativeLargePlanScope/Reno
+=== RUN   TestBBRNativeLargePlanScope/multipath
+=== RUN   TestBBRNativeLargePlanScope/nonzero_route
+=== RUN   TestBBRNativeLargePlanScope/handshake
+=== RUN   TestBBRNativeLargePlanScope/PTO
+=== RUN   TestBBRNativeLargePlanScope/MTU
+--- PASS: TestBBRNativeLargePlanScope (0.00s)
+    --- PASS: TestBBRNativeLargePlanScope/unregistered (0.00s)
+    --- PASS: TestBBRNativeLargePlanScope/Reno (0.00s)
+    --- PASS: TestBBRNativeLargePlanScope/multipath (0.00s)
+    --- PASS: TestBBRNativeLargePlanScope/nonzero_route (0.00s)
+    --- PASS: TestBBRNativeLargePlanScope/handshake (0.00s)
+    --- PASS: TestBBRNativeLargePlanScope/PTO (0.00s)
+    --- PASS: TestBBRNativeLargePlanScope/MTU (0.00s)
+=== RUN   TestNativeProtectionCoalescedScope
+=== RUN   TestNativeProtectionCoalescedScope/ordinary
+=== RUN   TestNativeProtectionCoalescedScope/Reno
+=== RUN   TestNativeProtectionCoalescedScope/active_jumbo
+=== RUN   TestNativeProtectionCoalescedScope/control
+=== RUN   TestNativeProtectionCoalescedScope/outside_opportunity
+=== RUN   TestNativeProtectionCoalescedScope/small_reservation
+--- PASS: TestNativeProtectionCoalescedScope (0.01s)
+    --- PASS: TestNativeProtectionCoalescedScope/ordinary (0.00s)
+    --- PASS: TestNativeProtectionCoalescedScope/Reno (0.00s)
+    --- PASS: TestNativeProtectionCoalescedScope/active_jumbo (0.00s)
+    --- PASS: TestNativeProtectionCoalescedScope/control (0.00s)
+    --- PASS: TestNativeProtectionCoalescedScope/outside_opportunity (0.00s)
+    --- PASS: TestNativeProtectionCoalescedScope/small_reservation (0.00s)
+=== RUN   TestNativeProtectionCoalescedUnsupportedSealer
+--- PASS: TestNativeProtectionCoalescedUnsupportedSealer (0.00s)
+=== RUN   TestNativeProtectionCoalescedGeometry
+--- PASS: TestNativeProtectionCoalescedGeometry (0.00s)
+=== RUN   TestOrdinaryCostController
+--- PASS: TestOrdinaryCostController (0.00s)
+PASS

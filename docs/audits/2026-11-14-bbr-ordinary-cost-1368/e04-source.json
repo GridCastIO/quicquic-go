@@ -1,0 +1,18 @@
+{
+  "source": "809eafc410e4bb58cdf7b47ffbd7e691179ba849",
+  "runtime_control": "ba84302dcc56d65712ba1e604b8fc50509367b25",
+  "observer_patch_sha256": "913b89be601ca2cbf03bff78ae4872653db34d4d744d98896ab21e7ae1e9cea4",
+  "archive_sha256": "9c493954facb00ce17c15f5a72e26e3cf6f6288403d4147af21a516bc4d65e84",
+  "binary_sha256": "87e532fc6762584775792e77d47dc1e4369a0f8cb2c519b3e333db6f51c3466c",
+  "build_command": "go test -c -tags ordinarycost -o /tmp/qgf-bbr-cost-1368/e04.test .",
+  "build_environment": {
+    "go": "go1.27.4",
+    "GOOS": "linux",
+    "GOARCH": "amd64",
+    "GOAMD64": "v1",
+    "CGO_ENABLED": "1"
+  },
+  "measurement_command": "python3 interop/multipath/ordinary_cost.py --candidate 809eafc410e4bb58cdf7b47ffbd7e691179ba849 --binary /tmp/qgf-bbr-cost-1368/e04.test --output /tmp/qgf-bbr-cost-1368/e04-observed --remaining-instances 195 --remaining-host-seconds 19323.040960716 --timeout-seconds 135 --controller bbrv3 --diagnostic-cell stateless-pressure",
+  "timing_qualification": false,
+  "qualification_exclusion": "E04 scalar and bounded snapshot observers add overhead; all timing descriptive only."
+}

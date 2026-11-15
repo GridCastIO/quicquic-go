@@ -245,3 +245,74 @@ func TestNativeOrdinaryAcceptedSuffix(t *testing.T) {
 		})
 	}
 }
+
+func TestNativeOrdinaryBBRAcceptedMembers(t *testing.T) {
+	var states [2][]nativeOrdinarySuffixState
+	for arm, forceScalar := range []bool{false, true} {
+		nativeOrdinaryTest(t, func(t *testing.T) {
+			tc, sender, socket := nativeProbeRecoveryConnection(t, "bbrv3")
+			recovery := sender.recovery
+			if forceScalar {
+				sender.recovery = &nativeOrdinarySuffixScalar{LocalSentPacketHandler: recovery}
+			}
+			e := &tc.conn.emission
+			var previous monotime.Time
+			var pns []protocol.PacketNumber
+			for _, count := range []int{2, 3} {
+				// The first real member establishes positive PTO evidence. The
+				// second exercises the closed member on the same real native owner.
+				const size = 300
+				now := monotime.Now()
+				require.True(t, e.reserveLocal(protocol.ByteCount(count*size), true, false, now))
+				buffer := getLargePacketBuffer()
+				require.True(t, sender.reserveBuffer(buffer.Cap()).available)
+				for range count {
+					pn, pnLen := recovery.PeekPacketNumber(protocol.Encryption1RTT)
+					pns = append(pns, pn)
+					payloadSize := size - int(wire.ShortHeaderLen(tc.conn.connIDManager.Get(), pnLen)) - 7 - 3
+					require.NoError(t, tc.conn.datagramQueue.Add(&wire.DatagramFrame{DataLenPresent: true, Data: bytes.Repeat([]byte{0x42}, payloadSize)}))
+					receipt, err := e.appendPacket(buffer, size, false, protocol.ECNNon, now)
+					require.NoError(t, err)
+					require.EqualValues(t, size, receipt.size)
+				}
+				e.handoff(buffer, size, protocol.ECNNon, sendMetadata{}, nil)
+				record := sender.pending
+				tokens := make([]ackhandler.LocalCompletionToken, count)
+				for i, packet := range record.packets[:record.count] {
+					tokens[i] = packet.token
+				}
+				receipt := &pathAbandonReceipt{}
+				record.members[0].metadata.terminalReceipts = []*pathAbandonReceipt{receipt}
+				sender.finish()
+				synctest.Wait()
+				sender.serviceParticipant(sender.participant)
+				require.Equal(t, ordinaryTerminalProcessing, record.state)
+				require.Len(t, record.terminal.members, 1)
+				fact := record.terminal.members[0]
+				require.Equal(t, count, fact.accepted)
+				require.Greater(t, fact.returnedAt, previous)
+				previous = fact.returnedAt
+				require.NoError(t, sender.consume())
+				require.Equal(t, fact.returnedAt, receipt.acceptedAt())
+				require.Zero(t, buffer.refCount)
+				require.Zero(t, e.bbrPendingBytes(e.bbr), "native retirement releases byte credit once")
+				for _, token := range tokens {
+					require.Error(t, recovery.CompleteLocalPacket(token, ackhandler.LocalPacketAccepted, fact.returnedAt))
+				}
+				require.Equal(t, ordinaryFree, record.state)
+				require.Zero(t, nativeProbeRetained(sender.endpoint, sender.participant))
+				_, allowance := recovery.(boundedRecovery).SendAllowance(fact.returnedAt)
+				states[arm] = append(states[arm], nativeOrdinarySuffixState{alarm: recovery.GetLossDetectionTimeout().Sub(fact.returnedAt), allowance: allowance, dropped: sender.droppedDatagrams, lost: tc.conn.connStats.PacketsLost.Load(), writes: len(socket.writes)})
+				time.Sleep(time.Millisecond)
+			}
+			var ranges []wire.AckRange
+			for _, pn := range slices.Backward(pns) {
+				ranges = append(ranges, wire.AckRange{Smallest: pn, Largest: pn})
+			}
+			_, err := recovery.ReceivedAck(&wire.AckFrame{AckRanges: ranges}, protocol.Encryption1RTT, monotime.Now())
+			require.NoError(t, err)
+			require.Zero(t, recovery.GetLossDetectionTimeout())
+		})
+	}
+	require.Equal(t, states[1], states[0])
+}

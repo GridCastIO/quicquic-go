@@ -1,0 +1,33 @@
+/Volumes/worktrees/bbr-review-tool-1368/artifacts/ras: go1.27.4
+	path	github.com/the-sarge/ras/cmd/ras
+	mod	github.com/the-sarge/ras	v0.0.0-20261115011428-d66c51d35e0f	
+	dep	github.com/dustin/go-humanize	v1.0.1	h1:GzkhY7T5VNhEkwH0PVJgjz+fX1rhBrR7pRT3mDkpeCY=
+	dep	github.com/google/uuid	v1.6.0	h1:NIvaJDMOsjHA8n1jAhLSgzrAzy1Hgr+hNrb57e+94F0=
+	dep	github.com/mattn/go-isatty	v0.0.20	h1:xfD0iDuEKnDkl03q4limB+vH+GxLEtL/jb4xVJSWWEY=
+	dep	github.com/ncruces/go-strftime	v0.1.9	h1:bY0MQC28UADQmHmaF5dgpLmImcShSi2kHU9XLdhx/f4=
+	dep	github.com/remyoudompheng/bigfft	v0.0.0-20230129092748-24d4a6f8daec	h1:W09IVJc94icq4NjY3clb7Lk8O1qJ8BdBEF8z0ibU0rE=
+	dep	github.com/santhosh-tekuri/jsonschema/v6	v6.0.2	h1:KRzFb2m7YtdldCEkzs6KqmJw4nqEVZGK7IN2kJkjTuQ=
+	dep	github.com/spf13/cobra	v1.10.1	h1:lJeBwCfmrnXthfAupyUTzJ/J4Nc1RsHC/mSRU2dll/s=
+	dep	github.com/spf13/pflag	v1.0.9	h1:9exaQaMOCwffKiiiYk6/BndUBv+iRViNW+4lEMi0PvY=
+	dep	golang.org/x/exp	v0.0.0-20250620022241-b7579e27df2b	h1:M2rDM6z3Fhozi9O7NWsxAkg/yqS/lQJ6PmkyIV3YP+o=
+	dep	golang.org/x/sys	v0.49.0	h1:XbzkgYJHdqh/8m2Uu0W/dQv8nktxx4BFHp1M0gROTXA=
+	dep	golang.org/x/text	v0.43.0	h1:1QivrlhwAsnMOcqgOdl9my7s9OyZl8O5/UGUTJVXoWc=
+	dep	gopkg.in/yaml.v3	v3.0.1	h1:fxVm/GzAzEWqLHuvctI91KS9hhNmmWOoWu0XTYJS7CA=
+	dep	modernc.org/libc	v1.66.10	h1:yZkb3YeLx4oynyR+iUsXsybsX4Ubx7MQlSYEw4yj59A=
+	dep	modernc.org/mathutil	v1.7.1	h1:GCZVGXdaN8gTqB1Mf/usp1Y/hSqgI2vAGGP4jZMCxOU=
+	dep	modernc.org/memory	v1.11.0	h1:o4QC8aMQzmcwCK3t3Ux/ZHmwFPzE6hf2Y5LbkRs+hbI=
+	dep	modernc.org/sqlite	v1.39.1	h1:H+/wGFzuSCIEVCvXYVHX5RQglwhMOvtHSv+VtidL2r4=
+	build	-buildmode=exe
+	build	-compiler=gc
+	build	CGO_ENABLED=1
+	build	CGO_CFLAGS=
+	build	CGO_CPPFLAGS=
+	build	CGO_CXXFLAGS=
+	build	CGO_LDFLAGS=
+	build	GOARCH=arm64
+	build	GOOS=darwin
+	build	GOARM64=v8.0
+	build	vcs=git
+	build	vcs.revision=d66c51d35e0f295345316e843c7bb40e18ca1e3b
+	build	vcs.time=2026-11-15T01:14:28Z
+	build	vcs.modified=false

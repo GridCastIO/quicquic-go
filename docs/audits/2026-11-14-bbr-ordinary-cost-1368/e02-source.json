@@ -1,0 +1,7 @@
+{
+  "source": "eab1ff6179644fba867bd14c71ba3bd96eee5c91",
+  "archive_sha256": "f55cdeba42bc8bdf1fdb6918f3ef74b6ccce2b93648165ef55c4c5c127ce9303",
+  "binary_sha256": "1144f177ec6de7c5a4e8c12e5ca765559800f109c1336e839043ea849a7ce363",
+  "build_command": "go test -c -tags ordinarycost -o /tmp/qgf-bbr-cost-1368/e02.test .",
+  "measurement_command": "python3 interop/multipath/ordinary_cost.py --candidate eab1ff6179644fba867bd14c71ba3bd96eee5c91 --binary /tmp/qgf-bbr-cost-1368/e02.test --output /tmp/qgf-bbr-cost-1368/e02-timing --remaining-instances 199 --remaining-host-seconds 19631.217541278 --timeout-seconds 135 --controller bbrv3 --diagnostic-cell stateless-pressure"
+}

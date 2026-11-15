@@ -1,0 +1,42 @@
+{
+  "synthetic_only": true,
+  "native_workloads": 0,
+  "checks": [
+    {
+      "case": "full-no-replacement",
+      "passed": true,
+      "mixed_all_bytes_cpu_ratio": 0.3140025054929277,
+      "wrong_ordinary_only_cpu_ratio": 1.1569072171177908
+    },
+    {
+      "case": "reject-ordinary-only-verdict",
+      "passed": true,
+      "reason": "full original verdict differs"
+    },
+    {
+      "case": "reject-mutated-role-copy",
+      "passed": true,
+      "reason": "role JSON differs from ledger"
+    },
+    {
+      "case": "full-with-replacement",
+      "passed": true,
+      "mixed_all_bytes_cpu_ratio": 0.3140025054929277,
+      "wrong_ordinary_only_cpu_ratio": 1.1569072171177908
+    },
+    {
+      "case": "reject-ordinary-only-verdict",
+      "passed": true,
+      "reason": "full original verdict differs"
+    },
+    {
+      "case": "reject-mutated-role-copy",
+      "passed": true,
+      "reason": "role JSON differs from ledger"
+    },
+    {
+      "case": "preserve-superseded-pair-before-replacement-launch",
+      "passed": true
+    }
+  ]
+}

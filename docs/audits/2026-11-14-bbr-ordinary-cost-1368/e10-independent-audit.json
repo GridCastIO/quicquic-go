@@ -1,0 +1,205 @@
+{
+  "source_pin": "e0d56ec72c8ee235d24a62d561342bf47d634b4a",
+  "runtime_source": "738ead192547bc107b7b0c142cdd8b7a0146a205",
+  "binary_sha256": "105e1c4f05e3baa6aeb07b19cf132cc9cab82233637130eb448b7c4de0a73352",
+  "raw_copies_roles_rusage_series_driver_judgment_identity_accounting_checks": "passed",
+  "observations": [
+    {
+      "profile": "unregistered",
+      "useful_bytes": 50091333120,
+      "goodput_gbit_s": 6.678844416,
+      "server_window_cpu_s": 84.074733,
+      "client_window_cpu_s": 56.301615,
+      "server_cpu_ns_per_useful_byte": 1.6784287373344318,
+      "foreign_cpu_s": 84.80802789699999,
+      "foreign_limit_at_charged_occupied_s": 3.853404666064307,
+      "foreign_limit_multiple": 22.00859635736598,
+      "occupied_s": 77.06809332128614,
+      "rss_kb_at_20s": 27024,
+      "rss_kb_end": 28092,
+      "joined": false,
+      "control_p99_us": 524.287,
+      "send_p99_us": 278.527,
+      "flood": {
+        "sent": 599780,
+        "resets": 392478
+      },
+      "quiet": {
+        "waited_s": 75.0,
+        "fixture_busy_share": 0.0219211295,
+        "named_process_present": true
+      }
+    },
+    {
+      "profile": "opted-in",
+      "useful_bytes": 56969015040,
+      "goodput_gbit_s": 7.595868672,
+      "server_window_cpu_s": 91.740318,
+      "client_window_cpu_s": 60.448235,
+      "server_cpu_ns_per_useful_byte": 1.6103546451625645,
+      "foreign_cpu_s": 50.88259775899999,
+      "foreign_limit_at_charged_occupied_s": 3.8529601032380016,
+      "foreign_limit_multiple": 13.206105538502358,
+      "occupied_s": 77.05920206476003,
+      "rss_kb_at_20s": 29936,
+      "rss_kb_end": 31416,
+      "joined": true,
+      "control_p99_us": 393.215,
+      "send_p99_us": 229.375,
+      "flood": {
+        "sent": 599720,
+        "resets": 434493
+      },
+      "quiet": {
+        "waited_s": 0.0,
+        "fixture_busy_share": 0.016957703,
+        "named_process_present": true
+      }
+    }
+  ],
+  "diagnostic": {
+    "cell": "stateless-pressure",
+    "passed": true,
+    "failures": [],
+    "goodput_ratio": {
+      "median": 1.137302832478498,
+      "range": [
+        1.137302832478498,
+        1.137302832478498
+      ],
+      "rounds": [
+        1.137302832478498
+      ]
+    },
+    "cpu_per_useful_byte_ratio": {
+      "median": 0.9594417739295993,
+      "range": [
+        0.9594417739295993,
+        0.9594417739295993
+      ],
+      "rounds": [
+        0.9594417739295993
+      ]
+    },
+    "control_p99_margin_us": {
+      "median": -1131.0720000000001,
+      "range": [
+        -1131.0720000000001,
+        -1131.0720000000001
+      ],
+      "rounds": [
+        -1131.0720000000001
+      ]
+    },
+    "application_send_call_p99_margin_us": {
+      "median": -1049.152,
+      "range": [
+        -1049.152,
+        -1049.152
+      ],
+      "rounds": [
+        -1049.152
+      ]
+    },
+    "control_p99_us": {
+      "unregistered": [
+        524.287
+      ],
+      "opted-in": [
+        393.215
+      ]
+    },
+    "application_send_call_p99_us": {
+      "unregistered": [
+        278.527
+      ],
+      "opted-in": [
+        229.375
+      ]
+    },
+    "empty_seconds": {
+      "unregistered": [
+        0
+      ],
+      "opted-in": [
+        0
+      ]
+    },
+    "background_bytes": {
+      "unregistered": [
+        0
+      ],
+      "opted-in": [
+        0
+      ]
+    },
+    "stateless_reset_share": {
+      "unregistered": [
+        0.6543699356430691
+      ],
+      "opted-in": [
+        0.7244930967784966
+      ]
+    },
+    "stateless_offered_packets": {
+      "unregistered": [
+        599780
+      ],
+      "opted-in": [
+        599720
+      ]
+    },
+    "stateless_resets_received": {
+      "unregistered": [
+        392478
+      ],
+      "opted-in": [
+        434493
+      ]
+    },
+    "peak_rss_kb": {
+      "unregistered": [
+        28092
+      ],
+      "opted-in": [
+        31416
+      ]
+    },
+    "packets_lost": {
+      "unregistered": [
+        0
+      ],
+      "opted-in": [
+        0
+      ]
+    },
+    "datagram_drops": {
+      "unregistered": [
+        0
+      ],
+      "opted-in": [
+        0
+      ]
+    },
+    "write_errors": {
+      "unregistered": [
+        0
+      ],
+      "opted-in": [
+        0
+      ]
+    }
+  },
+  "timing_acceptance_eligible": false,
+  "uncontaminated": false,
+  "reason": "All instrumented/profiled E10 timing is excluded from acceptance. Contamination and role checks govern the strength of attribution; nominal product ratios are descriptive only.",
+  "charge": {
+    "instances": 2,
+    "host_seconds": "154.12729538604617",
+    "cumulative_instances": 247,
+    "cumulative_host_seconds": "11231.34290643550578",
+    "remaining_instances": 173,
+    "remaining_host_seconds": "17568.65709356449422"
+  },
+  "limitations": "Foreign CPU is checked against stored driver accounting and source formula; raw schedstat/softirq endpoints are not saved, so it is not reconstructed independently. Foreign limit shown uses slightly longer final ledger occupied time; this tiny interval difference does not affect the contamination decision. The exact inner occupied interval is not separately saved."
+}

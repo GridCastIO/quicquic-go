@@ -1,0 +1,130 @@
+{
+  "purpose": "Read-only host readiness reassessment after both E08 timing observations were contaminated; no operational workload or host configuration change.",
+  "qualification": false,
+  "runtime_source": "740f07cd88f96c379991c7c3880aafac7a84e20d",
+  "failed_attempt_receipt_commit": "29a22ca284964a7be2f50e0533f7e758401bc7d8",
+  "raw_path": "/tmp/qgf-e08-host-observation-1368.jsonl",
+  "raw_sha256": "9590dafa2361855f921061c5cb452a32883a4a3837b38822b98abef3a16bf9c6",
+  "script_path": "/tmp/qgf-e08-host-observation-1368.py",
+  "script_sha256": "f1c38f0ef6af0a9524062bb99265bda108819ea710873112de63f654feb05565",
+  "command": "ssh -o BatchMode=yes -o ConnectTimeout=10 minimax 'python3 -u -' < /tmp/qgf-e08-host-observation-1368.py > /tmp/qgf-e08-host-observation-1368.jsonl",
+  "execution_note": "The executed command supplied the saved script body through a quoted SSH stdin heredoc. This equivalent file-input command is for reproduction; no second capture was run.",
+  "started_unix_ns": 1794705004170320052,
+  "started_utc": "2026-11-15T01:10:04.170320+00:00",
+  "elapsed_s": 55.11085769161582,
+  "sample_count": 11,
+  "target_interval_s": 5,
+  "initial_baseline_count": 1,
+  "duration_note": "One initial process/core baseline followed by eleven five-second intervals, not twelve samples. Elapsed includes procfs/process collection overhead.",
+  "fixture_cpus": [
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15,
+    24,
+    25,
+    26,
+    27,
+    28,
+    29,
+    30,
+    31
+  ],
+  "existing_max_per_core_quiet_threshold": 0.05,
+  "quiet_sample_count": 11,
+  "sample_max_per_core_shares": [
+    0.0033075420322114715,
+    0.002613160657756007,
+    0.007164726543448346,
+    0.0024343404295512393,
+    0.0038457610911574814,
+    0.0031576021672526733,
+    0.033155860112595,
+    0.008347816794337335,
+    0.004080101565218547,
+    0.028477171902637106,
+    0.044106151485847574
+  ],
+  "summed_fixture_running_cpu_s": 1.4840083290000001,
+  "summed_interval_duration_s": 55.10288270935416,
+  "summed_fixture_running_average_cores": 0.0269315915253936,
+  "sample_summed_fixture_running_shares": [
+    0.015892353717418036,
+    0.009828826533941378,
+    0.028142277430302853,
+    0.010001485069289115,
+    0.010591631626586958,
+    0.009874166053155045,
+    0.051371747300339145,
+    0.027164202982330028,
+    0.01343638582770382,
+    0.04861158397271285,
+    0.07132741435507066
+  ],
+  "qemu": {
+    "pid": 3228721,
+    "process_cpu_share_min": 0.5931125416628332,
+    "process_cpu_share_max": 2.166339807916644,
+    "rss_bytes_min": 17199955968,
+    "rss_bytes_max": 17200742400,
+    "threads_observed": [
+      70
+    ],
+    "allowed_cpu_masks": [
+      "0-31"
+    ],
+    "vcpu_last_cpus": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      17,
+      19
+    ],
+    "vcpu_threads": [
+      3228732,
+      3228733,
+      3228734,
+      3228735
+    ]
+  },
+  "resources": {
+    "mem_available_kib_min": 104299584,
+    "mem_available_kib_max": 104308784,
+    "swap_free_kib_values": [
+      8057988
+    ],
+    "cpu_pressure_avg10_values": [
+      "0.00"
+    ],
+    "memory_pressure_avg10_values": [
+      "0.00"
+    ]
+  },
+  "topology": {
+    "read_command": "ssh -o BatchMode=yes -o ConnectTimeout=10 minimax 'lscpu -e=CPU,CORE,SOCKET,MAXMHZ; lscpu | sed -n \"1,20p\"'",
+    "model": "AMD RYZEN AI MAX+ 395 w/ Radeon 8060S",
+    "sockets": 1,
+    "cores": 16,
+    "threads_per_core": 2,
+    "cpu_pairs": "0/16 through 15/31",
+    "reported_max_mhz_all_cpus": 5187.5,
+    "note": "lscpu provides no distinct efficiency/performance core classes here. Fixture CPUs 8–15 and siblings 24–31 are physical cores 8–15; observed KVM vCPU interval-end snapshots were on the other physical-core set."
+  },
+  "limitations": [
+    "Max-per-core prelaunch quiet differs from in-run foreign CPU: the driver sums fixture-core running time, subtracts role CPU and ksoftirqd, then compares with 0.05 × occupied seconds. Passing ninety seconds of per-core quiet cannot prove aggregate in-run validity.",
+    "Summed fixture CPU here is descriptive raw schedstat running time; it does not subtract observer CPU or ksoftirqd and is not the driver foreign-CPU metric.",
+    "Process CPU uses /proc stat tick deltas for surviving processes. Threads provide interval-end last-CPU snapshots and permitted masks, not exact CPU residency or causal attribution of the earlier failed observations.",
+    "QEMU remains active and may run on any CPU 0–31. Current quiet placement does not constrain future migration when the fixture starts.",
+    "This observation did not reproduce a large fixture-core burst. The earlier actual foreign-CPU measurements remain the evidence that thirty-second prelaunch quiet missed interference."
+  ],
+  "recommendation": "One same-binary replacement pair after a separately recorded ninety-second supplemental quiet observation using the existing 0.05 per-core threshold and 7200-second bound is a proportionate finite validity refinement. Keep the archived driver, affinities and acceptance/contamination criteria unchanged. If that replacement is contaminated, stop E08 timing retries and reassess scheduling or an external dependency; do not keep increasing the quiet window.",
+  "operational_instances_charged": 0,
+  "operational_host_seconds_charged": 0
+}

@@ -1,0 +1,616 @@
+golangci-lint (Go 1.26.11)	golangci-lint (Linux)	﻿2026-11-15T04:40:31.7657070Z ##[group]Run golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a
+golangci-lint (Go 1.26.11)	golangci-lint (Linux)	2026-11-15T04:40:31.7657446Z with:
+golangci-lint (Go 1.26.11)	golangci-lint (Linux)	2026-11-15T04:40:31.7657629Z   args: --timeout=3m
+golangci-lint (Go 1.26.11)	golangci-lint (Linux)	2026-11-15T04:40:31.7657818Z   version: v2.14.0
+golangci-lint (Go 1.26.11)	golangci-lint (Linux)	2026-11-15T04:40:31.7657997Z   install-mode: binary
+golangci-lint (Go 1.26.11)	golangci-lint (Linux)	2026-11-15T04:40:31.7658180Z   install-only: false
+golangci-lint (Go 1.26.11)	golangci-lint (Linux)	2026-11-15T04:40:31.7660104Z   github-token: ***
+golangci-lint (Go 1.26.11)	golangci-lint (Linux)	2026-11-15T04:40:31.7660511Z   verify: true
+golangci-lint (Go 1.26.11)	golangci-lint (Linux)	2026-11-15T04:40:31.7660736Z   only-new-issues: false
+golangci-lint (Go 1.26.11)	golangci-lint (Linux)	2026-11-15T04:40:31.7660985Z   skip-cache: false
+golangci-lint (Go 1.26.11)	golangci-lint (Linux)	2026-11-15T04:40:31.7661179Z   skip-save-cache: false
+golangci-lint (Go 1.26.11)	golangci-lint (Linux)	2026-11-15T04:40:31.7661393Z   cache-invalidation-interval: 7
+golangci-lint (Go 1.26.11)	golangci-lint (Linux)	2026-11-15T04:40:31.7661621Z   problem-matchers: false
+golangci-lint (Go 1.26.11)	golangci-lint (Linux)	2026-11-15T04:40:31.7661816Z env:
+golangci-lint (Go 1.26.11)	golangci-lint (Linux)	2026-11-15T04:40:31.7661974Z   GOTOOLCHAIN: local
+golangci-lint (Go 1.26.11)	golangci-lint (Linux)	2026-11-15T04:40:31.7662178Z   GOLANGCI_LINT_VERSION: v2.14.0
+golangci-lint (Go 1.26.11)	golangci-lint (Linux)	2026-11-15T04:40:31.7662386Z ##[endgroup]
+golangci-lint (Go 1.26.11)	golangci-lint (Linux)	2026-11-15T04:40:31.8857371Z ##[group]Restore cache
+golangci-lint (Go 1.26.11)	golangci-lint (Linux)	2026-11-15T04:40:31.8860513Z Checking for go.mod: go.mod
+golangci-lint (Go 1.26.11)	golangci-lint (Linux)	2026-11-15T04:40:31.9559770Z Cache hit for: golangci-lint.cache-Linux-2967-d6381a0b0e6bed717b6ed91e81a1571015451d30
+golangci-lint (Go 1.26.11)	golangci-lint (Linux)	2026-11-15T04:40:32.0604121Z Received 2426024 of 2426024 (100.0%), 37.3 MBs/sec
+golangci-lint (Go 1.26.11)	golangci-lint (Linux)	2026-11-15T04:40:32.0604656Z Cache Size: ~2 MB (2426024 B)
+golangci-lint (Go 1.26.11)	golangci-lint (Linux)	2026-11-15T04:40:32.0628874Z [command]/usr/bin/tar -xf /home/runner/work/_temp/28ed7642-2b3f-47f6-bfe0-dd9d4c49b0a1/cache.tzst -P -C /home/runner/work/quic-go-fast/quic-go-fast --use-compress-program unzstd
+golangci-lint (Go 1.26.11)	golangci-lint (Linux)	2026-11-15T04:40:32.5149769Z Cache restored successfully
+golangci-lint (Go 1.26.11)	golangci-lint (Linux)	2026-11-15T04:40:32.5154749Z Restored cache for golangci-lint from key 'golangci-lint.cache-Linux-2967-d6381a0b0e6bed717b6ed91e81a1571015451d30' in 630ms
+golangci-lint (Go 1.26.11)	golangci-lint (Linux)	2026-11-15T04:40:32.5158209Z ##[endgroup]
+golangci-lint (Go 1.26.11)	golangci-lint (Linux)	2026-11-15T04:40:32.5158659Z ##[group]Install
+golangci-lint (Go 1.26.11)	golangci-lint (Linux)	2026-11-15T04:40:32.5159044Z Finding needed golangci-lint version...
+golangci-lint (Go 1.26.11)	golangci-lint (Linux)	2026-11-15T04:40:32.5160787Z Installation mode: binary
+golangci-lint (Go 1.26.11)	golangci-lint (Linux)	2026-11-15T04:40:32.5161414Z Installing golangci-lint binary v2.14.0...
+golangci-lint (Go 1.26.11)	golangci-lint (Linux)	2026-11-15T04:40:32.5162215Z Downloading binary https://github.com/golangci/golangci-lint/releases/download/v2.14.0/golangci-lint-2.14.0-linux-amd64.tar.gz ...
+golangci-lint (Go 1.26.11)	golangci-lint (Linux)	2026-11-15T04:40:32.6517675Z [command]/usr/bin/tar xz --overwrite --warning=no-unknown-keyword --overwrite -C /home/runner -f /home/runner/work/_temp/48eae1f3-76b8-4195-b222-1a3aac1f8542
+golangci-lint (Go 1.26.11)	golangci-lint (Linux)	2026-11-15T04:40:32.7982571Z Installed golangci-lint into /home/runner/golangci-lint-2.14.0-linux-amd64/golangci-lint in 282ms
+golangci-lint (Go 1.26.11)	golangci-lint (Linux)	2026-11-15T04:40:32.7987625Z ##[endgroup]
+golangci-lint (Go 1.26.11)	golangci-lint (Linux)	2026-11-15T04:40:32.7990512Z ##[group]run golangci-lint
+golangci-lint (Go 1.26.11)	golangci-lint (Linux)	2026-11-15T04:40:32.7994359Z Running [/home/runner/golangci-lint-2.14.0-linux-amd64/golangci-lint config path] in [/home/runner/work/quic-go-fast/quic-go-fast] ...
+golangci-lint (Go 1.26.11)	golangci-lint (Linux)	2026-11-15T04:40:32.8678919Z Running [/home/runner/golangci-lint-2.14.0-linux-amd64/golangci-lint config verify] in [/home/runner/work/quic-go-fast/quic-go-fast] ...
+golangci-lint (Go 1.26.11)	golangci-lint (Linux)	2026-11-15T04:40:32.9498054Z Running [/home/runner/golangci-lint-2.14.0-linux-amd64/golangci-lint run  --timeout=3m] in [/home/runner/work/quic-go-fast/quic-go-fast] ...
+golangci-lint (Go 1.26.11)	golangci-lint (Linux)	2026-11-15T04:41:08.1866765Z ##[error]bbr_native_large_test.go:161:5: QF1003: could use tagged switch on outcome (staticcheck)
+golangci-lint (Go 1.26.11)	golangci-lint (Linux)	2026-11-15T04:41:08.1873760Z 				if outcome == "revoked" {
+golangci-lint (Go 1.26.11)	golangci-lint (Linux)	2026-11-15T04:41:08.1874017Z 				^
+golangci-lint (Go 1.26.11)	golangci-lint (Linux)	2026-11-15T04:41:08.1874919Z ##[error]bbr_native_large_test.go:237:5: QF1003: could use tagged switch on scenario (staticcheck)
+golangci-lint (Go 1.26.11)	golangci-lint (Linux)	2026-11-15T04:41:08.1875884Z 				if scenario == "short datagrams" {
+golangci-lint (Go 1.26.11)	golangci-lint (Linux)	2026-11-15T04:41:08.1876159Z 				^
+golangci-lint (Go 1.26.11)	golangci-lint (Linux)	2026-11-15T04:41:08.1877068Z ##[error]internal/ackhandler/local_bbr_span_test.go:187:5: QF1003: could use tagged switch on kind (staticcheck)
+golangci-lint (Go 1.26.11)	golangci-lint (Linux)	2026-11-15T04:41:08.1877868Z 				if kind == "exit and undo" {
+golangci-lint (Go 1.26.11)	golangci-lint (Linux)	2026-11-15T04:41:08.1878108Z 				^
+golangci-lint (Go 1.26.11)	golangci-lint (Linux)	2026-11-15T04:41:08.1878280Z 3 issues:
+golangci-lint (Go 1.26.11)	golangci-lint (Linux)	2026-11-15T04:41:08.1878466Z * staticcheck: 3
+golangci-lint (Go 1.26.11)	golangci-lint (Linux)	2026-11-15T04:41:08.1878591Z 
+golangci-lint (Go 1.26.11)	golangci-lint (Linux)	2026-11-15T04:41:08.1886130Z ##[error]issues found
+golangci-lint (Go 1.26.11)	golangci-lint (Linux)	2026-11-15T04:41:08.1887229Z Ran golangci-lint in 35234ms
+golangci-lint (Go 1.26.11)	golangci-lint (Linux)	2026-11-15T04:41:08.1887643Z ##[endgroup]
+golangci-lint (Go 1.26.11)	golangci-lint (Windows)	﻿2026-11-15T04:41:08.2056532Z ##[group]Run golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a
+golangci-lint (Go 1.26.11)	golangci-lint (Windows)	2026-11-15T04:41:08.2056899Z with:
+golangci-lint (Go 1.26.11)	golangci-lint (Windows)	2026-11-15T04:41:08.2057077Z   args: --timeout=3m
+golangci-lint (Go 1.26.11)	golangci-lint (Windows)	2026-11-15T04:41:08.2057265Z   version: v2.14.0
+golangci-lint (Go 1.26.11)	golangci-lint (Windows)	2026-11-15T04:41:08.2057439Z   install-mode: binary
+golangci-lint (Go 1.26.11)	golangci-lint (Windows)	2026-11-15T04:41:08.2057621Z   install-only: false
+golangci-lint (Go 1.26.11)	golangci-lint (Windows)	2026-11-15T04:41:08.2059533Z   github-token: ***
+golangci-lint (Go 1.26.11)	golangci-lint (Windows)	2026-11-15T04:41:08.2059719Z   verify: true
+golangci-lint (Go 1.26.11)	golangci-lint (Windows)	2026-11-15T04:41:08.2059904Z   only-new-issues: false
+golangci-lint (Go 1.26.11)	golangci-lint (Windows)	2026-11-15T04:41:08.2060098Z   skip-cache: false
+golangci-lint (Go 1.26.11)	golangci-lint (Windows)	2026-11-15T04:41:08.2060423Z   skip-save-cache: false
+golangci-lint (Go 1.26.11)	golangci-lint (Windows)	2026-11-15T04:41:08.2060633Z   cache-invalidation-interval: 7
+golangci-lint (Go 1.26.11)	golangci-lint (Windows)	2026-11-15T04:41:08.2060854Z   problem-matchers: false
+golangci-lint (Go 1.26.11)	golangci-lint (Windows)	2026-11-15T04:41:08.2061060Z env:
+golangci-lint (Go 1.26.11)	golangci-lint (Windows)	2026-11-15T04:41:08.2061232Z   GOTOOLCHAIN: local
+golangci-lint (Go 1.26.11)	golangci-lint (Windows)	2026-11-15T04:41:08.2061426Z   GOLANGCI_LINT_VERSION: v2.14.0
+golangci-lint (Go 1.26.11)	golangci-lint (Windows)	2026-11-15T04:41:08.2061636Z   GOOS: windows
+golangci-lint (Go 1.26.11)	golangci-lint (Windows)	2026-11-15T04:41:08.2061827Z ##[endgroup]
+golangci-lint (Go 1.26.11)	golangci-lint (Windows)	2026-11-15T04:41:08.3296677Z ##[group]Restore cache
+golangci-lint (Go 1.26.11)	golangci-lint (Windows)	2026-11-15T04:41:08.3299610Z Checking for go.mod: go.mod
+golangci-lint (Go 1.26.11)	golangci-lint (Windows)	2026-11-15T04:41:08.4146086Z Cache hit for: golangci-lint.cache-Linux-2967-d6381a0b0e6bed717b6ed91e81a1571015451d30
+golangci-lint (Go 1.26.11)	golangci-lint (Windows)	2026-11-15T04:41:08.5124503Z Received 2426024 of 2426024 (100.0%), 37.3 MBs/sec
+golangci-lint (Go 1.26.11)	golangci-lint (Windows)	2026-11-15T04:41:08.5125202Z Cache Size: ~2 MB (2426024 B)
+golangci-lint (Go 1.26.11)	golangci-lint (Windows)	2026-11-15T04:41:08.5151945Z [command]/usr/bin/tar -xf /home/runner/work/_temp/cdfd0207-5eff-452f-8dd2-808359f365ed/cache.tzst -P -C /home/runner/work/quic-go-fast/quic-go-fast --use-compress-program unzstd
+golangci-lint (Go 1.26.11)	golangci-lint (Windows)	2026-11-15T04:41:10.9526116Z Cache restored successfully
+golangci-lint (Go 1.26.11)	golangci-lint (Windows)	2026-11-15T04:41:10.9531166Z Restored cache for golangci-lint from key 'golangci-lint.cache-Linux-2967-d6381a0b0e6bed717b6ed91e81a1571015451d30' in 2624ms
+golangci-lint (Go 1.26.11)	golangci-lint (Windows)	2026-11-15T04:41:10.9532246Z ##[endgroup]
+golangci-lint (Go 1.26.11)	golangci-lint (Windows)	2026-11-15T04:41:10.9532721Z ##[group]Install
+golangci-lint (Go 1.26.11)	golangci-lint (Windows)	2026-11-15T04:41:10.9534303Z Finding needed golangci-lint version...
+golangci-lint (Go 1.26.11)	golangci-lint (Windows)	2026-11-15T04:41:10.9537947Z Installation mode: binary
+golangci-lint (Go 1.26.11)	golangci-lint (Windows)	2026-11-15T04:41:10.9538803Z Installing golangci-lint binary v2.14.0...
+golangci-lint (Go 1.26.11)	golangci-lint (Windows)	2026-11-15T04:41:10.9539900Z Downloading binary https://github.com/golangci/golangci-lint/releases/download/v2.14.0/golangci-lint-2.14.0-linux-amd64.tar.gz ...
+golangci-lint (Go 1.26.11)	golangci-lint (Windows)	2026-11-15T04:41:11.1977430Z [command]/usr/bin/tar xz --overwrite --warning=no-unknown-keyword --overwrite -C /home/runner -f /home/runner/work/_temp/94581e9f-5f2e-44c7-9edb-5aec992cb8b4
+golangci-lint (Go 1.26.11)	golangci-lint (Windows)	2026-11-15T04:41:11.4657804Z Installed golangci-lint into /home/runner/golangci-lint-2.14.0-linux-amd64/golangci-lint in 512ms
+golangci-lint (Go 1.26.11)	golangci-lint (Windows)	2026-11-15T04:41:11.4660654Z ##[endgroup]
+golangci-lint (Go 1.26.11)	golangci-lint (Windows)	2026-11-15T04:41:11.4663923Z ##[group]run golangci-lint
+golangci-lint (Go 1.26.11)	golangci-lint (Windows)	2026-11-15T04:41:11.4667844Z Running [/home/runner/golangci-lint-2.14.0-linux-amd64/golangci-lint config path] in [/home/runner/work/quic-go-fast/quic-go-fast] ...
+golangci-lint (Go 1.26.11)	golangci-lint (Windows)	2026-11-15T04:41:11.5351163Z Running [/home/runner/golangci-lint-2.14.0-linux-amd64/golangci-lint config verify] in [/home/runner/work/quic-go-fast/quic-go-fast] ...
+golangci-lint (Go 1.26.11)	golangci-lint (Windows)	2026-11-15T04:41:11.6166841Z Running [/home/runner/golangci-lint-2.14.0-linux-amd64/golangci-lint run  --timeout=3m] in [/home/runner/work/quic-go-fast/quic-go-fast] ...
+golangci-lint (Go 1.26.11)	golangci-lint (Windows)	2026-11-15T04:41:35.5319683Z ##[error]internal/ackhandler/local_bbr_span_test.go:187:5: QF1003: could use tagged switch on kind (staticcheck)
+golangci-lint (Go 1.26.11)	golangci-lint (Windows)	2026-11-15T04:41:35.5321450Z 				if kind == "exit and undo" {
+golangci-lint (Go 1.26.11)	golangci-lint (Windows)	2026-11-15T04:41:35.5321759Z 				^
+golangci-lint (Go 1.26.11)	golangci-lint (Windows)	2026-11-15T04:41:35.5322012Z 1 issues:
+golangci-lint (Go 1.26.11)	golangci-lint (Windows)	2026-11-15T04:41:35.5322263Z * staticcheck: 1
+golangci-lint (Go 1.26.11)	golangci-lint (Windows)	2026-11-15T04:41:35.5322432Z 
+golangci-lint (Go 1.26.11)	golangci-lint (Windows)	2026-11-15T04:41:35.5323296Z ##[error]issues found
+golangci-lint (Go 1.26.11)	golangci-lint (Windows)	2026-11-15T04:41:35.5324095Z Ran golangci-lint in 23915ms
+golangci-lint (Go 1.26.11)	golangci-lint (Windows)	2026-11-15T04:41:35.5324611Z ##[endgroup]
+golangci-lint (Go 1.26.11)	golangci-lint (OSX)	﻿2026-11-15T04:41:35.5506084Z ##[group]Run golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a
+golangci-lint (Go 1.26.11)	golangci-lint (OSX)	2026-11-15T04:41:35.5506439Z with:
+golangci-lint (Go 1.26.11)	golangci-lint (OSX)	2026-11-15T04:41:35.5506619Z   args: --timeout=3m
+golangci-lint (Go 1.26.11)	golangci-lint (OSX)	2026-11-15T04:41:35.5506809Z   version: v2.14.0
+golangci-lint (Go 1.26.11)	golangci-lint (OSX)	2026-11-15T04:41:35.5506995Z   install-mode: binary
+golangci-lint (Go 1.26.11)	golangci-lint (OSX)	2026-11-15T04:41:35.5507181Z   install-only: false
+golangci-lint (Go 1.26.11)	golangci-lint (OSX)	2026-11-15T04:41:35.5509069Z   github-token: ***
+golangci-lint (Go 1.26.11)	golangci-lint (OSX)	2026-11-15T04:41:35.5509415Z   verify: true
+golangci-lint (Go 1.26.11)	golangci-lint (OSX)	2026-11-15T04:41:35.5509597Z   only-new-issues: false
+golangci-lint (Go 1.26.11)	golangci-lint (OSX)	2026-11-15T04:41:35.5509797Z   skip-cache: false
+golangci-lint (Go 1.26.11)	golangci-lint (OSX)	2026-11-15T04:41:35.5509983Z   skip-save-cache: false
+golangci-lint (Go 1.26.11)	golangci-lint (OSX)	2026-11-15T04:41:35.5510196Z   cache-invalidation-interval: 7
+golangci-lint (Go 1.26.11)	golangci-lint (OSX)	2026-11-15T04:41:35.5510640Z   problem-matchers: false
+golangci-lint (Go 1.26.11)	golangci-lint (OSX)	2026-11-15T04:41:35.5510845Z env:
+golangci-lint (Go 1.26.11)	golangci-lint (OSX)	2026-11-15T04:41:35.5511011Z   GOTOOLCHAIN: local
+golangci-lint (Go 1.26.11)	golangci-lint (OSX)	2026-11-15T04:41:35.5511212Z   GOLANGCI_LINT_VERSION: v2.14.0
+golangci-lint (Go 1.26.11)	golangci-lint (OSX)	2026-11-15T04:41:35.5511419Z   GOOS: darwin
+golangci-lint (Go 1.26.11)	golangci-lint (OSX)	2026-11-15T04:41:35.5511599Z ##[endgroup]
+golangci-lint (Go 1.26.11)	golangci-lint (OSX)	2026-11-15T04:41:35.6685145Z ##[group]Restore cache
+golangci-lint (Go 1.26.11)	golangci-lint (OSX)	2026-11-15T04:41:35.6687705Z Checking for go.mod: go.mod
+golangci-lint (Go 1.26.11)	golangci-lint (OSX)	2026-11-15T04:41:35.7452956Z Cache hit for: golangci-lint.cache-Linux-2967-d6381a0b0e6bed717b6ed91e81a1571015451d30
+golangci-lint (Go 1.26.11)	golangci-lint (OSX)	2026-11-15T04:41:35.8461095Z Received 2426024 of 2426024 (100.0%), 37.3 MBs/sec
+golangci-lint (Go 1.26.11)	golangci-lint (OSX)	2026-11-15T04:41:35.8461502Z Cache Size: ~2 MB (2426024 B)
+golangci-lint (Go 1.26.11)	golangci-lint (OSX)	2026-11-15T04:41:35.8486670Z [command]/usr/bin/tar -xf /home/runner/work/_temp/a6a1f926-d687-482b-8d32-f8db55bb88bc/cache.tzst -P -C /home/runner/work/quic-go-fast/quic-go-fast --use-compress-program unzstd
+golangci-lint (Go 1.26.11)	golangci-lint (OSX)	2026-11-15T04:41:36.3807823Z Cache restored successfully
+golangci-lint (Go 1.26.11)	golangci-lint (OSX)	2026-11-15T04:41:36.3813139Z Restored cache for golangci-lint from key 'golangci-lint.cache-Linux-2967-d6381a0b0e6bed717b6ed91e81a1571015451d30' in 713ms
+golangci-lint (Go 1.26.11)	golangci-lint (OSX)	2026-11-15T04:41:36.3814219Z ##[endgroup]
+golangci-lint (Go 1.26.11)	golangci-lint (OSX)	2026-11-15T04:41:36.3814689Z ##[group]Install
+golangci-lint (Go 1.26.11)	golangci-lint (OSX)	2026-11-15T04:41:36.3815708Z Finding needed golangci-lint version...
+golangci-lint (Go 1.26.11)	golangci-lint (OSX)	2026-11-15T04:41:36.3823056Z Installation mode: binary
+golangci-lint (Go 1.26.11)	golangci-lint (OSX)	2026-11-15T04:41:36.3823412Z Installing golangci-lint binary v2.14.0...
+golangci-lint (Go 1.26.11)	golangci-lint (OSX)	2026-11-15T04:41:36.3824175Z Downloading binary https://github.com/golangci/golangci-lint/releases/download/v2.14.0/golangci-lint-2.14.0-linux-amd64.tar.gz ...
+golangci-lint (Go 1.26.11)	golangci-lint (OSX)	2026-11-15T04:41:36.5494563Z [command]/usr/bin/tar xz --overwrite --warning=no-unknown-keyword --overwrite -C /home/runner -f /home/runner/work/_temp/f006ddd1-2d7e-4015-81ba-cc37194971f4
+golangci-lint (Go 1.26.11)	golangci-lint (OSX)	2026-11-15T04:41:36.9064815Z Installed golangci-lint into /home/runner/golangci-lint-2.14.0-linux-amd64/golangci-lint in 525ms
+golangci-lint (Go 1.26.11)	golangci-lint (OSX)	2026-11-15T04:41:36.9067891Z ##[endgroup]
+golangci-lint (Go 1.26.11)	golangci-lint (OSX)	2026-11-15T04:41:36.9071414Z ##[group]run golangci-lint
+golangci-lint (Go 1.26.11)	golangci-lint (OSX)	2026-11-15T04:41:36.9075217Z Running [/home/runner/golangci-lint-2.14.0-linux-amd64/golangci-lint config path] in [/home/runner/work/quic-go-fast/quic-go-fast] ...
+golangci-lint (Go 1.26.11)	golangci-lint (OSX)	2026-11-15T04:41:36.9763968Z Running [/home/runner/golangci-lint-2.14.0-linux-amd64/golangci-lint config verify] in [/home/runner/work/quic-go-fast/quic-go-fast] ...
+golangci-lint (Go 1.26.11)	golangci-lint (OSX)	2026-11-15T04:41:37.0556717Z Running [/home/runner/golangci-lint-2.14.0-linux-amd64/golangci-lint run  --timeout=3m] in [/home/runner/work/quic-go-fast/quic-go-fast] ...
+golangci-lint (Go 1.26.11)	golangci-lint (OSX)	2026-11-15T04:42:04.1066635Z ##[error]bbr_native_large_test.go:161:5: QF1003: could use tagged switch on outcome (staticcheck)
+golangci-lint (Go 1.26.11)	golangci-lint (OSX)	2026-11-15T04:42:04.1067985Z 				if outcome == "revoked" {
+golangci-lint (Go 1.26.11)	golangci-lint (OSX)	2026-11-15T04:42:04.1068290Z 				^
+golangci-lint (Go 1.26.11)	golangci-lint (OSX)	2026-11-15T04:42:04.1069830Z ##[error]bbr_native_large_test.go:237:5: QF1003: could use tagged switch on scenario (staticcheck)
+golangci-lint (Go 1.26.11)	golangci-lint (OSX)	2026-11-15T04:42:04.1071590Z 				if scenario == "short datagrams" {
+golangci-lint (Go 1.26.11)	golangci-lint (OSX)	2026-11-15T04:42:04.1071917Z 				^
+golangci-lint (Go 1.26.11)	golangci-lint (OSX)	2026-11-15T04:42:04.1073129Z ##[error]internal/ackhandler/local_bbr_span_test.go:187:5: QF1003: could use tagged switch on kind (staticcheck)
+golangci-lint (Go 1.26.11)	golangci-lint (OSX)	2026-11-15T04:42:04.1074278Z 				if kind == "exit and undo" {
+golangci-lint (Go 1.26.11)	golangci-lint (OSX)	2026-11-15T04:42:04.1074557Z 				^
+golangci-lint (Go 1.26.11)	golangci-lint (OSX)	2026-11-15T04:42:04.1074786Z 3 issues:
+golangci-lint (Go 1.26.11)	golangci-lint (OSX)	2026-11-15T04:42:04.1075028Z * staticcheck: 3
+golangci-lint (Go 1.26.11)	golangci-lint (OSX)	2026-11-15T04:42:04.1075173Z 
+golangci-lint (Go 1.26.11)	golangci-lint (OSX)	2026-11-15T04:42:04.1091820Z ##[error]issues found
+golangci-lint (Go 1.26.11)	golangci-lint (OSX)	2026-11-15T04:42:04.1101188Z Ran golangci-lint in 27051ms
+golangci-lint (Go 1.26.11)	golangci-lint (OSX)	2026-11-15T04:42:04.1101756Z ##[endgroup]
+golangci-lint (Go 1.26.11)	golangci-lint (FreeBSD)	﻿2026-11-15T04:42:04.1285982Z ##[group]Run golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a
+golangci-lint (Go 1.26.11)	golangci-lint (FreeBSD)	2026-11-15T04:42:04.1286373Z with:
+golangci-lint (Go 1.26.11)	golangci-lint (FreeBSD)	2026-11-15T04:42:04.1286562Z   args: --timeout=3m
+golangci-lint (Go 1.26.11)	golangci-lint (FreeBSD)	2026-11-15T04:42:04.1286762Z   version: v2.14.0
+golangci-lint (Go 1.26.11)	golangci-lint (FreeBSD)	2026-11-15T04:42:04.1286961Z   install-mode: binary
+golangci-lint (Go 1.26.11)	golangci-lint (FreeBSD)	2026-11-15T04:42:04.1287159Z   install-only: false
+golangci-lint (Go 1.26.11)	golangci-lint (FreeBSD)	2026-11-15T04:42:04.1289126Z   github-token: ***
+golangci-lint (Go 1.26.11)	golangci-lint (FreeBSD)	2026-11-15T04:42:04.1289317Z   verify: true
+golangci-lint (Go 1.26.11)	golangci-lint (FreeBSD)	2026-11-15T04:42:04.1289703Z   only-new-issues: false
+golangci-lint (Go 1.26.11)	golangci-lint (FreeBSD)	2026-11-15T04:42:04.1289910Z   skip-cache: false
+golangci-lint (Go 1.26.11)	golangci-lint (FreeBSD)	2026-11-15T04:42:04.1290100Z   skip-save-cache: false
+golangci-lint (Go 1.26.11)	golangci-lint (FreeBSD)	2026-11-15T04:42:04.1290517Z   cache-invalidation-interval: 7
+golangci-lint (Go 1.26.11)	golangci-lint (FreeBSD)	2026-11-15T04:42:04.1290759Z   problem-matchers: false
+golangci-lint (Go 1.26.11)	golangci-lint (FreeBSD)	2026-11-15T04:42:04.1290959Z env:
+golangci-lint (Go 1.26.11)	golangci-lint (FreeBSD)	2026-11-15T04:42:04.1291146Z   GOTOOLCHAIN: local
+golangci-lint (Go 1.26.11)	golangci-lint (FreeBSD)	2026-11-15T04:42:04.1291356Z   GOLANGCI_LINT_VERSION: v2.14.0
+golangci-lint (Go 1.26.11)	golangci-lint (FreeBSD)	2026-11-15T04:42:04.1291574Z   GOOS: freebsd
+golangci-lint (Go 1.26.11)	golangci-lint (FreeBSD)	2026-11-15T04:42:04.1291762Z ##[endgroup]
+golangci-lint (Go 1.26.11)	golangci-lint (FreeBSD)	2026-11-15T04:42:04.2529126Z ##[group]Restore cache
+golangci-lint (Go 1.26.11)	golangci-lint (FreeBSD)	2026-11-15T04:42:04.2532175Z Checking for go.mod: go.mod
+golangci-lint (Go 1.26.11)	golangci-lint (FreeBSD)	2026-11-15T04:42:04.3325017Z Cache hit for: golangci-lint.cache-Linux-2967-d6381a0b0e6bed717b6ed91e81a1571015451d30
+golangci-lint (Go 1.26.11)	golangci-lint (FreeBSD)	2026-11-15T04:42:04.4391235Z Received 2426024 of 2426024 (100.0%), 35.6 MBs/sec
+golangci-lint (Go 1.26.11)	golangci-lint (FreeBSD)	2026-11-15T04:42:04.4391638Z Cache Size: ~2 MB (2426024 B)
+golangci-lint (Go 1.26.11)	golangci-lint (FreeBSD)	2026-11-15T04:42:04.4415903Z [command]/usr/bin/tar -xf /home/runner/work/_temp/c47e2b22-2675-4774-83e7-940d57e38275/cache.tzst -P -C /home/runner/work/quic-go-fast/quic-go-fast --use-compress-program unzstd
+golangci-lint (Go 1.26.11)	golangci-lint (FreeBSD)	2026-11-15T04:42:04.9713058Z Cache restored successfully
+golangci-lint (Go 1.26.11)	golangci-lint (FreeBSD)	2026-11-15T04:42:04.9717742Z Restored cache for golangci-lint from key 'golangci-lint.cache-Linux-2967-d6381a0b0e6bed717b6ed91e81a1571015451d30' in 718ms
+golangci-lint (Go 1.26.11)	golangci-lint (FreeBSD)	2026-11-15T04:42:04.9718607Z ##[endgroup]
+golangci-lint (Go 1.26.11)	golangci-lint (FreeBSD)	2026-11-15T04:42:04.9719012Z ##[group]Install
+golangci-lint (Go 1.26.11)	golangci-lint (FreeBSD)	2026-11-15T04:42:04.9721642Z Finding needed golangci-lint version...
+golangci-lint (Go 1.26.11)	golangci-lint (FreeBSD)	2026-11-15T04:42:04.9727575Z Installation mode: binary
+golangci-lint (Go 1.26.11)	golangci-lint (FreeBSD)	2026-11-15T04:42:04.9728146Z Installing golangci-lint binary v2.14.0...
+golangci-lint (Go 1.26.11)	golangci-lint (FreeBSD)	2026-11-15T04:42:04.9729028Z Downloading binary https://github.com/golangci/golangci-lint/releases/download/v2.14.0/golangci-lint-2.14.0-linux-amd64.tar.gz ...
+golangci-lint (Go 1.26.11)	golangci-lint (FreeBSD)	2026-11-15T04:42:05.1207891Z [command]/usr/bin/tar xz --overwrite --warning=no-unknown-keyword --overwrite -C /home/runner -f /home/runner/work/_temp/b230f7bd-d1be-444a-83fd-cf4c6a2e02b6
+golangci-lint (Go 1.26.11)	golangci-lint (FreeBSD)	2026-11-15T04:42:05.3926407Z Installed golangci-lint into /home/runner/golangci-lint-2.14.0-linux-amd64/golangci-lint in 420ms
+golangci-lint (Go 1.26.11)	golangci-lint (FreeBSD)	2026-11-15T04:42:05.3929436Z ##[endgroup]
+golangci-lint (Go 1.26.11)	golangci-lint (FreeBSD)	2026-11-15T04:42:05.3932988Z ##[group]run golangci-lint
+golangci-lint (Go 1.26.11)	golangci-lint (FreeBSD)	2026-11-15T04:42:05.3936757Z Running [/home/runner/golangci-lint-2.14.0-linux-amd64/golangci-lint config path] in [/home/runner/work/quic-go-fast/quic-go-fast] ...
+golangci-lint (Go 1.26.11)	golangci-lint (FreeBSD)	2026-11-15T04:42:05.4617161Z Running [/home/runner/golangci-lint-2.14.0-linux-amd64/golangci-lint config verify] in [/home/runner/work/quic-go-fast/quic-go-fast] ...
+golangci-lint (Go 1.26.11)	golangci-lint (FreeBSD)	2026-11-15T04:42:05.5434596Z Running [/home/runner/golangci-lint-2.14.0-linux-amd64/golangci-lint run  --timeout=3m] in [/home/runner/work/quic-go-fast/quic-go-fast] ...
+golangci-lint (Go 1.26.11)	golangci-lint (FreeBSD)	2026-11-15T04:42:32.5571743Z ##[error]bbr_native_large_test.go:161:5: QF1003: could use tagged switch on outcome (staticcheck)
+golangci-lint (Go 1.26.11)	golangci-lint (FreeBSD)	2026-11-15T04:42:32.5574048Z 				if outcome == "revoked" {
+golangci-lint (Go 1.26.11)	golangci-lint (FreeBSD)	2026-11-15T04:42:32.5574371Z 				^
+golangci-lint (Go 1.26.11)	golangci-lint (FreeBSD)	2026-11-15T04:42:32.5575274Z ##[error]bbr_native_large_test.go:237:5: QF1003: could use tagged switch on scenario (staticcheck)
+golangci-lint (Go 1.26.11)	golangci-lint (FreeBSD)	2026-11-15T04:42:32.5576317Z 				if scenario == "short datagrams" {
+golangci-lint (Go 1.26.11)	golangci-lint (FreeBSD)	2026-11-15T04:42:32.5576712Z 				^
+golangci-lint (Go 1.26.11)	golangci-lint (FreeBSD)	2026-11-15T04:42:32.5577577Z ##[error]internal/ackhandler/local_bbr_span_test.go:187:5: QF1003: could use tagged switch on kind (staticcheck)
+golangci-lint (Go 1.26.11)	golangci-lint (FreeBSD)	2026-11-15T04:42:32.5578624Z 				if kind == "exit and undo" {
+golangci-lint (Go 1.26.11)	golangci-lint (FreeBSD)	2026-11-15T04:42:32.5578978Z 				^
+golangci-lint (Go 1.26.11)	golangci-lint (FreeBSD)	2026-11-15T04:42:32.5579211Z 3 issues:
+golangci-lint (Go 1.26.11)	golangci-lint (FreeBSD)	2026-11-15T04:42:32.5579452Z * staticcheck: 3
+golangci-lint (Go 1.26.11)	golangci-lint (FreeBSD)	2026-11-15T04:42:32.5579614Z 
+golangci-lint (Go 1.26.11)	golangci-lint (FreeBSD)	2026-11-15T04:42:32.5580643Z ##[error]issues found
+golangci-lint (Go 1.26.11)	golangci-lint (FreeBSD)	2026-11-15T04:42:32.5581445Z Ran golangci-lint in 27013ms
+golangci-lint (Go 1.26.11)	golangci-lint (FreeBSD)	2026-11-15T04:42:32.5581954Z ##[endgroup]
+golangci-lint (Go 1.26.11)	golangci-lint (OpenBSD)	﻿2026-11-15T04:42:32.5753624Z ##[group]Run golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a
+golangci-lint (Go 1.26.11)	golangci-lint (OpenBSD)	2026-11-15T04:42:32.5754008Z with:
+golangci-lint (Go 1.26.11)	golangci-lint (OpenBSD)	2026-11-15T04:42:32.5754205Z   args: --timeout=3m
+golangci-lint (Go 1.26.11)	golangci-lint (OpenBSD)	2026-11-15T04:42:32.5754408Z   version: v2.14.0
+golangci-lint (Go 1.26.11)	golangci-lint (OpenBSD)	2026-11-15T04:42:32.5754610Z   install-mode: binary
+golangci-lint (Go 1.26.11)	golangci-lint (OpenBSD)	2026-11-15T04:42:32.5754813Z   install-only: false
+golangci-lint (Go 1.26.11)	golangci-lint (OpenBSD)	2026-11-15T04:42:32.5756744Z   github-token: ***
+golangci-lint (Go 1.26.11)	golangci-lint (OpenBSD)	2026-11-15T04:42:32.5756939Z   verify: true
+golangci-lint (Go 1.26.11)	golangci-lint (OpenBSD)	2026-11-15T04:42:32.5757140Z   only-new-issues: false
+golangci-lint (Go 1.26.11)	golangci-lint (OpenBSD)	2026-11-15T04:42:32.5757519Z   skip-cache: false
+golangci-lint (Go 1.26.11)	golangci-lint (OpenBSD)	2026-11-15T04:42:32.5757717Z   skip-save-cache: false
+golangci-lint (Go 1.26.11)	golangci-lint (OpenBSD)	2026-11-15T04:42:32.5757943Z   cache-invalidation-interval: 7
+golangci-lint (Go 1.26.11)	golangci-lint (OpenBSD)	2026-11-15T04:42:32.5758182Z   problem-matchers: false
+golangci-lint (Go 1.26.11)	golangci-lint (OpenBSD)	2026-11-15T04:42:32.5758396Z env:
+golangci-lint (Go 1.26.11)	golangci-lint (OpenBSD)	2026-11-15T04:42:32.5758576Z   GOTOOLCHAIN: local
+golangci-lint (Go 1.26.11)	golangci-lint (OpenBSD)	2026-11-15T04:42:32.5758785Z   GOLANGCI_LINT_VERSION: v2.14.0
+golangci-lint (Go 1.26.11)	golangci-lint (OpenBSD)	2026-11-15T04:42:32.5759002Z   GOOS: openbsd
+golangci-lint (Go 1.26.11)	golangci-lint (OpenBSD)	2026-11-15T04:42:32.5759194Z ##[endgroup]
+golangci-lint (Go 1.26.11)	golangci-lint (OpenBSD)	2026-11-15T04:42:32.6957443Z ##[group]Restore cache
+golangci-lint (Go 1.26.11)	golangci-lint (OpenBSD)	2026-11-15T04:42:32.6960223Z Checking for go.mod: go.mod
+golangci-lint (Go 1.26.11)	golangci-lint (OpenBSD)	2026-11-15T04:42:32.7721490Z Cache hit for: golangci-lint.cache-Linux-2967-d6381a0b0e6bed717b6ed91e81a1571015451d30
+golangci-lint (Go 1.26.11)	golangci-lint (OpenBSD)	2026-11-15T04:42:32.8590818Z Received 2426024 of 2426024 (100.0%), 43.7 MBs/sec
+golangci-lint (Go 1.26.11)	golangci-lint (OpenBSD)	2026-11-15T04:42:32.8591373Z Cache Size: ~2 MB (2426024 B)
+golangci-lint (Go 1.26.11)	golangci-lint (OpenBSD)	2026-11-15T04:42:32.8615287Z [command]/usr/bin/tar -xf /home/runner/work/_temp/56d06e50-f4e0-49eb-b003-45fe1871551a/cache.tzst -P -C /home/runner/work/quic-go-fast/quic-go-fast --use-compress-program unzstd
+golangci-lint (Go 1.26.11)	golangci-lint (OpenBSD)	2026-11-15T04:42:33.3981256Z Cache restored successfully
+golangci-lint (Go 1.26.11)	golangci-lint (OpenBSD)	2026-11-15T04:42:33.3985504Z Restored cache for golangci-lint from key 'golangci-lint.cache-Linux-2967-d6381a0b0e6bed717b6ed91e81a1571015451d30' in 703ms
+golangci-lint (Go 1.26.11)	golangci-lint (OpenBSD)	2026-11-15T04:42:33.3986594Z ##[endgroup]
+golangci-lint (Go 1.26.11)	golangci-lint (OpenBSD)	2026-11-15T04:42:33.3986958Z ##[group]Install
+golangci-lint (Go 1.26.11)	golangci-lint (OpenBSD)	2026-11-15T04:42:33.3988165Z Finding needed golangci-lint version...
+golangci-lint (Go 1.26.11)	golangci-lint (OpenBSD)	2026-11-15T04:42:33.3990803Z Installation mode: binary
+golangci-lint (Go 1.26.11)	golangci-lint (OpenBSD)	2026-11-15T04:42:33.3991672Z Installing golangci-lint binary v2.14.0...
+golangci-lint (Go 1.26.11)	golangci-lint (OpenBSD)	2026-11-15T04:42:33.3992702Z Downloading binary https://github.com/golangci/golangci-lint/releases/download/v2.14.0/golangci-lint-2.14.0-linux-amd64.tar.gz ...
+golangci-lint (Go 1.26.11)	golangci-lint (OpenBSD)	2026-11-15T04:42:33.5587511Z [command]/usr/bin/tar xz --overwrite --warning=no-unknown-keyword --overwrite -C /home/runner -f /home/runner/work/_temp/f36f7ea0-3f2b-4740-949a-ad3ad2dfe05f
+golangci-lint (Go 1.26.11)	golangci-lint (OpenBSD)	2026-11-15T04:42:33.8498790Z Installed golangci-lint into /home/runner/golangci-lint-2.14.0-linux-amd64/golangci-lint in 450ms
+golangci-lint (Go 1.26.11)	golangci-lint (OpenBSD)	2026-11-15T04:42:33.8501422Z ##[endgroup]
+golangci-lint (Go 1.26.11)	golangci-lint (OpenBSD)	2026-11-15T04:42:33.8504296Z ##[group]run golangci-lint
+golangci-lint (Go 1.26.11)	golangci-lint (OpenBSD)	2026-11-15T04:42:33.8508060Z Running [/home/runner/golangci-lint-2.14.0-linux-amd64/golangci-lint config path] in [/home/runner/work/quic-go-fast/quic-go-fast] ...
+golangci-lint (Go 1.26.11)	golangci-lint (OpenBSD)	2026-11-15T04:42:33.9195990Z Running [/home/runner/golangci-lint-2.14.0-linux-amd64/golangci-lint config verify] in [/home/runner/work/quic-go-fast/quic-go-fast] ...
+golangci-lint (Go 1.26.11)	golangci-lint (OpenBSD)	2026-11-15T04:42:34.0002409Z Running [/home/runner/golangci-lint-2.14.0-linux-amd64/golangci-lint run  --timeout=3m] in [/home/runner/work/quic-go-fast/quic-go-fast] ...
+golangci-lint (Go 1.26.11)	golangci-lint (OpenBSD)	2026-11-15T04:42:57.8029630Z ##[error]internal/ackhandler/local_bbr_span_test.go:187:5: QF1003: could use tagged switch on kind (staticcheck)
+golangci-lint (Go 1.26.11)	golangci-lint (OpenBSD)	2026-11-15T04:42:57.8031340Z 				if kind == "exit and undo" {
+golangci-lint (Go 1.26.11)	golangci-lint (OpenBSD)	2026-11-15T04:42:57.8031942Z 				^
+golangci-lint (Go 1.26.11)	golangci-lint (OpenBSD)	2026-11-15T04:42:57.8032523Z 1 issues:
+golangci-lint (Go 1.26.11)	golangci-lint (OpenBSD)	2026-11-15T04:42:57.8049802Z * staticcheck: 1
+golangci-lint (Go 1.26.11)	golangci-lint (OpenBSD)	2026-11-15T04:42:57.8050022Z 
+golangci-lint (Go 1.26.11)	golangci-lint (OpenBSD)	2026-11-15T04:42:57.8052880Z ##[error]issues found
+golangci-lint (Go 1.26.11)	golangci-lint (OpenBSD)	2026-11-15T04:42:57.8053651Z Ran golangci-lint in 23802ms
+golangci-lint (Go 1.26.11)	golangci-lint (OpenBSD)	2026-11-15T04:42:57.8054129Z ##[endgroup]
+golangci-lint (Go 1.26.11)	golangci-lint (others)	﻿2026-11-15T04:42:57.8224628Z ##[group]Run golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a
+golangci-lint (Go 1.26.11)	golangci-lint (others)	2026-11-15T04:42:57.8225032Z with:
+golangci-lint (Go 1.26.11)	golangci-lint (others)	2026-11-15T04:42:57.8225234Z   args: --timeout=3m
+golangci-lint (Go 1.26.11)	golangci-lint (others)	2026-11-15T04:42:57.8225449Z   version: v2.14.0
+golangci-lint (Go 1.26.11)	golangci-lint (others)	2026-11-15T04:42:57.8225656Z   install-mode: binary
+golangci-lint (Go 1.26.11)	golangci-lint (others)	2026-11-15T04:42:57.8225872Z   install-only: false
+golangci-lint (Go 1.26.11)	golangci-lint (others)	2026-11-15T04:42:57.8227806Z   github-token: ***
+golangci-lint (Go 1.26.11)	golangci-lint (others)	2026-11-15T04:42:57.8228014Z   verify: true
+golangci-lint (Go 1.26.11)	golangci-lint (others)	2026-11-15T04:42:57.8228225Z   only-new-issues: false
+golangci-lint (Go 1.26.11)	golangci-lint (others)	2026-11-15T04:42:57.8228449Z   skip-cache: false
+golangci-lint (Go 1.26.11)	golangci-lint (others)	2026-11-15T04:42:57.8228648Z   skip-save-cache: false
+golangci-lint (Go 1.26.11)	golangci-lint (others)	2026-11-15T04:42:57.8228875Z   cache-invalidation-interval: 7
+golangci-lint (Go 1.26.11)	golangci-lint (others)	2026-11-15T04:42:57.8229130Z   problem-matchers: false
+golangci-lint (Go 1.26.11)	golangci-lint (others)	2026-11-15T04:42:57.8229348Z env:
+golangci-lint (Go 1.26.11)	golangci-lint (others)	2026-11-15T04:42:57.8229539Z   GOTOOLCHAIN: local
+golangci-lint (Go 1.26.11)	golangci-lint (others)	2026-11-15T04:42:57.8229777Z   GOLANGCI_LINT_VERSION: v2.14.0
+golangci-lint (Go 1.26.11)	golangci-lint (others)	2026-11-15T04:42:57.8230006Z   GOOS: solaris
+golangci-lint (Go 1.26.11)	golangci-lint (others)	2026-11-15T04:42:57.8230206Z ##[endgroup]
+golangci-lint (Go 1.26.11)	golangci-lint (others)	2026-11-15T04:42:57.9415858Z ##[group]Restore cache
+golangci-lint (Go 1.26.11)	golangci-lint (others)	2026-11-15T04:42:57.9418832Z Checking for go.mod: go.mod
+golangci-lint (Go 1.26.11)	golangci-lint (others)	2026-11-15T04:42:58.0173429Z Cache hit for: golangci-lint.cache-Linux-2967-d6381a0b0e6bed717b6ed91e81a1571015451d30
+golangci-lint (Go 1.26.11)	golangci-lint (others)	2026-11-15T04:42:58.1216305Z Received 2426024 of 2426024 (100.0%), 33.5 MBs/sec
+golangci-lint (Go 1.26.11)	golangci-lint (others)	2026-11-15T04:42:58.1216835Z Cache Size: ~2 MB (2426024 B)
+golangci-lint (Go 1.26.11)	golangci-lint (others)	2026-11-15T04:42:58.1239492Z [command]/usr/bin/tar -xf /home/runner/work/_temp/5b522209-5936-456b-a5d1-e834a4d6ebca/cache.tzst -P -C /home/runner/work/quic-go-fast/quic-go-fast --use-compress-program unzstd
+golangci-lint (Go 1.26.11)	golangci-lint (others)	2026-11-15T04:42:58.6636809Z Cache restored successfully
+golangci-lint (Go 1.26.11)	golangci-lint (others)	2026-11-15T04:42:58.6641962Z Restored cache for golangci-lint from key 'golangci-lint.cache-Linux-2967-d6381a0b0e6bed717b6ed91e81a1571015451d30' in 723ms
+golangci-lint (Go 1.26.11)	golangci-lint (others)	2026-11-15T04:42:58.6643057Z ##[endgroup]
+golangci-lint (Go 1.26.11)	golangci-lint (others)	2026-11-15T04:42:58.6643551Z ##[group]Install
+golangci-lint (Go 1.26.11)	golangci-lint (others)	2026-11-15T04:42:58.6644768Z Finding needed golangci-lint version...
+golangci-lint (Go 1.26.11)	golangci-lint (others)	2026-11-15T04:42:58.6647355Z Installation mode: binary
+golangci-lint (Go 1.26.11)	golangci-lint (others)	2026-11-15T04:42:58.6648280Z Installing golangci-lint binary v2.14.0...
+golangci-lint (Go 1.26.11)	golangci-lint (others)	2026-11-15T04:42:58.6649161Z Downloading binary https://github.com/golangci/golangci-lint/releases/download/v2.14.0/golangci-lint-2.14.0-linux-amd64.tar.gz ...
+golangci-lint (Go 1.26.11)	golangci-lint (others)	2026-11-15T04:42:58.8087230Z [command]/usr/bin/tar xz --overwrite --warning=no-unknown-keyword --overwrite -C /home/runner -f /home/runner/work/_temp/94cf7f60-bcbf-437b-9a42-cc2be6524b22
+golangci-lint (Go 1.26.11)	golangci-lint (others)	2026-11-15T04:42:59.1914823Z Installed golangci-lint into /home/runner/golangci-lint-2.14.0-linux-amd64/golangci-lint in 527ms
+golangci-lint (Go 1.26.11)	golangci-lint (others)	2026-11-15T04:42:59.1917853Z ##[endgroup]
+golangci-lint (Go 1.26.11)	golangci-lint (others)	2026-11-15T04:42:59.1921473Z ##[group]run golangci-lint
+golangci-lint (Go 1.26.11)	golangci-lint (others)	2026-11-15T04:42:59.1925627Z Running [/home/runner/golangci-lint-2.14.0-linux-amd64/golangci-lint config path] in [/home/runner/work/quic-go-fast/quic-go-fast] ...
+golangci-lint (Go 1.26.11)	golangci-lint (others)	2026-11-15T04:42:59.2619365Z Running [/home/runner/golangci-lint-2.14.0-linux-amd64/golangci-lint config verify] in [/home/runner/work/quic-go-fast/quic-go-fast] ...
+golangci-lint (Go 1.26.11)	golangci-lint (others)	2026-11-15T04:42:59.3422763Z Running [/home/runner/golangci-lint-2.14.0-linux-amd64/golangci-lint run  --timeout=3m] in [/home/runner/work/quic-go-fast/quic-go-fast] ...
+golangci-lint (Go 1.26.11)	golangci-lint (others)	2026-11-15T04:43:22.4522231Z ##[error]internal/ackhandler/local_bbr_span_test.go:187:5: QF1003: could use tagged switch on kind (staticcheck)
+golangci-lint (Go 1.26.11)	golangci-lint (others)	2026-11-15T04:43:22.4523205Z 				if kind == "exit and undo" {
+golangci-lint (Go 1.26.11)	golangci-lint (others)	2026-11-15T04:43:22.4523455Z 				^
+golangci-lint (Go 1.26.11)	golangci-lint (others)	2026-11-15T04:43:22.4523649Z 1 issues:
+golangci-lint (Go 1.26.11)	golangci-lint (others)	2026-11-15T04:43:22.4523849Z * staticcheck: 1
+golangci-lint (Go 1.26.11)	golangci-lint (others)	2026-11-15T04:43:22.4524025Z 
+golangci-lint (Go 1.26.11)	golangci-lint (others)	2026-11-15T04:43:22.4524716Z ##[error]issues found
+golangci-lint (Go 1.26.11)	golangci-lint (others)	2026-11-15T04:43:22.4525244Z Ran golangci-lint in 23109ms
+golangci-lint (Go 1.26.11)	golangci-lint (others)	2026-11-15T04:43:22.4525650Z ##[endgroup]
+golangci-lint (Go 1.27.4)	golangci-lint (Linux)	﻿2026-11-15T04:40:13.8545338Z ##[group]Run golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a
+golangci-lint (Go 1.27.4)	golangci-lint (Linux)	2026-11-15T04:40:13.8545742Z with:
+golangci-lint (Go 1.27.4)	golangci-lint (Linux)	2026-11-15T04:40:13.8546167Z   args: --timeout=3m
+golangci-lint (Go 1.27.4)	golangci-lint (Linux)	2026-11-15T04:40:13.8546432Z   version: v2.14.0
+golangci-lint (Go 1.27.4)	golangci-lint (Linux)	2026-11-15T04:40:13.8546686Z   install-mode: binary
+golangci-lint (Go 1.27.4)	golangci-lint (Linux)	2026-11-15T04:40:13.8546934Z   install-only: false
+golangci-lint (Go 1.27.4)	golangci-lint (Linux)	2026-11-15T04:40:13.8548891Z   github-token: ***
+golangci-lint (Go 1.27.4)	golangci-lint (Linux)	2026-11-15T04:40:13.8549202Z   verify: true
+golangci-lint (Go 1.27.4)	golangci-lint (Linux)	2026-11-15T04:40:13.8549481Z   only-new-issues: false
+golangci-lint (Go 1.27.4)	golangci-lint (Linux)	2026-11-15T04:40:13.8549766Z   skip-cache: false
+golangci-lint (Go 1.27.4)	golangci-lint (Linux)	2026-11-15T04:40:13.8550003Z   skip-save-cache: false
+golangci-lint (Go 1.27.4)	golangci-lint (Linux)	2026-11-15T04:40:13.8550252Z   cache-invalidation-interval: 7
+golangci-lint (Go 1.27.4)	golangci-lint (Linux)	2026-11-15T04:40:13.8550564Z   problem-matchers: false
+golangci-lint (Go 1.27.4)	golangci-lint (Linux)	2026-11-15T04:40:13.8550835Z env:
+golangci-lint (Go 1.27.4)	golangci-lint (Linux)	2026-11-15T04:40:13.8551058Z   GOTOOLCHAIN: local
+golangci-lint (Go 1.27.4)	golangci-lint (Linux)	2026-11-15T04:40:13.8551299Z   GOLANGCI_LINT_VERSION: v2.14.0
+golangci-lint (Go 1.27.4)	golangci-lint (Linux)	2026-11-15T04:40:13.8551542Z ##[endgroup]
+golangci-lint (Go 1.27.4)	golangci-lint (Linux)	2026-11-15T04:40:13.9624618Z ##[group]Restore cache
+golangci-lint (Go 1.27.4)	golangci-lint (Linux)	2026-11-15T04:40:13.9627787Z Checking for go.mod: go.mod
+golangci-lint (Go 1.27.4)	golangci-lint (Linux)	2026-11-15T04:40:14.2505401Z Cache hit for: golangci-lint.cache-Linux-2967-d6381a0b0e6bed717b6ed91e81a1571015451d30
+golangci-lint (Go 1.27.4)	golangci-lint (Linux)	2026-11-15T04:40:15.5997523Z Received 0 of 2426024 (0.0%), 0.0 MBs/sec
+golangci-lint (Go 1.27.4)	golangci-lint (Linux)	2026-11-15T04:40:16.0564861Z Received 2426024 of 2426024 (100.0%), 1.6 MBs/sec
+golangci-lint (Go 1.27.4)	golangci-lint (Linux)	2026-11-15T04:40:16.0565474Z Cache Size: ~2 MB (2426024 B)
+golangci-lint (Go 1.27.4)	golangci-lint (Linux)	2026-11-15T04:40:16.0587157Z [command]/usr/bin/tar -xf /home/runner/work/_temp/0b0a9087-d36d-431d-9638-f0cdfad72a08/cache.tzst -P -C /home/runner/work/quic-go-fast/quic-go-fast --use-compress-program unzstd
+golangci-lint (Go 1.27.4)	golangci-lint (Linux)	2026-11-15T04:40:16.2083543Z Cache restored successfully
+golangci-lint (Go 1.27.4)	golangci-lint (Linux)	2026-11-15T04:40:16.2088244Z Restored cache for golangci-lint from key 'golangci-lint.cache-Linux-2967-d6381a0b0e6bed717b6ed91e81a1571015451d30' in 2246ms
+golangci-lint (Go 1.27.4)	golangci-lint (Linux)	2026-11-15T04:40:16.2089531Z ##[endgroup]
+golangci-lint (Go 1.27.4)	golangci-lint (Linux)	2026-11-15T04:40:16.2090072Z ##[group]Install
+golangci-lint (Go 1.27.4)	golangci-lint (Linux)	2026-11-15T04:40:16.2090815Z Finding needed golangci-lint version...
+golangci-lint (Go 1.27.4)	golangci-lint (Linux)	2026-11-15T04:40:16.2093429Z Installation mode: binary
+golangci-lint (Go 1.27.4)	golangci-lint (Linux)	2026-11-15T04:40:16.2094063Z Installing golangci-lint binary v2.14.0...
+golangci-lint (Go 1.27.4)	golangci-lint (Linux)	2026-11-15T04:40:16.2094890Z Downloading binary https://github.com/golangci/golangci-lint/releases/download/v2.14.0/golangci-lint-2.14.0-linux-amd64.tar.gz ...
+golangci-lint (Go 1.27.4)	golangci-lint (Linux)	2026-11-15T04:40:16.4316646Z [command]/usr/bin/tar xz --overwrite --warning=no-unknown-keyword --overwrite -C /home/runner -f /home/runner/work/_temp/db9fd888-0e6f-4807-88ed-7ea76776cca8
+golangci-lint (Go 1.27.4)	golangci-lint (Linux)	2026-11-15T04:40:16.5818190Z Installed golangci-lint into /home/runner/golangci-lint-2.14.0-linux-amd64/golangci-lint in 372ms
+golangci-lint (Go 1.27.4)	golangci-lint (Linux)	2026-11-15T04:40:16.5821616Z ##[endgroup]
+golangci-lint (Go 1.27.4)	golangci-lint (Linux)	2026-11-15T04:40:16.5824352Z ##[group]run golangci-lint
+golangci-lint (Go 1.27.4)	golangci-lint (Linux)	2026-11-15T04:40:16.5828838Z Running [/home/runner/golangci-lint-2.14.0-linux-amd64/golangci-lint config path] in [/home/runner/work/quic-go-fast/quic-go-fast] ...
+golangci-lint (Go 1.27.4)	golangci-lint (Linux)	2026-11-15T04:40:16.6414070Z Running [/home/runner/golangci-lint-2.14.0-linux-amd64/golangci-lint config verify] in [/home/runner/work/quic-go-fast/quic-go-fast] ...
+golangci-lint (Go 1.27.4)	golangci-lint (Linux)	2026-11-15T04:40:16.7084304Z Running [/home/runner/golangci-lint-2.14.0-linux-amd64/golangci-lint run  --timeout=3m] in [/home/runner/work/quic-go-fast/quic-go-fast] ...
+golangci-lint (Go 1.27.4)	golangci-lint (Linux)	2026-11-15T04:40:41.7959491Z ##[error]bbr_native_large_test.go:161:5: QF1003: could use tagged switch on outcome (staticcheck)
+golangci-lint (Go 1.27.4)	golangci-lint (Linux)	2026-11-15T04:40:41.7968803Z 				if outcome == "revoked" {
+golangci-lint (Go 1.27.4)	golangci-lint (Linux)	2026-11-15T04:40:41.7969605Z 				^
+golangci-lint (Go 1.27.4)	golangci-lint (Linux)	2026-11-15T04:40:41.7970678Z ##[error]bbr_native_large_test.go:237:5: QF1003: could use tagged switch on scenario (staticcheck)
+golangci-lint (Go 1.27.4)	golangci-lint (Linux)	2026-11-15T04:40:41.7971900Z 				if scenario == "short datagrams" {
+golangci-lint (Go 1.27.4)	golangci-lint (Linux)	2026-11-15T04:40:41.7972225Z 				^
+golangci-lint (Go 1.27.4)	golangci-lint (Linux)	2026-11-15T04:40:41.7973310Z ##[error]internal/ackhandler/local_bbr_span_test.go:187:5: QF1003: could use tagged switch on kind (staticcheck)
+golangci-lint (Go 1.27.4)	golangci-lint (Linux)	2026-11-15T04:40:41.7974440Z 				if kind == "exit and undo" {
+golangci-lint (Go 1.27.4)	golangci-lint (Linux)	2026-11-15T04:40:41.7974798Z 				^
+golangci-lint (Go 1.27.4)	golangci-lint (Linux)	2026-11-15T04:40:41.7975062Z 3 issues:
+golangci-lint (Go 1.27.4)	golangci-lint (Linux)	2026-11-15T04:40:41.7975356Z * staticcheck: 3
+golangci-lint (Go 1.27.4)	golangci-lint (Linux)	2026-11-15T04:40:41.7975538Z 
+golangci-lint (Go 1.27.4)	golangci-lint (Linux)	2026-11-15T04:40:41.7985157Z ##[error]issues found
+golangci-lint (Go 1.27.4)	golangci-lint (Linux)	2026-11-15T04:40:41.7986682Z Ran golangci-lint in 25084ms
+golangci-lint (Go 1.27.4)	golangci-lint (Linux)	2026-11-15T04:40:41.7987289Z ##[endgroup]
+golangci-lint (Go 1.27.4)	golangci-lint (Windows)	﻿2026-11-15T04:40:41.8088576Z ##[group]Run golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a
+golangci-lint (Go 1.27.4)	golangci-lint (Windows)	2026-11-15T04:40:41.8089028Z with:
+golangci-lint (Go 1.27.4)	golangci-lint (Windows)	2026-11-15T04:40:41.8089274Z   args: --timeout=3m
+golangci-lint (Go 1.27.4)	golangci-lint (Windows)	2026-11-15T04:40:41.8089503Z   version: v2.14.0
+golangci-lint (Go 1.27.4)	golangci-lint (Windows)	2026-11-15T04:40:41.8089764Z   install-mode: binary
+golangci-lint (Go 1.27.4)	golangci-lint (Windows)	2026-11-15T04:40:41.8090021Z   install-only: false
+golangci-lint (Go 1.27.4)	golangci-lint (Windows)	2026-11-15T04:40:41.8091815Z   github-token: ***
+golangci-lint (Go 1.27.4)	golangci-lint (Windows)	2026-11-15T04:40:41.8092059Z   verify: true
+golangci-lint (Go 1.27.4)	golangci-lint (Windows)	2026-11-15T04:40:41.8092308Z   only-new-issues: false
+golangci-lint (Go 1.27.4)	golangci-lint (Windows)	2026-11-15T04:40:41.8092581Z   skip-cache: false
+golangci-lint (Go 1.27.4)	golangci-lint (Windows)	2026-11-15T04:40:41.8092826Z   skip-save-cache: false
+golangci-lint (Go 1.27.4)	golangci-lint (Windows)	2026-11-15T04:40:41.8093110Z   cache-invalidation-interval: 7
+golangci-lint (Go 1.27.4)	golangci-lint (Windows)	2026-11-15T04:40:41.8093389Z   problem-matchers: false
+golangci-lint (Go 1.27.4)	golangci-lint (Windows)	2026-11-15T04:40:41.8093627Z env:
+golangci-lint (Go 1.27.4)	golangci-lint (Windows)	2026-11-15T04:40:41.8093952Z   GOTOOLCHAIN: local
+golangci-lint (Go 1.27.4)	golangci-lint (Windows)	2026-11-15T04:40:41.8094192Z   GOLANGCI_LINT_VERSION: v2.14.0
+golangci-lint (Go 1.27.4)	golangci-lint (Windows)	2026-11-15T04:40:41.8094476Z   GOOS: windows
+golangci-lint (Go 1.27.4)	golangci-lint (Windows)	2026-11-15T04:40:41.8094692Z ##[endgroup]
+golangci-lint (Go 1.27.4)	golangci-lint (Windows)	2026-11-15T04:40:41.9149627Z ##[group]Restore cache
+golangci-lint (Go 1.27.4)	golangci-lint (Windows)	2026-11-15T04:40:41.9152299Z Checking for go.mod: go.mod
+golangci-lint (Go 1.27.4)	golangci-lint (Windows)	2026-11-15T04:40:42.1890414Z Cache hit for: golangci-lint.cache-Linux-2967-d6381a0b0e6bed717b6ed91e81a1571015451d30
+golangci-lint (Go 1.27.4)	golangci-lint (Windows)	2026-11-15T04:40:43.5307163Z Received 0 of 2426024 (0.0%), 0.0 MBs/sec
+golangci-lint (Go 1.27.4)	golangci-lint (Windows)	2026-11-15T04:40:43.8785800Z Received 2426024 of 2426024 (100.0%), 1.7 MBs/sec
+golangci-lint (Go 1.27.4)	golangci-lint (Windows)	2026-11-15T04:40:43.8786989Z Cache Size: ~2 MB (2426024 B)
+golangci-lint (Go 1.27.4)	golangci-lint (Windows)	2026-11-15T04:40:43.8806883Z [command]/usr/bin/tar -xf /home/runner/work/_temp/d4209c1c-2daa-4ef4-9eed-1268839a7126/cache.tzst -P -C /home/runner/work/quic-go-fast/quic-go-fast --use-compress-program unzstd
+golangci-lint (Go 1.27.4)	golangci-lint (Windows)	2026-11-15T04:40:44.0925237Z Cache restored successfully
+golangci-lint (Go 1.27.4)	golangci-lint (Windows)	2026-11-15T04:40:44.0929801Z Restored cache for golangci-lint from key 'golangci-lint.cache-Linux-2967-d6381a0b0e6bed717b6ed91e81a1571015451d30' in 2177ms
+golangci-lint (Go 1.27.4)	golangci-lint (Windows)	2026-11-15T04:40:44.0930936Z ##[endgroup]
+golangci-lint (Go 1.27.4)	golangci-lint (Windows)	2026-11-15T04:40:44.0931453Z ##[group]Install
+golangci-lint (Go 1.27.4)	golangci-lint (Windows)	2026-11-15T04:40:44.0931844Z Finding needed golangci-lint version...
+golangci-lint (Go 1.27.4)	golangci-lint (Windows)	2026-11-15T04:40:44.0934489Z Installation mode: binary
+golangci-lint (Go 1.27.4)	golangci-lint (Windows)	2026-11-15T04:40:44.0935226Z Installing golangci-lint binary v2.14.0...
+golangci-lint (Go 1.27.4)	golangci-lint (Windows)	2026-11-15T04:40:44.0936152Z Downloading binary https://github.com/golangci/golangci-lint/releases/download/v2.14.0/golangci-lint-2.14.0-linux-amd64.tar.gz ...
+golangci-lint (Go 1.27.4)	golangci-lint (Windows)	2026-11-15T04:40:44.3156472Z [command]/usr/bin/tar xz --overwrite --warning=no-unknown-keyword --overwrite -C /home/runner -f /home/runner/work/_temp/9762d68e-93cc-4a1b-91db-1b94185c4e4d
+golangci-lint (Go 1.27.4)	golangci-lint (Windows)	2026-11-15T04:40:44.4775852Z Installed golangci-lint into /home/runner/golangci-lint-2.14.0-linux-amd64/golangci-lint in 384ms
+golangci-lint (Go 1.27.4)	golangci-lint (Windows)	2026-11-15T04:40:44.4779254Z ##[endgroup]
+golangci-lint (Go 1.27.4)	golangci-lint (Windows)	2026-11-15T04:40:44.4781958Z ##[group]run golangci-lint
+golangci-lint (Go 1.27.4)	golangci-lint (Windows)	2026-11-15T04:40:44.4785616Z Running [/home/runner/golangci-lint-2.14.0-linux-amd64/golangci-lint config path] in [/home/runner/work/quic-go-fast/quic-go-fast] ...
+golangci-lint (Go 1.27.4)	golangci-lint (Windows)	2026-11-15T04:40:44.5377718Z Running [/home/runner/golangci-lint-2.14.0-linux-amd64/golangci-lint config verify] in [/home/runner/work/quic-go-fast/quic-go-fast] ...
+golangci-lint (Go 1.27.4)	golangci-lint (Windows)	2026-11-15T04:40:44.6061079Z Running [/home/runner/golangci-lint-2.14.0-linux-amd64/golangci-lint run  --timeout=3m] in [/home/runner/work/quic-go-fast/quic-go-fast] ...
+golangci-lint (Go 1.27.4)	golangci-lint (Windows)	2026-11-15T04:41:15.7591141Z ##[error]internal/ackhandler/local_bbr_span_test.go:187:5: QF1003: could use tagged switch on kind (staticcheck)
+golangci-lint (Go 1.27.4)	golangci-lint (Windows)	2026-11-15T04:41:15.7592894Z 				if kind == "exit and undo" {
+golangci-lint (Go 1.27.4)	golangci-lint (Windows)	2026-11-15T04:41:15.7593686Z 				^
+golangci-lint (Go 1.27.4)	golangci-lint (Windows)	2026-11-15T04:41:15.7593979Z 1 issues:
+golangci-lint (Go 1.27.4)	golangci-lint (Windows)	2026-11-15T04:41:15.7594256Z * staticcheck: 1
+golangci-lint (Go 1.27.4)	golangci-lint (Windows)	2026-11-15T04:41:15.7594453Z 
+golangci-lint (Go 1.27.4)	golangci-lint (Windows)	2026-11-15T04:41:15.7595591Z ##[error]issues found
+golangci-lint (Go 1.27.4)	golangci-lint (Windows)	2026-11-15T04:41:15.7596681Z Ran golangci-lint in 31153ms
+golangci-lint (Go 1.27.4)	golangci-lint (Windows)	2026-11-15T04:41:15.7597291Z ##[endgroup]
+golangci-lint (Go 1.27.4)	golangci-lint (OSX)	﻿2026-11-15T04:41:15.7750100Z ##[group]Run golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a
+golangci-lint (Go 1.27.4)	golangci-lint (OSX)	2026-11-15T04:41:15.7750762Z with:
+golangci-lint (Go 1.27.4)	golangci-lint (OSX)	2026-11-15T04:41:15.7751105Z   args: --timeout=3m
+golangci-lint (Go 1.27.4)	golangci-lint (OSX)	2026-11-15T04:41:15.7751482Z   version: v2.14.0
+golangci-lint (Go 1.27.4)	golangci-lint (OSX)	2026-11-15T04:41:15.7751829Z   install-mode: binary
+golangci-lint (Go 1.27.4)	golangci-lint (OSX)	2026-11-15T04:41:15.7752239Z   install-only: false
+golangci-lint (Go 1.27.4)	golangci-lint (OSX)	2026-11-15T04:41:15.7755291Z   github-token: ***
+golangci-lint (Go 1.27.4)	golangci-lint (OSX)	2026-11-15T04:41:15.7755674Z   verify: true
+golangci-lint (Go 1.27.4)	golangci-lint (OSX)	2026-11-15T04:41:15.7756258Z   only-new-issues: false
+golangci-lint (Go 1.27.4)	golangci-lint (OSX)	2026-11-15T04:41:15.7756639Z   skip-cache: false
+golangci-lint (Go 1.27.4)	golangci-lint (OSX)	2026-11-15T04:41:15.7757004Z   skip-save-cache: false
+golangci-lint (Go 1.27.4)	golangci-lint (OSX)	2026-11-15T04:41:15.7757379Z   cache-invalidation-interval: 7
+golangci-lint (Go 1.27.4)	golangci-lint (OSX)	2026-11-15T04:41:15.7757818Z   problem-matchers: false
+golangci-lint (Go 1.27.4)	golangci-lint (OSX)	2026-11-15T04:41:15.7758199Z env:
+golangci-lint (Go 1.27.4)	golangci-lint (OSX)	2026-11-15T04:41:15.7758575Z   GOTOOLCHAIN: local
+golangci-lint (Go 1.27.4)	golangci-lint (OSX)	2026-11-15T04:41:15.7758923Z   GOLANGCI_LINT_VERSION: v2.14.0
+golangci-lint (Go 1.27.4)	golangci-lint (OSX)	2026-11-15T04:41:15.7759334Z   GOOS: darwin
+golangci-lint (Go 1.27.4)	golangci-lint (OSX)	2026-11-15T04:41:15.7759664Z ##[endgroup]
+golangci-lint (Go 1.27.4)	golangci-lint (OSX)	2026-11-15T04:41:15.8870588Z ##[group]Restore cache
+golangci-lint (Go 1.27.4)	golangci-lint (OSX)	2026-11-15T04:41:15.8872783Z Checking for go.mod: go.mod
+golangci-lint (Go 1.27.4)	golangci-lint (OSX)	2026-11-15T04:41:16.1303609Z Cache hit for: golangci-lint.cache-Linux-2967-d6381a0b0e6bed717b6ed91e81a1571015451d30
+golangci-lint (Go 1.27.4)	golangci-lint (OSX)	2026-11-15T04:41:17.4694426Z Received 0 of 2426024 (0.0%), 0.0 MBs/sec
+golangci-lint (Go 1.27.4)	golangci-lint (OSX)	2026-11-15T04:41:17.8136876Z Received 2426024 of 2426024 (100.0%), 1.7 MBs/sec
+golangci-lint (Go 1.27.4)	golangci-lint (OSX)	2026-11-15T04:41:17.8137487Z Cache Size: ~2 MB (2426024 B)
+golangci-lint (Go 1.27.4)	golangci-lint (OSX)	2026-11-15T04:41:17.8159918Z [command]/usr/bin/tar -xf /home/runner/work/_temp/07451fa0-a177-4d6d-b95b-8a985be07c92/cache.tzst -P -C /home/runner/work/quic-go-fast/quic-go-fast --use-compress-program unzstd
+golangci-lint (Go 1.27.4)	golangci-lint (OSX)	2026-11-15T04:41:18.0227654Z Cache restored successfully
+golangci-lint (Go 1.27.4)	golangci-lint (OSX)	2026-11-15T04:41:18.0232612Z Restored cache for golangci-lint from key 'golangci-lint.cache-Linux-2967-d6381a0b0e6bed717b6ed91e81a1571015451d30' in 2136ms
+golangci-lint (Go 1.27.4)	golangci-lint (OSX)	2026-11-15T04:41:18.0233740Z ##[endgroup]
+golangci-lint (Go 1.27.4)	golangci-lint (OSX)	2026-11-15T04:41:18.0234362Z ##[group]Install
+golangci-lint (Go 1.27.4)	golangci-lint (OSX)	2026-11-15T04:41:18.0234961Z Finding needed golangci-lint version...
+golangci-lint (Go 1.27.4)	golangci-lint (OSX)	2026-11-15T04:41:18.0238302Z Installation mode: binary
+golangci-lint (Go 1.27.4)	golangci-lint (OSX)	2026-11-15T04:41:18.0238771Z Installing golangci-lint binary v2.14.0...
+golangci-lint (Go 1.27.4)	golangci-lint (OSX)	2026-11-15T04:41:18.0239706Z Downloading binary https://github.com/golangci/golangci-lint/releases/download/v2.14.0/golangci-lint-2.14.0-linux-amd64.tar.gz ...
+golangci-lint (Go 1.27.4)	golangci-lint (OSX)	2026-11-15T04:41:18.3001843Z [command]/usr/bin/tar xz --overwrite --warning=no-unknown-keyword --overwrite -C /home/runner -f /home/runner/work/_temp/9c714a36-68bd-4f25-8e97-6c9df248ea51
+golangci-lint (Go 1.27.4)	golangci-lint (OSX)	2026-11-15T04:41:18.4621143Z Installed golangci-lint into /home/runner/golangci-lint-2.14.0-linux-amd64/golangci-lint in 438ms
+golangci-lint (Go 1.27.4)	golangci-lint (OSX)	2026-11-15T04:41:18.4623671Z ##[endgroup]
+golangci-lint (Go 1.27.4)	golangci-lint (OSX)	2026-11-15T04:41:18.4627310Z ##[group]run golangci-lint
+golangci-lint (Go 1.27.4)	golangci-lint (OSX)	2026-11-15T04:41:18.4630774Z Running [/home/runner/golangci-lint-2.14.0-linux-amd64/golangci-lint config path] in [/home/runner/work/quic-go-fast/quic-go-fast] ...
+golangci-lint (Go 1.27.4)	golangci-lint (OSX)	2026-11-15T04:41:18.5242982Z Running [/home/runner/golangci-lint-2.14.0-linux-amd64/golangci-lint config verify] in [/home/runner/work/quic-go-fast/quic-go-fast] ...
+golangci-lint (Go 1.27.4)	golangci-lint (OSX)	2026-11-15T04:41:18.5942007Z Running [/home/runner/golangci-lint-2.14.0-linux-amd64/golangci-lint run  --timeout=3m] in [/home/runner/work/quic-go-fast/quic-go-fast] ...
+golangci-lint (Go 1.27.4)	golangci-lint (OSX)	2026-11-15T04:41:53.3546444Z ##[error]bbr_native_large_test.go:161:5: QF1003: could use tagged switch on outcome (staticcheck)
+golangci-lint (Go 1.27.4)	golangci-lint (OSX)	2026-11-15T04:41:53.3547934Z 				if outcome == "revoked" {
+golangci-lint (Go 1.27.4)	golangci-lint (OSX)	2026-11-15T04:41:53.3548303Z 				^
+golangci-lint (Go 1.27.4)	golangci-lint (OSX)	2026-11-15T04:41:53.3549222Z ##[error]bbr_native_large_test.go:237:5: QF1003: could use tagged switch on scenario (staticcheck)
+golangci-lint (Go 1.27.4)	golangci-lint (OSX)	2026-11-15T04:41:53.3550404Z 				if scenario == "short datagrams" {
+golangci-lint (Go 1.27.4)	golangci-lint (OSX)	2026-11-15T04:41:53.3550796Z 				^
+golangci-lint (Go 1.27.4)	golangci-lint (OSX)	2026-11-15T04:41:53.3551723Z ##[error]internal/ackhandler/local_bbr_span_test.go:187:5: QF1003: could use tagged switch on kind (staticcheck)
+golangci-lint (Go 1.27.4)	golangci-lint (OSX)	2026-11-15T04:41:53.3553320Z 				if kind == "exit and undo" {
+golangci-lint (Go 1.27.4)	golangci-lint (OSX)	2026-11-15T04:41:53.3553673Z 				^
+golangci-lint (Go 1.27.4)	golangci-lint (OSX)	2026-11-15T04:41:53.3553963Z 3 issues:
+golangci-lint (Go 1.27.4)	golangci-lint (OSX)	2026-11-15T04:41:53.3554219Z * staticcheck: 3
+golangci-lint (Go 1.27.4)	golangci-lint (OSX)	2026-11-15T04:41:53.3554405Z 
+golangci-lint (Go 1.27.4)	golangci-lint (OSX)	2026-11-15T04:41:53.3555250Z ##[error]issues found
+golangci-lint (Go 1.27.4)	golangci-lint (OSX)	2026-11-15T04:41:53.3556184Z Ran golangci-lint in 34760ms
+golangci-lint (Go 1.27.4)	golangci-lint (OSX)	2026-11-15T04:41:53.3556817Z ##[endgroup]
+golangci-lint (Go 1.27.4)	golangci-lint (FreeBSD)	﻿2026-11-15T04:41:53.3679463Z ##[group]Run golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a
+golangci-lint (Go 1.27.4)	golangci-lint (FreeBSD)	2026-11-15T04:41:53.3679925Z with:
+golangci-lint (Go 1.27.4)	golangci-lint (FreeBSD)	2026-11-15T04:41:53.3680161Z   args: --timeout=3m
+golangci-lint (Go 1.27.4)	golangci-lint (FreeBSD)	2026-11-15T04:41:53.3680454Z   version: v2.14.0
+golangci-lint (Go 1.27.4)	golangci-lint (FreeBSD)	2026-11-15T04:41:53.3680715Z   install-mode: binary
+golangci-lint (Go 1.27.4)	golangci-lint (FreeBSD)	2026-11-15T04:41:53.3680964Z   install-only: false
+golangci-lint (Go 1.27.4)	golangci-lint (FreeBSD)	2026-11-15T04:41:53.3682868Z   github-token: ***
+golangci-lint (Go 1.27.4)	golangci-lint (FreeBSD)	2026-11-15T04:41:53.3683158Z   verify: true
+golangci-lint (Go 1.27.4)	golangci-lint (FreeBSD)	2026-11-15T04:41:53.3683423Z   only-new-issues: false
+golangci-lint (Go 1.27.4)	golangci-lint (FreeBSD)	2026-11-15T04:41:53.3683672Z   skip-cache: false
+golangci-lint (Go 1.27.4)	golangci-lint (FreeBSD)	2026-11-15T04:41:53.3683948Z   skip-save-cache: false
+golangci-lint (Go 1.27.4)	golangci-lint (FreeBSD)	2026-11-15T04:41:53.3684243Z   cache-invalidation-interval: 7
+golangci-lint (Go 1.27.4)	golangci-lint (FreeBSD)	2026-11-15T04:41:53.3684558Z   problem-matchers: false
+golangci-lint (Go 1.27.4)	golangci-lint (FreeBSD)	2026-11-15T04:41:53.3684825Z env:
+golangci-lint (Go 1.27.4)	golangci-lint (FreeBSD)	2026-11-15T04:41:53.3685089Z   GOTOOLCHAIN: local
+golangci-lint (Go 1.27.4)	golangci-lint (FreeBSD)	2026-11-15T04:41:53.3685335Z   GOLANGCI_LINT_VERSION: v2.14.0
+golangci-lint (Go 1.27.4)	golangci-lint (FreeBSD)	2026-11-15T04:41:53.3685641Z   GOOS: freebsd
+golangci-lint (Go 1.27.4)	golangci-lint (FreeBSD)	2026-11-15T04:41:53.3686048Z ##[endgroup]
+golangci-lint (Go 1.27.4)	golangci-lint (FreeBSD)	2026-11-15T04:41:53.4734001Z ##[group]Restore cache
+golangci-lint (Go 1.27.4)	golangci-lint (FreeBSD)	2026-11-15T04:41:53.4737021Z Checking for go.mod: go.mod
+golangci-lint (Go 1.27.4)	golangci-lint (FreeBSD)	2026-11-15T04:41:53.7449496Z Cache hit for: golangci-lint.cache-Linux-2967-d6381a0b0e6bed717b6ed91e81a1571015451d30
+golangci-lint (Go 1.27.4)	golangci-lint (FreeBSD)	2026-11-15T04:41:55.1138362Z Received 0 of 2426024 (0.0%), 0.0 MBs/sec
+golangci-lint (Go 1.27.4)	golangci-lint (FreeBSD)	2026-11-15T04:41:55.5055697Z Received 2426024 of 2426024 (100.0%), 1.7 MBs/sec
+golangci-lint (Go 1.27.4)	golangci-lint (FreeBSD)	2026-11-15T04:41:55.5056597Z Cache Size: ~2 MB (2426024 B)
+golangci-lint (Go 1.27.4)	golangci-lint (FreeBSD)	2026-11-15T04:41:55.5075774Z [command]/usr/bin/tar -xf /home/runner/work/_temp/8965b477-ee96-4c31-b554-bb84c03d7f80/cache.tzst -P -C /home/runner/work/quic-go-fast/quic-go-fast --use-compress-program unzstd
+golangci-lint (Go 1.27.4)	golangci-lint (FreeBSD)	2026-11-15T04:41:55.7208647Z Cache restored successfully
+golangci-lint (Go 1.27.4)	golangci-lint (FreeBSD)	2026-11-15T04:41:55.7213705Z Restored cache for golangci-lint from key 'golangci-lint.cache-Linux-2967-d6381a0b0e6bed717b6ed91e81a1571015451d30' in 2248ms
+golangci-lint (Go 1.27.4)	golangci-lint (FreeBSD)	2026-11-15T04:41:55.7214668Z ##[endgroup]
+golangci-lint (Go 1.27.4)	golangci-lint (FreeBSD)	2026-11-15T04:41:55.7215209Z ##[group]Install
+golangci-lint (Go 1.27.4)	golangci-lint (FreeBSD)	2026-11-15T04:41:55.7216399Z Finding needed golangci-lint version...
+golangci-lint (Go 1.27.4)	golangci-lint (FreeBSD)	2026-11-15T04:41:55.7218993Z Installation mode: binary
+golangci-lint (Go 1.27.4)	golangci-lint (FreeBSD)	2026-11-15T04:41:55.7219502Z Installing golangci-lint binary v2.14.0...
+golangci-lint (Go 1.27.4)	golangci-lint (FreeBSD)	2026-11-15T04:41:55.7220308Z Downloading binary https://github.com/golangci/golangci-lint/releases/download/v2.14.0/golangci-lint-2.14.0-linux-amd64.tar.gz ...
+golangci-lint (Go 1.27.4)	golangci-lint (FreeBSD)	2026-11-15T04:41:55.9088240Z [command]/usr/bin/tar xz --overwrite --warning=no-unknown-keyword --overwrite -C /home/runner -f /home/runner/work/_temp/e29a0479-ea98-46f8-ba4e-7409f779be5c
+golangci-lint (Go 1.27.4)	golangci-lint (FreeBSD)	2026-11-15T04:41:56.0767969Z Installed golangci-lint into /home/runner/golangci-lint-2.14.0-linux-amd64/golangci-lint in 355ms
+golangci-lint (Go 1.27.4)	golangci-lint (FreeBSD)	2026-11-15T04:41:56.0773248Z ##[endgroup]
+golangci-lint (Go 1.27.4)	golangci-lint (FreeBSD)	2026-11-15T04:41:56.0773769Z ##[group]run golangci-lint
+golangci-lint (Go 1.27.4)	golangci-lint (FreeBSD)	2026-11-15T04:41:56.0776162Z Running [/home/runner/golangci-lint-2.14.0-linux-amd64/golangci-lint config path] in [/home/runner/work/quic-go-fast/quic-go-fast] ...
+golangci-lint (Go 1.27.4)	golangci-lint (FreeBSD)	2026-11-15T04:41:56.1376952Z Running [/home/runner/golangci-lint-2.14.0-linux-amd64/golangci-lint config verify] in [/home/runner/work/quic-go-fast/quic-go-fast] ...
+golangci-lint (Go 1.27.4)	golangci-lint (FreeBSD)	2026-11-15T04:41:56.2079635Z Running [/home/runner/golangci-lint-2.14.0-linux-amd64/golangci-lint run  --timeout=3m] in [/home/runner/work/quic-go-fast/quic-go-fast] ...
+golangci-lint (Go 1.27.4)	golangci-lint (FreeBSD)	2026-11-15T04:42:30.3558156Z ##[error]bbr_native_large_test.go:161:5: QF1003: could use tagged switch on outcome (staticcheck)
+golangci-lint (Go 1.27.4)	golangci-lint (FreeBSD)	2026-11-15T04:42:30.3559820Z 				if outcome == "revoked" {
+golangci-lint (Go 1.27.4)	golangci-lint (FreeBSD)	2026-11-15T04:42:30.3560222Z 				^
+golangci-lint (Go 1.27.4)	golangci-lint (FreeBSD)	2026-11-15T04:42:30.3561296Z ##[error]bbr_native_large_test.go:237:5: QF1003: could use tagged switch on scenario (staticcheck)
+golangci-lint (Go 1.27.4)	golangci-lint (FreeBSD)	2026-11-15T04:42:30.3562336Z 				if scenario == "short datagrams" {
+golangci-lint (Go 1.27.4)	golangci-lint (FreeBSD)	2026-11-15T04:42:30.3562710Z 				^
+golangci-lint (Go 1.27.4)	golangci-lint (FreeBSD)	2026-11-15T04:42:30.3563664Z ##[error]internal/ackhandler/local_bbr_span_test.go:187:5: QF1003: could use tagged switch on kind (staticcheck)
+golangci-lint (Go 1.27.4)	golangci-lint (FreeBSD)	2026-11-15T04:42:30.3565107Z 				if kind == "exit and undo" {
+golangci-lint (Go 1.27.4)	golangci-lint (FreeBSD)	2026-11-15T04:42:30.3565473Z 				^
+golangci-lint (Go 1.27.4)	golangci-lint (FreeBSD)	2026-11-15T04:42:30.3565807Z 3 issues:
+golangci-lint (Go 1.27.4)	golangci-lint (FreeBSD)	2026-11-15T04:42:30.3566301Z * staticcheck: 3
+golangci-lint (Go 1.27.4)	golangci-lint (FreeBSD)	2026-11-15T04:42:30.3566475Z 
+golangci-lint (Go 1.27.4)	golangci-lint (FreeBSD)	2026-11-15T04:42:30.3567435Z ##[error]issues found
+golangci-lint (Go 1.27.4)	golangci-lint (FreeBSD)	2026-11-15T04:42:30.3568354Z Ran golangci-lint in 34148ms
+golangci-lint (Go 1.27.4)	golangci-lint (FreeBSD)	2026-11-15T04:42:30.3568956Z ##[endgroup]
+golangci-lint (Go 1.27.4)	golangci-lint (OpenBSD)	﻿2026-11-15T04:42:30.3697585Z ##[group]Run golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a
+golangci-lint (Go 1.27.4)	golangci-lint (OpenBSD)	2026-11-15T04:42:30.3698069Z with:
+golangci-lint (Go 1.27.4)	golangci-lint (OpenBSD)	2026-11-15T04:42:30.3698340Z   args: --timeout=3m
+golangci-lint (Go 1.27.4)	golangci-lint (OpenBSD)	2026-11-15T04:42:30.3698624Z   version: v2.14.0
+golangci-lint (Go 1.27.4)	golangci-lint (OpenBSD)	2026-11-15T04:42:30.3698855Z   install-mode: binary
+golangci-lint (Go 1.27.4)	golangci-lint (OpenBSD)	2026-11-15T04:42:30.3699213Z   install-only: false
+golangci-lint (Go 1.27.4)	golangci-lint (OpenBSD)	2026-11-15T04:42:30.3700971Z   github-token: ***
+golangci-lint (Go 1.27.4)	golangci-lint (OpenBSD)	2026-11-15T04:42:30.3701259Z   verify: true
+golangci-lint (Go 1.27.4)	golangci-lint (OpenBSD)	2026-11-15T04:42:30.3701516Z   only-new-issues: false
+golangci-lint (Go 1.27.4)	golangci-lint (OpenBSD)	2026-11-15T04:42:30.3701834Z   skip-cache: false
+golangci-lint (Go 1.27.4)	golangci-lint (OpenBSD)	2026-11-15T04:42:30.3702089Z   skip-save-cache: false
+golangci-lint (Go 1.27.4)	golangci-lint (OpenBSD)	2026-11-15T04:42:30.3702375Z   cache-invalidation-interval: 7
+golangci-lint (Go 1.27.4)	golangci-lint (OpenBSD)	2026-11-15T04:42:30.3702700Z   problem-matchers: false
+golangci-lint (Go 1.27.4)	golangci-lint (OpenBSD)	2026-11-15T04:42:30.3703017Z env:
+golangci-lint (Go 1.27.4)	golangci-lint (OpenBSD)	2026-11-15T04:42:30.3703257Z   GOTOOLCHAIN: local
+golangci-lint (Go 1.27.4)	golangci-lint (OpenBSD)	2026-11-15T04:42:30.3703585Z   GOLANGCI_LINT_VERSION: v2.14.0
+golangci-lint (Go 1.27.4)	golangci-lint (OpenBSD)	2026-11-15T04:42:30.3703844Z   GOOS: openbsd
+golangci-lint (Go 1.27.4)	golangci-lint (OpenBSD)	2026-11-15T04:42:30.3704115Z ##[endgroup]
+golangci-lint (Go 1.27.4)	golangci-lint (OpenBSD)	2026-11-15T04:42:30.4777122Z ##[group]Restore cache
+golangci-lint (Go 1.27.4)	golangci-lint (OpenBSD)	2026-11-15T04:42:30.4779336Z Checking for go.mod: go.mod
+golangci-lint (Go 1.27.4)	golangci-lint (OpenBSD)	2026-11-15T04:42:30.7307560Z Cache hit for: golangci-lint.cache-Linux-2967-d6381a0b0e6bed717b6ed91e81a1571015451d30
+golangci-lint (Go 1.27.4)	golangci-lint (OpenBSD)	2026-11-15T04:42:32.0685597Z Received 0 of 2426024 (0.0%), 0.0 MBs/sec
+golangci-lint (Go 1.27.4)	golangci-lint (OpenBSD)	2026-11-15T04:42:32.4314556Z Received 2426024 of 2426024 (100.0%), 1.7 MBs/sec
+golangci-lint (Go 1.27.4)	golangci-lint (OpenBSD)	2026-11-15T04:42:32.4315179Z Cache Size: ~2 MB (2426024 B)
+golangci-lint (Go 1.27.4)	golangci-lint (OpenBSD)	2026-11-15T04:42:32.4337313Z [command]/usr/bin/tar -xf /home/runner/work/_temp/835165f4-b65a-4731-8384-0c32b998bb5a/cache.tzst -P -C /home/runner/work/quic-go-fast/quic-go-fast --use-compress-program unzstd
+golangci-lint (Go 1.27.4)	golangci-lint (OpenBSD)	2026-11-15T04:42:32.6510716Z Cache restored successfully
+golangci-lint (Go 1.27.4)	golangci-lint (OpenBSD)	2026-11-15T04:42:32.6515298Z Restored cache for golangci-lint from key 'golangci-lint.cache-Linux-2967-d6381a0b0e6bed717b6ed91e81a1571015451d30' in 2174ms
+golangci-lint (Go 1.27.4)	golangci-lint (OpenBSD)	2026-11-15T04:42:32.6516782Z ##[endgroup]
+golangci-lint (Go 1.27.4)	golangci-lint (OpenBSD)	2026-11-15T04:42:32.6517389Z ##[group]Install
+golangci-lint (Go 1.27.4)	golangci-lint (OpenBSD)	2026-11-15T04:42:32.6518194Z Finding needed golangci-lint version...
+golangci-lint (Go 1.27.4)	golangci-lint (OpenBSD)	2026-11-15T04:42:32.6520900Z Installation mode: binary
+golangci-lint (Go 1.27.4)	golangci-lint (OpenBSD)	2026-11-15T04:42:32.6521632Z Installing golangci-lint binary v2.14.0...
+golangci-lint (Go 1.27.4)	golangci-lint (OpenBSD)	2026-11-15T04:42:32.6522542Z Downloading binary https://github.com/golangci/golangci-lint/releases/download/v2.14.0/golangci-lint-2.14.0-linux-amd64.tar.gz ...
+golangci-lint (Go 1.27.4)	golangci-lint (OpenBSD)	2026-11-15T04:42:32.8568426Z [command]/usr/bin/tar xz --overwrite --warning=no-unknown-keyword --overwrite -C /home/runner -f /home/runner/work/_temp/465549f3-b531-406e-83bb-213311d229eb
+golangci-lint (Go 1.27.4)	golangci-lint (OpenBSD)	2026-11-15T04:42:33.0282750Z Installed golangci-lint into /home/runner/golangci-lint-2.14.0-linux-amd64/golangci-lint in 375ms
+golangci-lint (Go 1.27.4)	golangci-lint (OpenBSD)	2026-11-15T04:42:33.0284193Z ##[endgroup]
+golangci-lint (Go 1.27.4)	golangci-lint (OpenBSD)	2026-11-15T04:42:33.0287448Z ##[group]run golangci-lint
+golangci-lint (Go 1.27.4)	golangci-lint (OpenBSD)	2026-11-15T04:42:33.0290433Z Running [/home/runner/golangci-lint-2.14.0-linux-amd64/golangci-lint config path] in [/home/runner/work/quic-go-fast/quic-go-fast] ...
+golangci-lint (Go 1.27.4)	golangci-lint (OpenBSD)	2026-11-15T04:42:33.0888891Z Running [/home/runner/golangci-lint-2.14.0-linux-amd64/golangci-lint config verify] in [/home/runner/work/quic-go-fast/quic-go-fast] ...
+golangci-lint (Go 1.27.4)	golangci-lint (OpenBSD)	2026-11-15T04:42:33.1589396Z Running [/home/runner/golangci-lint-2.14.0-linux-amd64/golangci-lint run  --timeout=3m] in [/home/runner/work/quic-go-fast/quic-go-fast] ...
+golangci-lint (Go 1.27.4)	golangci-lint (OpenBSD)	2026-11-15T04:43:04.0906788Z ##[error]internal/ackhandler/local_bbr_span_test.go:187:5: QF1003: could use tagged switch on kind (staticcheck)
+golangci-lint (Go 1.27.4)	golangci-lint (OpenBSD)	2026-11-15T04:43:04.0908339Z 				if kind == "exit and undo" {
+golangci-lint (Go 1.27.4)	golangci-lint (OpenBSD)	2026-11-15T04:43:04.0908730Z 				^
+golangci-lint (Go 1.27.4)	golangci-lint (OpenBSD)	2026-11-15T04:43:04.0909029Z 1 issues:
+golangci-lint (Go 1.27.4)	golangci-lint (OpenBSD)	2026-11-15T04:43:04.0909375Z * staticcheck: 1
+golangci-lint (Go 1.27.4)	golangci-lint (OpenBSD)	2026-11-15T04:43:04.0909564Z 
+golangci-lint (Go 1.27.4)	golangci-lint (OpenBSD)	2026-11-15T04:43:04.0910618Z ##[error]issues found
+golangci-lint (Go 1.27.4)	golangci-lint (OpenBSD)	2026-11-15T04:43:04.0911537Z Ran golangci-lint in 30931ms
+golangci-lint (Go 1.27.4)	golangci-lint (OpenBSD)	2026-11-15T04:43:04.0912167Z ##[endgroup]
+golangci-lint (Go 1.27.4)	golangci-lint (others)	﻿2026-11-15T04:43:04.1036896Z ##[group]Run golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a
+golangci-lint (Go 1.27.4)	golangci-lint (others)	2026-11-15T04:43:04.1037509Z with:
+golangci-lint (Go 1.27.4)	golangci-lint (others)	2026-11-15T04:43:04.1037812Z   args: --timeout=3m
+golangci-lint (Go 1.27.4)	golangci-lint (others)	2026-11-15T04:43:04.1038083Z   version: v2.14.0
+golangci-lint (Go 1.27.4)	golangci-lint (others)	2026-11-15T04:43:04.1038376Z   install-mode: binary
+golangci-lint (Go 1.27.4)	golangci-lint (others)	2026-11-15T04:43:04.1038663Z   install-only: false
+golangci-lint (Go 1.27.4)	golangci-lint (others)	2026-11-15T04:43:04.1040555Z   github-token: ***
+golangci-lint (Go 1.27.4)	golangci-lint (others)	2026-11-15T04:43:04.1040822Z   verify: true
+golangci-lint (Go 1.27.4)	golangci-lint (others)	2026-11-15T04:43:04.1041115Z   only-new-issues: false
+golangci-lint (Go 1.27.4)	golangci-lint (others)	2026-11-15T04:43:04.1041406Z   skip-cache: false
+golangci-lint (Go 1.27.4)	golangci-lint (others)	2026-11-15T04:43:04.1041706Z   skip-save-cache: false
+golangci-lint (Go 1.27.4)	golangci-lint (others)	2026-11-15T04:43:04.1041997Z   cache-invalidation-interval: 7
+golangci-lint (Go 1.27.4)	golangci-lint (others)	2026-11-15T04:43:04.1042360Z   problem-matchers: false
+golangci-lint (Go 1.27.4)	golangci-lint (others)	2026-11-15T04:43:04.1042632Z env:
+golangci-lint (Go 1.27.4)	golangci-lint (others)	2026-11-15T04:43:04.1042909Z   GOTOOLCHAIN: local
+golangci-lint (Go 1.27.4)	golangci-lint (others)	2026-11-15T04:43:04.1043178Z   GOLANGCI_LINT_VERSION: v2.14.0
+golangci-lint (Go 1.27.4)	golangci-lint (others)	2026-11-15T04:43:04.1043508Z   GOOS: solaris
+golangci-lint (Go 1.27.4)	golangci-lint (others)	2026-11-15T04:43:04.1043738Z ##[endgroup]
+golangci-lint (Go 1.27.4)	golangci-lint (others)	2026-11-15T04:43:04.2129471Z ##[group]Restore cache
+golangci-lint (Go 1.27.4)	golangci-lint (others)	2026-11-15T04:43:04.2131522Z Checking for go.mod: go.mod
+golangci-lint (Go 1.27.4)	golangci-lint (others)	2026-11-15T04:43:04.4520394Z Cache hit for: golangci-lint.cache-Linux-2967-d6381a0b0e6bed717b6ed91e81a1571015451d30
+golangci-lint (Go 1.27.4)	golangci-lint (others)	2026-11-15T04:43:05.7907992Z Received 0 of 2426024 (0.0%), 0.0 MBs/sec
+golangci-lint (Go 1.27.4)	golangci-lint (others)	2026-11-15T04:43:06.0033530Z Received 2426024 of 2426024 (100.0%), 1.9 MBs/sec
+golangci-lint (Go 1.27.4)	golangci-lint (others)	2026-11-15T04:43:06.0034112Z Cache Size: ~2 MB (2426024 B)
+golangci-lint (Go 1.27.4)	golangci-lint (others)	2026-11-15T04:43:06.0053779Z [command]/usr/bin/tar -xf /home/runner/work/_temp/b2627b90-5b6d-423f-9fea-90edb3165cb1/cache.tzst -P -C /home/runner/work/quic-go-fast/quic-go-fast --use-compress-program unzstd
+golangci-lint (Go 1.27.4)	golangci-lint (others)	2026-11-15T04:43:06.2243730Z Cache restored successfully
+golangci-lint (Go 1.27.4)	golangci-lint (others)	2026-11-15T04:43:06.2249220Z Restored cache for golangci-lint from key 'golangci-lint.cache-Linux-2967-d6381a0b0e6bed717b6ed91e81a1571015451d30' in 2011ms
+golangci-lint (Go 1.27.4)	golangci-lint (others)	2026-11-15T04:43:06.2250541Z ##[endgroup]
+golangci-lint (Go 1.27.4)	golangci-lint (others)	2026-11-15T04:43:06.2251179Z ##[group]Install
+golangci-lint (Go 1.27.4)	golangci-lint (others)	2026-11-15T04:43:06.2251650Z Finding needed golangci-lint version...
+golangci-lint (Go 1.27.4)	golangci-lint (others)	2026-11-15T04:43:06.2254051Z Installation mode: binary
+golangci-lint (Go 1.27.4)	golangci-lint (others)	2026-11-15T04:43:06.2254637Z Installing golangci-lint binary v2.14.0...
+golangci-lint (Go 1.27.4)	golangci-lint (others)	2026-11-15T04:43:06.2255475Z Downloading binary https://github.com/golangci/golangci-lint/releases/download/v2.14.0/golangci-lint-2.14.0-linux-amd64.tar.gz ...
+golangci-lint (Go 1.27.4)	golangci-lint (others)	2026-11-15T04:43:06.4347930Z [command]/usr/bin/tar xz --overwrite --warning=no-unknown-keyword --overwrite -C /home/runner -f /home/runner/work/_temp/cc51eefe-e6c0-4512-9ee8-33ab2eb8a90c
+golangci-lint (Go 1.27.4)	golangci-lint (others)	2026-11-15T04:43:06.5975305Z Installed golangci-lint into /home/runner/golangci-lint-2.14.0-linux-amd64/golangci-lint in 372ms
+golangci-lint (Go 1.27.4)	golangci-lint (others)	2026-11-15T04:43:06.5977903Z ##[endgroup]
+golangci-lint (Go 1.27.4)	golangci-lint (others)	2026-11-15T04:43:06.5980168Z ##[group]run golangci-lint
+golangci-lint (Go 1.27.4)	golangci-lint (others)	2026-11-15T04:43:06.5983383Z Running [/home/runner/golangci-lint-2.14.0-linux-amd64/golangci-lint config path] in [/home/runner/work/quic-go-fast/quic-go-fast] ...
+golangci-lint (Go 1.27.4)	golangci-lint (others)	2026-11-15T04:43:06.6581663Z Running [/home/runner/golangci-lint-2.14.0-linux-amd64/golangci-lint config verify] in [/home/runner/work/quic-go-fast/quic-go-fast] ...
+golangci-lint (Go 1.27.4)	golangci-lint (others)	2026-11-15T04:43:06.7301348Z Running [/home/runner/golangci-lint-2.14.0-linux-amd64/golangci-lint run  --timeout=3m] in [/home/runner/work/quic-go-fast/quic-go-fast] ...
+golangci-lint (Go 1.27.4)	golangci-lint (others)	2026-11-15T04:43:37.3561211Z ##[error]internal/ackhandler/local_bbr_span_test.go:187:5: QF1003: could use tagged switch on kind (staticcheck)
+golangci-lint (Go 1.27.4)	golangci-lint (others)	2026-11-15T04:43:37.3562364Z 				if kind == "exit and undo" {
+golangci-lint (Go 1.27.4)	golangci-lint (others)	2026-11-15T04:43:37.3562665Z 				^
+golangci-lint (Go 1.27.4)	golangci-lint (others)	2026-11-15T04:43:37.3562952Z 1 issues:
+golangci-lint (Go 1.27.4)	golangci-lint (others)	2026-11-15T04:43:37.3563207Z * staticcheck: 1
+golangci-lint (Go 1.27.4)	golangci-lint (others)	2026-11-15T04:43:37.3563362Z 
+golangci-lint (Go 1.27.4)	golangci-lint (others)	2026-11-15T04:43:37.3564057Z ##[error]issues found
+golangci-lint (Go 1.27.4)	golangci-lint (others)	2026-11-15T04:43:37.3564662Z Ran golangci-lint in 30626ms
+golangci-lint (Go 1.27.4)	golangci-lint (others)	2026-11-15T04:43:37.3565167Z ##[endgroup]

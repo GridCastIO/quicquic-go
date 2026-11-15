@@ -1,0 +1,130 @@
+{
+  "source_pin": "993324b2bab871ff544517e6d3542508d3346c4b",
+  "remote_metadata_sha256": "923057631908deb53259c81061f5e362719546c42d71bb43acf2b6fb7f1a338c",
+  "rows": [
+    {
+      "experiment": "e01",
+      "source": "a613896a04319fbe7826034755778766da3e9f31",
+      "binary_sha256": "b9fcdc4a940b1db20573912880ad87e84d230a816360f2531db57bd0d31c12a5",
+      "binary_matches_pinned_manifest": true,
+      "start_basis": "source-directory filesystem birth",
+      "start_utc": "2026-11-14 22:39:06.404305908 +0000",
+      "end_basis": "binary final ctime",
+      "artifact_interval_seconds": "4.922708016",
+      "rounded_up_artifact_interval_seconds": "5",
+      "first_control_log_birth_utc": "2026-11-14 22:39:46.504304835 +0000",
+      "setup_artifact_precedes_first_control_log": true
+    },
+    {
+      "experiment": "e02",
+      "source": "eab1ff6179644fba867bd14c71ba3bd96eee5c91",
+      "binary_sha256": "1144f177ec6de7c5a4e8c12e5ca765559800f109c1336e839043ea849a7ce363",
+      "binary_matches_pinned_manifest": true,
+      "start_basis": "source-directory filesystem birth",
+      "start_utc": "2026-11-14 22:52:03.120381741 +0000",
+      "end_basis": "binary final ctime",
+      "artifact_interval_seconds": "4.826865145",
+      "rounded_up_artifact_interval_seconds": "5",
+      "first_control_log_birth_utc": "2026-11-14 22:52:10.040435855 +0000",
+      "setup_artifact_precedes_first_control_log": true
+    },
+    {
+      "experiment": "e03",
+      "source": "7dffd409ec5a2878f8b0ade8f2665bd63bda90fc",
+      "binary_sha256": "e6f8e7dc260435ef2545fcf83c8cc5f6d116d23c8e6a17e5da6e8baf51f275e7",
+      "binary_matches_pinned_manifest": true,
+      "start_basis": "source-directory filesystem birth",
+      "start_utc": "2026-11-14 22:55:19.030913518 +0000",
+      "end_basis": "binary final ctime",
+      "artifact_interval_seconds": "4.830241732",
+      "rounded_up_artifact_interval_seconds": "5",
+      "first_control_log_birth_utc": "2026-11-14 22:55:47.892139179 +0000",
+      "setup_artifact_precedes_first_control_log": true
+    },
+    {
+      "experiment": "e04",
+      "source": "809eafc410e4bb58cdf7b47ffbd7e691179ba849",
+      "binary_sha256": "87e532fc6762584775792e77d47dc1e4369a0f8cb2c519b3e333db6f51c3466c",
+      "binary_matches_pinned_manifest": true,
+      "start_basis": "source-directory filesystem birth",
+      "start_utc": "2026-11-14 23:16:29.368909253 +0000",
+      "end_basis": "binary final ctime",
+      "artifact_interval_seconds": "5.115833778",
+      "rounded_up_artifact_interval_seconds": "6",
+      "first_control_log_birth_utc": "2026-11-14 23:23:06.045632761 +0000",
+      "setup_artifact_precedes_first_control_log": true
+    },
+    {
+      "experiment": "e05",
+      "source": "dd2749714c5aabdce2a251ea5083d097954fd25a",
+      "binary_sha256": "06d570e0832dffd9172b885000544560a86345041570706620b148d6b7becee7",
+      "binary_matches_pinned_manifest": true,
+      "start_basis": "source-directory filesystem birth",
+      "start_utc": "2026-11-14 23:52:03.921468176 +0000",
+      "end_basis": "binary final ctime",
+      "artifact_interval_seconds": "4.882124921",
+      "rounded_up_artifact_interval_seconds": "5",
+      "first_control_log_birth_utc": "2026-11-14 23:52:43.911810172 +0000",
+      "setup_artifact_precedes_first_control_log": true
+    },
+    {
+      "experiment": "e06",
+      "source": "4ac6188557144a2a0e57436f173f40b62b92ed2c",
+      "binary_sha256": "b80dd7dadb74e2b1eea3cc263fb86e3c217d17ce0b28da8081f6edd90fb4d205",
+      "binary_matches_pinned_manifest": true,
+      "start_basis": "source-directory filesystem birth",
+      "start_utc": "2026-11-15 00:21:46.867181210 +0000",
+      "end_basis": "final native-unit log ctime",
+      "artifact_interval_seconds": "5.290047796",
+      "rounded_up_artifact_interval_seconds": "6",
+      "first_control_log_birth_utc": "2026-11-15 00:23:53.379662882 +0000",
+      "setup_artifact_precedes_first_control_log": true,
+      "native_unit_log_matches_pinned_receipt": true
+    },
+    {
+      "experiment": "e07",
+      "source": "c1853e6b4f67c7859bf45f1d43e3ce18eb8396de",
+      "binary_sha256": "f46026aca1229fc2cbaad7a5ac0b1bf7950b16972ae4377878ce87d72ab4672c",
+      "binary_matches_pinned_manifest": true,
+      "start_basis": "source-directory filesystem birth",
+      "start_utc": "2026-11-15 00:41:04.966718631 +0000",
+      "end_basis": "final native-unit log ctime",
+      "artifact_interval_seconds": "5.094055574",
+      "rounded_up_artifact_interval_seconds": "6",
+      "first_control_log_birth_utc": "2026-11-15 00:42:49.242856232 +0000",
+      "setup_artifact_precedes_first_control_log": true,
+      "native_unit_log_matches_pinned_receipt": true
+    },
+    {
+      "experiment": "e08",
+      "source": "740f07cd88f96c379991c7c3880aafac7a84e20d",
+      "binary_sha256": "1d6cf9c00e2e491a0d634a60967a3cd9de8ad36983e9a48532601d7a203a6ec2",
+      "binary_matches_pinned_manifest": true,
+      "start_basis": "source-directory filesystem birth",
+      "start_utc": "2026-11-15 01:02:44.720420069 +0000",
+      "end_basis": "final native-unit log ctime",
+      "artifact_interval_seconds": "5.677053442",
+      "rounded_up_artifact_interval_seconds": "6",
+      "first_control_log_birth_utc": "2026-11-15 01:05:06.606755751 +0000",
+      "setup_artifact_precedes_first_control_log": true,
+      "native_unit_log_matches_pinned_receipt": true
+    }
+  ],
+  "sum_artifact_interval_seconds": "40.638930404",
+  "sum_per_build_ceil_seconds": "44",
+  "accounting_instances": 0,
+  "interpretation": "Artifact-envelope reconstruction, not an original monotonic occupied-host measurement. Eight distinct native builds; last three envelopes include native unit checks. Source creation precedes the binary and final test artifact; all precede first observation. Build ordering must be corroborated by original invocation. Rounding up each recovered span is an explicitly conservative accounting estimate, not a strict proven upper bound on unrecorded post-write command cleanup.",
+  "excluded": "Repeated same-binary timing and profile runs add no duplicate build setup. Quiet waiting holds no fixture and is excluded under frozen B5 precedent. No new workload was launched.",
+  "recorded_before_setup_correction": {
+    "instances": 241,
+    "host_seconds": "10709.552619184451",
+    "remaining_instances": 179,
+    "remaining_host_seconds": "18090.447380815549"
+  },
+  "if_per_build_ceil_adopted": {
+    "instances": 241,
+    "host_seconds": "10753.552619184451",
+    "remaining_instances": 179,
+    "remaining_host_seconds": "18046.447380815549"
+  }
+}

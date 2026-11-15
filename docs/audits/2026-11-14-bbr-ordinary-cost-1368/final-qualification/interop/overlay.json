@@ -1,0 +1,6 @@
+{
+  "Replace": {
+    "/product/multipath_api.go": "/bundle/replacements/multipath_api.go",
+    "/product/multipath_picoquic_matrix_test.go": "/bundle/replacements/multipath_picoquic_matrix_test.go"
+  }
+}

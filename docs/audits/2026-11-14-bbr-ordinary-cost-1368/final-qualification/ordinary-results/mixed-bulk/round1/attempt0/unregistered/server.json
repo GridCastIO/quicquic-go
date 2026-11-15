@@ -1,0 +1,79 @@
+{
+  "controller": "bbrv3",
+  "go": "go1.27.4",
+  "granted": false,
+  "gso_capable": true,
+  "window_cpu_s": 83.313378,
+  "window_rusage": {
+    "start": {
+      "user_cpu_ns": 10841260000,
+      "system_cpu_ns": 3843670000,
+      "voluntary_context_switches": 877872,
+      "involuntary_context_switches": 1625
+    },
+    "end": {
+      "user_cpu_ns": 72114138000,
+      "system_cpu_ns": 25884170000,
+      "voluntary_context_switches": 6316003,
+      "involuntary_context_switches": 7742
+    },
+    "delta": {
+      "user_cpu_ns": 61272878000,
+      "system_cpu_ns": 22040500000,
+      "voluntary_context_switches": 5438131,
+      "involuntary_context_switches": 6117
+    }
+  },
+  "rss_kb_at_20s": 27848,
+  "rss_kb_end": 27848,
+  "heap_inuse_end": 8265728,
+  "write_errors": 0,
+  "joined": false,
+  "application_send_call": {
+    "background": {
+      "count": 38400,
+      "p50_us": 47.103,
+      "p99_us": 53.247,
+      "max_us": 381.176
+    },
+    "ordinary": {
+      "count": 985779,
+      "p50_us": 51.199,
+      "p99_us": 180.223,
+      "max_us": 521.889
+    }
+  },
+  "application_send_call_boundary": "elapsed Stream.Write / SendDatagram call time; neither native return nor peer delivery",
+  "connections": [
+    {
+      "controller": "bbrv3",
+      "label": "ordinary",
+      "multipath_negotiated": false,
+      "packets_sent": 54754012,
+      "packets_lost": 0,
+      "bytes_sent": 78152174312,
+      "close_cause": "",
+      "timeout_close": false
+    },
+    {
+      "controller": "bbrv3",
+      "label": "background",
+      "multipath_negotiated": false,
+      "packets_sent": 1052791,
+      "packets_lost": 0,
+      "bytes_sent": 1499650051,
+      "close_cause": "",
+      "timeout_close": false
+    },
+    {
+      "controller": "bbrv3",
+      "label": "background",
+      "multipath_negotiated": false,
+      "packets_sent": 1052794,
+      "packets_lost": 0,
+      "bytes_sent": 1499650072,
+      "close_cause": "",
+      "timeout_close": false
+    }
+  ]
+}

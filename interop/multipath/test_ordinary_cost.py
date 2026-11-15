@@ -378,6 +378,10 @@ class ExecutionTests(unittest.TestCase):
             processes.append(process)
             stdout.write("--- PASS: TestOrdinaryCostRole (0.01s)\n")
             record = observation(spec["cell"], spec["profile"])
+            record["server"]["controller"] = record["client"]["controller"] = spec["controller"]
+            for argument in command:
+                if argument.startswith("-test.cpuprofile=") and failure != "missing-profile":
+                    Path(argument.split("=", 1)[1]).write_bytes(b"profile")
             if edit:
                 edit(record)
             if failure != "missing":
@@ -525,6 +529,63 @@ class ExecutionTests(unittest.TestCase):
                 self.assertTrue(summary["campaign_complete"])
                 self.assertEqual(sorted(driver.CELLS), sorted(summary["cells"]))
                 self.assertFalse(summary["cells"]["mixed-bulk"]["passed"])
+
+    def test_bbr_diagnostic_selects_and_records_both_roles(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            code, summary, processes = self.invoke(root, ("--diagnostic-cell", "stateless-pressure", "--controller", "bbrv3"))
+            self.assertEqual(code, 0)
+            self.assertEqual(len(processes), 4)
+            self.assertEqual(summary["controller"], "bbrv3")
+            self.assertTrue(summary["timing_eligible"])
+            records = [json.loads(line) for line in (root / "output" / "diagnostic.jsonl").read_text().splitlines()]
+            for record in records:
+                self.assertEqual(record["controller"], "bbrv3")
+                for role in ("server", "client"):
+                    self.assertEqual(record[role]["controller"], "bbrv3")
+            with self.assertRaises(ValueError):
+                driver.check_accounting(records)
+
+    def test_controller_mismatch_keeps_failed_attempt(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            def mismatch(record):
+                record["client"]["controller"] = "reno"
+            code, summary, _ = self.invoke(Path(temporary),
+                ("--diagnostic-cell", "stateless-pressure", "--controller", "bbrv3"), edit=mismatch)
+            self.assertEqual(code, 1)
+            self.assertEqual(summary["instances_charged"], 1)
+            self.assertIn("controller", summary["error"])
+
+    def test_profiling_requires_both_profiles_and_is_not_timing_evidence(self):
+        for failure in (None, "missing-profile"):
+            with self.subTest(failure=failure), tempfile.TemporaryDirectory() as temporary:
+                root = Path(temporary)
+                code, summary, _ = self.invoke(root,
+                    ("--diagnostic-cell", "stateless-pressure", "--controller", "bbrv3", "--cpu-profile"), failure=failure)
+                self.assertEqual(code, int(failure is not None))
+                self.assertTrue(summary["cpu_profile"])
+                self.assertFalse(summary["timing_eligible"])
+                if failure:
+                    self.assertIn("missing CPU profile", summary["error"])
+                    self.assertEqual(summary["instances_charged"], 1)
+                else:
+                    records = [json.loads(line) for line in (root / "output" / "diagnostic.jsonl").read_text().splitlines()]
+                    for record in records:
+                        self.assertFalse(record["timing_eligible"])
+                        self.assertEqual(set(record["cpu_profiles"]), {"server", "client"})
+                        for path in record["cpu_profiles"].values():
+                            self.assertTrue(Path(path).is_file())
+
+    def test_unsupported_bbr_or_profiling_campaign_launches_nothing(self):
+        for extra in (("--controller", "bbrv3"),
+                      ("--controller", "bbrv3", "--diagnostic-cell", "mixed-bulk"),
+                      ("--cpu-profile",)):
+            with self.subTest(extra=extra), tempfile.TemporaryDirectory() as temporary:
+                root = Path(temporary)
+                with contextlib.redirect_stderr(io.StringIO()), self.assertRaises(SystemExit) as caught:
+                    self.invoke(root, extra)
+                self.assertEqual(caught.exception.code, 2)
+                self.assertFalse((root / "output").exists())
 
     def test_diagnostic_is_charged_and_cannot_complete_campaign(self):
         for option in ("--smoke-cell", "--diagnostic-cell"):

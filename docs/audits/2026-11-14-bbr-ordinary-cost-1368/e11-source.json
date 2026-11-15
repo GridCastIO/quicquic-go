@@ -1,0 +1,64 @@
+{
+  "source": "e89a22c0889fc87a65b93be4327514aea997c0c1",
+  "instances": 0,
+  "commands": [
+    [
+      "tar",
+      "-xzf",
+      "/tmp/qgf-bbr-cost-1368-e11.tar.gz",
+      "-C",
+      "/tmp/qgf-bbr-cost-1368/e11-source"
+    ],
+    [
+      "go",
+      "test",
+      "-c",
+      "-tags",
+      "ordinarycost",
+      "-o",
+      "/tmp/qgf-bbr-cost-1368/e11.test",
+      "."
+    ],
+    [
+      "/tmp/qgf-bbr-cost-1368/e11.test",
+      "-test.run",
+      "Test(NativeOrdinaryAccepted|NativeOrdinaryBBR|BBRNative|BBRUnregisteredCredit|LocalSendCredit|OrdinaryCostController)",
+      "-test.v"
+    ],
+    [
+      "go",
+      "test",
+      "./internal/ackhandler",
+      "-run",
+      "Test(LocalBBR|LocalRenoMemberStill|LocalAcceptedSpan)",
+      "-count=1",
+      "-v"
+    ]
+  ],
+  "started_utc": "2026-11-15T03:59:36.682807+00:00",
+  "result": "passed",
+  "environment": {
+    "CGO_ENABLED": "1",
+    "GOAMD64": "v1",
+    "GOARCH": "amd64",
+    "GOEXPERIMENT": "",
+    "GOFLAGS": "",
+    "GOOS": "linux",
+    "GOVERSION": "go1.27.4"
+  },
+  "binary_sha256": "dcd494b72f446c32f38035105b5d480db0492b48f4500baf23371aa626d15379",
+  "archive_sha256": "8d11bb6d5941a395707e04e0452f45fa8a3b7d62db12c197dd1876f52785143c",
+  "elapsed_host_seconds": 8.15337763,
+  "ended_utc": "2026-11-15T03:59:44.836228+00:00",
+  "reviewed_source": "03a0006845f995dc5f1fb334edc3df55892b386a",
+  "runtime_control": "76f64bd9418bcf403c6b0eaecdffc69ca611073c",
+  "readiness_command": "python3 /tmp/qgf-bbr-cost-1368/e08-repeat-observe-readiness.py --output /tmp/qgf-bbr-cost-1368/e11-readiness --consecutive-samples 18",
+  "readiness_script_sha256": "aacc7b9ad2c32d37e7e5822c1a9523f5c1787b3bb38a9dd283e7eb9511367166",
+  "measurement_command": "python3 interop/multipath/ordinary_cost.py --candidate e89a22c0889fc87a65b93be4327514aea997c0c1 --binary /tmp/qgf-bbr-cost-1368/e11.test --output /tmp/qgf-bbr-cost-1368/e11-timing --remaining-instances 173 --remaining-host-seconds 17560.50371593449422 --timeout-seconds 135 --controller bbrv3 --diagnostic-cell stateless-pressure",
+  "timing_qualification": false,
+  "qualification_exclusion": "Single uninstrumented diagnostic pair; final representative qualification remains separate. No observer or CPU profiles.",
+  "cumulative_instances_before_timing": 247,
+  "cumulative_host_seconds_before_timing": "11239.49628406550578",
+  "remaining_host_seconds_before_timing": "17560.50371593449422",
+  "independent_review": "Minimal production and final tests independently audited without material findings. Root Go/module files match reviewed source."
+}

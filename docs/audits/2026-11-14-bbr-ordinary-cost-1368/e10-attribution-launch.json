@@ -1,0 +1,13 @@
+{
+  "source": "738ead192547bc107b7b0c142cdd8b7a0146a205",
+  "binary_sha256": "105e1c4f05e3baa6aeb07b19cf132cc9cab82233637130eb448b7c4de0a73352",
+  "measurement_command": "python3 interop/multipath/ordinary_cost.py --candidate 738ead192547bc107b7b0c142cdd8b7a0146a205 --binary /tmp/qgf-bbr-cost-1368/e10.test --output /tmp/qgf-bbr-cost-1368/e10-observed --remaining-instances 175 --remaining-host-seconds 17722.78438895054039 --timeout-seconds 135 --controller bbrv3 --diagnostic-cell stateless-pressure --cpu-profile",
+  "before_launch_amendment": true,
+  "supplemental_readiness": "Interrupted and preserved; no supplemental-ready claim. Original driver 2-second check remains authoritative for launch.",
+  "rationale": "E10 is attribution only and every timing result is excluded. The additional 90-second timing heuristic was delaying questions that scalar counts and sampled stacks can still answer for the actual recorded regime.",
+  "interpretation_limits": "Interference can change geometry, ACK/publication order, early-ACK/PTO/prefix eligibility and profile shares. No quantitative arm-to-arm or quiet-E09 comparison, ranking of small differences, or predicted savings. A dominant consistent path supports only a source-level hypothesis and a later clean uninstrumented test. Scheduling-sensitive declines may require another clean observation.",
+  "preserved": "One pair only, original source/binary/workload/seed/affinity/window/135-second timeout/driver quiet check/foreign accounting, timing exclusion, no automatic repeat, no host policy changes.",
+  "cumulative_instances_before_observation": 245,
+  "cumulative_host_seconds_before_observation": "11077.21561104945961",
+  "remaining_host_seconds_before_observation": "17722.78438895054039"
+}

@@ -309,11 +309,14 @@ func (h *sentPacketHandler) CompleteLocalPacket(token LocalCompletionToken, outc
 		r.packet = nil
 		h.finishCongestionFeedback()
 	} else {
-		h.getPacketNumberSpace(r.level).history.qualifyLocal(r.pn)
+		ps := h.getPacketNumberSpace(r.level)
+		ps.history.qualifyLocal(r.pn)
 		// A higher ACK may already have passed this packet while it was pending.
-		h.beginCongestionFeedback(returnedAt, r.level, h.bytesInFlight, nil, protocol.InvalidPacketNumber)
-		h.detectLostPackets(returnedAt, r.level)
-		h.finishCongestionFeedback()
+		if !h.completeLocalBBRWithoutLoss(ps) {
+			h.beginCongestionFeedback(returnedAt, r.level, h.bytesInFlight, nil, protocol.InvalidPacketNumber)
+			h.detectLostPackets(returnedAt, r.level)
+			h.finishCongestionFeedback()
+		}
 	}
 	h.setLossDetectionTimer(returnedAt)
 	return nil

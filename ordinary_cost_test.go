@@ -66,18 +66,40 @@ const (
 )
 
 type ordinaryCostSpec struct {
-	Role     string `json:"role"`
-	Cell     string `json:"cell"`
-	Profile  string `json:"profile"`
-	Seed     uint64 `json:"seed"`
-	Address  string `json:"address"`
-	Output   string `json:"output"`
-	StartAt  int64  `json:"start_at_unix_ns"`
-	WarmupNS int64  `json:"warmup_ns"`
-	WindowNS int64  `json:"window_ns"`
+	Controller string `json:"controller,omitempty"`
+	Role       string `json:"role"`
+	Cell       string `json:"cell"`
+	Profile    string `json:"profile"`
+	Seed       uint64 `json:"seed"`
+	Address    string `json:"address"`
+	Output     string `json:"output"`
+	StartAt    int64  `json:"start_at_unix_ns"`
+	WarmupNS   int64  `json:"warmup_ns"`
+	WindowNS   int64  `json:"window_ns"`
 }
 
 func (s ordinaryCostSpec) granted() bool { return s.Profile == "opted-in" }
+
+func (s ordinaryCostSpec) controller() string {
+	if s.Controller == "" {
+		return "reno"
+	}
+	return s.Controller
+}
+
+func (s ordinaryCostSpec) validateController() error {
+	switch s.controller() {
+	case "reno":
+		return nil
+	case "bbrv3":
+		if s.Cell == "stateless-pressure" {
+			return nil
+		}
+		return errors.New("BBR ordinary-cost diagnosis only supports stateless-pressure")
+	default:
+		return errors.New("unknown ordinary-cost controller")
+	}
+}
 
 func (s ordinaryCostSpec) timeline() ordinaryCostTimeline {
 	start := time.Unix(0, s.StartAt)
@@ -260,7 +282,7 @@ func ordinaryCostHeapInuse() uint64 {
 	return stats.HeapInuse
 }
 
-func ordinaryCostConfig(t testing.TB, multipath bool) *Config {
+func ordinaryCostConfig(t testing.TB, multipath bool, controller string) *Config {
 	t.Helper()
 	conf := &Config{
 		EnableDatagrams:                true,
@@ -270,7 +292,7 @@ func ordinaryCostConfig(t testing.TB, multipath bool) *Config {
 		MaxConnectionReceiveWindow:     24 << 20,
 		MaxIdleTimeout:                 30 * time.Second,
 	}
-	require.NoError(t, conf.SetCongestionControlV1("reno"))
+	require.NoError(t, conf.SetCongestionControlV1(controller))
 	if multipath {
 		require.NoError(t, conf.ConfigureMultipathV1(true, 2, "primary-backup"))
 	}
@@ -476,6 +498,7 @@ type ordinaryCostServerConnResult struct {
 }
 
 type ordinaryCostServerResult struct {
+	Controller                  string                          `json:"controller"`
 	Go                          string                          `json:"go"`
 	Granted                     bool                            `json:"granted"`
 	GSOCapable                  bool                            `json:"gso_capable"`
@@ -493,12 +516,14 @@ type ordinaryCostServerResult struct {
 
 func ordinaryCostRunServer(t testing.TB, spec ordinaryCostSpec) *ordinaryCostServerResult {
 	t.Helper()
+	require.NoError(t, spec.validateController())
 	line := spec.timeline()
 	var key StatelessResetKey
 	binary.BigEndian.PutUint64(key[:], spec.Seed)
 	tr := ordinaryCostTransport(t, spec.Address, spec.granted())
 	tr.StatelessResetKey = &key
-	listener, err := tr.Listen(ordinaryCostServerTLS(), ordinaryCostConfig(t, spec.granted()))
+	// The BBR diagnostic exercises the endpoint grant without advertising multipath.
+	listener, err := tr.Listen(ordinaryCostServerTLS(), ordinaryCostConfig(t, spec.granted() && spec.controller() == "reno", spec.controller()))
 	require.NoError(t, err)
 	s := &ordinaryCostServer{line: line, histograms: map[string]*ordinaryCostHistogram{}}
 	s.workers.Add(1)
@@ -520,7 +545,7 @@ func ordinaryCostRunServer(t testing.TB, spec ordinaryCostSpec) *ordinaryCostSer
 	}()
 
 	result := &ordinaryCostServerResult{
-		Go: runtime.Version(), Granted: tr.responses != nil, ApplicationSendCall: map[string]*ordinaryCostLatency{},
+		Go: runtime.Version(), Controller: spec.controller(), Granted: tr.responses != nil, ApplicationSendCall: map[string]*ordinaryCostLatency{},
 		ApplicationSendCallBoundary: "elapsed Stream.Write / SendDatagram call time; neither native return nor peer delivery",
 	}
 	time.Sleep(time.Until(line.window))
@@ -540,6 +565,7 @@ func ordinaryCostRunServer(t testing.TB, spec ordinaryCostSpec) *ordinaryCostSer
 	// The client holds its connections past the end, so any close seen here is the run's.
 	s.mutex.Lock()
 	for _, entry := range s.conns {
+		require.Equal(t, spec.controller(), entry.conn.CongestionControlV1())
 		stats := entry.conn.ConnectionStats()
 		cause, timedOut := ordinaryCostCloseCause(entry.conn)
 		label, _ := entry.label.Load().(string)
@@ -593,6 +619,7 @@ type ordinaryCostFloodResult struct {
 }
 
 type ordinaryCostClientResult struct {
+	Controller   string                    `json:"controller"`
 	Go           string                    `json:"go"`
 	WindowCPU    float64                   `json:"window_cpu_s"`
 	WindowRusage ordinaryCostWindowRusage  `json:"window_rusage"`
@@ -660,12 +687,13 @@ func (f *ordinaryCostFlow) runEcho(line ordinaryCostTimeline, str *Stream) {
 	}
 }
 
-func ordinaryCostDial(t testing.TB, tr *Transport, address *net.UDPAddr, multipath bool) *Conn {
+func ordinaryCostDial(t testing.TB, tr *Transport, address *net.UDPAddr, multipath bool, controller string) *Conn {
 	t.Helper()
 	ctx, cancel := context.WithTimeout(context.Background(), 4*time.Second)
 	defer cancel()
-	conn, err := tr.Dial(ctx, address, ordinaryCostClientTLS(), ordinaryCostConfig(t, multipath))
+	conn, err := tr.Dial(ctx, address, ordinaryCostClientTLS(), ordinaryCostConfig(t, multipath, controller))
 	require.NoError(t, err)
+	require.Equal(t, controller, conn.CongestionControlV1())
 	return conn
 }
 
@@ -727,6 +755,7 @@ func ordinaryCostFlood(t testing.TB, line ordinaryCostTimeline, address *net.UDP
 
 func ordinaryCostRunClient(t testing.TB, spec ordinaryCostSpec) *ordinaryCostClientResult {
 	t.Helper()
+	require.NoError(t, spec.validateController())
 	line := spec.timeline()
 	address, err := net.ResolveUDPAddr("udp", spec.Address)
 	require.NoError(t, err)
@@ -734,7 +763,7 @@ func ordinaryCostRunClient(t testing.TB, spec ordinaryCostSpec) *ordinaryCostCli
 	dial := func(multipath, granted bool) (*Transport, *Conn) {
 		tr := ordinaryCostTransport(t, "127.0.0.1:0", granted)
 		transports = append(transports, tr)
-		return tr, ordinaryCostDial(t, tr, address, multipath)
+		return tr, ordinaryCostDial(t, tr, address, multipath, spec.controller())
 	}
 
 	_, ordinaryConn := dial(false, false)
@@ -830,7 +859,7 @@ func ordinaryCostRunClient(t testing.TB, spec ordinaryCostSpec) *ordinaryCostCli
 	goVersion := runtime.Version()
 	usageEnd := ordinaryCostRusage()
 	result := &ordinaryCostClientResult{
-		Go: goVersion, WindowCPU: (usageEnd.cpu() - usageStart.cpu()).Seconds(),
+		Go: goVersion, Controller: spec.controller(), WindowCPU: (usageEnd.cpu() - usageStart.cpu()).Seconds(),
 		WindowRusage: ordinaryCostWindowRusage{Start: usageStart, End: usageEnd, Delta: usageEnd.since(usageStart)},
 	}
 
@@ -891,6 +920,17 @@ func TestOrdinaryCostRole(t *testing.T) {
 	data, err := json.MarshalIndent(result, "", "  ")
 	require.NoError(t, err)
 	require.NoError(t, os.WriteFile(spec.Output, data, 0o644))
+}
+
+func TestOrdinaryCostController(t *testing.T) {
+	for _, controller := range []string{"", "reno", "bbrv3"} {
+		spec := ordinaryCostSpec{Controller: controller, Cell: "stateless-pressure"}
+		require.NoError(t, spec.validateController())
+		conf := ordinaryCostConfig(t, false, spec.controller())
+		require.Equal(t, spec.controller(), conf.CongestionControlV1())
+	}
+	require.Error(t, (ordinaryCostSpec{Controller: "bbrv3", Cell: "mixed-bulk"}).validateController())
+	require.Error(t, (ordinaryCostSpec{Controller: "unknown", Cell: "stateless-pressure"}).validateController())
 }
 
 func TestOrdinaryCostHistogram(t *testing.T) {

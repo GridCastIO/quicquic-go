@@ -1,0 +1,23 @@
+{
+  "command": [
+    "bash",
+    "-eu",
+    "-c",
+    "\n      bundle=$1; source=$2\n      mkdir \"$source\"\n      tar -xf \"$bundle/source.tar\" -C \"$source\"\n      env CGO_ENABLED=0 GOOS=linux GOARCH=amd64 GOAMD64=v1 GOEXPERIMENT= GOFLAGS= GOENV=off GOWORK=off GOTOOLCHAIN=local \\\n        python3 \"$bundle/build.py\" --bundle \"$bundle\" --source \"$source\"\n    ",
+    "bash",
+    "/tmp/qgf-final-1368-a1c9442f1-stage/ordinary-bundle",
+    "/tmp/qgf-final-1368-a1c9442f1-stage/ordinary-source"
+  ],
+  "working_directory": "/home/josh",
+  "instances_charged": 0,
+  "remaining_instances_before": 171,
+  "remaining_host_seconds_before": "17406.38774677485385",
+  "reserved_host_seconds": "0",
+  "status": "passed",
+  "started_utc": "2026-11-15T04:13:59.872020+00:00",
+  "elapsed_host_seconds": "4.9913044",
+  "exit_code": 0,
+  "ended_utc": "2026-11-15T04:14:04.863428+00:00",
+  "remaining_instances_after": 171,
+  "remaining_host_seconds_after": "17401.39644237485385"
+}

@@ -1,0 +1,1135 @@
+{
+  "qualification": false,
+  "boundaries": "Lifetime counters omit teardown after freeze. Interior snapshot summaries use snapshots 17\u201373 s after attempt registration, safely inside the approximate 5 s setup + 10 s warmup + 60 s measurement timeline. Deltas span their actual adjacent snapshot times; they are not exact measurement-window counters. Instrumentation overhead is not removed.",
+  "attempts": [
+    {
+      "profile": "unregistered",
+      "status": "succeeded",
+      "occupied_s": 77.02571827825159,
+      "foreign_cpu_s": 70.46314066300002,
+      "contaminated": true,
+      "roles": {
+        "server": {
+          "snapshot_count": 72,
+          "snapshot_overflow": 0,
+          "final_recorded": true,
+          "ack_lifetime": {
+            "ack_events": 1916966,
+            "delivered_bytes": 63625105206,
+            "valid_samples": 1916963,
+            "invalid_samples": 3,
+            "unanchored_samples": 3,
+            "raw_rtt_samples": 1916964,
+            "sample_rate_sum": 1568760703615528,
+            "sample_rate_min": 748577,
+            "sample_rate_max": 1780037419,
+            "acked_packets": 44577013,
+            "acked_bytes": 63625110419,
+            "timing_excluded_packets": 0,
+            "timing_excluded_bytes": 0,
+            "timing_mismatched_packets": 0,
+            "timing_mismatched_bytes": 0,
+            "delivery_registrations": 44576871,
+            "invalid_registration_snapshots": 0,
+            "originless_registrations": 0,
+            "first_local_acks": 0,
+            "early_acks": 0,
+            "early_ack_with_participant_hint": 0,
+            "early_ack_with_deferred_facts": 0,
+            "timing_fences": 0,
+            "sampler_resets": 0
+          },
+          "model_lifetime": {
+            "feedback_events": 1916966,
+            "ack_events": 1916966,
+            "clock_rejected": 0,
+            "ack_clock_rejected": 0,
+            "model_usable_samples": 1916963,
+            "resets": 0,
+            "closes": 0
+          },
+          "emission_lifetime": {
+            "counters": {
+              "OrdinaryAttempts": 5113437,
+              "OrdinarySuccesses": 5058941,
+              "OrdinaryRefusals": 54496,
+              "OrdinaryRequestedBytes": 95249827812,
+              "OrdinaryReservedBytes": 94243401307,
+              "Handoffs": 4050608,
+              "HandoffBytes": 63625110419,
+              "HandoffDatagrams": 44577013,
+              "RefusedRequestedBytes": 1006426505,
+              "RefusedPendingBytes": 6514746490,
+              "RefusedFreeBytes": 627740558,
+              "RefusedMaxRequestedBytes": 20174,
+              "RefusedMaxPendingBytes": 130930,
+              "RefusedMaxFreeBytes": 26540,
+              "RefusedWithPacketRoom": 53939,
+              "RefusedUsablePartialRoom": 53935,
+              "RefusedOldGeneration": 0,
+              "RefusedIsolated": 4,
+              "RetryIntervals": 42607,
+              "RetryNanoseconds": 762014406,
+              "RetryMaxNanoseconds": 841698,
+              "RetryClockRegressions": 0,
+              "RetryOpen": false,
+              "QueueCapacityChecks": 16837740,
+              "QueueCapacityRefusals": 220,
+              "EndpointCapacityRefusals": 0,
+              "Opportunities": 5612556,
+              "Progress": 4050608,
+              "SupplyExhausted": 1008357,
+              "Errors": 0,
+              "NoData": 1008357,
+              "QueueFull": 60241,
+              "HardBlocked": 0,
+              "Paced": 495,
+              "ReceivePending": 0,
+              "CongestionLimited": 493009,
+              "ProbePending": 0,
+              "SendAny": 0,
+              "ProbeSent": 0,
+              "DefaultStopWithProgress": 4050454
+            },
+            "refusal_fraction": 0.010657411052487789,
+            "partial_refusal_fraction": 0.9897056664709336,
+            "handoff_bytes_mean": 15707.545736096901,
+            "handoff_datagrams_mean": 11.005017765234257,
+            "retry_us_mean": 17.884723308376557
+          },
+          "native_lifetime": {
+            "counters": {
+              "Members": 0,
+              "AcceptedMembers": 0,
+              "AcceptedBytes": 0,
+              "ConsumeClockReads": 0,
+              "MemberBytes": 0,
+              "Datagrams": 0,
+              "AcceptedDatagrams": 0,
+              "OpportunityToReturn": {
+                "Count": 0,
+                "Nanoseconds": 0,
+                "MaxNanoseconds": 0,
+                "Missing": 0,
+                "Negative": 0,
+                "Buckets": [
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0
+                ]
+              },
+              "ReturnToConsume": {
+                "Count": 0,
+                "Nanoseconds": 0,
+                "MaxNanoseconds": 0,
+                "Missing": 0,
+                "Negative": 0,
+                "Buckets": [
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0
+                ]
+              }
+            },
+            "OpportunityToReturn_mean_us": null,
+            "ReturnToConsume_mean_us": null
+          },
+          "interior_samples": 56,
+          "interior_span_s": 55.000598687,
+          "interior_phases": {
+            "Cruise": 29,
+            "Up": 19,
+            "ProbeRTT": 2,
+            "Refill": 6
+          },
+          "effective_pacing_rate": {
+            "min": 921774508,
+            "median": 1496939099.5,
+            "max": 2053172966
+          },
+          "quantum": {
+            "min": 65536,
+            "median": 65536.0,
+            "max": 65536
+          },
+          "pending_bytes": {
+            "min": 3683,
+            "median": 40348.0,
+            "max": 127609
+          },
+          "current_pending_bytes": {
+            "min": 3683,
+            "median": 40348.0,
+            "max": 127609
+          },
+          "model_pacing_rate": {
+            "min": 931085362,
+            "median": 1512059697.0,
+            "max": 2073912087
+          },
+          "model_delivery_rate": {
+            "min": 931085362,
+            "median": 1449379179.0,
+            "max": 1659129670
+          },
+          "model_bandwidth": {
+            "min": 931085362,
+            "median": 1449379179.0,
+            "max": 1659129670
+          },
+          "model_window": {
+            "min": 8257,
+            "median": 149290.0,
+            "max": 242697
+          },
+          "model_min_rtt_ns": {
+            "min": 11411,
+            "median": 11862.5,
+            "max": 12343
+          },
+          "recovery_bytes_in_flight": {
+            "min": 7205,
+            "median": 89102.5,
+            "max": 177404
+          },
+          "recovery_min_rtt_ns": {
+            "min": 11411,
+            "median": 11843.0,
+            "max": 12343
+          },
+          "recovery_smoothed_rtt_ns": {
+            "min": 18000,
+            "median": 57500.0,
+            "max": 137000
+          },
+          "flight_fraction_of_window": {
+            "min": 0.1319528020511747,
+            "median": 0.6158005185387936,
+            "max": 0.9969709401325143
+          },
+          "ack_delta": {
+            "ack_events": 1490103,
+            "delivered_bytes": 48349764278,
+            "valid_samples": 1490103,
+            "invalid_samples": 0,
+            "unanchored_samples": 0,
+            "raw_rtt_samples": 1490103,
+            "sample_rate_sum": 1180065256375746,
+            "acked_packets": 33873166,
+            "acked_bytes": 48349768126,
+            "timing_excluded_packets": 0,
+            "timing_excluded_bytes": 0,
+            "timing_mismatched_packets": 0,
+            "timing_mismatched_bytes": 0,
+            "delivery_registrations": 33873071,
+            "invalid_registration_snapshots": 0,
+            "originless_registrations": 0,
+            "first_local_acks": 0,
+            "early_acks": 0,
+            "early_ack_with_participant_hint": 0,
+            "early_ack_with_deferred_facts": 0,
+            "timing_fences": 0,
+            "sampler_resets": 0
+          },
+          "model_delta": {
+            "feedback_events": 1490103,
+            "ack_events": 1490103,
+            "clock_rejected": 0,
+            "ack_clock_rejected": 0,
+            "model_usable_samples": 1490103,
+            "resets": 0,
+            "closes": 0
+          },
+          "emission_delta": {
+            "OrdinaryAttempts": 3910156,
+            "OrdinarySuccesses": 3867986,
+            "OrdinaryRefusals": 42170,
+            "OrdinaryRequestedBytes": 72249647668,
+            "OrdinaryReservedBytes": 71477250053,
+            "Handoffs": 3103491,
+            "HandoffBytes": 48349781735,
+            "HandoffDatagrams": 33873175,
+            "RefusedRequestedBytes": 772397615,
+            "RefusedPendingBytes": 5039270119,
+            "RefusedFreeBytes": 488036121,
+            "RefusedWithPacketRoom": 41716,
+            "RefusedUsablePartialRoom": 41716,
+            "RefusedOldGeneration": 0,
+            "RefusedIsolated": 0,
+            "RetryIntervals": 32921,
+            "RetryNanoseconds": 599387358,
+            "RetryClockRegressions": 0,
+            "QueueCapacityChecks": 12986525,
+            "QueueCapacityRefusals": 203,
+            "EndpointCapacityRefusals": 0,
+            "Opportunities": 4328820,
+            "Progress": 3103491,
+            "SupplyExhausted": 764512,
+            "Errors": 0,
+            "NoData": 764512,
+            "QueueFull": 47297,
+            "HardBlocked": 0,
+            "Paced": 451,
+            "ReceivePending": 0,
+            "CongestionLimited": 413212,
+            "ProbePending": 0,
+            "SendAny": 0,
+            "ProbeSent": 0,
+            "DefaultStopWithProgress": 3103348
+          }
+        },
+        "client": {
+          "snapshot_count": 72,
+          "snapshot_overflow": 0,
+          "final_recorded": true,
+          "ack_lifetime": {
+            "ack_events": 146289,
+            "delivered_bytes": 6042867,
+            "valid_samples": 146285,
+            "invalid_samples": 4,
+            "unanchored_samples": 4,
+            "raw_rtt_samples": 146287,
+            "sample_rate_sum": 74293094568,
+            "sample_rate_min": 8973,
+            "sample_rate_max": 3766478,
+            "acked_packets": 1964664,
+            "acked_bytes": 74851233,
+            "timing_excluded_packets": 0,
+            "timing_excluded_bytes": 0,
+            "timing_mismatched_packets": 0,
+            "timing_mismatched_bytes": 0,
+            "delivery_registrations": 148999,
+            "invalid_registration_snapshots": 0,
+            "originless_registrations": 0,
+            "first_local_acks": 0,
+            "early_acks": 0,
+            "early_ack_with_participant_hint": 0,
+            "early_ack_with_deferred_facts": 0,
+            "timing_fences": 0,
+            "sampler_resets": 0
+          },
+          "model_lifetime": {
+            "feedback_events": 146289,
+            "ack_events": 146289,
+            "clock_rejected": 0,
+            "ack_clock_rejected": 0,
+            "model_usable_samples": 146285,
+            "resets": 0,
+            "closes": 0
+          },
+          "emission_lifetime": {
+            "counters": {
+              "OrdinaryAttempts": 3122533,
+              "OrdinarySuccesses": 3122529,
+              "OrdinaryRefusals": 4,
+              "OrdinaryRequestedBytes": 8968601560,
+              "OrdinaryReservedBytes": 8968585105,
+              "Handoffs": 1964678,
+              "HandoffBytes": 74853085,
+              "HandoffDatagrams": 1964678,
+              "RefusedRequestedBytes": 16455,
+              "RefusedPendingBytes": 5646,
+              "RefusedFreeBytes": 39370,
+              "RefusedMaxRequestedBytes": 4290,
+              "RefusedMaxPendingBytes": 1441,
+              "RefusedMaxFreeBytes": 9888,
+              "RefusedWithPacketRoom": 4,
+              "RefusedUsablePartialRoom": 0,
+              "RefusedOldGeneration": 0,
+              "RefusedIsolated": 4,
+              "RetryIntervals": 4,
+              "RetryNanoseconds": 130774,
+              "RetryMaxNanoseconds": 73588,
+              "RetryClockRegressions": 0,
+              "RetryOpen": false,
+              "QueueCapacityChecks": 9367617,
+              "QueueCapacityRefusals": 0,
+              "EndpointCapacityRefusals": 0,
+              "Opportunities": 3122539,
+              "Progress": 1964678,
+              "SupplyExhausted": 1157856,
+              "Errors": 0,
+              "NoData": 1157856,
+              "QueueFull": 4,
+              "HardBlocked": 0,
+              "Paced": 2,
+              "ReceivePending": 0,
+              "CongestionLimited": 0,
+              "ProbePending": 0,
+              "SendAny": 0,
+              "ProbeSent": 0,
+              "DefaultStopWithProgress": 1964677
+            },
+            "refusal_fraction": 1.2810112815461038e-06,
+            "partial_refusal_fraction": 0.0,
+            "handoff_bytes_mean": 38.09941629111742,
+            "handoff_datagrams_mean": 1.0,
+            "retry_us_mean": 32.6935
+          },
+          "native_lifetime": {
+            "counters": {
+              "Members": 0,
+              "AcceptedMembers": 0,
+              "AcceptedBytes": 0,
+              "ConsumeClockReads": 0,
+              "MemberBytes": 0,
+              "Datagrams": 0,
+              "AcceptedDatagrams": 0,
+              "OpportunityToReturn": {
+                "Count": 0,
+                "Nanoseconds": 0,
+                "MaxNanoseconds": 0,
+                "Missing": 0,
+                "Negative": 0,
+                "Buckets": [
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0
+                ]
+              },
+              "ReturnToConsume": {
+                "Count": 0,
+                "Nanoseconds": 0,
+                "MaxNanoseconds": 0,
+                "Missing": 0,
+                "Negative": 0,
+                "Buckets": [
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0
+                ]
+              }
+            },
+            "OpportunityToReturn_mean_us": null,
+            "ReturnToConsume_mean_us": null
+          },
+          "interior_samples": 56,
+          "interior_span_s": 55.001854091,
+          "interior_phases": {
+            "Up": 56
+          },
+          "effective_pacing_rate": {
+            "min": 2422679,
+            "median": 3545663.0,
+            "max": 3728813
+          },
+          "quantum": {
+            "min": 2882,
+            "median": 3545.0,
+            "max": 3728
+          },
+          "pending_bytes": {
+            "min": 33,
+            "median": 38.0,
+            "max": 114
+          },
+          "current_pending_bytes": {
+            "min": 33,
+            "median": 38.0,
+            "max": 114
+          },
+          "model_pacing_rate": {
+            "min": 2447151,
+            "median": 3581478.0,
+            "max": 3766478
+          },
+          "model_delivery_rate": {
+            "min": 2447151,
+            "median": 3581478.0,
+            "max": 3766478
+          },
+          "model_bandwidth": {
+            "min": 2447151,
+            "median": 3581478.0,
+            "max": 3766478
+          },
+          "model_window": {
+            "min": 7025,
+            "median": 11323.0,
+            "max": 12204
+          },
+          "model_min_rtt_ns": {
+            "min": 12463,
+            "median": 12824.0,
+            "max": 13645
+          },
+          "recovery_bytes_in_flight": {
+            "min": 0,
+            "median": 0.0,
+            "max": 41
+          },
+          "recovery_min_rtt_ns": {
+            "min": 12463,
+            "median": 12613.5,
+            "max": 13235
+          },
+          "recovery_smoothed_rtt_ns": {
+            "min": 16000,
+            "median": 71000.0,
+            "max": 134000
+          },
+          "flight_fraction_of_window": {
+            "min": 0.0,
+            "median": 0.0,
+            "max": 0.0034905499744593903
+          },
+          "ack_delta": {
+            "ack_events": 112798,
+            "delivered_bytes": 4648562,
+            "valid_samples": 112798,
+            "invalid_samples": 0,
+            "unanchored_samples": 0,
+            "raw_rtt_samples": 112798,
+            "sample_rate_sum": 58483436768,
+            "acked_packets": 1527069,
+            "acked_bytes": 58150251,
+            "timing_excluded_packets": 0,
+            "timing_excluded_bytes": 0,
+            "timing_mismatched_packets": 0,
+            "timing_mismatched_bytes": 0,
+            "delivery_registrations": 114881,
+            "invalid_registration_snapshots": 0,
+            "originless_registrations": 0,
+            "first_local_acks": 0,
+            "early_acks": 0,
+            "early_ack_with_participant_hint": 0,
+            "early_ack_with_deferred_facts": 0,
+            "timing_fences": 0,
+            "sampler_resets": 0
+          },
+          "model_delta": {
+            "feedback_events": 112798,
+            "ack_events": 112798,
+            "clock_rejected": 0,
+            "ack_clock_rejected": 0,
+            "model_usable_samples": 112798,
+            "resets": 0,
+            "closes": 0
+          },
+          "emission_delta": {
+            "OrdinaryAttempts": 2457330,
+            "OrdinarySuccesses": 2457330,
+            "OrdinaryRefusals": 0,
+            "OrdinaryRequestedBytes": 7078034931,
+            "OrdinaryReservedBytes": 7078034931,
+            "Handoffs": 1527068,
+            "HandoffBytes": 58150214,
+            "HandoffDatagrams": 1527068,
+            "RefusedRequestedBytes": 0,
+            "RefusedPendingBytes": 0,
+            "RefusedFreeBytes": 0,
+            "RefusedWithPacketRoom": 0,
+            "RefusedUsablePartialRoom": 0,
+            "RefusedOldGeneration": 0,
+            "RefusedIsolated": 0,
+            "RetryIntervals": 0,
+            "RetryNanoseconds": 0,
+            "RetryClockRegressions": 0,
+            "QueueCapacityChecks": 7371990,
+            "QueueCapacityRefusals": 0,
+            "EndpointCapacityRefusals": 0,
+            "Opportunities": 2457330,
+            "Progress": 1527068,
+            "SupplyExhausted": 930262,
+            "Errors": 0,
+            "NoData": 930262,
+            "QueueFull": 0,
+            "HardBlocked": 0,
+            "Paced": 0,
+            "ReceivePending": 0,
+            "CongestionLimited": 0,
+            "ProbePending": 0,
+            "SendAny": 0,
+            "ProbeSent": 0,
+            "DefaultStopWithProgress": 1527068
+          }
+        }
+      }
+    },
+    {
+      "profile": "opted-in",
+      "status": "succeeded",
+      "occupied_s": 77.0475816866383,
+      "foreign_cpu_s": 53.83623375899998,
+      "contaminated": true,
+      "roles": {
+        "server": {
+          "snapshot_count": 72,
+          "snapshot_overflow": 0,
+          "final_recorded": true,
+          "ack_lifetime": {
+            "ack_events": 2159207,
+            "delivered_bytes": 59172571409,
+            "valid_samples": 2146633,
+            "invalid_samples": 12574,
+            "unanchored_samples": 12561,
+            "raw_rtt_samples": 2146646,
+            "sample_rate_sum": 1640300212679714,
+            "sample_rate_min": 2199681,
+            "sample_rate_max": 1821858572,
+            "acked_packets": 41457176,
+            "acked_bytes": 59172576672,
+            "timing_excluded_packets": 92484,
+            "timing_excluded_bytes": 132065978,
+            "timing_mismatched_packets": 185479,
+            "timing_mismatched_bytes": 264433198,
+            "delivery_registrations": 41457033,
+            "invalid_registration_snapshots": 17438,
+            "originless_registrations": 17438,
+            "first_local_acks": 41457176,
+            "early_acks": 92480,
+            "early_ack_with_participant_hint": 87992,
+            "early_ack_with_deferred_facts": 0,
+            "timing_fences": 102341,
+            "sampler_resets": 0
+          },
+          "model_lifetime": {
+            "feedback_events": 2159207,
+            "ack_events": 2159207,
+            "clock_rejected": 0,
+            "ack_clock_rejected": 0,
+            "model_usable_samples": 2146633,
+            "resets": 0,
+            "closes": 0
+          },
+          "emission_lifetime": {
+            "counters": {
+              "OrdinaryAttempts": 5032862,
+              "OrdinarySuccesses": 5032858,
+              "OrdinaryRefusals": 4,
+              "OrdinaryRequestedBytes": 97184466986,
+              "OrdinaryReservedBytes": 97184427311,
+              "Handoffs": 3658405,
+              "HandoffBytes": 59172576672,
+              "HandoffDatagrams": 41457176,
+              "RefusedRequestedBytes": 39675,
+              "RefusedPendingBytes": 5646,
+              "RefusedFreeBytes": 89282,
+              "RefusedMaxRequestedBytes": 10240,
+              "RefusedMaxPendingBytes": 1441,
+              "RefusedMaxFreeBytes": 22366,
+              "RefusedWithPacketRoom": 4,
+              "RefusedUsablePartialRoom": 0,
+              "RefusedOldGeneration": 0,
+              "RefusedIsolated": 4,
+              "RetryIntervals": 4,
+              "RetryNanoseconds": 162365,
+              "RetryMaxNanoseconds": 103023,
+              "RetryClockRegressions": 0,
+              "RetryOpen": false,
+              "QueueCapacityChecks": 17788131,
+              "QueueCapacityRefusals": 948528,
+              "EndpointCapacityRefusals": 948528,
+              "Opportunities": 5613201,
+              "Progress": 3658405,
+              "SupplyExhausted": 1374457,
+              "Errors": 0,
+              "NoData": 1374457,
+              "QueueFull": 4,
+              "HardBlocked": 0,
+              "Paced": 17,
+              "ReceivePending": 0,
+              "CongestionLimited": 580318,
+              "ProbePending": 0,
+              "SendAny": 0,
+              "ProbeSent": 0,
+              "DefaultStopWithProgress": 3658405
+            },
+            "refusal_fraction": 7.947764115129721e-07,
+            "partial_refusal_fraction": 0.0,
+            "handoff_bytes_mean": 16174.419363629779,
+            "handoff_datagrams_mean": 11.332035682216704,
+            "retry_us_mean": 40.59125
+          },
+          "native_lifetime": {
+            "counters": {
+              "Members": 3658405,
+              "AcceptedMembers": 3658405,
+              "AcceptedBytes": 59172576672,
+              "ConsumeClockReads": 3658405,
+              "MemberBytes": 59172576672,
+              "Datagrams": 41457176,
+              "AcceptedDatagrams": 41457176,
+              "OpportunityToReturn": {
+                "Count": 3658405,
+                "Nanoseconds": 152614417757,
+                "MaxNanoseconds": 3801517,
+                "Missing": 0,
+                "Negative": 0,
+                "Buckets": [
+                  29313,
+                  807134,
+                  1812872,
+                  924923,
+                  83588,
+                  553,
+                  6,
+                  16
+                ]
+              },
+              "ReturnToConsume": {
+                "Count": 3658405,
+                "Nanoseconds": 32284314116,
+                "MaxNanoseconds": 3789144,
+                "Missing": 0,
+                "Negative": 0,
+                "Buckets": [
+                  2670479,
+                  782916,
+                  181891,
+                  21922,
+                  1178,
+                  11,
+                  1,
+                  7
+                ]
+              }
+            },
+            "OpportunityToReturn_mean_us": 41.716107909594484,
+            "ReturnToConsume_mean_us": 8.824696586627233
+          },
+          "interior_samples": 56,
+          "interior_span_s": 55.000516322,
+          "interior_phases": {
+            "Up": 17,
+            "Cruise": 35,
+            "Refill": 1,
+            "ProbeRTT": 2,
+            "Down": 1
+          },
+          "effective_pacing_rate": {
+            "min": 871307864,
+            "median": 1406600796.0,
+            "max": 1883504338
+          },
+          "quantum": {
+            "min": 65536,
+            "median": 65536.0,
+            "max": 65536
+          },
+          "pending_bytes": {
+            "min": 0,
+            "median": 35304.5,
+            "max": 71410
+          },
+          "current_pending_bytes": {
+            "min": 0,
+            "median": 35304.5,
+            "max": 71410
+          },
+          "model_pacing_rate": {
+            "min": 880108954,
+            "median": 1420808885.5,
+            "max": 1902529635
+          },
+          "model_delivery_rate": {
+            "min": 880108954,
+            "median": 1384902570.5,
+            "max": 1550960011
+          },
+          "model_bandwidth": {
+            "min": 880108954,
+            "median": 1384902570.5,
+            "max": 1550960011
+          },
+          "model_window": {
+            "min": 9931,
+            "median": 137725.5,
+            "max": 302974
+          },
+          "model_min_rtt_ns": {
+            "min": 13556,
+            "median": 14337.0,
+            "max": 18655
+          },
+          "recovery_bytes_in_flight": {
+            "min": 9461,
+            "median": 87261.0,
+            "max": 178845
+          },
+          "recovery_min_rtt_ns": {
+            "min": 13556,
+            "median": 13746.0,
+            "max": 18655
+          },
+          "recovery_smoothed_rtt_ns": {
+            "min": 20000,
+            "median": 60500.0,
+            "max": 155000
+          },
+          "flight_fraction_of_window": {
+            "min": 0.12123262888463034,
+            "median": 0.6288600856826795,
+            "max": 0.9986023201485534
+          },
+          "ack_delta": {
+            "ack_events": 1710623,
+            "delivered_bytes": 46358412655,
+            "valid_samples": 1701148,
+            "invalid_samples": 9475,
+            "unanchored_samples": 9462,
+            "raw_rtt_samples": 1701161,
+            "sample_rate_sum": 1290924334684480,
+            "acked_packets": 32477669,
+            "acked_bytes": 46358416357,
+            "timing_excluded_packets": 68062,
+            "timing_excluded_bytes": 97185932,
+            "timing_mismatched_packets": 139458,
+            "timing_mismatched_bytes": 198843689,
+            "delivery_registrations": 32477578,
+            "invalid_registration_snapshots": 14169,
+            "originless_registrations": 14169,
+            "first_local_acks": 32477669,
+            "early_acks": 68062,
+            "early_ack_with_participant_hint": 64337,
+            "early_ack_with_deferred_facts": 0,
+            "timing_fences": 75429,
+            "sampler_resets": 0
+          },
+          "model_delta": {
+            "feedback_events": 1710623,
+            "ack_events": 1710623,
+            "clock_rejected": 0,
+            "ack_clock_rejected": 0,
+            "model_usable_samples": 1701148,
+            "resets": 0,
+            "closes": 0
+          },
+          "emission_delta": {
+            "OrdinaryAttempts": 3962744,
+            "OrdinarySuccesses": 3962744,
+            "OrdinaryRefusals": 0,
+            "OrdinaryRequestedBytes": 76053998625,
+            "OrdinaryReservedBytes": 76053998625,
+            "Handoffs": 2884259,
+            "HandoffBytes": 46358429966,
+            "HandoffDatagrams": 32477678,
+            "RefusedRequestedBytes": 0,
+            "RefusedPendingBytes": 0,
+            "RefusedFreeBytes": 0,
+            "RefusedWithPacketRoom": 0,
+            "RefusedUsablePartialRoom": 0,
+            "RefusedOldGeneration": 0,
+            "RefusedIsolated": 0,
+            "RetryIntervals": 0,
+            "RetryNanoseconds": 0,
+            "RetryClockRegressions": 0,
+            "QueueCapacityChecks": 14205877,
+            "QueueCapacityRefusals": 735658,
+            "EndpointCapacityRefusals": 735658,
+            "Opportunities": 4490073,
+            "Progress": 2884259,
+            "SupplyExhausted": 1078485,
+            "Errors": 0,
+            "NoData": 1078485,
+            "QueueFull": 0,
+            "HardBlocked": 0,
+            "Paced": 0,
+            "ReceivePending": 0,
+            "CongestionLimited": 527329,
+            "ProbePending": 0,
+            "SendAny": 0,
+            "ProbeSent": 0,
+            "DefaultStopWithProgress": 2884259
+          }
+        },
+        "client": {
+          "snapshot_count": 72,
+          "snapshot_overflow": 0,
+          "final_recorded": true,
+          "ack_lifetime": {
+            "ack_events": 134975,
+            "delivered_bytes": 5497204,
+            "valid_samples": 134971,
+            "invalid_samples": 4,
+            "unanchored_samples": 4,
+            "raw_rtt_samples": 134974,
+            "sample_rate_sum": 70519335352,
+            "sample_rate_min": 8696,
+            "sample_rate_max": 3183241,
+            "acked_packets": 2189260,
+            "acked_bytes": 83252353,
+            "timing_excluded_packets": 0,
+            "timing_excluded_bytes": 0,
+            "timing_mismatched_packets": 0,
+            "timing_mismatched_bytes": 0,
+            "delivery_registrations": 137574,
+            "invalid_registration_snapshots": 0,
+            "originless_registrations": 0,
+            "first_local_acks": 0,
+            "early_acks": 0,
+            "early_ack_with_participant_hint": 0,
+            "early_ack_with_deferred_facts": 0,
+            "timing_fences": 0,
+            "sampler_resets": 0
+          },
+          "model_lifetime": {
+            "feedback_events": 134975,
+            "ack_events": 134975,
+            "clock_rejected": 0,
+            "ack_clock_rejected": 0,
+            "model_usable_samples": 134971,
+            "resets": 0,
+            "closes": 0
+          },
+          "emission_lifetime": {
+            "counters": {
+              "OrdinaryAttempts": 4031937,
+              "OrdinarySuccesses": 4031933,
+              "OrdinaryRefusals": 4,
+              "OrdinaryRequestedBytes": 11769055517,
+              "OrdinaryReservedBytes": 11769044547,
+              "Handoffs": 2189268,
+              "HandoffBytes": 83253978,
+              "HandoffDatagrams": 2189268,
+              "RefusedRequestedBytes": 10970,
+              "RefusedPendingBytes": 5646,
+              "RefusedFreeBytes": 33730,
+              "RefusedMaxRequestedBytes": 2860,
+              "RefusedMaxPendingBytes": 1441,
+              "RefusedMaxFreeBytes": 8478,
+              "RefusedWithPacketRoom": 4,
+              "RefusedUsablePartialRoom": 0,
+              "RefusedOldGeneration": 0,
+              "RefusedIsolated": 4,
+              "RetryIntervals": 4,
+              "RetryNanoseconds": 88175,
+              "RetryMaxNanoseconds": 34134,
+              "RetryClockRegressions": 0,
+              "RetryOpen": false,
+              "QueueCapacityChecks": 12095829,
+              "QueueCapacityRefusals": 0,
+              "EndpointCapacityRefusals": 0,
+              "Opportunities": 4031943,
+              "Progress": 2189268,
+              "SupplyExhausted": 1842670,
+              "Errors": 0,
+              "NoData": 1842670,
+              "QueueFull": 4,
+              "HardBlocked": 0,
+              "Paced": 2,
+              "ReceivePending": 0,
+              "CongestionLimited": 0,
+              "ProbePending": 0,
+              "SendAny": 0,
+              "ProbeSent": 0,
+              "DefaultStopWithProgress": 2189267
+            },
+            "refusal_fraction": 9.920789932977623e-07,
+            "partial_refusal_fraction": 0.0,
+            "handoff_bytes_mean": 38.02822587275747,
+            "handoff_datagrams_mean": 1.0,
+            "retry_us_mean": 22.04375
+          },
+          "native_lifetime": {
+            "counters": {
+              "Members": 0,
+              "AcceptedMembers": 0,
+              "AcceptedBytes": 0,
+              "ConsumeClockReads": 0,
+              "MemberBytes": 0,
+              "Datagrams": 0,
+              "AcceptedDatagrams": 0,
+              "OpportunityToReturn": {
+                "Count": 0,
+                "Nanoseconds": 0,
+                "MaxNanoseconds": 0,
+                "Missing": 0,
+                "Negative": 0,
+                "Buckets": [
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0
+                ]
+              },
+              "ReturnToConsume": {
+                "Count": 0,
+                "Nanoseconds": 0,
+                "MaxNanoseconds": 0,
+                "Missing": 0,
+                "Negative": 0,
+                "Buckets": [
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0
+                ]
+              }
+            },
+            "OpportunityToReturn_mean_us": null,
+            "ReturnToConsume_mean_us": null
+          },
+          "interior_samples": 56,
+          "interior_span_s": 55.001207478,
+          "interior_phases": {
+            "Up": 56
+          },
+          "effective_pacing_rate": {
+            "min": 1931105,
+            "median": 3151408.0,
+            "max": 3151408
+          },
+          "quantum": {
+            "min": 2882,
+            "median": 3151.0,
+            "max": 3151
+          },
+          "pending_bytes": {
+            "min": 37,
+            "median": 38.0,
+            "max": 76
+          },
+          "current_pending_bytes": {
+            "min": 37,
+            "median": 38.0,
+            "max": 76
+          },
+          "model_pacing_rate": {
+            "min": 1950612,
+            "median": 3183241.0,
+            "max": 3183241
+          },
+          "model_delivery_rate": {
+            "min": 1950612,
+            "median": 3183241.0,
+            "max": 3183241
+          },
+          "model_bandwidth": {
+            "min": 1950612,
+            "median": 3183241.0,
+            "max": 3183241
+          },
+          "model_window": {
+            "min": 8646,
+            "median": 10760.0,
+            "max": 10760
+          },
+          "model_min_rtt_ns": {
+            "min": 13055,
+            "median": 15644.5,
+            "max": 23073
+          },
+          "recovery_bytes_in_flight": {
+            "min": 0,
+            "median": 0.0,
+            "max": 39
+          },
+          "recovery_min_rtt_ns": {
+            "min": 13055,
+            "median": 15048.0,
+            "max": 22482
+          },
+          "recovery_smoothed_rtt_ns": {
+            "min": 21000,
+            "median": 60500.0,
+            "max": 100000
+          },
+          "flight_fraction_of_window": {
+            "min": 0.0,
+            "median": 0.0,
+            "max": 0.00362453531598513
+          },
+          "ack_delta": {
+            "ack_events": 106685,
+            "delivered_bytes": 4337849,
+            "valid_samples": 106685,
+            "invalid_samples": 0,
+            "unanchored_samples": 0,
+            "raw_rtt_samples": 106685,
+            "sample_rate_sum": 57112212361,
+            "acked_packets": 1734330,
+            "acked_bytes": 65935043,
+            "timing_excluded_packets": 0,
+            "timing_excluded_bytes": 0,
+            "timing_mismatched_packets": 0,
+            "timing_mismatched_bytes": 0,
+            "delivery_registrations": 108684,
+            "invalid_registration_snapshots": 0,
+            "originless_registrations": 0,
+            "first_local_acks": 0,
+            "early_acks": 0,
+            "early_ack_with_participant_hint": 0,
+            "early_ack_with_deferred_facts": 0,
+            "timing_fences": 0,
+            "sampler_resets": 0
+          },
+          "model_delta": {
+            "feedback_events": 106685,
+            "ack_events": 106685,
+            "clock_rejected": 0,
+            "ack_clock_rejected": 0,
+            "model_usable_samples": 106685,
+            "resets": 0,
+            "closes": 0
+          },
+          "emission_delta": {
+            "OrdinaryAttempts": 3199194,
+            "OrdinarySuccesses": 3199194,
+            "OrdinaryRefusals": 0,
+            "OrdinaryRequestedBytes": 9214743967,
+            "OrdinaryReservedBytes": 9214743967,
+            "Handoffs": 1734329,
+            "HandoffBytes": 65935005,
+            "HandoffDatagrams": 1734329,
+            "RefusedRequestedBytes": 0,
+            "RefusedPendingBytes": 0,
+            "RefusedFreeBytes": 0,
+            "RefusedWithPacketRoom": 0,
+            "RefusedUsablePartialRoom": 0,
+            "RefusedOldGeneration": 0,
+            "RefusedIsolated": 0,
+            "RetryIntervals": 0,
+            "RetryNanoseconds": 0,
+            "RetryClockRegressions": 0,
+            "QueueCapacityChecks": 9597582,
+            "QueueCapacityRefusals": 0,
+            "EndpointCapacityRefusals": 0,
+            "Opportunities": 3199194,
+            "Progress": 1734329,
+            "SupplyExhausted": 1464865,
+            "Errors": 0,
+            "NoData": 1464865,
+            "QueueFull": 0,
+            "HardBlocked": 0,
+            "Paced": 0,
+            "ReceivePending": 0,
+            "CongestionLimited": 0,
+            "ProbePending": 0,
+            "SendAny": 0,
+            "ProbeSent": 0,
+            "DefaultStopWithProgress": 1734329
+          }
+        }
+      }
+    }
+  ]
+}

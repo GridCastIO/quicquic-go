@@ -1,0 +1,391 @@
+{
+  "instances_charged": 2,
+  "host_seconds_charged": 154.10324831772596,
+  "remaining_instances_supplied": 199,
+  "remaining_host_seconds_supplied": 19631.217541278,
+  "per_invocation_timeout_s": 135.0,
+  "attempts": [
+    {
+      "cell": "stateless-pressure",
+      "round": 0,
+      "profile": "unregistered",
+      "seed": 1038,
+      "candidate": "eab1ff6179644fba867bd14c71ba3bd96eee5c91",
+      "mode": "diagnostic",
+      "attempt": 0,
+      "status": "succeeded",
+      "occupied_s": 77.04601830430329,
+      "started_at_unix_ns": 1794696730033510436,
+      "controller": "bbrv3",
+      "cpu_profile": false,
+      "timing_eligible": true,
+      "process_cpu_s": {
+        "server": 96.466065,
+        "client": 77.972163
+      },
+      "exit": {
+        "server": 0,
+        "client": 0
+      },
+      "foreign_cpu_s": 0.13424773500003084,
+      "contaminated": false,
+      "server": {
+        "controller": "bbrv3",
+        "go": "go1.27.4",
+        "granted": false,
+        "gso_capable": true,
+        "window_cpu_s": 82.030382,
+        "window_rusage": {
+          "start": {
+            "user_cpu_ns": 10521207000,
+            "system_cpu_ns": 3908882000,
+            "voluntary_context_switches": 901070,
+            "involuntary_context_switches": 1087
+          },
+          "end": {
+            "user_cpu_ns": 70698082000,
+            "system_cpu_ns": 25762389000,
+            "voluntary_context_switches": 6441392,
+            "involuntary_context_switches": 9788
+          },
+          "delta": {
+            "user_cpu_ns": 60176875000,
+            "system_cpu_ns": 21853507000,
+            "voluntary_context_switches": 5540322,
+            "involuntary_context_switches": 8701
+          }
+        },
+        "rss_kb_at_20s": 23416,
+        "rss_kb_end": 23848,
+        "heap_inuse_end": 5439488,
+        "write_errors": 0,
+        "joined": false,
+        "application_send_call": {
+          "ordinary": {
+            "count": 997973,
+            "p50_us": 51.199,
+            "p99_us": 188.415,
+            "max_us": 414.047
+          }
+        },
+        "application_send_call_boundary": "elapsed Stream.Write / SendDatagram call time; neither native return nor peer delivery",
+        "connections": [
+          {
+            "label": "ordinary",
+            "multipath_negotiated": false,
+            "packets_sent": 55370006,
+            "packets_lost": 0,
+            "bytes_sent": 79031566340,
+            "close_cause": "",
+            "timeout_close": false
+          }
+        ]
+      },
+      "client": {
+        "controller": "bbrv3",
+        "go": "go1.27.4",
+        "window_cpu_s": 66.310921,
+        "window_rusage": {
+          "start": {
+            "user_cpu_ns": 8707813000,
+            "system_cpu_ns": 2947279000,
+            "voluntary_context_switches": 785765,
+            "involuntary_context_switches": 1081
+          },
+          "end": {
+            "user_cpu_ns": 58100813000,
+            "system_cpu_ns": 19865200000,
+            "voluntary_context_switches": 5732664,
+            "involuntary_context_switches": 14473
+          },
+          "delta": {
+            "user_cpu_ns": 49393000000,
+            "system_cpu_ns": 16917921000,
+            "voluntary_context_switches": 4946899,
+            "involuntary_context_switches": 13392
+          }
+        },
+        "flows": [
+          {
+            "label": "ordinary",
+            "series": [
+              1128448896,
+              965269888,
+              1123352576,
+              1124270080,
+              1123614720,
+              1125298944,
+              965214208,
+              1118175232,
+              1125580800,
+              1116609408,
+              1126904192,
+              1038708210,
+              1050887438,
+              1132767858,
+              1133249934,
+              1128238208,
+              1127859072,
+              968809472,
+              1115520000,
+              1122740224,
+              1119879168,
+              1112735744,
+              964065536,
+              1125943040,
+              1122671104,
+              1122526720,
+              1128333312,
+              960167936,
+              1134972160,
+              1128534144,
+              1131451520,
+              1134394368,
+              966758912,
+              1116801792,
+              1123001600,
+              1114852608,
+              1108280064,
+              1033019264,
+              1044144256,
+              1113063424,
+              1118502912,
+              1115160576,
+              1125970432,
+              958487296,
+              1122697216,
+              1119586688,
+              1120562048,
+              1122110208,
+              955953920,
+              1117821440,
+              1114071808,
+              1117848320,
+              1121625344,
+              952064768,
+              1113423488,
+              1125291904,
+              1119643776,
+              1107211008,
+              958129280,
+              1129896960
+            ],
+            "useful_bytes": 65403175424,
+            "control": {
+              "count": 6000,
+              "p50_us": 155.647,
+              "p99_us": 294.911,
+              "max_us": 420.229
+            },
+            "datagram_drops": 0,
+            "unprocessed_drops": 0,
+            "close_cause": "",
+            "timeout_close": false,
+            "multipath_negotiated": false,
+            "paths": null
+          }
+        ],
+        "flood": {
+          "sent": 600000,
+          "resets": 408727
+        }
+      },
+      "quiet": {
+        "waited_s": 0.0,
+        "fixture_busy_share": 0.000685095,
+        "named_process_present": false
+      }
+    },
+    {
+      "cell": "stateless-pressure",
+      "round": 0,
+      "profile": "opted-in",
+      "seed": 1038,
+      "candidate": "eab1ff6179644fba867bd14c71ba3bd96eee5c91",
+      "mode": "diagnostic",
+      "attempt": 0,
+      "status": "succeeded",
+      "occupied_s": 77.05723001342267,
+      "started_at_unix_ns": 1794696809092434657,
+      "controller": "bbrv3",
+      "cpu_profile": false,
+      "timing_eligible": true,
+      "process_cpu_s": {
+        "server": 111.64164399999996,
+        "client": 73.43853399999998
+      },
+      "exit": {
+        "server": 0,
+        "client": 0
+      },
+      "foreign_cpu_s": 0.1154634050000709,
+      "contaminated": false,
+      "server": {
+        "controller": "bbrv3",
+        "go": "go1.27.4",
+        "granted": true,
+        "gso_capable": true,
+        "window_cpu_s": 95.279944,
+        "window_rusage": {
+          "start": {
+            "user_cpu_ns": 12407588000,
+            "system_cpu_ns": 3948592000,
+            "voluntary_context_switches": 866620,
+            "involuntary_context_switches": 4247
+          },
+          "end": {
+            "user_cpu_ns": 85138104000,
+            "system_cpu_ns": 26498020000,
+            "voluntary_context_switches": 6000993,
+            "involuntary_context_switches": 31801
+          },
+          "delta": {
+            "user_cpu_ns": 72730516000,
+            "system_cpu_ns": 22549428000,
+            "voluntary_context_switches": 5134373,
+            "involuntary_context_switches": 27554
+          }
+        },
+        "rss_kb_at_20s": 26428,
+        "rss_kb_end": 26556,
+        "heap_inuse_end": 6627328,
+        "write_errors": 0,
+        "joined": true,
+        "application_send_call": {
+          "ordinary": {
+            "count": 888225,
+            "p50_us": 63.487,
+            "p99_us": 212.991,
+            "max_us": 557.446
+          }
+        },
+        "application_send_call_boundary": "elapsed Stream.Write / SendDatagram call time; neither native return nor peer delivery",
+        "connections": [
+          {
+            "label": "ordinary",
+            "multipath_negotiated": false,
+            "packets_sent": 49085426,
+            "packets_lost": 0,
+            "bytes_sent": 70061526516,
+            "close_cause": "",
+            "timeout_close": false
+          }
+        ]
+      },
+      "client": {
+        "controller": "bbrv3",
+        "go": "go1.27.4",
+        "window_cpu_s": 62.680745,
+        "window_rusage": {
+          "start": {
+            "user_cpu_ns": 8159879000,
+            "system_cpu_ns": 2591232000,
+            "voluntary_context_switches": 791100,
+            "involuntary_context_switches": 1767
+          },
+          "end": {
+            "user_cpu_ns": 55691951000,
+            "system_cpu_ns": 17739905000,
+            "voluntary_context_switches": 5652938,
+            "involuntary_context_switches": 10892
+          },
+          "delta": {
+            "user_cpu_ns": 47532072000,
+            "system_cpu_ns": 15148673000,
+            "voluntary_context_switches": 4861838,
+            "involuntary_context_switches": 9125
+          }
+        },
+        "flows": [
+          {
+            "label": "ordinary",
+            "series": [
+              1020546304,
+              874774528,
+              996979456,
+              1001324544,
+              1003290624,
+              999181568,
+              960898688,
+              893180288,
+              992890098,
+              1003401998,
+              997781376,
+              995588352,
+              864766592,
+              996317696,
+              995950592,
+              999076608,
+              998259840,
+              860255872,
+              995465728,
+              990098176,
+              988217344,
+              990576640,
+              855724672,
+              995687040,
+              995553152,
+              986493696,
+              999512064,
+              857290496,
+              1005204608,
+              996101376,
+              1001829120,
+              999424000,
+              961925376,
+              898117376,
+              990268672,
+              998032256,
+              1000762880,
+              993165696,
+              863305728,
+              1001999616,
+              995406592,
+              997493120,
+              988539378,
+              867208334,
+              1001389312,
+              993395456,
+              989701376,
+              998483968,
+              866135040,
+              996221184,
+              996848384,
+              996343808,
+              995118336,
+              863089408,
+              999654400,
+              998059776,
+              1000013824,
+              1000015218,
+              962406030,
+              886009344
+            ],
+            "useful_bytes": 58210753024,
+            "control": {
+              "count": 6000,
+              "p50_us": 147.455,
+              "p99_us": 376.831,
+              "max_us": 587.211
+            },
+            "datagram_drops": 0,
+            "unprocessed_drops": 0,
+            "close_cause": "",
+            "timeout_close": false,
+            "multipath_negotiated": false,
+            "paths": null
+          }
+        ],
+        "flood": {
+          "sent": 600000,
+          "resets": 446096
+        }
+      },
+      "quiet": {
+        "waited_s": 0.0,
+        "fixture_busy_share": 0.0006034525,
+        "named_process_present": false
+      }
+    }
+  ]
+}

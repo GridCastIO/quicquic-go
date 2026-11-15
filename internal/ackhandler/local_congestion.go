@@ -1,6 +1,34 @@
 package ackhandler
 
-import "github.com/quic-go/quic-go/internal/monotime"
+import (
+	"github.com/quic-go/quic-go/internal/congestion"
+	"github.com/quic-go/quic-go/internal/monotime"
+	"github.com/quic-go/quic-go/internal/protocol"
+)
+
+// completeLocalBBRWithoutLoss uses the loss scanner's physical-prefix proof,
+// after local congestion and ECN qualification have delivered their own events.
+// With no possible loss, this completion cannot change flight or call the sink.
+func (h *sentPacketHandler) completeLocalBBRWithoutLoss(ps *packetNumberSpace) bool {
+	if _, bbr := h.congestion.(*congestion.BBRSender); !bbr || h.congestionEvents == nil {
+		return false
+	}
+	lowest := ps.history.LowestPacketNumber()
+	if ps.largestAcked != protocol.InvalidPacketNumber && lowest != protocol.InvalidPacketNumber && lowest <= ps.largestAcked {
+		return false
+	}
+	ps.lossTime = 0
+	h.congestionEvents.localCompletionFeedback()
+	return true
+}
+
+func (d *congestionDispatch) localCompletionFeedback() {
+	// Preserve the empty sample exposed by diagnostics and recovery's one-shot
+	// bookkeeping. No ACK means recovery needs neither PTO nor scratch storage;
+	// the unreported event needs no pending-byte query or controller callback.
+	d.event = congestion.FeedbackEvent{Delivery: congestion.DeliverySample{Delivered: d.sampler.delivered, Lost: d.sampler.lost}}
+	d.recovery.feedback(&d.event, 0)
+}
 
 // fenceTiming requires a fresh registration snapshot after an excluded local
 // interval. Logical delivery totals and registration generations do not change.

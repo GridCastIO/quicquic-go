@@ -72,6 +72,15 @@ func (t *deliveryRecords) get(k congestionPacketKey) (congestion.PacketInfo, boo
 	return congestion.PacketInfo{}, false
 }
 
+// borrow is confined to a callback-free operation with no record insertion,
+// removal or storage resizing. The pointer must not survive that operation.
+func (t *deliveryRecords) borrow(k congestionPacketKey) *congestion.PacketInfo {
+	if i := t.find(packDelivery(k)); i >= 0 {
+		return &t.recs[t.slots[i].rec].info
+	}
+	return nil
+}
+
 func (t *deliveryRecords) has(k congestionPacketKey) bool { return t.find(packDelivery(k)) >= 0 }
 
 // set inserts or replaces the record for k.

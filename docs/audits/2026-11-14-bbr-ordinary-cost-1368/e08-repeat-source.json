@@ -1,0 +1,26 @@
+{
+  "source": "740f07cd88f96c379991c7c3880aafac7a84e20d",
+  "reviewed_source": "1d5f69814dd4b2365aba17263f57e2fb155e1e7a",
+  "runtime_control": "4ac6188557144a2a0e57436f173f40b62b92ed2c",
+  "archive_sha256": "b4df631192528cc694aadc7bc2f2e37d01fdda7880c4ffb7898940c6fdd77e7e",
+  "binary_sha256": "1d6cf9c00e2e491a0d634a60967a3cd9de8ad36983e9a48532601d7a203a6ec2",
+  "build_command": "go test -c -tags ordinarycost -o /tmp/qgf-bbr-cost-1368/e08.test .",
+  "build_environment": {
+    "GOVERSION": "go1.27.4",
+    "GOOS": "linux",
+    "GOARCH": "amd64",
+    "GOAMD64": "v1",
+    "CGO_ENABLED": "1",
+    "GOFLAGS": "",
+    "GOEXPERIMENT": ""
+  },
+  "native_unit_command": "/tmp/qgf-bbr-cost-1368/e08.test -test.run \"Test(BBRNativeCredit|BBRNativeActiveJumbo|BBRNativeLarge|BBRUnregisteredCredit|LocalSendCredit|OrdinaryCostController)\" -test.v",
+  "native_unit_result": "passed; see e08-native-unit.log; deterministic mechanism/configuration checks, not ordinary observations",
+  "readiness_command": "python3 /tmp/qgf-bbr-cost-1368/e08-repeat-observe-readiness.py --output /tmp/qgf-bbr-cost-1368/e08-repeat-readiness --consecutive-samples 18",
+  "measurement_command": "python3 interop/multipath/ordinary_cost.py --candidate 740f07cd88f96c379991c7c3880aafac7a84e20d --binary /tmp/qgf-bbr-cost-1368/e08.test --output /tmp/qgf-bbr-cost-1368/e08-repeat-timing --remaining-instances 183 --remaining-host-seconds 18398.567184497519 --timeout-seconds 135 --controller bbrv3 --diagnostic-cell stateless-pressure",
+  "timing_qualification": false,
+  "qualification_exclusion": "Single diagnostic pair only; no observer or profiles. Final representative qualification is separate.",
+  "independent_review": "Production and final behavioral test audits found no material findings. Root Go source/tests byte-identical to reviewed pin.",
+  "repetition_reason": "One preplanned identical replacement after both initial E08 observations were contaminated. Read-only 55.111-second reassessment supports longer90-second launch-readiness observation; actual driver contamination remains authoritative. Stop retries if invalid.",
+  "readiness_script_sha256": "aacc7b9ad2c32d37e7e5822c1a9523f5c1787b3bb38a9dd283e7eb9511367166"
+}

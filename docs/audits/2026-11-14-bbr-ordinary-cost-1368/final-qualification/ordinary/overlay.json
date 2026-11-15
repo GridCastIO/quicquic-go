@@ -1,0 +1,6 @@
+{
+  "Replace": {
+    "/tmp/qgf-final-1368-a1c9442f1-stage/ordinary-source/multipath_api.go": "/tmp/qgf-final-1368-a1c9442f1-stage/ordinary-bundle/replacements/multipath_api.go",
+    "/tmp/qgf-final-1368-a1c9442f1-stage/ordinary-source/ordinary_cost_test.go": "/tmp/qgf-final-1368-a1c9442f1-stage/ordinary-bundle/replacements/ordinary_cost_test.go"
+  }
+}

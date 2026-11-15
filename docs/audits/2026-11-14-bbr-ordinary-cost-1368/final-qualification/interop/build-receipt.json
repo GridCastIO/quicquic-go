@@ -1,0 +1,39 @@
+{
+  "product_sha": "a1c9442f110cca36cb4752b39ce24ae998d76f05",
+  "manifest_sha256": "e458a38975ee2ecb266ce8c92fc35a722138c8f679aba2538b8b52ae79fe19ca",
+  "identity": {
+    "QGF_SOURCE_COMMIT": "a1c9442f110cca36cb4752b39ce24ae998d76f05",
+    "QGF_SOURCE_TREE": "aa697c0ef117bdf4dc74e712cbf30182b4c8cb97",
+    "QGF_IMAGE_ID": "sha256:4f07478e800375ddcbf617c9a86d1f101cd140c56903e28a0c2d6d0d4c226411"
+  },
+  "peer_binary_sha256": "52e8e7cfb6f098370b84494c7b466f8628d027d769df235e22e0c3b18f04960c",
+  "overlay_sha256": "4b9242cd2bde08f9d9ce4a09a802e4a58ba0b3c3c6fd6f5fd366cdf25b987cae",
+  "command": [
+    "go",
+    "test",
+    "-overlay=/bundle/overlay.json",
+    "-tags",
+    "picoquic",
+    "-c",
+    "-o",
+    "/bundle/peer-matrix.test",
+    "."
+  ],
+  "working_directory": "/product",
+  "environment": {
+    "GOOS": "linux",
+    "GOARCH": "amd64",
+    "CGO_ENABLED": "0",
+    "GOAMD64": "v1",
+    "GOEXPERIMENT": "",
+    "GOTOOLCHAIN": "local",
+    "GOENV": "off",
+    "GOFLAGS": "",
+    "GOWORK": "off"
+  },
+  "go_version": "go version go1.27.4 linux/amd64",
+  "public_enablement": false,
+  "exit_code": 0,
+  "binary_sha256": "666a1b3d9a4e2b6a068cffb14fb2d3462c4f2f1eaa64568b311c5426ca3418df",
+  "binary_build_info": "/bundle/peer-matrix.test: go1.27.4\n\tpath\tgithub.com/quic-go/quic-go.test\n\tmod\tgithub.com/quic-go/quic-go\t(devel)\t\n\tdep\tgithub.com/quic-go/go-ossfuzz-seeds\tv0.1.0\th1:APacT+iIaNF6fd8AGEiN3bT/Jtkd2jz4v4TzM7MFjy0=\n\tdep\tgithub.com/stretchr/testify\tv1.12.1\th1:EuwCh5fleGS7H32xRwO3wRGT7DxrDhLAT6FF8MpWDWE=\n\tdep\tgo.uber.org/mock\tv0.6.0\th1:hyF9dfmbgIX5EfOdasqLsWD6xqpNZlXblLB/Dbnwv3Y=\n\tdep\tgo.yaml.in/yaml/v3\tv3.0.5\th1:N6y/pJk8buWs9NY5ERU2HSMfm+IuD/OtfdAnq6kESPw=\n\tdep\tgolang.org/x/crypto\tv0.58.0\th1:COkYLr4k7nDI4r6QtMML2AfzeIswWHAJthLS6K/M/54=\n\tdep\tgolang.org/x/net\tv0.61.0\th1:RR+6j/BTBCrggOLugxa+66R8FvoN6MHlzDlZIbN9YFw=\n\tdep\tgolang.org/x/sys\tv0.49.0\th1:XbzkgYJHdqh/8m2Uu0W/dQv8nktxx4BFHp1M0gROTXA=\n\tbuild\t-buildmode=exe\n\tbuild\t-compiler=gc\n\tbuild\t-tags=picoquic\n\tbuild\tDefaultGODEBUG=tracebacklabels=0,x509sslcertoverrideplatform=0\n\tbuild\tCGO_ENABLED=0\n\tbuild\tGOARCH=amd64\n\tbuild\tGOOS=linux\n\tbuild\tGOAMD64=v1\n"
+}

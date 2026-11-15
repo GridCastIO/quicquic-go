@@ -1,0 +1,114 @@
+Kernel Version: 7.0
+
+=== RUN   TestBBRNativeCreditPartialMember
+=== RUN   TestBBRNativeCreditPartialMember/partial_large
+=== RUN   TestBBRNativeCreditPartialMember/jumbo_configured_standard
+=== RUN   TestBBRNativeCreditPartialMember/below_large_tier
+=== RUN   TestBBRNativeCreditPartialMember/above_large_tier
+=== RUN   TestBBRNativeCreditPartialMember/one_packet
+=== RUN   TestBBRNativeCreditPartialMember/short_segments
+--- PASS: TestBBRNativeCreditPartialMember (0.01s)
+    --- PASS: TestBBRNativeCreditPartialMember/partial_large (0.00s)
+    --- PASS: TestBBRNativeCreditPartialMember/jumbo_configured_standard (0.00s)
+    --- PASS: TestBBRNativeCreditPartialMember/below_large_tier (0.00s)
+    --- PASS: TestBBRNativeCreditPartialMember/above_large_tier (0.00s)
+    --- PASS: TestBBRNativeCreditPartialMember/one_packet (0.00s)
+    --- PASS: TestBBRNativeCreditPartialMember/short_segments (0.00s)
+=== RUN   TestBBRNativeActiveJumboStillRequiresExactBatch
+--- PASS: TestBBRNativeActiveJumboStillRequiresExactBatch (0.00s)
+=== RUN   TestBBRNativeCreditRefusalDoesNotPack
+--- PASS: TestBBRNativeCreditRefusalDoesNotPack (0.00s)
+=== RUN   TestBBRNativeCreditRearmsMinimum
+=== RUN   TestBBRNativeCreditRearmsMinimum/before_rearm
+=== RUN   TestBBRNativeCreditRearmsMinimum/after_rearm
+=== RUN   TestBBRNativeCreditRearmsMinimum/none
+--- PASS: TestBBRNativeCreditRearmsMinimum (0.00s)
+    --- PASS: TestBBRNativeCreditRearmsMinimum/before_rearm (0.00s)
+    --- PASS: TestBBRNativeCreditRearmsMinimum/after_rearm (0.00s)
+    --- PASS: TestBBRNativeCreditRearmsMinimum/none (0.00s)
+=== RUN   TestBBRNativeLargeMemberOutcomes
+=== RUN   TestBBRNativeLargeMemberOutcomes/GSO
+=== RUN   TestBBRNativeLargeMemberOutcomes/EIO_fallback
+=== RUN   TestBBRNativeLargeMemberOutcomes/partial
+=== RUN   TestBBRNativeLargeMemberOutcomes/revoked
+=== RUN   TestBBRNativeLargeMemberOutcomes/expired
+--- PASS: TestBBRNativeLargeMemberOutcomes (0.01s)
+    --- PASS: TestBBRNativeLargeMemberOutcomes/GSO (0.00s)
+    --- PASS: TestBBRNativeLargeMemberOutcomes/EIO_fallback (0.00s)
+    --- PASS: TestBBRNativeLargeMemberOutcomes/partial (0.00s)
+    --- PASS: TestBBRNativeLargeMemberOutcomes/revoked (0.00s)
+    --- PASS: TestBBRNativeLargeMemberOutcomes/expired (0.00s)
+=== RUN   TestBBRNativeLargeMemberSelection
+=== RUN   TestBBRNativeLargeMemberSelection/standard
+=== RUN   TestBBRNativeLargeMemberSelection/jumbo_configured_standard
+=== RUN   TestBBRNativeLargeMemberSelection/active_jumbo
+=== RUN   TestBBRNativeLargeMemberSelection/UDP_ceiling
+=== RUN   TestBBRNativeLargeMemberSelection/small_allowance
+=== RUN   TestBBRNativeLargeMemberSelection/small_pacing_balance
+=== RUN   TestBBRNativeLargeMemberSelection/short_datagrams
+=== RUN   TestBBRNativeLargeMemberSelection/GSO_disabled
+--- PASS: TestBBRNativeLargeMemberSelection (0.02s)
+    --- PASS: TestBBRNativeLargeMemberSelection/standard (0.00s)
+    --- PASS: TestBBRNativeLargeMemberSelection/jumbo_configured_standard (0.00s)
+    --- PASS: TestBBRNativeLargeMemberSelection/active_jumbo (0.00s)
+    --- PASS: TestBBRNativeLargeMemberSelection/UDP_ceiling (0.00s)
+    --- PASS: TestBBRNativeLargeMemberSelection/small_allowance (0.00s)
+    --- PASS: TestBBRNativeLargeMemberSelection/small_pacing_balance (0.00s)
+    --- PASS: TestBBRNativeLargeMemberSelection/short_datagrams (0.00s)
+    --- PASS: TestBBRNativeLargeMemberSelection/GSO_disabled (0.00s)
+=== RUN   TestBBRNativeLargeGenerationDebtPreservesControl
+=== RUN   TestBBRNativeLargeGenerationDebtPreservesControl/no_ACK
+=== RUN   TestBBRNativeLargeGenerationDebtPreservesControl/due_ACK
+--- PASS: TestBBRNativeLargeGenerationDebtPreservesControl (0.00s)
+    --- PASS: TestBBRNativeLargeGenerationDebtPreservesControl/no_ACK (0.00s)
+    --- PASS: TestBBRNativeLargeGenerationDebtPreservesControl/due_ACK (0.00s)
+=== RUN   TestBBRNativeLargePlanScope
+=== RUN   TestBBRNativeLargePlanScope/unregistered
+=== RUN   TestBBRNativeLargePlanScope/Reno
+=== RUN   TestBBRNativeLargePlanScope/multipath
+=== RUN   TestBBRNativeLargePlanScope/nonzero_route
+=== RUN   TestBBRNativeLargePlanScope/handshake
+=== RUN   TestBBRNativeLargePlanScope/PTO
+=== RUN   TestBBRNativeLargePlanScope/MTU
+--- PASS: TestBBRNativeLargePlanScope (0.00s)
+    --- PASS: TestBBRNativeLargePlanScope/unregistered (0.00s)
+    --- PASS: TestBBRNativeLargePlanScope/Reno (0.00s)
+    --- PASS: TestBBRNativeLargePlanScope/multipath (0.00s)
+    --- PASS: TestBBRNativeLargePlanScope/nonzero_route (0.00s)
+    --- PASS: TestBBRNativeLargePlanScope/handshake (0.00s)
+    --- PASS: TestBBRNativeLargePlanScope/PTO (0.00s)
+    --- PASS: TestBBRNativeLargePlanScope/MTU (0.00s)
+=== RUN   TestLocalSendCreditFrozenEquivalence
+    local_send_credit_equivalence_test.go:116: seeds=2000 ops=600000 refusals=25606 waits=194323 worker-completions=83338 reused=106198
+--- PASS: TestLocalSendCreditFrozenEquivalence (0.60s)
+=== RUN   TestLocalSendCreditOwnership
+=== RUN   TestLocalSendCreditOwnership/stopped_queue_and_close_drain
+=== RUN   TestLocalSendCreditOwnership/second_release_stops_at_the_buffer
+=== RUN   TestLocalSendCreditOwnership/steady_reservation_does_not_allocate
+--- PASS: TestLocalSendCreditOwnership (0.00s)
+    --- PASS: TestLocalSendCreditOwnership/stopped_queue_and_close_drain (0.00s)
+    --- PASS: TestLocalSendCreditOwnership/second_release_stops_at_the_buffer (0.00s)
+    --- PASS: TestLocalSendCreditOwnership/steady_reservation_does_not_allocate (0.00s)
+=== RUN   TestLocalSendCreditWholePacketRange
+=== RUN   TestLocalSendCreditWholePacketRange/full_request
+=== RUN   TestLocalSendCreditWholePacketRange/partial_room
+=== RUN   TestLocalSendCreditWholePacketRange/one_packet
+=== RUN   TestLocalSendCreditWholePacketRange/less_than_one_packet
+=== RUN   TestLocalSendCreditWholePacketRange/nonmultiple_room
+=== RUN   TestLocalSendCreditWholePacketRange/nonmultiple_maximum
+=== RUN   TestLocalSendCreditWholePacketRange/reduced_limit
+--- PASS: TestLocalSendCreditWholePacketRange (0.00s)
+    --- PASS: TestLocalSendCreditWholePacketRange/full_request (0.00s)
+    --- PASS: TestLocalSendCreditWholePacketRange/partial_room (0.00s)
+    --- PASS: TestLocalSendCreditWholePacketRange/one_packet (0.00s)
+    --- PASS: TestLocalSendCreditWholePacketRange/less_than_one_packet (0.00s)
+    --- PASS: TestLocalSendCreditWholePacketRange/nonmultiple_room (0.00s)
+    --- PASS: TestLocalSendCreditWholePacketRange/nonmultiple_maximum (0.00s)
+    --- PASS: TestLocalSendCreditWholePacketRange/reduced_limit (0.00s)
+=== RUN   TestLocalSendCreditRangeRefusalDrainsWakeup
+--- PASS: TestLocalSendCreditRangeRefusalDrainsWakeup (0.00s)
+=== RUN   TestBBRUnregisteredCreditStillRequiresExactBatch
+--- PASS: TestBBRUnregisteredCreditStillRequiresExactBatch (0.00s)
+=== RUN   TestOrdinaryCostController
+--- PASS: TestOrdinaryCostController (0.00s)
+PASS

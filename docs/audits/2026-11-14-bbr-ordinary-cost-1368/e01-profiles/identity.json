@@ -1,0 +1,61 @@
+{
+  "candidate": "a613896a04319fbe7826034755778766da3e9f31",
+  "binary": {
+    "path": "/tmp/qgf-bbr-cost-1368/e01.test",
+    "sha256": "b9fcdc4a940b1db20573912880ad87e84d230a816360f2531db57bd0d31c12a5",
+    "build_info": "/tmp/qgf-bbr-cost-1368/e01.test: go1.27.4\n\tpath\tgithub.com/quic-go/quic-go.test\n\tmod\tgithub.com/quic-go/quic-go\t(devel)\t\n\tdep\tgithub.com/quic-go/go-ossfuzz-seeds\tv0.1.0\th1:APacT+iIaNF6fd8AGEiN3bT/Jtkd2jz4v4TzM7MFjy0=\n\tdep\tgithub.com/stretchr/testify\tv1.12.1\th1:EuwCh5fleGS7H32xRwO3wRGT7DxrDhLAT6FF8MpWDWE=\n\tdep\tgo.uber.org/mock\tv0.6.0\th1:hyF9dfmbgIX5EfOdasqLsWD6xqpNZlXblLB/Dbnwv3Y=\n\tdep\tgo.yaml.in/yaml/v3\tv3.0.5\th1:N6y/pJk8buWs9NY5ERU2HSMfm+IuD/OtfdAnq6kESPw=\n\tdep\tgolang.org/x/crypto\tv0.58.0\th1:COkYLr4k7nDI4r6QtMML2AfzeIswWHAJthLS6K/M/54=\n\tdep\tgolang.org/x/net\tv0.61.0\th1:RR+6j/BTBCrggOLugxa+66R8FvoN6MHlzDlZIbN9YFw=\n\tdep\tgolang.org/x/sys\tv0.49.0\th1:XbzkgYJHdqh/8m2Uu0W/dQv8nktxx4BFHp1M0gROTXA=\n\tbuild\t-buildmode=exe\n\tbuild\t-compiler=gc\n\tbuild\t-tags=ordinarycost\n\tbuild\tDefaultGODEBUG=tracebacklabels=0,x509sslcertoverrideplatform=0\n\tbuild\tCGO_ENABLED=1\n\tbuild\tCGO_CFLAGS=\n\tbuild\tCGO_CPPFLAGS=\n\tbuild\tCGO_CXXFLAGS=\n\tbuild\tCGO_LDFLAGS=\n\tbuild\tGOARCH=amd64\n\tbuild\tGOOS=linux\n\tbuild\tGOAMD64=v1\n"
+  },
+  "controller": "bbrv3",
+  "cpu_profile": true,
+  "timing_eligible": false,
+  "comparator": {
+    "candidate": "a613896a04319fbe7826034755778766da3e9f31",
+    "binary_sha256": "b9fcdc4a940b1db20573912880ad87e84d230a816360f2531db57bd0d31c12a5",
+    "profile": "unregistered"
+  },
+  "kernel": "Linux-7.0.0-30-generic-x86_64-with-glibc2.43",
+  "uname": "Linux minimax 7.0.0-30-generic #30-Ubuntu SMP PREEMPT_DYNAMIC Fri Jul 31 18:22:54 UTC 2026 x86_64 ",
+  "go": "go1.27.4",
+  "server_cpus": "8-11",
+  "client_cpus": "12-15",
+  "fixture_cpus_and_siblings": [
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15,
+    24,
+    25,
+    26,
+    27,
+    28,
+    29,
+    30,
+    31
+  ],
+  "warmup_s": 10,
+  "window_s": 60,
+  "base_seed": 1038,
+  "mode": "diagnostic",
+  "cells": [
+    "stream-gso-on",
+    "stream-gso-off",
+    "datagram-batch-on",
+    "datagram-batch-off",
+    "mixed-bulk",
+    "stateless-pressure"
+  ],
+  "revalidation_cause": null,
+  "remaining_instances": 201,
+  "remaining_host_seconds": 19785.28098646617,
+  "per_invocation_timeout_s": 135.0,
+  "metric_boundaries": {
+    "application_send_call": "elapsed Stream.Write / SendDatagram call time; neither native return nor peer delivery",
+    "control": "application echo round trip",
+    "cpu_profile": "sampled CPU across the entire role process, including setup, warmup and cleanup; not window CPU",
+    "useful_bytes": "receiver-counted application content within the measurement window"
+  }
+}

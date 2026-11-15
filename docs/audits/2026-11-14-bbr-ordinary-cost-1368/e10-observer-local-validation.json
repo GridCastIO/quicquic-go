@@ -1,0 +1,75 @@
+{
+  "base": "872af89701460a94fcde7861fb156321bb2d9afa",
+  "observer_head": "738ead192547bc107b7b0c142cdd8b7a0146a205",
+  "runtime_schema_commit": "1bd96d917d64cbc5f6be7801e6ed0b1249d6c041",
+  "separate_product_test_fix": "b30d946fa37ba2b158e0d07df8d6fa54d61c2499",
+  "test_commit": "738ead192547bc107b7b0c142cdd8b7a0146a205",
+  "worktree": "/Volumes/worktrees/bbr-member-observer-1368/quic-go-fast",
+  "branch": "codex/bbr-member-observer-1368",
+  "go_version": "go version go1.27.4 darwin/arm64",
+  "patch": "/Volumes/worktrees/bbr-member-observer-1368/e10-observer.patch",
+  "patch_sha256": "a774fb8d475d17798430162b70fcd3f1ee2adce89c9ea10702940e3cf33c2454",
+  "scope": "Disposable E10 member coverage and geometry observer; instrumented timing excluded; no remote or native workload executed by this agent",
+  "checks": [
+    {
+      "command": "go test . ./internal/ackhandler ./internal/congestion -count=1",
+      "result": "pass",
+      "seconds": {
+        "root": 27.8,
+        "ackhandler": 23.77,
+        "congestion": 0.127
+      }
+    },
+    {
+      "command": "go test -race . ./internal/ackhandler -run 'TestE10|TestLocalBBRAcceptedMember|TestLocalAcceptedSpan|TestNativeOrdinaryAccepted|TestNativeOrdinaryBBRAcceptedMembers' -count=1",
+      "result": "pass",
+      "seconds": {
+        "root": 1.374,
+        "ackhandler": 7.369
+      }
+    },
+    {
+      "command": "go test . ./internal/ackhandler -run 'TestE10' -count=1",
+      "result": "pass"
+    },
+    {
+      "command": "go test . -run '^TestNativeOrdinaryBBRAcceptedMembers$' -count=1",
+      "result": "pass"
+    },
+    {
+      "command": "go test ./internal/ackhandler -run '^TestLocalBBRAcceptedMemberScalarEquivalence$/^skipped$/^64$' -count=100",
+      "result": "pass",
+      "seconds": 4.483
+    },
+    {
+      "command": "go test ./internal/ackhandler -run '^TestLocalBBRAcceptedMemberScalarEquivalence$' -count=10",
+      "result": "pass",
+      "seconds": 4.482
+    },
+    {
+      "command": "go vet . ./internal/ackhandler ./internal/congestion",
+      "result": "pass"
+    },
+    {
+      "command": "go mod tidy -diff",
+      "result": "pass"
+    },
+    {
+      "command": "gofumpt -l and goimports -l on new observer/type/test and modified completion source/test files",
+      "result": "no output"
+    },
+    {
+      "command": "GOOS=linux GOARCH=amd64 go test -c -tags ordinarycost -o /tmp/e10-member-linux.test .",
+      "result": "pass"
+    },
+    {
+      "command": "GOOS=windows GOARCH=amd64 go test -c -o /tmp/e10-member-windows.test .",
+      "result": "pass"
+    },
+    {
+      "command": "git diff --check",
+      "result": "pass"
+    }
+  ],
+  "known_test_failure_fixed": "E09 skipped/64 twins independently chose a second random skip. Isolated test-only fix preserves actual skip3 and bounds later skips outside the fixture. No observer runtime defect found."
+}

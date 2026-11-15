@@ -1,0 +1,995 @@
+diff --git a/bbr_diagnostics.go b/bbr_diagnostics.go
+index 73f5da83d..74c1b859a 100644
+--- a/bbr_diagnostics.go
++++ b/bbr_diagnostics.go
+@@ -11,6 +11,7 @@ import (
+ // Trace at most one snapshot per second of send opportunities. Disabled tracing
+ // does not format snapshots or allocate per-packet diagnostics.
+ func (c *Conn) traceBBR(now monotime.Time) {
++	c.observeBBR(now)
+ 	p := c.emission.bbr
+ 	if c.qlogger == nil || p == nil || p.controller == nil || (!p.lastTrace.IsZero() && now.Sub(p.lastTrace) < time.Second) {
+ 		return
+diff --git a/bbr_member_observer.go b/bbr_member_observer.go
+new file mode 100644
+index 000000000..7b0d00e14
+--- /dev/null
++++ b/bbr_member_observer.go
+@@ -0,0 +1,132 @@
++package quic
++
++import (
++	"time"
++
++	"github.com/quic-go/quic-go/internal/ackhandler"
++	"github.com/quic-go/quic-go/internal/monotime"
++	"github.com/quic-go/quic-go/internal/protocol"
++)
++
++const bbrObservationSnapshots = 128
++
++type bbrMemberCount struct {
++	Members uint64 `json:"members"`
++	Packets uint64 `json:"packets"`
++}
++
++func (c *bbrMemberCount) add(packets int) {
++	c.Members++
++	c.Packets += uint64(packets)
++}
++
++const (
++	bbrMemberResultError = iota
++	bbrMemberPartial
++	bbrMemberPacketGeometry
++	bbrMemberTooSmall
++	bbrMemberTooLarge
++	bbrMemberMTU
++	bbrMemberNativeDeclines
++)
++
++// E10-only evidence, written exclusively by the connection goroutine. Native
++// attempts begin after terminal member accounting validation in consumeResult.
++type bbrNativeMemberObservation struct {
++	Attempts     bbrMemberCount                          `json:"attempts"`
++	Datagrams    uint64                                  `json:"datagrams"`
++	SeamAttempts bbrMemberCount                          `json:"seam_attempts"`
++	Successes    bbrMemberCount                          `json:"successes"`
++	Declines     [bbrMemberNativeDeclines]bbrMemberCount `json:"declines"`
++	Recovery     ackhandler.LocalMemberObservation       `json:"recovery"`
++}
++
++func (o *bbrNativeMemberObservation) decline(reason, packets int) bool {
++	o.Declines[reason].add(packets)
++	return false
++}
++
++type bbrMemberGeometry struct {
++	Handoffs       uint64    `json:"handoffs"`
++	Bytes          uint64    `json:"bytes"`
++	Datagrams      uint64    `json:"datagrams"`
++	GSOHandoffs    uint64    `json:"gso_handoffs"`
++	ScalarHandoffs uint64    `json:"scalar_handoffs"`
++	SizeBuckets    [7]uint64 `json:"size_buckets"`
++}
++
++func (o *bbrMemberGeometry) handoff(size protocol.ByteCount, gso uint16) {
++	o.Handoffs++
++	o.Bytes += uint64(size)
++	if gso == 0 {
++		o.ScalarHandoffs++
++		o.Datagrams++
++	} else {
++		o.GSOHandoffs++
++		o.Datagrams += uint64((size + protocol.ByteCount(gso) - 1) / protocol.ByteCount(gso))
++	}
++	for i, limit := range [...]protocol.ByteCount{1452, 16384, 20480, 32768, 49152, 65507} {
++		if size <= limit {
++			o.SizeBuckets[i]++
++			return
++		}
++	}
++	o.SizeBuckets[6]++
++}
++
++type bbrConnectionSnapshot struct {
++	MonoNS   int64                      `json:"mono_ns"`
++	UnixNS   int64                      `json:"unix_ns"`
++	Geometry bbrMemberGeometry          `json:"geometry"`
++	Native   bbrNativeMemberObservation `json:"native"`
++}
++
++// Fixed by-value snapshots deliberately exclude live model/credit reads. Gaps
++// mean inactive send opportunities, and totals begin before the fixture window.
++type bbrConnectionObservation struct {
++	Snapshots     [bbrObservationSnapshots]bbrConnectionSnapshot `json:"snapshots"`
++	SnapshotCount int                                            `json:"snapshot_count"`
++	Overflow      uint64                                         `json:"snapshot_overflow"`
++	Final         bbrConnectionSnapshot                          `json:"final_before_teardown"`
++	FinalRecorded bool                                           `json:"final_recorded"`
++	last          monotime.Time
++}
++
++func (c *Conn) bbrObservationSnapshot(now monotime.Time) bbrConnectionSnapshot {
++	r := bbrConnectionSnapshot{MonoNS: int64(now), UnixNS: now.ToTime().UnixNano(), Geometry: c.emission.memberGeometry}
++	if local, ok := c.emission.local.(interface {
++		bbrMemberObservation() bbrNativeMemberObservation
++	}); ok {
++		r.Native = local.bbrMemberObservation()
++	}
++	return r
++}
++
++func (c *Conn) observeBBR(now monotime.Time) {
++	p := c.emission.bbr
++	if p == nil || p.controller == nil {
++		return
++	}
++	if c.bbrObservation == nil {
++		c.bbrObservation = new(bbrConnectionObservation)
++	}
++	o := c.bbrObservation
++	if o.FinalRecorded || (!o.last.IsZero() && now.Sub(o.last) < time.Second) {
++		return
++	}
++	o.last = now
++	if o.SnapshotCount == len(o.Snapshots) {
++		o.Overflow++
++		return
++	}
++	o.Snapshots[o.SnapshotCount] = c.bbrObservationSnapshot(now)
++	o.SnapshotCount++
++}
++
++func (c *Conn) freezeBBRObservation() {
++	if c.bbrObservation != nil && !c.bbrObservation.FinalRecorded {
++		// One final clock before teardown; no per-member or per-packet clocks.
++		c.bbrObservation.Final = c.bbrObservationSnapshot(monotime.Now())
++		c.bbrObservation.FinalRecorded = true
++	}
++}
+diff --git a/bbr_member_observer_native_test.go b/bbr_member_observer_native_test.go
+new file mode 100644
+index 000000000..522341f22
+--- /dev/null
++++ b/bbr_member_observer_native_test.go
+@@ -0,0 +1,53 @@
++//go:build darwin || linux || freebsd
++
++package quic
++
++import (
++	"errors"
++	"testing"
++
++	"github.com/quic-go/quic-go/internal/ackhandler"
++	"github.com/quic-go/quic-go/internal/monotime"
++	"github.com/stretchr/testify/require"
++)
++
++func TestE10NativeMemberDeclines(t *testing.T) {
++	s := &nativeOrdinarySender{}
++	for _, tc := range []struct {
++		packets, datagrams, accepted, reason int
++		err                                  error
++		mtu                                  bool
++	}{
++		{0, 1, 0, bbrMemberResultError, errors.New("write failed"), false},
++		{2, 2, 1, bbrMemberPartial, nil, false},
++		{3, 1, 1, bbrMemberPacketGeometry, nil, false},
++		{1, 1, 1, bbrMemberTooSmall, nil, true},
++		{65, 65, 65, bbrMemberTooLarge, nil, true},
++		{2, 2, 2, bbrMemberMTU, nil, true},
++	} {
++		packets := make([]ordinaryLocalPacket, tc.packets)
++		if tc.mtu {
++			packets[len(packets)-1].mtu = &mtuFinderAckHandler{}
++		}
++		require.False(t, s.completeAcceptedPackets(packets, tc.datagrams, tc.accepted, tc.err, monotime.Now()))
++		require.Equal(t, bbrMemberCount{Members: 1, Packets: uint64(tc.packets)}, s.memberObservation.Declines[tc.reason])
++	}
++	require.Zero(t, s.memberObservation.SeamAttempts)
++	// A native-eligible member reaches the recovery seam once. An unsupported
++	// owner declines there, without a second native decline or foreign read.
++	require.False(t, s.completeAcceptedPackets(make([]ordinaryLocalPacket, 2), 2, 2, nil, monotime.Now()))
++	o := s.memberObservation
++	require.Equal(t, bbrMemberCount{Members: 1, Packets: 2}, o.SeamAttempts)
++	require.Equal(t, ackhandler.LocalMemberCount{Members: 1, Packets: 2}, o.Recovery.Declines[ackhandler.MemberHandler])
++	all := o.SeamAttempts
++	for _, count := range o.Declines {
++		all.Members += count.Members
++		all.Packets += count.Packets
++	}
++	require.Equal(t, all, o.Attempts)
++	c := &Conn{}
++	c.emission.local = s
++	snapshot := c.bbrObservationSnapshot(monotime.Now())
++	s.memberObservation.Recovery.Declines[0].Members++
++	require.Equal(t, o, snapshot.Native, "fixed arrays copy all native and recovery counters")
++}
+diff --git a/bbr_member_observer_test.go b/bbr_member_observer_test.go
+new file mode 100644
+index 000000000..2c674331b
+--- /dev/null
++++ b/bbr_member_observer_test.go
+@@ -0,0 +1,67 @@
++package quic
++
++import (
++	"testing"
++	"time"
++
++	"github.com/quic-go/quic-go/internal/congestion"
++	"github.com/quic-go/quic-go/internal/monotime"
++	"github.com/quic-go/quic-go/internal/protocol"
++	"github.com/stretchr/testify/require"
++)
++
++func TestE10MemberGeometryBoundaries(t *testing.T) {
++	for bucket, upper := range [...]protocol.ByteCount{1452, 16384, 20480, 32768, 49152, 65507} {
++		for _, delta := range []protocol.ByteCount{-1, 0, 1} {
++			var o bbrMemberGeometry
++			o.handoff(upper+delta, 0)
++			want := bucket
++			if delta == 1 {
++				want++
++			}
++			require.EqualValues(t, 1, o.Handoffs)
++			require.EqualValues(t, upper+delta, o.Bytes)
++			require.EqualValues(t, 1, o.Datagrams)
++			require.EqualValues(t, 1, o.ScalarHandoffs)
++			require.EqualValues(t, 1, o.SizeBuckets[want])
++		}
++	}
++	var o bbrMemberGeometry
++	o.handoff(2500, 1200)
++	require.EqualValues(t, 3, o.Datagrams, "final short segment remains a datagram")
++	require.EqualValues(t, 1, o.GSOHandoffs)
++	require.EqualValues(t, 1, o.SizeBuckets[1])
++}
++
++func TestE10MemberSnapshotsBoundedAndFrozen(t *testing.T) {
++	now := monotime.Now()
++	c := &Conn{}
++	c.traceBBR(now)
++	require.Nil(t, c.bbrObservation)
++	p := newBBRSendPolicy(1000000, 1200, now)
++	p.controller = congestion.NewBBRSender(1200)
++	c.emission.bbr = p
++	c.emission.memberGeometry.handoff(2500, 1200)
++	c.traceBBR(now)
++	require.Nil(t, c.qlogger)
++	require.Equal(t, 1, c.bbrObservation.SnapshotCount)
++	c.traceBBR(now.Add(time.Second / 2))
++	require.Equal(t, 1, c.bbrObservation.SnapshotCount)
++	first := c.bbrObservation.Snapshots[0]
++	c.emission.memberGeometry.handoff(65507, 1452)
++	for i := 1; i < bbrObservationSnapshots+3; i++ {
++		c.traceBBR(now.Add(time.Duration(i) * time.Second))
++	}
++	require.Equal(t, first, c.bbrObservation.Snapshots[0])
++	require.Equal(t, now.ToTime().UnixNano(), first.UnixNS)
++	require.Equal(t, bbrObservationSnapshots, c.bbrObservation.SnapshotCount)
++	require.EqualValues(t, 3, c.bbrObservation.Overflow)
++	c.freezeBBRObservation()
++	final := c.bbrObservation.Final
++	require.True(t, c.bbrObservation.FinalRecorded)
++	c.emission.memberGeometry.handoff(1, 0)
++	c.freezeBBRObservation()
++	c.traceBBR(now.Add(time.Hour))
++	require.Equal(t, final, c.bbrObservation.Final)
++	require.EqualValues(t, 3, c.bbrObservation.Overflow)
++}
+diff --git a/connection.go b/connection.go
+index 54ca0eb04..0a8df13db 100644
+--- a/connection.go
++++ b/connection.go
+@@ -132,8 +132,9 @@ const (
+ //   - [StatelessResetError]: when we receive a stateless reset
+ //   - [VersionNegotiationError]: returned by the client, when there's no version overlap between the peers
+ type Conn struct {
+-	packetCeiling packetCeiling
+-	pathCredit    *pathCreditRegistry
++	bbrObservation *bbrConnectionObservation
++	packetCeiling  packetCeiling
++	pathCredit     *pathCreditRegistry
+ 	// pathSurface is set before the connection runs, and only if it advertises multipath.
+ 	pathSurface *multipathSurface
+ 	// pathOpen holds the one local path operation, from request until its fence resolves.
+@@ -678,6 +679,7 @@ func (c *Conn) run() (err error) {
+ 	if c.emission.local != nil {
+ 		defer c.emission.local.Close()
+ 	}
++	defer c.freezeBBRObservation()
+ 
+ 	c.timer = time.NewTimer(monotime.Until(c.idleTimeoutStartTime().Add(c.config.HandshakeIdleTimeout)))
+ 	if c.emission.bbr != nil {
+@@ -896,6 +898,7 @@ runLoop:
+ 		c.pathManager.Close()
+ 	}
+ 	c.cryptoStreamHandler.Close()
++	c.freezeBBRObservation()
+ 	c.emission.drain() // close the send queue before sending the CONNECTION_CLOSE
+ 	c.handleCloseError(closeErr)
+ 	if c.emission.local != nil {
+diff --git a/docs/audits/2026-11-14-bbr-ordinary-cost-1368/e10-observer-schema.md b/docs/audits/2026-11-14-bbr-ordinary-cost-1368/e10-observer-schema.md
+new file mode 100644
+index 000000000..13c9fc356
+--- /dev/null
++++ b/docs/audits/2026-11-14-bbr-ordinary-cost-1368/e10-observer-schema.md
+@@ -0,0 +1,51 @@
++# E10 accepted-member observation schema (#1368)
++
++This disposable observer is based on pre-code plan `872af89701460a94fcde7861fb156321bb2d9afa`, with the retained E09 runtime unchanged. It adds measurements, not an optimization. All E10 instrumented/profiled timing is excluded from acceptance. No observer code or exported observation seam belongs in the final product.
++
++The ordinary fixture emits `bbr_observation` for each server connection and client flow. It contains `snapshots[128]`, `snapshot_count`, `snapshot_overflow`, `final_before_teardown`, and `final_recorded`. Only the first `snapshot_count` entries are valid. Snapshots are cumulative, copied by value at the existing BBR send-opportunity hook at most once per second. Inactive connections have gaps. `mono_ns` is process-local monotonic time; `unix_ns` derives from that same timestamp without another clock. One final clock freezes evidence before local drain and controller teardown. Final totals include startup/warmup and exclude work after the freeze. Fixture extraction waits for connection context completion; server extraction additionally follows listener/transport close and worker completion. No live connection-owned state is read by a fixture worker.
++
++Every snapshot contains `geometry` and `native`. Geometry fields are `handoffs`, `bytes`, `datagrams`, `gso_handoffs`, `scalar_handoffs`, and `size_buckets[7]`. Buckets have inclusive byte upper bounds `[1452,16384,20480,32768,49152,65507,infinity]` and count actual buffer length, not allocation or reservation. Datagrams are physical outgoing datagram segments inferred from the existing GSO size, including a final short segment; this is not a QUIC packet count for coalesced handshakes. GSO intent can fall back to scalar syscalls. Geometry includes all BBR handoffs, including control/probe traffic, and does not establish native acceptance.
++
++Native fields are `attempts`, `datagrams`, `seam_attempts`, `successes`, `declines[6]`, and `recovery`. Every count object has unsigned cumulative `members` and `packets`. Native attempts count validated terminal members offered to `completeAcceptedPackets`, after consumeResult's accounting checks; malformed terminal results and residual unsubmitted suffix cleanup are outside this denominator. Packet weighting uses `len(packets)`; the separate native `datagrams` total preserves coalesced geometry. Native first-decline indices are `0=result_error, 1=partial, 2=packet_geometry, 3=too_small, 4=too_large, 5=mtu`. These preserve the existing short-circuit order. A native decline never reaches recovery; a recovery decline is not counted again as a native decline.
++
++Recovery fields are `attempts`, `rich_attempts`, `successes`, `rich_successes`, and `declines[33]`. They observe the same boolean completion decision once, using a borrowed caller-owned counter pointer that is never retained. The original unobserved entry uses nil counters. `rich_attempts` begins only after every common token/history preflight succeeds and the actual BBR helper is entered. Reno successes equal `successes-rich_successes`. Common decline indices 0–22 and rich decline indices 23–32 identify the first failed predicate for the whole member, with no second preflight or foreign mutable-state reads. For predicates within a loop, token order precedes later tokens' failures.
++
++| Index | Recovery first decline |
++| --- | --- |
++| 0 | `handler` |
++| 1 | `shape` |
++| 2 | `local_state` |
++| 3 | `qlog` |
++| 4 | `handshake` |
++| 5 | `amplification` |
++| 6 | `lost_queue` |
++| 7 | `rich_controller` |
++| 8 | `unexpected_bbr_ecn` |
++| 9 | `pto` |
++| 10 | `physical_prefix` |
++| 11 | `pending_ecn` |
++| 12 | `ecn_constraints` |
++| 13 | `ecn_tracker` |
++| 14 | `token_owner` |
++| 15 | `token_level` |
++| 16 | `token_outcome` |
++| 17 | `token_acked` |
++| 18 | `token_early_ack` |
++| 19 | `token_order` |
++| 20 | `token_time` |
++| 21 | `packet_state` |
++| 22 | `history_identity` |
++| 23 | `rich_size` |
++| 24 | `rich_timing` |
++| 25 | `rich_ordinal` |
++| 26 | `rich_delivery` |
++| 27 | `rich_delivery_ordinal` |
++| 28 | `rich_generation` |
++| 29 | `rich_recovery` |
++| 30 | `rich_recovery_ordinal` |
++| 31 | `rich_recovery_state` |
++| 32 | `rich_registration` |
++
++For both member and packet counts, require `native.attempts = native.seam_attempts + sum(native.declines)`, `native.seam_attempts = recovery.attempts`, `native.successes = recovery.successes`, `recovery.attempts = recovery.successes + sum(recovery.declines)`, and `recovery.rich_attempts = recovery.rich_successes + sum(recovery.declines[23:33])`. Common preflight survival is `rich_attempts + successes - rich_successes`. Geometry must satisfy `handoffs = sum(size_buckets) = gso_handoffs + scalar_handoffs`. These identities apply to cumulative values and matching snapshot deltas.
++
++All counters and arrays are connection-owned and survive local/controller resets because storage belongs to the native sender/emission owner. There are no extra packet/member clocks, endpoint locks, hot-path global atomics, queues, callbacks, ACK/model observers, or decision inputs. uint64 counters are not saturating: verify monotonic snapshots, conservation, `snapshot_overflow == 0`, and completed final freeze before interpreting the bounded run. Use actual common interior snapshot bounds for adjacent deltas; do not equate them with the exact 60-second useful-output window or whole-role CPU-profile duration. Whole-process profile paths overlap and cannot be added as removable cost.
+diff --git a/internal/ackhandler/local_bbr_span_test.go b/internal/ackhandler/local_bbr_span_test.go
+index bd81d4f09..cfaa3d0cf 100644
+--- a/internal/ackhandler/local_bbr_span_test.go
++++ b/internal/ackhandler/local_bbr_span_test.go
+@@ -39,6 +39,11 @@ func newLocalBBRMemberTest(t *testing.T, count int, phase string) (*sentPacketHa
+ 	tokens := make([]LocalCompletionToken, count)
+ 	for i := range tokens {
+ 		_, tokens[i] = localECNPacket(t, h, now.Add(5*time.Millisecond))
++		if phase == "skipped" && tokens[i].registration.pn > 3 {
++			// Exercise the real skip at 3, then keep independently randomized
++			// successor skips outside both twins' bounded packet sequence.
++			h.appDataPackets.pns.(*skippingPacketNumberGenerator).nextToSkip = 10000
++		}
+ 	}
+ 	if phase == "draining" {
+ 		h.bbrECN.resetPath(1)
+diff --git a/internal/ackhandler/local_completion_span.go b/internal/ackhandler/local_completion_span.go
+index 688bd63b4..2de74a50f 100644
+--- a/internal/ackhandler/local_completion_span.go
++++ b/internal/ackhandler/local_completion_span.go
+@@ -11,39 +11,65 @@ import (
+ // for this call only, must be in increasing PN order, and share the member's
+ // actual return time. Every other case must use CompleteLocalPacket in order.
+ func TryCompleteLocalAcceptedPackets(handler LocalSentPacketHandler, tokens []LocalCompletionToken, returnedAt monotime.Time) bool {
++	return tryCompleteLocalAcceptedPackets(handler, tokens, returnedAt, nil)
++}
++
++func tryCompleteLocalAcceptedPackets(handler LocalSentPacketHandler, tokens []LocalCompletionToken, returnedAt monotime.Time, observation *LocalMemberObservation) bool {
++	if observation != nil {
++		observation.Attempts.add(len(tokens))
++	}
+ 	h, ok := handler.(*sentPacketHandler)
+-	if !ok || h == nil || len(tokens) < 2 || !returnedAt.After(0) ||
+-		h.local == nil || h.local.closed ||
+-		h.qlogger != nil || !h.handshakeConfirmed || h.isAmplificationLimited() || len(h.lostPackets.lostPackets) != 0 {
+-		return false
++	if !ok || h == nil {
++		return observation.decline(MemberHandler, len(tokens))
++	}
++	if len(tokens) < 2 || !returnedAt.After(0) {
++		return observation.decline(MemberShape, len(tokens))
++	}
++	if h.local == nil || h.local.closed {
++		return observation.decline(MemberLocalState, len(tokens))
++	}
++	if h.qlogger != nil {
++		return observation.decline(MemberQlog, len(tokens))
++	}
++	if !h.handshakeConfirmed {
++		return observation.decline(MemberHandshake, len(tokens))
++	}
++	if h.isAmplificationLimited() {
++		return observation.decline(MemberAmplification, len(tokens))
++	}
++	if len(h.lostPackets.lostPackets) != 0 {
++		return observation.decline(MemberLostQueue, len(tokens))
+ 	}
+ 	d := h.congestionEvents
+ 	if d != nil {
+ 		if _, bbr := h.congestion.(*congestion.BBRSender); !bbr || !d.localRoute || d.recovery.local == nil {
+-			return false
++			return observation.decline(MemberRichController, len(tokens))
+ 		}
+ 	} else if h.bbrECN != nil {
+-		return false
++		return observation.decline(MemberUnexpectedBBRECN, len(tokens))
+ 	}
+ 	ps := h.appDataPackets
+ 	if ps == nil || ps.localEpoch == nil || ps.localEpoch.owner != &h.local.owner ||
+ 		!ps.history.localPTOTracked || !ps.history.HasOutstandingPackets() || !ps.history.latestLocalPTO().After(0) {
+-		return false
++		return observation.decline(MemberPTO, len(tokens))
+ 	}
+ 	// Use the physical prefix, including retained holes and probe placeholders.
+ 	// Qualification cannot change it, and this closed loop does not change ACKs.
+ 	lowest := ps.history.LowestPacketNumber()
+ 	if ps.largestAcked != protocol.InvalidPacketNumber && lowest != protocol.InvalidPacketNumber && lowest <= ps.largestAcked {
+-		return false
++		return observation.decline(MemberPhysicalPrefix, len(tokens))
+ 	}
+ 	if e := h.local.ecn; e != nil {
+-		if e.pending || (d != nil && len(e.constraints) != 0) {
+-			return false
++		if e.pending {
++			return observation.decline(MemberPendingECN, len(tokens))
++		}
++		if d != nil && len(e.constraints) != 0 {
++			return observation.decline(MemberECNConstraints, len(tokens))
+ 		}
+ 		if h.bbrECN == nil {
+ 			tracker, ok := h.ecnTracker.(*ecnTracker)
+ 			if !ok || tracker == nil || tracker.qlogger != nil {
+-				return false
++				return observation.decline(MemberECNTracker, len(tokens))
+ 			}
+ 		}
+ 	}
+@@ -53,35 +79,52 @@ func TryCompleteLocalAcceptedPackets(handler LocalSentPacketHandler, tokens []Lo
+ 		// Epoch and owner are immutable. Reject foreign identities before reading
+ 		// mutable registration fields owned by another connection.
+ 		if r == nil || r.epoch == nil || r.epoch.owner != &h.local.owner || r.epoch != ps.localEpoch {
+-			return false
++			return observation.decline(MemberTokenOwner, len(tokens))
+ 		}
+-		if r.level != protocol.Encryption1RTT || r.outcome != localPacketPending || r.acked || r.earlyACK ||
+-			r.pn <= previous || returnedAt.Before(r.registeredAt) {
+-			return false
++		if r.level != protocol.Encryption1RTT {
++			return observation.decline(MemberTokenLevel, len(tokens))
++		}
++		if r.outcome != localPacketPending {
++			return observation.decline(MemberTokenOutcome, len(tokens))
++		}
++		if r.acked {
++			return observation.decline(MemberTokenAcked, len(tokens))
++		}
++		if r.earlyACK {
++			return observation.decline(MemberTokenEarlyACK, len(tokens))
++		}
++		if r.pn <= previous {
++			return observation.decline(MemberTokenOrder, len(tokens))
++		}
++		if returnedAt.Before(r.registeredAt) {
++			return observation.decline(MemberTokenTime, len(tokens))
+ 		}
+ 		p := r.packet
+ 		if p == nil || p.local != r || p.EncryptionLevel != protocol.Encryption1RTT || !p.Outstanding() {
+-			return false
++			return observation.decline(MemberPacketState, len(tokens))
+ 		}
+ 		index, present := ps.history.getIndex(r.pn)
+ 		if !present || ps.history.packets[index] != p || index >= len(ps.history.unresolvedLocal) || !ps.history.unresolvedLocal[index] {
+-			return false
++			return observation.decline(MemberHistoryIdentity, len(tokens))
+ 		}
+ 		previous = r.pn
+ 	}
+ 	if d != nil {
+-		return h.completeLocalAcceptedBBR(tokens, returnedAt)
++		return h.completeLocalAcceptedBBR(tokens, returnedAt, observation)
+ 	}
+ 	h.completeLocalAcceptedMember(tokens, returnedAt, nil)
+-	return true
++	return observation.success(len(tokens), false)
+ }
+ 
+ // Keep bounded borrowed storage off the Reno member's call frame. Common token
+ // and history identities have been checked; all rich facts still precede mutation.
+-func (h *sentPacketHandler) completeLocalAcceptedBBR(tokens []LocalCompletionToken, returnedAt monotime.Time) bool {
++func (h *sentPacketHandler) completeLocalAcceptedBBR(tokens []LocalCompletionToken, returnedAt monotime.Time, observation *LocalMemberObservation) bool {
++	if observation != nil {
++		observation.RichAttempts.add(len(tokens))
++	}
+ 	var records [64]*congestion.PacketInfo
+ 	if len(tokens) > len(records) {
+-		return false
++		return observation.decline(MemberRichSize, len(tokens))
+ 	}
+ 	d := h.congestionEvents
+ 	for i, token := range tokens {
+@@ -89,15 +132,37 @@ func (h *sentPacketHandler) completeLocalAcceptedBBR(tokens []LocalCompletionTok
+ 		key := congestionKey(r.level, r.pn)
+ 		info := d.packets.borrow(key)
+ 		slot := d.recovery.find(key)
+-		if r.timingMissing || r.richOrdinal == 0 || info == nil || info.Ordinal != r.richOrdinal || info.PathGeneration != d.pathGeneration ||
+-			slot < 0 || d.recovery.index.outcomes[slot].ordinal != r.richOrdinal ||
+-			d.recovery.index.outcomes[slot].state != outcomeUnresolved || d.recovery.local.outcomes[slot].registration != r {
+-			return false
++		if r.timingMissing {
++			return observation.decline(MemberRichTiming, len(tokens))
++		}
++		if r.richOrdinal == 0 {
++			return observation.decline(MemberRichOrdinal, len(tokens))
++		}
++		if info == nil {
++			return observation.decline(MemberRichDelivery, len(tokens))
++		}
++		if info.Ordinal != r.richOrdinal {
++			return observation.decline(MemberRichDeliveryOrdinal, len(tokens))
++		}
++		if info.PathGeneration != d.pathGeneration {
++			return observation.decline(MemberRichGeneration, len(tokens))
++		}
++		if slot < 0 {
++			return observation.decline(MemberRichRecovery, len(tokens))
++		}
++		if d.recovery.index.outcomes[slot].ordinal != r.richOrdinal {
++			return observation.decline(MemberRichRecoveryOrdinal, len(tokens))
++		}
++		if d.recovery.index.outcomes[slot].state != outcomeUnresolved {
++			return observation.decline(MemberRichRecoveryState, len(tokens))
++		}
++		if d.recovery.local.outcomes[slot].registration != r {
++			return observation.decline(MemberRichRegistration, len(tokens))
+ 		}
+ 		records[i] = info
+ 	}
+ 	h.completeLocalAcceptedMember(tokens, returnedAt, records[:len(tokens)])
+-	return true
++	return observation.success(len(tokens), true)
+ }
+ 
+ func (h *sentPacketHandler) completeLocalAcceptedMember(tokens []LocalCompletionToken, returnedAt monotime.Time, records []*congestion.PacketInfo) {
+diff --git a/internal/ackhandler/local_member_observer.go b/internal/ackhandler/local_member_observer.go
+new file mode 100644
+index 000000000..450a4f091
+--- /dev/null
++++ b/internal/ackhandler/local_member_observer.go
+@@ -0,0 +1,87 @@
++package ackhandler
++
++import "github.com/quic-go/quic-go/internal/monotime"
++
++// LocalMemberCount is E10-only cumulative connection-owned evidence.
++type LocalMemberCount struct {
++	Members uint64 `json:"members"`
++	Packets uint64 `json:"packets"`
++}
++
++func (c *LocalMemberCount) add(packets int) {
++	c.Members++
++	c.Packets += uint64(packets)
++}
++
++// LocalMemberDecline identifies the first failed predicate, in source order.
++type LocalMemberDecline uint8
++
++const (
++	MemberHandler LocalMemberDecline = iota
++	MemberShape
++	MemberLocalState
++	MemberQlog
++	MemberHandshake
++	MemberAmplification
++	MemberLostQueue
++	MemberRichController
++	MemberUnexpectedBBRECN
++	MemberPTO
++	MemberPhysicalPrefix
++	MemberPendingECN
++	MemberECNConstraints
++	MemberECNTracker
++	MemberTokenOwner
++	MemberTokenLevel
++	MemberTokenOutcome
++	MemberTokenAcked
++	MemberTokenEarlyACK
++	MemberTokenOrder
++	MemberTokenTime
++	MemberPacketState
++	MemberHistoryIdentity
++	MemberRichSize
++	MemberRichTiming
++	MemberRichOrdinal
++	MemberRichDelivery
++	MemberRichDeliveryOrdinal
++	MemberRichGeneration
++	MemberRichRecovery
++	MemberRichRecoveryOrdinal
++	MemberRichRecoveryState
++	MemberRichRegistration
++	MemberDeclineCount
++)
++
++// LocalMemberObservation has no references to live recovery state. The caller
++// owns it, and only lends its address for one synchronous E10 observation.
++type LocalMemberObservation struct {
++	Attempts      LocalMemberCount                     `json:"attempts"`
++	RichAttempts  LocalMemberCount                     `json:"rich_attempts"`
++	Successes     LocalMemberCount                     `json:"successes"`
++	RichSuccesses LocalMemberCount                     `json:"rich_successes"`
++	Declines      [MemberDeclineCount]LocalMemberCount `json:"declines"`
++}
++
++func (o *LocalMemberObservation) decline(reason LocalMemberDecline, packets int) bool {
++	if o != nil {
++		o.Declines[reason].add(packets)
++	}
++	return false
++}
++
++func (o *LocalMemberObservation) success(packets int, rich bool) bool {
++	if o != nil {
++		o.Successes.add(packets)
++		if rich {
++			o.RichSuccesses.add(packets)
++		}
++	}
++	return true
++}
++
++// ObserveCompleteLocalAcceptedPackets is disposable E10 instrumentation of the
++// same decision, not another preflight or a completion owner. o is never retained.
++func ObserveCompleteLocalAcceptedPackets(handler LocalSentPacketHandler, tokens []LocalCompletionToken, returnedAt monotime.Time, o *LocalMemberObservation) bool {
++	return tryCompleteLocalAcceptedPackets(handler, tokens, returnedAt, o)
++}
+diff --git a/internal/ackhandler/local_member_observer_test.go b/internal/ackhandler/local_member_observer_test.go
+new file mode 100644
+index 000000000..1fa6cd2b7
+--- /dev/null
++++ b/internal/ackhandler/local_member_observer_test.go
+@@ -0,0 +1,112 @@
++package ackhandler
++
++import (
++	"testing"
++	"time"
++
++	"github.com/quic-go/quic-go/internal/monotime"
++	"github.com/stretchr/testify/require"
++)
++
++func requireMemberObservationConserved(t *testing.T, o LocalMemberObservation) {
++	t.Helper()
++	all, rich := o.Successes, o.RichSuccesses
++	for reason, count := range o.Declines {
++		all.Members += count.Members
++		all.Packets += count.Packets
++		if reason >= int(MemberRichSize) {
++			rich.Members += count.Members
++			rich.Packets += count.Packets
++		}
++	}
++	require.Equal(t, o.Attempts, all)
++	require.Equal(t, o.RichAttempts, rich)
++}
++
++func TestE10MemberObservationPreservesCompletion(t *testing.T) {
++	var o LocalMemberObservation
++	for _, count := range []int{2, 64} {
++		observed, or, tokens, at := newLocalBBRMemberTest(t, count, "capable")
++		plain, pr, reference, _ := newLocalBBRMemberTest(t, count, "capable")
++		require.True(t, ObserveCompleteLocalAcceptedPackets(observed, tokens, at, &o))
++		require.True(t, TryCompleteLocalAcceptedPackets(plain, reference, at))
++		requireLocalBBRMemberEquivalent(t, plain, observed, pr, or)
++		ackLocalBBRMemberTest(t, observed, at.Add(time.Millisecond))
++		ackLocalBBRMemberTest(t, plain, at.Add(time.Millisecond))
++		requireLocalBBRMemberEquivalent(t, plain, observed, pr, or)
++	}
++	want := LocalMemberCount{Members: 2, Packets: 66}
++	require.Equal(t, want, o.Attempts)
++	require.Equal(t, want, o.RichAttempts)
++	require.Equal(t, want, o.Successes)
++	require.Equal(t, want, o.RichSuccesses)
++	requireMemberObservationConserved(t, o)
++	// Counters belong to the caller, so replacing recovery doesn't reset them.
++	reno, tokens := newLocalSpanTest(t, false)
++	require.True(t, ObserveCompleteLocalAcceptedPackets(reno, tokens, monotime.Time(time.Second+time.Millisecond), &o))
++	require.Equal(t, LocalMemberCount{Members: 3, Packets: 69}, o.Successes)
++	require.Equal(t, want, o.RichSuccesses)
++	requireMemberObservationConserved(t, o)
++}
++
++func TestE10MemberObservationFirstDecline(t *testing.T) {
++	for _, reason := range []LocalMemberDecline{MemberHandler, MemberPTO, MemberPhysicalPrefix, MemberPendingECN, MemberTokenOwner, MemberTokenEarlyACK, MemberRichSize, MemberRichTiming, MemberRichDelivery, MemberRichGeneration, MemberRichRegistration} {
++		t.Run(string(rune('A'+reason)), func(t *testing.T) {
++			count := 3
++			if reason == MemberRichSize {
++				count = 65
++			}
++			h, recorder, tokens, at := newLocalBBRMemberTest(t, count, "capable")
++			var handler LocalSentPacketHandler = h
++			d := h.congestionEvents
++			last := tokens[len(tokens)-1].registration
++			key := congestionKey(last.level, last.pn)
++			switch reason {
++			case MemberHandler:
++				handler = nil
++			case MemberPTO:
++				h.appDataPackets.history.localPTOTracked = false
++			case MemberPhysicalPrefix:
++				h.appDataPackets.largestAcked = h.appDataPackets.history.LowestPacketNumber()
++				h.local.ecn.pending = true // later common failure must not win
++			case MemberPendingECN:
++				h.local.ecn.pending = true
++				h.local.ecn.constraints = []localECNConstraint{{frontier: last.pn}}
++			case MemberTokenOwner:
++				_, _, foreign, _ := newLocalBBRMemberTest(t, 2, "capable")
++				foreign[1].registration.earlyACK = true
++				tokens[len(tokens)-1] = foreign[1]
++			case MemberTokenEarlyACK:
++				last.earlyACK, last.timingMissing = true, true
++			case MemberRichTiming:
++				last.timingMissing = true
++				d.packets.delete(key) // timing is the first rich failure
++			case MemberRichDelivery:
++				d.packets.delete(key)
++			case MemberRichGeneration:
++				d.packets.borrow(key).PathGeneration++
++			case MemberRichRegistration:
++				d.recovery.local.outcomes[d.recovery.find(key)].registration = nil
++			}
++			owner, event, alarm := h.local.owner, d.event, h.GetLossDetectionTimeout()
++			feedback, cursor := len(recorder.feedback), d.recovery.local.qualifiedOrdinal
++			var o LocalMemberObservation
++			require.False(t, ObserveCompleteLocalAcceptedPackets(handler, tokens, at, &o))
++			want := LocalMemberCount{Members: 1, Packets: uint64(count)}
++			require.Equal(t, want, o.Attempts)
++			require.Equal(t, want, o.Declines[reason])
++			if reason >= MemberRichSize {
++				require.Equal(t, want, o.RichAttempts)
++			} else {
++				require.Zero(t, o.RichAttempts)
++			}
++			requireMemberObservationConserved(t, o)
++			require.Equal(t, owner, h.local.owner)
++			require.Equal(t, event, d.event)
++			require.Equal(t, alarm, h.GetLossDetectionTimeout())
++			require.Len(t, recorder.feedback, feedback)
++			require.Equal(t, cursor, d.recovery.local.qualifiedOrdinal)
++			require.False(t, ObserveCompleteLocalAcceptedPackets(handler, tokens, at, nil))
++		})
++	}
++}
+diff --git a/native_ordinary.go b/native_ordinary.go
+index 590f59a61..34f022102 100644
+--- a/native_ordinary.go
++++ b/native_ordinary.go
+@@ -71,16 +71,17 @@ type ordinaryLocalRecord struct {
+ }
+ 
+ type nativeOrdinarySender struct {
+-	endpoint    *nativeEndpoint
+-	participant *endpointParticipant
+-	recovery    ackhandler.LocalSentPacketHandler
+-	connection  *Conn
+-	destination netip.AddrPort
+-	info        packetInfo
+-	oob         []byte
+-	writeState  *endpointWriteState // the current path's; each conn owns its own
+-	nativeGSO   bool
+-	generation  uint64
++	memberObservation bbrNativeMemberObservation // E10 only; connection-owned
++	endpoint          *nativeEndpoint
++	participant       *endpointParticipant
++	recovery          ackhandler.LocalSentPacketHandler
++	connection        *Conn
++	destination       netip.AddrPort
++	info              packetInfo
++	oob               []byte
++	writeState        *endpointWriteState // the current path's; each conn owns its own
++	nativeGSO         bool
++	generation        uint64
+ 	// switchGeneration is the generation the latest path switch began. A result
+ 	// below it belongs to a path the connection left, even on an endpoint it has
+ 	// since returned to.
+diff --git a/native_ordinary_completion.go b/native_ordinary_completion.go
+index c00c6d383..ee0bcc92f 100644
+--- a/native_ordinary_completion.go
++++ b/native_ordinary_completion.go
+@@ -11,15 +11,39 @@ import (
+ // Recovery validates every identity before consuming any. Coalesced handshake,
+ // MTU hooks and mixed results retain the ordered scalar completion path.
+ func (s *nativeOrdinarySender) completeAcceptedPackets(packets []ordinaryLocalPacket, datagrams, accepted int, resultErr error, returnedAt monotime.Time) bool {
+-	if resultErr != nil || accepted != datagrams || len(packets) != datagrams || len(packets) < 2 || len(packets) > maxGSOSegments {
+-		return false
++	o := &s.memberObservation
++	o.Attempts.add(len(packets))
++	o.Datagrams += uint64(datagrams)
++	if resultErr != nil {
++		return o.decline(bbrMemberResultError, len(packets))
++	}
++	if accepted != datagrams {
++		return o.decline(bbrMemberPartial, len(packets))
++	}
++	if len(packets) != datagrams {
++		return o.decline(bbrMemberPacketGeometry, len(packets))
++	}
++	if len(packets) < 2 {
++		return o.decline(bbrMemberTooSmall, len(packets))
++	}
++	if len(packets) > maxGSOSegments {
++		return o.decline(bbrMemberTooLarge, len(packets))
+ 	}
+ 	var tokens [maxGSOSegments]ackhandler.LocalCompletionToken
+ 	for i, packet := range packets {
+ 		if packet.mtu != nil {
+-			return false
++			return o.decline(bbrMemberMTU, len(packets))
+ 		}
+ 		tokens[i] = packet.token
+ 	}
+-	return ackhandler.TryCompleteLocalAcceptedPackets(s.recovery, tokens[:len(packets)], returnedAt)
++	o.SeamAttempts.add(len(packets))
++	ok := ackhandler.ObserveCompleteLocalAcceptedPackets(s.recovery, tokens[:len(packets)], returnedAt, &o.Recovery)
++	if ok {
++		o.Successes.add(len(packets))
++	}
++	return ok
++}
++
++func (s *nativeOrdinarySender) bbrMemberObservation() bbrNativeMemberObservation {
++	return s.memberObservation
+ }
+diff --git a/native_ordinary_completion_test.go b/native_ordinary_completion_test.go
+index 8aa330aac..bd8914ea1 100644
+--- a/native_ordinary_completion_test.go
++++ b/native_ordinary_completion_test.go
+@@ -305,6 +305,21 @@ func TestNativeOrdinaryBBRAcceptedMembers(t *testing.T) {
+ 				states[arm] = append(states[arm], nativeOrdinarySuffixState{alarm: recovery.GetLossDetectionTimeout().Sub(fact.returnedAt), allowance: allowance, dropped: sender.droppedDatagrams, lost: tc.conn.connStats.PacketsLost.Load(), writes: len(socket.writes)})
+ 				time.Sleep(time.Millisecond)
+ 			}
++			o := sender.memberObservation
++			require.Equal(t, bbrMemberCount{Members: 2, Packets: 5}, o.Attempts)
++			require.Equal(t, o.Attempts, o.SeamAttempts)
++			require.EqualValues(t, 5, o.Datagrams)
++			require.Zero(t, o.Declines)
++			require.Equal(t, ackhandler.LocalMemberCount{Members: 2, Packets: 5}, o.Recovery.Attempts)
++			if forceScalar {
++				require.Equal(t, o.Recovery.Attempts, o.Recovery.Declines[ackhandler.MemberHandler])
++				require.Zero(t, o.Successes)
++			} else {
++				require.Equal(t, bbrMemberCount{Members: 1, Packets: 3}, o.Successes)
++				require.Equal(t, ackhandler.LocalMemberCount{Members: 1, Packets: 2}, o.Recovery.Declines[ackhandler.MemberPTO])
++				require.Equal(t, ackhandler.LocalMemberCount{Members: 1, Packets: 3}, o.Recovery.RichAttempts)
++				require.Equal(t, o.Recovery.RichAttempts, o.Recovery.RichSuccesses)
++			}
+ 			var ranges []wire.AckRange
+ 			for _, pn := range slices.Backward(pns) {
+ 				ranges = append(ranges, wire.AckRange{Smallest: pn, Largest: pn})
+diff --git a/ordinary_cost_test.go b/ordinary_cost_test.go
+index 52f5d8f3b..6386277bd 100644
+--- a/ordinary_cost_test.go
++++ b/ordinary_cost_test.go
+@@ -488,13 +488,14 @@ func (s *ordinaryCostServer) handle(entry *ordinaryCostServerConn) {
+ }
+ 
+ type ordinaryCostServerConnResult struct {
+-	Label        string `json:"label"`
+-	Multipath    bool   `json:"multipath_negotiated"`
+-	PacketsSent  uint64 `json:"packets_sent"`
+-	PacketsLost  uint64 `json:"packets_lost"`
+-	BytesSent    uint64 `json:"bytes_sent"`
+-	CloseCause   string `json:"close_cause"`
+-	TimeoutClose bool   `json:"timeout_close"`
++	BBRObservation *bbrConnectionObservation `json:"bbr_observation,omitempty"`
++	Label          string                    `json:"label"`
++	Multipath      bool                      `json:"multipath_negotiated"`
++	PacketsSent    uint64                    `json:"packets_sent"`
++	PacketsLost    uint64                    `json:"packets_lost"`
++	BytesSent      uint64                    `json:"bytes_sent"`
++	CloseCause     string                    `json:"close_cause"`
++	TimeoutClose   bool                      `json:"timeout_close"`
+ }
+ 
+ type ordinaryCostServerResult struct {
+@@ -593,6 +594,14 @@ func ordinaryCostRunServer(t testing.TB, spec ordinaryCostSpec) *ordinaryCostSer
+ 	s.workers.Wait()
+ 	s.mutex.Lock()
+ 	defer s.mutex.Unlock()
++	for i, entry := range s.conns {
++		<-entry.conn.Context().Done()
++		// Context completion follows the connection-owned final snapshot. No
++		// diagnostic state is read while the connection can still mutate it.
++		if i < len(result.Connections) {
++			result.Connections[i].BBRObservation = entry.conn.bbrObservation
++		}
++	}
+ 	result.WriteErrors = s.writeErrors
+ 	for label, histogram := range s.histograms {
+ 		result.ApplicationSendCall[label] = histogram.summary()
+@@ -601,16 +610,17 @@ func ordinaryCostRunServer(t testing.TB, spec ordinaryCostSpec) *ordinaryCostSer
+ }
+ 
+ type ordinaryCostFlowResult struct {
+-	Label        string               `json:"label"`
+-	Series       []uint64             `json:"series"`
+-	UsefulBytes  uint64               `json:"useful_bytes"`
+-	Control      *ordinaryCostLatency `json:"control"`
+-	Drops        uint64               `json:"datagram_drops"`
+-	Unprocessed  uint64               `json:"unprocessed_drops"`
+-	CloseCause   string               `json:"close_cause"`
+-	TimeoutClose bool                 `json:"timeout_close"`
+-	Negotiated   bool                 `json:"multipath_negotiated"`
+-	Paths        []string             `json:"paths"`
++	BBRObservation *bbrConnectionObservation `json:"bbr_observation,omitempty"`
++	Label          string                    `json:"label"`
++	Series         []uint64                  `json:"series"`
++	UsefulBytes    uint64                    `json:"useful_bytes"`
++	Control        *ordinaryCostLatency      `json:"control"`
++	Drops          uint64                    `json:"datagram_drops"`
++	Unprocessed    uint64                    `json:"unprocessed_drops"`
++	CloseCause     string                    `json:"close_cause"`
++	TimeoutClose   bool                      `json:"timeout_close"`
++	Negotiated     bool                      `json:"multipath_negotiated"`
++	Paths          []string                  `json:"paths"`
+ }
+ 
+ type ordinaryCostFloodResult struct {
+@@ -890,6 +900,8 @@ func ordinaryCostRunClient(t testing.TB, spec ordinaryCostSpec) *ordinaryCostCli
+ 	time.Sleep(ordinaryCostDrain)
+ 	for _, flow := range flows {
+ 		require.NoError(t, flow.conn.CloseWithError(0, ""))
++		<-flow.conn.Context().Done()
++		flow.result.BBRObservation = flow.conn.bbrObservation
+ 	}
+ 	wait.Wait()
+ 	ordinary.result.Control = ordinary.echo.summary()
+diff --git a/packet_emission.go b/packet_emission.go
+index 801233564..a382e7307 100644
+--- a/packet_emission.go
++++ b/packet_emission.go
+@@ -20,6 +20,7 @@ import (
+ // packetEmission owns packet construction, registration, output handoff and
+ // temporary storage. The closed handler retains an immutable close payload.
+ type packetEmission struct {
++	memberGeometry   bbrMemberGeometry // E10 only; connection-owned
+ 	pathCredit       *pathCreditRegistry
+ 	route            *pathRoute // the current opportunity's; nil is path zero
+ 	steered          bool       // the route was chosen to carry the next DATAGRAM
+diff --git a/packet_emission_bbr.go b/packet_emission_bbr.go
+index eee19987f..4947ddc85 100644
+--- a/packet_emission_bbr.go
++++ b/packet_emission_bbr.go
+@@ -15,6 +15,9 @@ type boundedRecovery interface {
+ }
+ 
+ func (e *packetEmission) handoff(buf *packetBuffer, gso uint16, ecn protocol.ECN, metadata sendMetadata, protection *nativeProtectionConstruction) {
++	if e.bbr != nil {
++		e.memberGeometry.handoff(buf.Len(), gso)
++	}
+ 	// The run loop stamps every handoff, including Reno and discovery probes.
+ 	metadata.pathGeneration = e.policy.sendPathGeneration()
+ 

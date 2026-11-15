@@ -60,7 +60,7 @@ func TestNativeProtectionPlanStorageClasses(t *testing.T) {
 		require.EqualValues(t, 64, unsafe.Sizeof(nativeProtectionSingle{}))
 		require.EqualValues(t, 1648, unsafe.Sizeof(nativeProtectionLarge{}))
 	}
-	for _, tc := range []struct{ capacity, entries int }{{protocol.MaxPacketBufferSize, 1}, {protocol.MaxLargePacketBufferSize, maxGSOSegments + 3}} {
+	for _, tc := range []struct{ capacity, entries int }{{protocol.MaxPacketBufferSize, 1}, {protocol.MaxLargePacketBufferSize, maxGSOSegments + 3}, {protocol.MaxCoalescedPacketBufferSize, maxGSOSegments + 3}} {
 		buffer := nativeProtectionTestBuffer(tc.capacity)
 		p := newNativeProtectionPlan(buffer)
 		require.NotNil(t, p)
@@ -140,7 +140,7 @@ func TestNativeProtectionPlanRejectsOverlappingRecipes(t *testing.T) {
 }
 
 func TestNativeProtectionPlanFixedCapacityAndFreeze(t *testing.T) {
-	for _, capacity := range []int{protocol.MaxPacketBufferSize, protocol.MaxLargePacketBufferSize} {
+	for _, capacity := range []int{protocol.MaxPacketBufferSize, protocol.MaxLargePacketBufferSize, protocol.MaxCoalescedPacketBufferSize} {
 		buffer := nativeProtectionTestBuffer(capacity)
 		p := newNativeProtectionPlan(buffer)
 		require.False(t, p.freeze())
@@ -207,6 +207,31 @@ func TestNativeProtectionPlanPacketAndTagBoundaries(t *testing.T) {
 		require.Equal(t, reference, full.buffer.Data, "the final tag must fit at each exact buffer-class boundary")
 		full.release()
 	}
+}
+
+func TestNativeProtectionCoalescedGeometry(t *testing.T) {
+	buffer := getCoalescedPacketBuffer()
+	defer buffer.Release()
+	p := newNativeProtectionPlan(buffer)
+	defer p.release()
+	buffer.Data = buffer.Data[:65520]
+	require.False(t, p.preflight(0, 65536, 3, 2), "the larger tier must still reject uint16 offset overflow")
+	buffer.Data = buffer.Data[:0]
+	sealer := nativeProtectionTestSealer(t)
+	for pn := range 54 {
+		appendNativeProtectionTestPacket(t, p, sealer, protocol.PacketNumber(pn), 2, 1181)
+	}
+	require.Equal(t, 64800, len(buffer.Data))
+	require.True(t, p.freeze())
+	member := endpointMember{buffer: buffer, protection: p, gsoSize: 1200}
+	require.True(t, p.validForMember(member))
+	member.gsoSize++
+	require.False(t, p.validForMember(member), "every recipe remains bound to its actual datagram geometry")
+	member.gsoSize--
+	p.entries[1].start++
+	require.False(t, p.validForMember(member), "the larger member cannot admit a gap between recipes")
+	p.entries[1].start--
+	require.True(t, p.validForMember(member))
 }
 
 func TestNativeProtectionPlanReleaseClearsUntransformedTail(t *testing.T) {
