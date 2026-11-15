@@ -1,6 +1,7 @@
 package quic
 
 import (
+	"fmt"
 	"testing"
 	"testing/synctest"
 	"time"
@@ -553,4 +554,24 @@ func TestMultipathCreditDefaultDisabledAndFresh(t *testing.T) {
 	closed.conn.connIDManager.Close()
 	_, err = closed.conn.enableMultipathCredit(2, 1, 4)
 	require.Error(t, err, "a closed CID owner cannot activate private state")
+}
+
+func TestMultipathPrivateSchedulerActivation(t *testing.T) {
+	for _, scheduler := range []pathScheduler{schedulePrimaryBackup, scheduleAggregate} {
+		t.Run(fmt.Sprint(scheduler), func(t *testing.T) {
+			tc, _ := newCreditTestOwners(t)
+			conf := tc.conn.config.Clone()
+			conf.multipath.experimentScheduler = scheduler
+			tc.conn.config = populateConfig(conf)
+			conf.multipath.experimentScheduler = schedulePrimaryBackup
+			_, err := tc.conn.enableMultipathCredit(2, 1, 4)
+			require.NoError(t, err)
+			require.Equal(t, scheduler, tc.conn.pathCredit.scheduler)
+			tc.conn.config.multipath.experimentScheduler = schedulePrimaryBackup
+			require.Equal(t, scheduler, tc.conn.pathCredit.scheduler, "activation captures the copied choice once")
+			for _, m := range tc.conn.pathCredit.members {
+				require.Zero(t, m.scheduled)
+			}
+		})
+	}
 }

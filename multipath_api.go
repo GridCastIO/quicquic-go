@@ -41,6 +41,9 @@ const (
 type multipathSelection struct {
 	enabled  bool
 	maxPaths uint32
+	// experimentScheduler is selected before activation by in-package experiments.
+	// B12 removes this seam; public configuration always leaves it zero.
+	experimentScheduler pathScheduler
 }
 
 // ConfigureMultipathV1 selects multipath for the connections using this Config, before

@@ -98,6 +98,7 @@ func TestBBRPathRetirementReclaimsPolicy(t *testing.T) {
 		old := f.parseWrites(t, 1)
 		require.NotEmpty(t, old)
 		retired := f.bbrPath(1)
+		f.c.pathCredit.members[1].scheduled = 4321
 
 		f.socket.writes = nil
 		f.finishRetirement(t, 1)
@@ -112,6 +113,7 @@ func TestBBRPathRetirementReclaimsPolicy(t *testing.T) {
 		f.pass(t)
 		f.openValidated(t, 2)
 		require.NotNil(t, f.bbrPath(2))
+		require.Zero(t, f.c.pathCredit.members[2].scheduled, "replacement starts without service debt")
 		require.NotSame(t, retired, f.bbrPath(2), "a replacement gets its own policy")
 		f.socket.writes = nil
 		f.write(t, 500)
@@ -172,10 +174,12 @@ func TestBBRPathMigrationResetsPolicy(t *testing.T) {
 		old := f.parseWrites(t, 1)
 		require.NotEmpty(t, old)
 		generation := path.credit.generation
+		p.members[1].scheduled = 4321
 
 		target, socket := migrationTarget(t, f.admissionFixture)
 		migrate(t, f.admissionFixture, 1, target, socket)
 		require.Same(t, path, f.bbrPath(1), "the path keeps its policy")
+		require.EqualValues(t, 4321, p.members[1].scheduled, "same-ID migration retains the member ledger")
 		require.Equal(t, generation+1, path.credit.generation, "and starts its next generation")
 
 		f.ackPath(t, 1, 0, old)
