@@ -192,7 +192,6 @@ func TestMultipathSupportedCombinations(t *testing.T) {
 				}
 			}
 		}
-
 	}
 	t.Run("Reno primary/backup", func(t *testing.T) {
 		for _, explicit := range []bool{false, true} {
