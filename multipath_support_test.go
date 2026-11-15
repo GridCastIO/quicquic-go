@@ -282,6 +282,7 @@ func TestMultipathAggregateTransferAndJoin(t *testing.T) {
 	conf := multipathConfig(t)
 	require.NoError(t, conf.SetCongestionControlV1("bbrv3"))
 	conf.EnableDatagrams = true
+	conf.DisablePathMTUDiscovery = true // MTU probe charging has separate real-packer coverage.
 	conf.multipath.experimentScheduler = scheduleAggregate
 	clientConf, serverConf := conf.Clone(), conf.Clone()
 	conf.multipath.experimentScheduler = schedulePrimaryBackup
@@ -293,6 +294,7 @@ func TestMultipathAggregateTransferAndJoin(t *testing.T) {
 	defer ln.Close()
 	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
 	defer cancel()
+	deadline, _ := ctx.Deadline()
 	client, err := clientTr.Dial(ctx, serverTr.Conn.LocalAddr(), nativeClientTLS(), clientConf)
 	require.NoError(t, err)
 	defer client.CloseWithError(0, "")
@@ -307,29 +309,71 @@ func TestMultipathAggregateTransferAndJoin(t *testing.T) {
 		require.NoError(t, c.runPathCommand(func(r *pathCreditRegistry, _ monotime.Time) error { scheduler = r.scheduler; return nil }))
 		require.Equal(t, scheduleAggregate, scheduler)
 	}
-	payload := bytes.Repeat([]byte("paced byte round-robin\n"), 4096)
-	stream, err := client.OpenUniStreamSync(ctx)
-	require.NoError(t, err)
-	writeDone := make(chan error, 1)
-	go func() {
-		_, err := stream.Write(payload)
-		if err == nil {
-			err = stream.Close()
+	streamBytes, datagrams := map[uint64]int64{}, map[uint64]int{}
+	observed := 0
+	observe := func() {
+		events := sink.recorded()
+		for _, event := range events[observed:] {
+			packet, ok := event.(qlog.PacketSent)
+			if !ok || packet.Path == nil {
+				continue
+			}
+			for _, frame := range packet.Frames {
+				switch f := frame.Frame.(type) {
+				case *qlog.StreamFrame:
+					streamBytes[packet.Path.PathID] += f.Length
+				case *qlog.DatagramFrame:
+					datagrams[packet.Path.PathID]++
+				}
+			}
 		}
-		writeDone <- err
-	}()
-	received, err := server.AcceptUniStream(ctx)
-	require.NoError(t, err)
-	data, err := io.ReadAll(received)
-	require.NoError(t, err)
-	require.NoError(t, <-writeDone)
-	require.Equal(t, payload, data)
-	for i := range 32 {
-		message := bytes.Repeat([]byte{byte(i)}, 100)
+		observed = len(events)
+	}
+	// A fixed tiny burst need not use both paths: pacing and previous handoffs
+	// can consume its turns. Offer bounded work until carriage is witnessed,
+	// allowing pacing to advance between opportunities. These are fixture
+	// limits (at most 1 MiB per phase), not a scheduler service promise.
+	opportunities := time.NewTicker(time.Millisecond)
+	defer opportunities.Stop()
+	next := func() {
+		t.Helper()
+		select {
+		case <-opportunities.C:
+		case <-ctx.Done():
+			t.Fatal(ctx.Err())
+		}
+	}
+	payload := bytes.Repeat([]byte{'s'}, 16*1024)
+	for round := 0; round < 64 && (streamBytes[0] == 0 || streamBytes[1] == 0); round++ {
+		next()
+		stream, err := client.OpenUniStreamSync(ctx)
+		require.NoError(t, err)
+		require.NoError(t, stream.SetWriteDeadline(deadline))
+		writeDone := make(chan error, 1)
+		go func() {
+			_, err := stream.Write(payload)
+			if err == nil {
+				err = stream.Close()
+			}
+			writeDone <- err
+		}()
+		received, err := server.AcceptUniStream(ctx)
+		require.NoError(t, err)
+		require.NoError(t, received.SetReadDeadline(deadline))
+		data, err := io.ReadAll(received)
+		require.NoError(t, err)
+		require.NoError(t, <-writeDone)
+		require.Equal(t, payload, data)
+		observe()
+	}
+	for round := 0; round < 1024 && (datagrams[0] == 0 || datagrams[1] == 0); round++ {
+		next()
+		message := bytes.Repeat([]byte{byte(round)}, 1024)
 		require.NoError(t, client.SendDatagram(message))
 		got, err := server.ReceiveDatagram(ctx)
 		require.NoError(t, err)
 		require.Equal(t, message, got)
+		observe()
 	}
 	require.NoError(t, client.CloseWithError(0, ""))
 	require.NoError(t, server.CloseWithError(0, ""))
@@ -342,21 +386,7 @@ func TestMultipathAggregateTransferAndJoin(t *testing.T) {
 	case <-ctx.Done():
 		t.Fatal(ctx.Err())
 	}
-	streamBytes, datagrams := map[uint64]int64{}, map[uint64]int{}
-	for _, event := range sink.recorded() {
-		packet, ok := event.(qlog.PacketSent)
-		if !ok || packet.Path == nil {
-			continue
-		}
-		for _, frame := range packet.Frames {
-			switch f := frame.Frame.(type) {
-			case *qlog.StreamFrame:
-				streamBytes[packet.Path.PathID] += f.Length
-			case *qlog.DatagramFrame:
-				datagrams[packet.Path.PathID]++
-			}
-		}
-	}
+	observe()
 	for _, id := range []uint64{0, 1} {
 		require.Positive(t, streamBytes[id], "path %d carried STREAM", id)
 		require.Positive(t, datagrams[id], "path %d carried DATAGRAM", id)

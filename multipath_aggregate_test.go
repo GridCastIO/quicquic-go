@@ -76,6 +76,10 @@ func TestBBRPathDatagramHeldWhileFittingPathCongested(t *testing.T) {
 func TestAggregateBBRBeforeAndAfterSamples(t *testing.T) {
 	nativeOrdinaryTest(t, func(t *testing.T) {
 		f := newBBRPathFixture(t, protocol.PerspectiveServer)
+		require.Len(t, f.c.pathCredit.members, 2)
+		for _, m := range f.c.pathCredit.members {
+			require.Zero(t, m.scheduled, "fresh admitted members have no aggregate service debt")
+		}
 		f.aggregate(t, scheduleAggregate)
 		e := &f.c.emission
 		e.bbr.supplyGap = congestion.SendUnknown

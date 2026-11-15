@@ -569,9 +569,6 @@ func TestMultipathPrivateSchedulerActivation(t *testing.T) {
 			require.Equal(t, scheduler, tc.conn.pathCredit.scheduler)
 			tc.conn.config.multipath.experimentScheduler = schedulePrimaryBackup
 			require.Equal(t, scheduler, tc.conn.pathCredit.scheduler, "activation captures the copied choice once")
-			for _, m := range tc.conn.pathCredit.members {
-				require.Zero(t, m.scheduled)
-			}
 		})
 	}
 }

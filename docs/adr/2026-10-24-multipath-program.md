@@ -1,6 +1,6 @@
 # QUIC multipath #646 program
 
-**Identity:** `QGF-MP646-20261024`. **Status:** 48 original slices complete; B9 complete; three accepted B-continuation slices not implemented. **Tracking issue:** [#646](https://github.com/the-sarge/quic-go-fast/issues/646). Track plans own contracts; issues and OmniFocus own live mappings/state. Historical receipts stay behind links. This package reports work and dispatches no implementation.
+**Identity:** `QGF-MP646-20261024`. **Status:** 48 original slices complete; B9–B10 complete; two accepted B-continuation slices not implemented. **Tracking issue:** [#646](https://github.com/the-sarge/quic-go-fast/issues/646). Track plans own contracts; issues and OmniFocus own live mappings/state. Historical receipts stay behind links. This package reports work and dispatches no implementation.
 
 ## Tracks and frontier
 
