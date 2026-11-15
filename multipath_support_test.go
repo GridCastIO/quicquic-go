@@ -109,7 +109,6 @@ func TestMultipathSupportMatchesEvidence(t *testing.T) {
 	require.True(t, aggregation.Complete)
 	require.Equal(t, "positive", aggregation.Support, "paced byte round-robin supports experimental BBR aggregate")
 	require.Empty(t, aggregation.FailedTopologies)
-
 }
 
 // Public policy selection is the only configuration authority for activation.
