@@ -138,7 +138,9 @@ func TestJumboGSOAggregateLimit(t *testing.T) {
 	}{
 		{"reno full", false, 4369, 4369, 16},
 		{"bbrv3 full", true, 4369, 4369, 16},
-		{"reno short", false, 8957, 2184, 31},
+		// Keep each DATAGRAM over half the packet budget so it remains a short
+		// singleton; 13 segments reach 65520 bytes, above the IPv4 bound.
+		{"reno short", false, 8957, 5040, 14},
 	} {
 		t.Run(row.name, func(t *testing.T) {
 			var test *testConnection
