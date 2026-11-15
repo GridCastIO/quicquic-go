@@ -1,6 +1,6 @@
 # QUIC multipath #646 program
 
-**Identity:** `QGF-MP646-20261024`. **Status:** 48 original slices complete; four accepted B-continuation slices not implemented. **Tracking issue:** [#646](https://github.com/the-sarge/quic-go-fast/issues/646). Track plans own contracts; issues and OmniFocus own live mappings/state. Historical receipts stay behind links. This package reports work and dispatches no implementation.
+**Identity:** `QGF-MP646-20261024`. **Status:** 48 original slices complete; B9 complete; three accepted B-continuation slices not implemented. **Tracking issue:** [#646](https://github.com/the-sarge/quic-go-fast/issues/646). Track plans own contracts; issues and OmniFocus own live mappings/state. Historical receipts stay behind links. This package reports work and dispatches no implementation.
 
 ## Tracks and frontier
 
@@ -8,12 +8,12 @@
 | --- | --- | --- | ---: | --- |
 | E — native endpoint | [Endpoint plan](2026-10-24-multipath-endpoint-plan.md) | [#1012](https://github.com/the-sarge/quic-go-fast/issues/1012) | 9 | Complete; unchanged |
 | R — Reno primary/backup | [Reno plan](2026-10-24-multipath-reno-plan.md) | [#1013](https://github.com/the-sarge/quic-go-fast/issues/1013) | 21 | Complete; experimental Linux amd64 Reno primary/backup enabled by R19 #1039 |
-| B — BBR/aggregation | [BBR plan](2026-10-24-multipath-bbr-plan.md) | [#1014](https://github.com/the-sarge/quic-go-fast/issues/1014) | 7 complete + 4 new | Continuation B9→B10→B11→B12 under follow-up #1374; frontier B9 |
+| B — BBR/aggregation | [BBR plan](2026-10-24-multipath-bbr-plan.md) | [#1014](https://github.com/the-sarge/quic-go-fast/issues/1014) | 8 complete + 3 pending | Continuation B9→B10→B11→B12 under follow-up #1374; frontier B10 (#1383) |
 | N — endpoint efficiency/admission | [Efficiency plan](2026-11-04-native-endpoint-efficiency-plan.md) | [#1193](https://github.com/the-sarge/quic-go-fast/issues/1193) | 11 | Complete; unchanged |
 
-The current public profile remains Reno primary/backup until B9 merges. The owner has authorized planning experimental BBR primary/backup using the exact accepted cost evidence, followed by one private paced byte-round-robin aggregation candidate and a fixed comparison. B12 publishes either supported experimental BBR aggregate or a valid negative unsupported outcome. Full BBR Q2 [#599](https://github.com/the-sarge/quic-go-fast/issues/599) remains deferred and outside this work; public Reno aggregate and application adoption remain excluded.
+The current public profile admits experimental Reno or BBR primary/backup through B9 (#1382); Reno stays default. See the [B9 support record](../audits/2026-11-15-bbr-b9-support.md). The owner has authorized planning experimental BBR primary/backup using the exact accepted cost evidence, followed by one private paced byte-round-robin aggregation candidate and a fixed comparison. B12 publishes either supported experimental BBR aggregate or a valid negative unsupported outcome. Full BBR Q2 [#599](https://github.com/the-sarge/quic-go-fast/issues/599) remains deferred and outside this work; public Reno aggregate and application adoption remain excluded.
 
-**Current continuation frontier:** B9 only, subject to published child-pointer verification. Child links are pending publication. B10 depends on B9's public BBR capability, B11 on B10's fixed runtime, and B12 on B11's valid positive/negative receipt. No parallel continuation slices exist. Completed cross-track edges remain R9←E5, R16←E6 and B1←R19; no new E/R/N work or convenience ordering is introduced.
+**Current continuation frontier:** [B10 (#1383)](https://github.com/the-sarge/quic-go-fast/issues/1383) only, after completed [B9 (#1382)](https://github.com/the-sarge/quic-go-fast/issues/1382). [B11 (#1384)](https://github.com/the-sarge/quic-go-fast/issues/1384) and [B12 (#1385)](https://github.com/the-sarge/quic-go-fast/issues/1385) remain blocked. B10 depends on B9's public BBR capability, B11 on B10's fixed runtime, and B12 on B11's valid positive/negative receipt. No parallel continuation slices exist. Completed cross-track edges remain R9←E5, R16←E6 and B1←R19; no new E/R/N work or convenience ordering is introduced.
 
 ## Evidence and no-code outcomes
 

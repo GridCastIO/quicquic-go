@@ -71,6 +71,30 @@ class AccountingTests(unittest.TestCase):
             with self.subTest(scenario=scenario, role=role), self.assertRaises(ValueError):
                 runner.matrix_invocation(scenario, role)
 
+    def test_bbr_fixed_inventory_and_controller_identity(self):
+        scenarios = ("useful-transfer", "abandon-reopen-late-feedback", "same-id-migration-rebinding")
+        expected = [f"TestPicoquicMultipathMatrix/{scenario}/{role}"
+                    for scenario in scenarios for role in ("client", "server")]
+        self.assertEqual(runner.matrix_expected("bbrv3"), expected)
+        self.assertEqual(runner.matrix_expected("reno"), runner.MATRIX_EXPECTED)
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            for case in expected:
+                _, scenario, role = case.split("/")
+                directory = root / scenario / role
+                directory.mkdir(parents=True)
+                (directory / "go-test.jsonl").write_text(json.dumps({"Action": "pass", "Package": runner.SMOKE_PACKAGE, "Test": case}) + "\n")
+                (directory / "result.json").write_text(json.dumps({"status": "pass", "executed": [case], "controller": "bbrv3", "identity": {"candidate": "a" * 40}}))
+            self.assertEqual(runner.check_matrix(root, "bbrv3")["executed"], expected)
+            receipt = root / scenarios[0] / "client" / "result.json"
+            data = json.loads(receipt.read_text())
+            data["controller"] = "reno"
+            receipt.write_text(json.dumps(data))
+            with self.assertRaisesRegex(ValueError, "controller"):
+                runner.check_matrix(root, "bbrv3")
+        with self.assertRaises(ValueError):
+            runner.matrix_invocation("path-zero-ack", "client", controller="bbrv3")
+
     def test_aggregate_requires_case_logs_and_one_candidate_identity(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
