@@ -39,6 +39,11 @@ func newLocalBBRMemberTest(t *testing.T, count int, phase string) (*sentPacketHa
 	tokens := make([]LocalCompletionToken, count)
 	for i := range tokens {
 		_, tokens[i] = localECNPacket(t, h, now.Add(5*time.Millisecond))
+		if phase == "skipped" && tokens[i].registration.pn > 3 {
+			// Exercise the real skip at 3, then keep independently randomized
+			// successor skips outside both twins' bounded packet sequence.
+			h.appDataPackets.pns.(*skippingPacketNumberGenerator).nextToSkip = 10000
+		}
 	}
 	if phase == "draining" {
 		h.bbrECN.resetPath(1)
