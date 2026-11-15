@@ -34,26 +34,29 @@ mkdir "$source"
 tar -xf "$bundle/source.tar" -C "$source"
 ```
 
-On native Linux amd64, retain setup attempts and charge occupied host time under the existing [program ledger (#646)](https://github.com/the-sarge/quic-go-fast/issues/646). Build the unchanged pinned peer image from that exact extraction, recording the source tree from the manifest. The build retains the original 1200-second bound. Do not substitute an unverified cached image or an earlier product candidate.
+Minimax's native Linux amd64 venue uses rootless Podman 5.7.0, as recorded by the frozen [B5 host command (#1044)](../../../2026-11-14-multipath-b5/b5-host.sh) and [venue receipt (#1044)](../../../2026-11-14-multipath-b5/venue.txt). Retain setup attempts and charge occupied host time under the existing [program ledger (#646)](https://github.com/the-sarge/quic-go-fast/issues/646). Build the unchanged pinned Dockerfile from the exact extraction, recording the source tree from the manifest. The build retains the original 1200-second bound. Do not substitute an unverified cached image or an earlier product candidate.
 
 ```sh
 set -euo pipefail
 product_tree=$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["product_tree"])' "$bundle/manifest.json")
-timeout 1200s docker build --platform linux/amd64 -f "$source/interop/multipath/Dockerfile" \
+timeout 1200s podman build --platform linux/amd64 -f "$source/interop/multipath/Dockerfile" \
   --build-arg QGF_SOURCE_COMMIT="$product_sha" --build-arg QGF_SOURCE_TREE="$product_tree" \
   -t qgf-bbr-interop-1368 "$source" 2>&1 | tee "$bundle/image-build.log"
-docker image inspect qgf-bbr-interop-1368 > "$bundle/image-inspect.json"
-image_id=$(docker image inspect qgf-bbr-interop-1368 --format '{{.Id}}')
-test "$(docker image inspect "$image_id" --format '{{.Architecture}}')" = amd64
+podman image inspect qgf-bbr-interop-1368 > "$bundle/image-inspect.json"
+image_digest=$(podman image inspect qgf-bbr-interop-1368 --format '{{.Id}}')
+image_id="sha256:${image_digest#sha256:}"
+test "$(podman image inspect "$image_id" --format '{{.Architecture}}')" = amd64
 printf '%s\n' "$image_id" > "$bundle/image-id.txt"
-container=$(docker create "$image_id")
-docker cp "$container:/src/build-packages.txt" "$bundle/build-packages.txt"
-docker rm "$container"
-timeout 1200s docker run --rm --platform linux/amd64 --network none \
+container=$(podman create "$image_id")
+podman cp --archive=false "$container:/src/build-packages.txt" "$bundle/build-packages.txt"
+podman rm "$container"
+timeout 1200s podman run --rm --platform linux/amd64 --network none \
   -e QGF_IMAGE_ID="$image_id" -e PYTHONDONTWRITEBYTECODE=1 \
   -v "$source:/product:ro" -v "$bundle:/bundle" \
   --entrypoint python3 "$image_id" /bundle/build.py --bundle /bundle --source /product
 ```
+
+Podman reports a bare image digest on this venue; the normalization supplies exactly one `sha256:` prefix to `QGF_IMAGE_ID`, matching the unchanged build helper and driver's identity checks. The package receipt copy uses the invoking host user's ownership. The overlay build runs as root inside the default rootless user namespace, which maps to the invoking host user and can write the bundle. It retains the image's populated `/go` module cache and build environment for the network-disabled build. The case containers below instead retain B5's `--userns=keep-id` so their output files belong to the invoking host user.
 
 The recorded test build is `go test -overlay=/bundle/overlay.json -tags picoquic -c -o /bundle/peer-matrix.test .`, in `/product`. It compiles but does not run peer scenarios. The unchanged image build performs its existing fixture unit checks and compiles the public unoverlaid binaries. The mounted source stays byte-exact. Keep `build-receipt.json`, `build.log`, `manifest.json`, `overlay.patch`, image inspection, package identities and the image ID together.
 
@@ -65,8 +68,7 @@ For each scenario in the listed order and each role in `client server`, create a
 
 ```sh
 mkdir -p "$results/$scenario"
-container=$(docker create --platform linux/amd64 --network none \
-  --user "$(id -u):$(id -g)" \
+container=$(podman create --platform linux/amd64 --network none --userns=keep-id \
   -e QGF_IMAGE_ID="$image_id" -e PYTHONDONTWRITEBYTECODE=1 \
   -e HOME=/tmp -e GOCACHE=/tmp/go-build -e GOPATH=/tmp/go \
   -v "$source:/product:ro" -v "$bundle:/bundle:ro" -v "$results:/results" \
@@ -75,10 +77,10 @@ container=$(docker create --platform linux/amd64 --network none \
   --controller bbrv3 --matrix --scenario "$scenario" --role "$role" \
   --output "/results/$scenario/$role")
 status=0
-timeout 150s docker start --attach "$container" > "$results/$scenario/$role.container.log" 2>&1 || status=$?
-docker inspect "$container" > "$results/$scenario/$role.container-inspect.json"
-container_status=$(docker inspect "$container" --format '{{.State.ExitCode}}')
-docker rm -f "$container"
+timeout 150s podman start --attach "$container" > "$results/$scenario/$role.container.log" 2>&1 || status=$?
+podman inspect "$container" > "$results/$scenario/$role.container-inspect.json"
+container_status=$(podman inspect "$container" --format '{{.State.ExitCode}}')
+podman rm -f "$container"
 test "$status" = 0
 test "$container_status" = 0
 ```
