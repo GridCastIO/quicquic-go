@@ -1,6 +1,6 @@
 # BBR and aggregation implementation plan
 
-**Identity:** `QGF-MP646-20261024-B`. **Updated:** 2026-11-15. **Status:** accepted scoped continuation; B1–B7 complete, B8 closed without code; B9–B12 not implemented. **Parent:** [B track (#1014)](https://github.com/the-sarge/quic-go-fast/issues/1014). **Follow-up:** [aggregation reconsideration (#1374)](https://github.com/the-sarge/quic-go-fast/issues/1374). **Program:** [index](2026-10-24-multipath-program.md), [tracker (#646)](https://github.com/the-sarge/quic-go-fast/issues/646). New child issue links are pending publication. **Normative scope:** current outcomes, boundaries, invariants, acceptance evidence, blockers and stops. **Audit history:** [scoped handoff](../audits/2026-11-15-bbr-1374-handoff.md); [completed B1–B8 contracts](https://github.com/the-sarge/quic-go-fast/blob/b4e3a4474f51a7b1fa60a0febbc79b04da4c4e72/docs/adr/2026-10-24-multipath-bbr-plan.md).
+**Identity:** `QGF-MP646-20261024-B`. **Updated:** 2026-11-15. **Status:** accepted scoped continuation; B1–B7 complete, B8 closed without code; B9 complete; B10–B12 not implemented. **Parent:** [B track (#1014)](https://github.com/the-sarge/quic-go-fast/issues/1014). **Follow-up:** [aggregation reconsideration (#1374)](https://github.com/the-sarge/quic-go-fast/issues/1374). **Program:** [index](2026-10-24-multipath-program.md), [tracker (#646)](https://github.com/the-sarge/quic-go-fast/issues/646). Continuation children are [B9 (#1382)](https://github.com/the-sarge/quic-go-fast/issues/1382), [B10 (#1383)](https://github.com/the-sarge/quic-go-fast/issues/1383), [B11 (#1384)](https://github.com/the-sarge/quic-go-fast/issues/1384) and [B12 (#1385)](https://github.com/the-sarge/quic-go-fast/issues/1385). **Normative scope:** current outcomes, boundaries, invariants, acceptance evidence, blockers and stops. **Audit history:** [scoped handoff](../audits/2026-11-15-bbr-1374-handoff.md); [completed B1–B8 contracts](https://github.com/the-sarge/quic-go-fast/blob/b4e3a4474f51a7b1fa60a0febbc79b04da4c4e72/docs/adr/2026-10-24-multipath-bbr-plan.md).
 
 ## Goal and current shape
 
@@ -58,8 +58,8 @@ Carry E6/R21/Reno and BBR ordinary receipts only with a candidate-specific sourc
 
 | Slice | State | End-to-end outcome | Blocked by | Temporary seam removal |
 | --- | --- | --- | --- | --- |
-| B9 | new; frontier | Public experimental BBR primary/backup and exact evidence/support statement | None; cost follow-up #1368 complete and owner decision recorded | None introduced |
-| B10 | new | One private paced byte-round-robin aggregate policy through real connections | B9 | B12 removes private activation |
+| B9 | complete (#1382) | Public experimental BBR primary/backup and exact evidence/support statement | None; cost follow-up #1368 complete and owner decision recorded | None introduced |
+| B10 | frontier (#1383) | One private paced byte-round-robin aggregate policy through real connections | B9 | B12 removes private activation |
 | B11 | new | Fixed comparison with valid positive or negative decision receipt | B10 | B12 retires experiment apparatus |
 | B12 | new | Publish the measured aggregate outcome and remove experiment activation | B11 | Removes both seams |
 
@@ -70,6 +70,8 @@ Existing [follow-up #1374](https://github.com/the-sarge/quic-go-fast/issues/1374
 <a id="b9"></a>
 
 ### B9 — Enable experimental BBR primary/backup
+
+**Completion:** implemented by [B9 (#1382)](https://github.com/the-sarge/quic-go-fast/issues/1382); [support and applicability receipt](../audits/2026-11-15-bbr-b9-support.md). B10 (#1383) is the sole next frontier after merge.
 
 **Delivers and acceptance:** public Dial/DialEarly, Listen/ListenEarly and GetConfigForClient configurations admit BBR primary/backup in the existing supported profile, in either configuration order, with Reno still default and aggregate still refused. Public two-path useful transfer and lifecycle preserve B1–B3 semantics. Publish the exact exceptions, applicability, tested profile and unqualified underlying BBR/Q2 status; do not recast raw failures. Complete all six existing BBR primary/backup independent cases on the final candidate through public admission without a product overlay: useful-transfer, abandon-reopen-late-feedback and same-id-migration-rebinding, each client/server. Preserve the existing hosted Reno inventory.
 

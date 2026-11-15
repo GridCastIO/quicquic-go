@@ -404,11 +404,6 @@ func TestMultipathUnsupportedCombinations(t *testing.T) {
 			require.ErrorIs(t, try(t, grantedTransport(t), conf), ErrMultipathUnsupportedV1)
 		}
 	})
-	t.Run("BBR", func(t *testing.T) {
-		conf := multipathConfig(t)
-		require.NoError(t, conf.SetCongestionControlV1("bbrv3"))
-		require.ErrorIs(t, try(t, grantedTransport(t), conf), ErrMultipathUnsupportedV1)
-	})
 	t.Run("send-thread QoS", func(t *testing.T) {
 		before := &Transport{Conn: newUDPConnLocalhost(t)}
 		require.NoError(t, before.ConfigureSendThreadQoSV1())
@@ -461,60 +456,66 @@ func errString(err error) string {
 }
 
 func TestMultipathOrdinaryPeerFallback(t *testing.T) {
-	requireMultipathProfile(t)
-	srv := &Transport{Conn: newUDPConnLocalhost(t)}
-	defer srv.Close()
-	ln, err := srv.Listen(nativeServerTLS(), nil)
-	require.NoError(t, err)
-	defer ln.Close()
-	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
-	defer cancel()
-	client, err := grantedTransport(t).Dial(ctx, srv.Conn.LocalAddr(), nativeClientTLS(), multipathConfig(t))
-	require.NoError(t, err)
-	defer client.CloseWithError(0, "")
-	require.Nil(t, client.peerParams.InitialMaxPathID, "a default server never advertises")
-	negotiated, err := client.MultipathNegotiatedV1()
-	require.NoError(t, err)
-	require.False(t, negotiated)
-	require.Empty(t, client.PathsV1())
-	_, err = client.OpenPathV1(ctx, grantedTransport(t), srv.Conn.LocalAddr().(*net.UDPAddr))
-	require.ErrorIs(t, err, ErrMultipathNotNegotiatedV1)
-	require.ErrorIs(t, client.WaitTransportDetachedV1(ctx, srv), ErrMultipathNotNegotiatedV1)
-	_, err = client.AddPath(grantedTransport(t))
-	require.NoError(t, err, "legacy migration stays available once the result is known")
+	for _, controller := range []string{"reno", "bbrv3"} {
+		t.Run(controller, func(t *testing.T) {
+			conf := multipathConfig(t)
+			require.NoError(t, conf.SetCongestionControlV1(controller))
+			requireMultipathProfile(t)
+			srv := &Transport{Conn: newUDPConnLocalhost(t)}
+			defer srv.Close()
+			ln, err := srv.Listen(nativeServerTLS(), nil)
+			require.NoError(t, err)
+			defer ln.Close()
+			ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
+			defer cancel()
+			client, err := grantedTransport(t).Dial(ctx, srv.Conn.LocalAddr(), nativeClientTLS(), conf)
+			require.NoError(t, err)
+			defer client.CloseWithError(0, "")
+			require.Nil(t, client.peerParams.InitialMaxPathID, "a default server never advertises")
+			negotiated, err := client.MultipathNegotiatedV1()
+			require.NoError(t, err)
+			require.False(t, negotiated)
+			require.Empty(t, client.PathsV1())
+			_, err = client.OpenPathV1(ctx, grantedTransport(t), srv.Conn.LocalAddr().(*net.UDPAddr))
+			require.ErrorIs(t, err, ErrMultipathNotNegotiatedV1)
+			require.ErrorIs(t, client.WaitTransportDetachedV1(ctx, srv), ErrMultipathNotNegotiatedV1)
+			_, err = client.AddPath(grantedTransport(t))
+			require.NoError(t, err, "legacy migration stays available once the result is known")
 
-	t.Run("a zero-length client CID sees no advertisement", func(t *testing.T) {
-		enabled := grantedTransport(t)
-		ln, err := enabled.Listen(nativeServerTLS(), multipathConfig(t))
-		require.NoError(t, err)
-		defer ln.Close()
-		ordinary, err := Dial(ctx, newUDPConnLocalhost(t), enabled.Conn.LocalAddr(), nativeClientTLS(), nil)
-		require.NoError(t, err)
-		defer ordinary.CloseWithError(0, "")
-		require.Zero(t, ordinary.srcConnIDLen)
-		require.Nil(t, ordinary.peerParams.InitialMaxPathID)
-		server, err := ln.Accept(ctx)
-		require.NoError(t, err)
-		require.Nil(t, server.pathSurface)
-	})
+			t.Run("a zero-length client CID sees no advertisement", func(t *testing.T) {
+				enabled := grantedTransport(t)
+				ln, err := enabled.Listen(nativeServerTLS(), conf)
+				require.NoError(t, err)
+				defer ln.Close()
+				ordinary, err := Dial(ctx, newUDPConnLocalhost(t), enabled.Conn.LocalAddr(), nativeClientTLS(), nil)
+				require.NoError(t, err)
+				defer ordinary.CloseWithError(0, "")
+				require.Zero(t, ordinary.srcConnIDLen)
+				require.Nil(t, ordinary.peerParams.InitialMaxPathID)
+				server, err := ln.Accept(ctx)
+				require.NoError(t, err)
+				require.Nil(t, server.pathSurface)
+			})
 
-	t.Run("a v2 client of an enabled server stays ordinary", func(t *testing.T) {
-		enabled := grantedTransport(t)
-		ln, err := enabled.Listen(nativeServerTLS(), multipathConfig(t))
-		require.NoError(t, err)
-		defer ln.Close()
-		cl := &Transport{Conn: newUDPConnLocalhost(t)}
-		defer cl.Close()
-		v2, err := cl.Dial(ctx, enabled.Conn.LocalAddr(), nativeClientTLS(), &Config{Versions: []Version{Version2}})
-		require.NoError(t, err)
-		defer v2.CloseWithError(0, "")
-		server, err := ln.Accept(ctx)
-		require.NoError(t, err)
-		require.Nil(t, server.pathSurface)
-		negotiated, err := server.MultipathNegotiatedV1()
-		require.NoError(t, err)
-		require.False(t, negotiated)
-	})
+			t.Run("a v2 client of an enabled server stays ordinary", func(t *testing.T) {
+				enabled := grantedTransport(t)
+				ln, err := enabled.Listen(nativeServerTLS(), conf)
+				require.NoError(t, err)
+				defer ln.Close()
+				cl := &Transport{Conn: newUDPConnLocalhost(t)}
+				defer cl.Close()
+				v2, err := cl.Dial(ctx, enabled.Conn.LocalAddr(), nativeClientTLS(), &Config{Versions: []Version{Version2}})
+				require.NoError(t, err)
+				defer v2.CloseWithError(0, "")
+				server, err := ln.Accept(ctx)
+				require.NoError(t, err)
+				require.Nil(t, server.pathSurface)
+				negotiated, err := server.MultipathNegotiatedV1()
+				require.NoError(t, err)
+				require.False(t, negotiated)
+			})
+		})
+	}
 }
 
 func TestMultipathLegacyModes(t *testing.T) {
@@ -929,8 +930,8 @@ func TestPacketCeilingRefusesNativeMultipathIO(t *testing.T) {
 
 // Two fork connections: the receiver is a primary/backup server, and the sender
 // moves its primary to path 1, so data arrives on both paths. Each path's
-// acknowledgment then arrives on that path. The BBR sender this would also show
-// rate samples for needs a private hook the public Reno gate doesn't offer here.
+// acknowledgment then arrives on that path. Per-path BBR sampling has separate
+// coverage in the BBR lifecycle and feedback suites.
 func TestMultipathSamePathAckCarriage(t *testing.T) {
 	requireMultipathProfile(t)
 	sink := newQlogSink()

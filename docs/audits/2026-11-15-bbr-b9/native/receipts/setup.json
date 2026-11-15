@@ -1,0 +1,19 @@
+{
+  "command": [
+    "bash",
+    "-c",
+    "cd /tmp/qgf-b9-1382-peer/source && timeout 1200s taskset -c 4-7 podman build --platform linux/amd64 -f interop/multipath/Dockerfile --build-arg QGF_SOURCE_COMMIT=af39990685fceee5d70f08770c692701548198ef --build-arg QGF_SOURCE_TREE=c94c1bd720f03fee59cc87e0715c012a3c9dab4a -t qgf-b9-1382 . > /tmp/qgf-b9-1382-peer/build.log 2>&1"
+  ],
+  "working_directory": "/home/josh",
+  "instances_charged": 0,
+  "remaining_instances_before": 121,
+  "remaining_host_seconds_before": "15984.92921237164015",
+  "reserved_host_seconds": "1200",
+  "status": "passed",
+  "started_utc": "2026-11-15T16:31:51.256314+00:00",
+  "elapsed_host_seconds": "26.209494458",
+  "exit_code": 0,
+  "ended_utc": "2026-11-15T16:32:17.465962+00:00",
+  "remaining_instances_after": 121,
+  "remaining_host_seconds_after": "15958.71971791364015"
+}

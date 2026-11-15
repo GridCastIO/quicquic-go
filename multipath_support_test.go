@@ -6,6 +6,8 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
+	"io"
 	"io/fs"
 	"net"
 	"os"
@@ -19,20 +21,16 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// B6 (#1045) publishes the multipath combinations that B5's evidence supports: Reno
-// primary/backup only. BBR primary/backup passed its interop cases and failed its
-// ordinary-cost gate, and the aggregate comparison was valid and negative.
-
-// readB5Evidence decodes one file of B5's frozen receipt evidence.
-func readB5Evidence(t *testing.T, path string, v any) {
+// readMultipathEvidence decodes frozen evidence cited by the current support record.
+func readMultipathEvidence(t *testing.T, path string, v any) {
 	t.Helper()
-	data, err := os.ReadFile(filepath.Join("docs", "audits", "2026-11-14-multipath-b5", path))
+	data, err := os.ReadFile(filepath.Join("docs", "audits", path))
 	require.NoError(t, err)
 	require.NoError(t, json.Unmarshal(data, v))
 }
 
-// The B5 receipts that the support statement cites keep their candidate identities and
-// the verdicts that leave BBR primary/backup and aggregation unsupported.
+// Accepted BBR cost exceptions preserve the original failed verdicts and exact metrics.
+// The previous aggregation candidate still has a valid negative result.
 func TestMultipathSupportMatchesEvidence(t *testing.T) {
 	// B5's receipts are in the nested docs/audits module, which Go leaves out of this module's
 	// archive. Skip only when that whole tree is absent; in a checkout a missing, unreadable or
@@ -44,7 +42,7 @@ func TestMultipathSupportMatchesEvidence(t *testing.T) {
 	require.NoError(t, err)
 
 	const (
-		bbrCandidate         = "4e80d3cf4fa7454ffc3e2a46655afd5f81f86313"
+		bbrCandidate         = "a1c9442f110cca36cb4752b39ce24ae998d76f05"
 		aggregationCandidate = "ba51ba67bf09f872c558e1519a3839f74795a021"
 	)
 	var identity struct {
@@ -59,7 +57,7 @@ func TestMultipathSupportMatchesEvidence(t *testing.T) {
 			Candidate string `json:"candidate"`
 		} `json:"identity"`
 	}
-	readB5Evidence(t, "interop/matrix-result.json", &interop)
+	readMultipathEvidence(t, "2026-11-14-bbr-ordinary-cost-1368/final-qualification/interop-results/matrix-result.json", &interop)
 	require.Equal(t, bbrCandidate, interop.Identity.Candidate)
 	require.Equal(t, "bbrv3", interop.Controller)
 	require.Equal(t, "pass", interop.Status, "BBR primary/backup is tested")
@@ -70,22 +68,34 @@ func TestMultipathSupportMatchesEvidence(t *testing.T) {
 		Controller  string   `json:"controller"`
 		Passed      bool     `json:"passed"`
 		FailedCells []string `json:"failed_cells"`
+		Cells       map[string]struct {
+			Goodput struct {
+				Median float64 `json:"median"`
+			} `json:"goodput_ratio"`
+			CPU struct {
+				Median float64 `json:"median"`
+			} `json:"cpu_per_useful_byte_ratio"`
+		} `json:"cells"`
 	}
-	readB5Evidence(t, "ordinary-bbr/summary.json", &cost)
-	readB5Evidence(t, "ordinary-bbr/identity.json", &identity)
+	readMultipathEvidence(t, "2026-11-14-bbr-ordinary-cost-1368/final-qualification/ordinary-results/summary.json", &cost)
+	readMultipathEvidence(t, "2026-11-14-bbr-ordinary-cost-1368/final-qualification/ordinary-results/identity.json", &identity)
 	require.Equal(t, bbrCandidate, identity.Candidate)
 	require.True(t, cost.Complete)
 	require.Equal(t, "bbrv3", cost.Controller)
 	require.False(t, cost.Passed, "BBR primary/backup is not cost-qualified")
 	require.ElementsMatch(t, []string{"mixed-bulk", "stateless-pressure"}, cost.FailedCells)
+	require.Equal(t, 0.944295141271208, cost.Cells["mixed-bulk"].Goodput.Median)
+	require.Equal(t, 1.2081314772756437, cost.Cells["mixed-bulk"].CPU.Median)
+	require.Equal(t, 0.9590708299335772, cost.Cells["stateless-pressure"].Goodput.Median)
+	require.Equal(t, 1.1593702973325581, cost.Cells["stateless-pressure"].CPU.Median)
 
 	var aggregation struct {
 		Complete         bool     `json:"campaign_complete"`
 		Support          string   `json:"support"`
 		FailedTopologies []string `json:"failed_topologies"`
 	}
-	readB5Evidence(t, "aggregation-gated/aggregation/summary.json", &aggregation)
-	readB5Evidence(t, "aggregation-gated/aggregation/identity.json", &identity)
+	readMultipathEvidence(t, "2026-11-14-multipath-b5/aggregation-gated/aggregation/summary.json", &aggregation)
+	readMultipathEvidence(t, "2026-11-14-multipath-b5/aggregation-gated/aggregation/identity.json", &identity)
 	require.Equal(t, aggregationCandidate, identity.Candidate)
 	require.True(t, aggregation.Complete)
 	require.Equal(t, "negative", aggregation.Support, "aggregation is unsupported")
@@ -103,10 +113,7 @@ func TestMultipathSelectionHasNoPrivateBypass(t *testing.T) {
 	require.Equal(t, []string{"enabled", "maxPaths"}, fields)
 }
 
-// The capability gate admits exactly Reno primary/backup, the default controller. It
-// refuses BBR primary/backup from a dial, a listener and a server-selected Config, in
-// either configuration order, and ConfigureMultipathV1 refuses aggregation with either
-// controller.
+// Public constructors preserve controller selection through setter order and cloning.
 func TestMultipathSupportedCombinations(t *testing.T) {
 	requireMultipathProfile(t)
 	t.Run("aggregate", func(t *testing.T) {
@@ -118,40 +125,65 @@ func TestMultipathSupportedCombinations(t *testing.T) {
 		}
 	})
 
-	t.Run("BBR primary/backup", func(t *testing.T) {
-		target := &net.UDPAddr{IP: net.IPv4(127, 0, 0, 1), Port: 9}
-		for _, controllerFirst := range []bool{true, false} {
-			conf := &Config{}
-			if controllerFirst {
-				require.NoError(t, conf.SetCongestionControlV1("bbrv3"))
+	for _, controllerFirst := range []bool{true, false} {
+		for _, early := range []bool{false, true} {
+			for _, selected := range []bool{false, true} {
+				t.Run(fmt.Sprintf("BBR/order-%t/early-%t/selected-%t", controllerFirst, early, selected), func(t *testing.T) {
+					conf := &Config{}
+					if controllerFirst {
+						require.NoError(t, conf.SetCongestionControlV1("bbrv3"))
+					}
+					require.NoError(t, conf.ConfigureMultipathV1(true, 2, "primary-backup"))
+					if !controllerFirst {
+						require.NoError(t, conf.SetCongestionControlV1("bbrv3"))
+					}
+					conf = conf.Clone()
+					require.Equal(t, "bbrv3", conf.CongestionControlV1())
+					require.True(t, conf.MultipathEnabledV1())
+					serverTr, clientTr := grantedTransport(t), grantedTransport(t)
+					serverConf := conf
+					if selected {
+						serverConf = &Config{GetConfigForClient: func(*ClientInfo) (*Config, error) { return conf.Clone(), nil }}
+					}
+					ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+					defer cancel()
+					var accept func(context.Context) (*Conn, error)
+					if early {
+						ln, err := serverTr.ListenEarly(nativeServerTLS(), serverConf)
+						require.NoError(t, err)
+						t.Cleanup(func() { ln.Close() })
+						accept = ln.Accept
+					} else {
+						ln, err := serverTr.Listen(nativeServerTLS(), serverConf)
+						require.NoError(t, err)
+						t.Cleanup(func() { ln.Close() })
+						accept = ln.Accept
+					}
+					dial := clientTr.Dial
+					if early {
+						dial = clientTr.DialEarly
+					}
+					client, err := dial(ctx, serverTr.Conn.LocalAddr(), nativeClientTLS(), conf.Clone())
+					require.NoError(t, err)
+					t.Cleanup(func() { client.CloseWithError(0, "") })
+					server, err := accept(ctx)
+					require.NoError(t, err)
+					t.Cleanup(func() { server.CloseWithError(0, "") })
+					for _, conn := range []*Conn{client, server} {
+						select {
+						case <-conn.HandshakeComplete():
+						case <-ctx.Done():
+							t.Fatal(ctx.Err())
+						}
+						negotiated, err := conn.MultipathNegotiatedV1()
+						require.NoError(t, err)
+						require.True(t, negotiated)
+						require.Equal(t, "bbrv3", conn.CongestionControlV1())
+					}
+				})
 			}
-			require.NoError(t, conf.ConfigureMultipathV1(true, 2, "primary-backup"))
-			if !controllerFirst {
-				require.NoError(t, conf.SetCongestionControlV1("bbrv3"))
-			}
-			_, err := grantedTransport(t).Dial(t.Context(), target, nativeClientTLS(), conf)
-			require.ErrorIs(t, err, ErrMultipathUnsupportedV1)
-			_, err = grantedTransport(t).DialEarly(t.Context(), target, nativeClientTLS(), conf)
-			require.ErrorIs(t, err, ErrMultipathUnsupportedV1)
-			_, err = grantedTransport(t).Listen(nativeServerTLS(), conf)
-			require.ErrorIs(t, err, ErrMultipathUnsupportedV1)
-			_, err = grantedTransport(t).ListenEarly(nativeServerTLS(), conf)
-			require.ErrorIs(t, err, ErrMultipathUnsupportedV1)
-
-			srv := grantedTransport(t)
-			ln, err := srv.Listen(nativeServerTLS(), &Config{GetConfigForClient: func(*ClientInfo) (*Config, error) { return conf, nil }})
-			require.NoError(t, err)
-			t.Cleanup(func() { ln.Close() })
-			cl := &Transport{Conn: newUDPConnLocalhost(t)}
-			t.Cleanup(func() { cl.Close() })
-			ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
-			_, err = cl.Dial(ctx, srv.Conn.LocalAddr(), nativeClientTLS(), nil)
-			cancel()
-			var transportErr *TransportError
-			require.ErrorAs(t, err, &transportErr)
-			require.Equal(t, ConnectionRefused, transportErr.ErrorCode)
 		}
-	})
+	}
 
 	t.Run("Reno primary/backup", func(t *testing.T) {
 		for _, explicit := range []bool{false, true} {
@@ -186,4 +218,52 @@ func TestMultipathSupportedCombinations(t *testing.T) {
 			}
 		}
 	})
+}
+
+// Useful application transfer succeeds before and after selecting a new primary
+// through public BBR admission, then every granted endpoint joins after close.
+func TestMultipathBBRPublicTransferAndJoin(t *testing.T) {
+	requireMultipathProfile(t)
+	conf := multipathConfig(t)
+	require.NoError(t, conf.SetCongestionControlV1("bbrv3"))
+	serverTr, clientTr, secondTr := grantedTransport(t), grantedTransport(t), grantedTransport(t)
+	ln, err := serverTr.Listen(nativeServerTLS(), conf)
+	require.NoError(t, err)
+	defer ln.Close()
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+	client, err := clientTr.Dial(ctx, serverTr.Conn.LocalAddr(), nativeClientTLS(), conf)
+	require.NoError(t, err)
+	defer client.CloseWithError(0, "")
+	server, err := ln.Accept(ctx)
+	require.NoError(t, err)
+	defer server.CloseWithError(0, "")
+	transfer := func(message string) {
+		t.Helper()
+		stream, err := client.OpenUniStreamSync(ctx)
+		require.NoError(t, err)
+		_, err = stream.Write([]byte(message))
+		require.NoError(t, err)
+		require.NoError(t, stream.Close())
+		received, err := server.AcceptUniStream(ctx)
+		require.NoError(t, err)
+		data, err := io.ReadAll(received)
+		require.NoError(t, err)
+		require.Equal(t, message, string(data))
+	}
+	transfer("BBR public path zero")
+	path, err := client.OpenPathV1(ctx, secondTr, serverTr.Conn.LocalAddr().(*net.UDPAddr))
+	require.NoError(t, err)
+	require.NoError(t, path.SetLocalUseV1("active"))
+	require.NoError(t, client.PathsV1()[0].SetLocalUseV1("backup"))
+	state, err := path.StateV1()
+	require.NoError(t, err)
+	require.True(t, state.Primary)
+	transfer("BBR public path one")
+	require.NoError(t, client.CloseWithError(0, ""))
+	require.NoError(t, server.CloseWithError(0, ""))
+	for _, tr := range []*Transport{clientTr, secondTr, serverTr} {
+		require.NoError(t, tr.Close())
+		require.NoError(t, tr.WaitMultipathIOStoppedV1(ctx))
+	}
 }

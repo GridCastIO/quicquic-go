@@ -1,0 +1,12 @@
+Kernel Version: 7.0
+
+--- FAIL: TestMultipathSupportedCombinations (0.00s)
+    --- FAIL: TestMultipathSupportedCombinations/BBR/order-true/early-false/selected-false (0.00s)
+        multipath_support_test.go:150: 
+            	Error Trace:	/tmp/qgf-b9-1382-unit/multipath_support_test.go:150
+            	Error:      	Received unexpected error:
+            	            	quic: native endpoint combination unsupported: multipath requires reno
+            	Test:       	TestMultipathSupportedCombinations/BBR/order-true/early-false/selected-false
+FAIL
+FAIL	github.com/quic-go/quic-go	0.003s
+FAIL

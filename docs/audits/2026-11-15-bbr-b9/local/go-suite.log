@@ -1,0 +1,37 @@
+ok  	github.com/quic-go/quic-go	27.633s
+ok  	github.com/quic-go/quic-go/example	0.280s
+ok  	github.com/quic-go/quic-go/example/client	4.302s
+?   	github.com/quic-go/quic-go/example/echo	[no test files]
+ok  	github.com/quic-go/quic-go/http3	1.892s
+ok  	github.com/quic-go/quic-go/http3/qlog	0.257s
+ok  	github.com/quic-go/quic-go/integrationtests/self	22.593s
+ok  	github.com/quic-go/quic-go/integrationtests/tools	0.268s
+?   	github.com/quic-go/quic-go/integrationtests/tools/israce	[no test files]
+?   	github.com/quic-go/quic-go/integrationtests/tools/proxy	[no test files]
+ok  	github.com/quic-go/quic-go/integrationtests/versionnegotiation	0.780s
+ok  	github.com/quic-go/quic-go/internal/ackhandler	24.698s
+ok  	github.com/quic-go/quic-go/internal/congestion	0.281s
+ok  	github.com/quic-go/quic-go/internal/handshake	0.290s
+?   	github.com/quic-go/quic-go/internal/mocks	[no test files]
+?   	github.com/quic-go/quic-go/internal/mocks/ackhandler	[no test files]
+ok  	github.com/quic-go/quic-go/internal/monotime	0.248s
+ok  	github.com/quic-go/quic-go/internal/protocol	0.202s
+ok  	github.com/quic-go/quic-go/internal/qerr	0.245s
+ok  	github.com/quic-go/quic-go/internal/qtls	0.326s
+ok  	github.com/quic-go/quic-go/internal/testutils/quicproxy	2.416s
+ok  	github.com/quic-go/quic-go/internal/utils	0.126s
+?   	github.com/quic-go/quic-go/internal/utils/linkedlist	[no test files]
+ok  	github.com/quic-go/quic-go/internal/utils/minheap	0.101s
+ok  	github.com/quic-go/quic-go/internal/utils/ringbuffer	0.105s
+ok  	github.com/quic-go/quic-go/internal/wire	0.138s
+?   	github.com/quic-go/quic-go/interop/client	[no test files]
+ok  	github.com/quic-go/quic-go/interop/http09	0.139s
+?   	github.com/quic-go/quic-go/interop/server	[no test files]
+?   	github.com/quic-go/quic-go/interop/utils	[no test files]
+ok  	github.com/quic-go/quic-go/qlog	0.146s
+ok  	github.com/quic-go/quic-go/qlogwriter	1.689s
+ok  	github.com/quic-go/quic-go/qlogwriter/jsontext	0.111s
+ok  	github.com/quic-go/quic-go/quicvarint	0.094s
+?   	github.com/quic-go/quic-go/testutils	[no test files]
+ok  	github.com/quic-go/quic-go/testutils/events	0.134s
+ok  	github.com/quic-go/quic-go/testutils/simnet	0.323s

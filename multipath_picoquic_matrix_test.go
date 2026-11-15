@@ -72,6 +72,11 @@ func newMatrixSession(t *testing.T, role string, negotiated, cidReceipt bool) *m
 	}
 	s := &matrixSession{t: t, ctx: ctx, role: role, dir: dir, trace: trace, primary: matrixTransport(t, 1, trace)}
 	conf := &Config{Versions: []Version{Version1}, EnableDatagrams: true, MaxIdleTimeout: 10 * time.Second, Tracer: s.trace.tracer}
+	controller := os.Getenv("PICOQUIC_CONTROLLER")
+	if controller == "" {
+		controller = "reno"
+	}
+	require.NoError(t, conf.SetCongestionControlV1(controller))
 	require.NoError(t, conf.ConfigureMultipathV1(true, 2, "primary-backup"))
 	cert, key, ca := filepath.Join(dir, "cert.pem"), filepath.Join(dir, "key.pem"), filepath.Join(dir, "ca.pem")
 	mp := "1"
@@ -97,6 +102,7 @@ func newMatrixSession(t *testing.T, role string, negotiated, cidReceipt bool) *m
 		require.NoError(t, err)
 	}
 	t.Cleanup(func() { s.conn.CloseWithError(0, "matrix cleanup") })
+	require.Equal(t, controller, s.conn.CongestionControlV1())
 	ok, err := s.conn.MultipathNegotiatedV1()
 	require.NoError(t, err)
 	require.Equal(t, negotiated, ok)

@@ -9,8 +9,8 @@ import "fmt"
 // concurrent mutation is unsupported. Existing connections retain their selection.
 //
 // BBRv3 is experimental and unqualified while its full qualification (#599) is
-// deferred. Multipath V1 refuses it with
-// [ErrMultipathUnsupportedV1]; see [Config.ConfigureMultipathV1].
+// deferred. Multipath V1 admits experimental BBR primary/backup only in the
+// supported profile; see [Config.ConfigureMultipathV1] for its limits.
 func (c *Config) SetCongestionControlV1(name string) error {
 	if c == nil {
 		return fmt.Errorf("quic: nil congestion control configuration")

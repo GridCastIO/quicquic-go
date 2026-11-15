@@ -1,0 +1,20 @@
+{
+  "command": [
+    "bash",
+    "/tmp/qgf-b9-1382-peer/peer-case.sh",
+    "abandon-reopen-late-feedback",
+    "server"
+  ],
+  "working_directory": "/home/josh",
+  "instances_charged": 1,
+  "remaining_instances_before": 118,
+  "remaining_host_seconds_before": "15956.92342099064015",
+  "reserved_host_seconds": "150",
+  "status": "passed",
+  "started_utc": "2026-11-15T16:33:06.924810+00:00",
+  "elapsed_host_seconds": "0.791162961",
+  "exit_code": 0,
+  "ended_utc": "2026-11-15T16:33:07.716088+00:00",
+  "remaining_instances_after": 117,
+  "remaining_host_seconds_after": "15956.13225802964015"
+}

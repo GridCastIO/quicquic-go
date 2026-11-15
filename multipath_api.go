@@ -49,7 +49,9 @@ type multipathSelection struct {
 // ignored when disabling, which is the default. On error the Config is unchanged.
 //
 // Multipath is experimental and opt-in. Its one supported profile is draft-21 QUIC v1
-// with Reno on Linux amd64, over a socket granted with [Transport.ConfigureMultipathIOV1].
+// with Reno or experimental BBR on Linux amd64, over a socket granted with
+// [Transport.ConfigureMultipathIOV1]. BBR retains its documented cost exceptions and
+// unqualified controller status; Reno remains the default.
 // Elsewhere, or with a QUIC v2 version listed or another congestion controller, a public
 // constructor refuses an enabled Config with [ErrMultipathUnsupportedV1]. A connection
 // that negotiates QUIC v2, or whose peer doesn't negotiate multipath, stays ordinary.
@@ -115,8 +117,8 @@ func (t *Transport) admitMultipath(conf *Config) error {
 	if !multipathProfileSupported {
 		return errMultipathPlatform
 	}
-	if conf.CongestionControlV1() != "reno" {
-		return fmt.Errorf("%w: multipath requires reno", ErrMultipathUnsupportedV1)
+	if controller := conf.CongestionControlV1(); controller != "reno" && controller != "bbrv3" {
+		return fmt.Errorf("%w: multipath requires reno or bbrv3", ErrMultipathUnsupportedV1)
 	}
 	if slices.ContainsFunc(conf.Versions, func(v Version) bool { return v != Version1 }) {
 		return fmt.Errorf("%w: multipath requires QUIC v1", ErrMultipathUnsupportedV1)
