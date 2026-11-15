@@ -24,7 +24,7 @@ Append-only plans and outcomes: [experiment ledger](2026-11-14-bbr-ordinary-cost
 
 ## Delivery state
 
-In progress, awaiting a measurement window/resource: E08's up-to admission candidate passed correctness checks and independent source/test audits, but both its first pair and the one preplanned replacement are contaminated in both profiles. Timing retries have stopped under the recorded plan. E06's clean ratios of 0.866 /1.222 remain the last valid comparison and miss both overall targets; E08 performance is unverified. Preserve the audited candidate unchanged while obtaining a quiet Minimax window or equivalent native Linux host. Observer runtime is excluded from the product branch. Final ordinary-cost qualification, full-panel review, exact-head hosted checks, merge, journal and issue/OmniFocus closure remain. Recommendation: resolve the measurement dependency and obtain valid admission evidence before changing completion or member caps.
+In progress: the owner-confirmed quiet Minimax window produced a valid E08 diagnostic. Whole-packet partial admission recovers useful throughput and improves absolute CPU per useful byte relative to E06, so the combined design is provisionally retained. The matched ratios are 0.938467975 goodput and 1.190607021 CPU/useful byte; both overall targets remain missed. E09 will test repeated reconciliation at the existing accepted-member completion boundary, with its own pre-code plan. Observer runtime remains outside the product branch. Final ordinary-cost qualification, full-panel review, exact-head hosted checks, merge, journal and issue/OmniFocus closure remain. Recommendation: test the bounded completion-owner change while preserving the valid E08 control and all earlier evidence.
 
 ## Current design update — E02/E03, 2026-11-14
 
@@ -72,3 +72,10 @@ Program #646 usage is 237/420 instances and 10401.432815502481/28800 host-second
 The exact-binary replacement also has substantial fixture-core interference in both profiles (19.848 /15.846 foreign CPU seconds), despite the preceding 90-second quiet streak. Its descriptive ratios 0.927 /1.180 are excluded, just as the first pair's nominal pass was excluded. No performance disposition or E09 selection follows. The preplanned E08 retry has been used; further timing requires a concrete quiet execution window or equivalent native resource, not another longer quiet heuristic. Candidate documentation and review-tool preparation can proceed independently, but feasibility and qualification remain unverified.
 
 Program #646 usage is 239/420 instances and 10555.475946517745/28800 seconds, leaving 181 /18244.524053482255. The owner was asked for the needed window/resource; no shared-host change or task timing workload remains.
+
+
+## Current design update — E08 valid quiet-window comparison
+
+The unchanged E08 binary now has a valid diagnostic in the owner-confirmed quiet window. Control/granted throughput is 8.825192105 /8.282160162 Gbit/s, CPU 82.564210 /92.252836 seconds, with negligible measured foreign CPU. Both target ratios remain missed (0.938467975 /1.190607021), but granted absolute CPU per useful byte improves 4.82% over the larger-member E06 alternative while output rises 10.09%. Provisionally carry admission with the larger member; one pair is not final qualification or repeatability evidence. Registration/publication has immediate per-packet consumers and distinct evidence lifetimes, so keep it unchanged for the next discriminator. The existing fully accepted native-member seam is the next bounded structural question; no complete-cost saving is inferred from overlapping profiles.
+
+Program #646 usage is 241/420 instances and 10709.552619184451/28800 seconds, leaving 179 /18090.447380815549. No task workload remains.
