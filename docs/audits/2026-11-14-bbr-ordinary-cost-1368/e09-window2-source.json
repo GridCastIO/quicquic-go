@@ -1,0 +1,68 @@
+{
+  "source": "76f64bd9418bcf403c6b0eaecdffc69ca611073c",
+  "instances": 0,
+  "commands": [
+    [
+      "tar",
+      "-xzf",
+      "/tmp/qgf-bbr-cost-1368-e09.tar.gz",
+      "-C",
+      "/tmp/qgf-bbr-cost-1368/e09-source"
+    ],
+    [
+      "go",
+      "test",
+      "-c",
+      "-tags",
+      "ordinarycost",
+      "-o",
+      "/tmp/qgf-bbr-cost-1368/e09.test",
+      "."
+    ],
+    [
+      "/tmp/qgf-bbr-cost-1368/e09.test",
+      "-test.run",
+      "Test(NativeOrdinaryAccepted|NativeOrdinaryBBRAccepted|BBRNative|BBRUnregisteredCredit|LocalSendCredit|OrdinaryCostController)",
+      "-test.v"
+    ],
+    [
+      "go",
+      "test",
+      "./internal/ackhandler",
+      "-run",
+      "TestLocalBBRAcceptedMember",
+      "-count=1",
+      "-v"
+    ]
+  ],
+  "started_utc": "2026-11-15T02:27:48.742649+00:00",
+  "result": "passed",
+  "environment": {
+    "CGO_ENABLED": "1",
+    "GOAMD64": "v1",
+    "GOARCH": "amd64",
+    "GOEXPERIMENT": "",
+    "GOFLAGS": "",
+    "GOOS": "linux",
+    "GOVERSION": "go1.27.4"
+  },
+  "binary_sha256": "085377202a7d7a8d0bb3b07818986cb2e5d4f15fe672f139219c8025388fc754",
+  "archive_sha256": "d936057d54ae524e7f5dd9c558b010e6358aaaf1de83ed63a9a6fa4508b885e5",
+  "elapsed_host_seconds": 7.811515783,
+  "ended_utc": "2026-11-15T02:27:56.554211+00:00",
+  "reviewed_source": "96b57b83ad33473f194d2d39969a8f5ab41fe5f5",
+  "runtime_control": "740f07cd88f96c379991c7c3880aafac7a84e20d",
+  "readiness_command": "python3 /tmp/qgf-bbr-cost-1368/e08-repeat-observe-readiness.py --output /tmp/qgf-bbr-cost-1368/e09-window2-readiness --consecutive-samples 18",
+  "readiness_script_sha256": "aacc7b9ad2c32d37e7e5822c1a9523f5c1787b3bb38a9dd283e7eb9511367166",
+  "measurement_command": "python3 interop/multipath/ordinary_cost.py --candidate 76f64bd9418bcf403c6b0eaecdffc69ca611073c --binary /tmp/qgf-bbr-cost-1368/e09.test --output /tmp/qgf-bbr-cost-1368/e09-window2-timing --remaining-instances 177 --remaining-host-seconds 17884.55455536010394 --timeout-seconds 135 --controller bbrv3 --diagnostic-cell stateless-pressure",
+  "timing_qualification": false,
+  "qualification_exclusion": "Single diagnostic pair; no observer or profiles. Final representative qualification is separate.",
+  "cumulative_instances_before_timing": 243,
+  "cumulative_host_seconds_before_timing": "10915.44544463989606",
+  "remaining_host_seconds_before_timing": "17884.55455536010394",
+  "resumption_reason": "Owner answered go to the continuous quiet Minimax window request on 2026-11-14 America/New_York. Read-only snapshot at 2026-11-15 03:15:37 UTC shows earlier heavy VM/runner work absent. One unchanged-source/binary replacement; preserve original contaminated pair.",
+  "binary_reverified_at_utc": "2026-11-15 03:15:37 UTC",
+  "additional_setup_instances": 0,
+  "additional_setup_host_seconds": 0,
+  "setup_note": "Reuse verified existing E09 binary; original setup receipt retained, no new build."
+}
