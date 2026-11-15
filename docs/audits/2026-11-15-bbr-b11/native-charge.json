@@ -1,0 +1,9 @@
+{
+  "instances": 37,
+  "valid_observations": 36,
+  "contaminated_attempts": 1,
+  "observation_host_seconds": "2850.03670255187898",
+  "setup_host_seconds": "4.9198307460173965",
+  "total_host_seconds": "2854.9565332978963765",
+  "method": "Decimal sum of individual outer occupied_s receipts; setup once; no inner duration or pre-admission quiet wait added"
+}

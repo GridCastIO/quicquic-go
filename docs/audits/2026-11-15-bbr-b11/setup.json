@@ -1,0 +1,24 @@
+{
+  "candidate": "8c34fbac874adf55f096b6c67d51244160169422",
+  "tree": "7de8175a101d7bdb8f1ca6962beb1a4652a3a48d",
+  "instances": 0,
+  "setup_seconds": 4.9198307460173965,
+  "exit": 0,
+  "outer_bound_seconds": 1200,
+  "source_archive_sha256": "340b3d6acb0b2ed7a42d1410864c4e599e821666f7a3a463e3c7af99bf97d2be",
+  "kernel": "Linux-7.0.0-30-generic-x86_64-with-glibc2.43",
+  "container": "none; native host processes",
+  "cpu_siblings": {
+    "4": "4,20",
+    "5": "5,21",
+    "8": "8,24",
+    "9": "9,25",
+    "10": "10,26",
+    "11": "11,27",
+    "12": "12,28",
+    "13": "13,29",
+    "14": "14,30",
+    "15": "15,31"
+  },
+  "go": "go version go1.27.4 linux/amd64"
+}
