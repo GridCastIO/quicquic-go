@@ -54,6 +54,10 @@ type multipathSelection struct {
 // [Transport.ConfigureMultipathIOV1]. BBR retains its documented cost exceptions and
 // unqualified controller status; Reno remains the default. Aggregate requires BBR and uses
 // uncoupled paced byte round-robin. It makes no general performance or fairness guarantee.
+// Additional validated paths start as local backups. Each sending endpoint must call
+// [Path.SetLocalUseV1] with "active" on paths it intends to use concurrently; selecting
+// aggregate alone does not activate them. [Path.StateV1] reports local use. Backups are
+// excluded from ordinary aggregate work while an active path is eligible; PTO keeps precedence.
 // The controller may be selected before or after the policy; constructors check the pair.
 // Elsewhere, or with a QUIC v2 version listed or another congestion controller, a public
 // constructor refuses an enabled Config with [ErrMultipathUnsupportedV1]. A connection

@@ -13,7 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// aggregate selects the private aggregate policy and makes path 1 active beside
+// aggregate sets this test fixture's registry scheduler directly and makes path 1 active beside
 // path zero, as SetLocalUseV1("active") would.
 func (f *reliableFixture) aggregate(t *testing.T, scheduler pathScheduler) {
 	t.Helper()

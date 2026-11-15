@@ -187,6 +187,17 @@ func TestMultipathSupportedCombinations(t *testing.T) {
 							require.NoError(t, err)
 							require.True(t, negotiated)
 							require.Equal(t, "bbrv3", conn.CongestionControlV1())
+							var scheduler pathScheduler
+							require.NoError(t, conn.runPathCommand(func(r *pathCreditRegistry, _ monotime.Time) error {
+								scheduler = r.scheduler
+								return nil
+							}))
+							expected := schedulePrimaryBackup
+							if policy == "aggregate" {
+								expected = scheduleAggregate
+							}
+							require.Equal(t, expected, scheduler)
+
 						}
 					})
 				}
