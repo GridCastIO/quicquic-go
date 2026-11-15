@@ -4,3 +4,6 @@ e07-observer.patch -whitespace
 
 # Preserve the pinned task-local review tooling diff.
 review-tool/compatibility.patch -whitespace
+
+# Preserve go version -m tabular output, including its empty replacement field.
+review-tool/build-info.txt -whitespace
