@@ -24,7 +24,7 @@ Append-only plans and outcomes: [experiment ledger](2026-11-14-bbr-ordinary-cost
 
 ## Delivery state
 
-In progress: E02 is provisionally retained; E03 was rejected; E04 observer and both E05 timing pairs are contaminated. E05's two-buffer control flow has no supported performance disposition and remains an experimental alternative. E06 now constructs a single larger ordinary native BBR GSO member from E02 semantics, replacing E05 rather than stacking it. Native timing requires reassessment of intermittent interference on fixture cores and siblings. Final ordinary-cost qualification, independent review, exact-head tests/hosted checks, merge, development journal and issue/OmniFocus reconciliation remain. Both overall performance targets are missed by the last clean E02 diagnostic and unverified for later experiments. Recommendation: complete the E06 correctness proof while preserving the invalid timing evidence, then measure only when fixture-core observations support a useful comparison.
+In progress: E02 is provisionally retained; E03 was rejected; E04 and E05 timing is excluded. E06's single larger member passed correctness and native checks and produced valid timing, but its 0.866 goodput and 1.222 CPU/useful-byte ratios miss both overall targets. Lower absolute CPU/useful byte accompanies lower throughput, so E06 is under revision rather than qualified for delivery. E07 will reassess credit/refusal, member geometry, model state and current CPU attribution with an observer-only pair. Final ordinary-cost qualification, independent review, exact-head hosted checks, merge, journal and issue/OmniFocus closure remain. Recommendation: resolve the new geometry's pipeline tradeoff before selecting the next runtime change.
 
 ## Current design update — E02/E03, 2026-11-14
 
@@ -44,3 +44,10 @@ Next decision: compare bounded grouping within one emission invocation against a
 E05 source `dd2749714c5aabdce2a251ea5083d097954fd25a` passed correctness tests and independent source review, but its original pair and one justified replacement lacked a valid clean comparison. No throughput/CPU gain is claimed. Preserve the bounded two-buffer design in its source commit, tests and raw evidence. E06 selects the alternative request geometry: one native BBR GSO member using existing 65,535-byte storage and a 65,507-byte send ceiling when an ordinary standard-packet request needs more than 20 KiB. Keep Q / 2Q, exact reservation, one handoff, deferred protection and native ownership; prevent accidental changes to Reno/jumbo deferred eligibility. Larger construction/submission and return-time granularity are explicit costs to test. The [experiment ledger](2026-11-14-bbr-ordinary-cost-1368-experiments.md) owns the pre-code plan and finite scope.
 
 Program #646 cumulative usage is 231/420 instances and 9939.170252017/28800 host-seconds, leaving 189 instances / 18860.829747983 seconds. No remote task workload or shared-host changes remain after the E05 replacement.
+
+
+## Current design update — E06 result and E07 observation
+
+The single-member E06 alternative reduces granted server CPU from E02's95.280 to88.037 seconds but lowers useful goodput from7.761 to7.523 Gbit/s; absolute granted CPU/useful byte improves about4.69%. Its own control is8.684 Gbit/s /83.144 seconds. Both overall targets remain missed; one pair is not repeatability evidence. Keep the exact larger-member source as an experimental design under revision. Before further runtime changes, E07 repeats bounded observation for the new credit/request geometry and obtains current CPU attribution. E04's zero usable-partial-credit refusals described small requests, not this new regime.
+
+Program #646 usage is233/420 instances and10093.240678141/28800 host-seconds, leaving187 instances /18706.759321859 seconds. The E06 process is complete; no shared-host state was changed.
