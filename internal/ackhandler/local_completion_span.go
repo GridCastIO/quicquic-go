@@ -26,8 +26,11 @@ func TryCompleteLocalAcceptedPackets(handler LocalSentPacketHandler, tokens []Lo
 		return false
 	}
 	ps := h.appDataPackets
+	// A fully validated BBR member supplies its own positive PTO witness: its
+	// first accepted packet updates the winner before any scalar timer point.
+	// Keep the existing prior-witness requirement for Reno.
 	if ps == nil || ps.localEpoch == nil || ps.localEpoch.owner != &h.local.owner ||
-		!ps.history.localPTOTracked || !ps.history.HasOutstandingPackets() || !ps.history.latestLocalPTO().After(0) {
+		!ps.history.localPTOTracked || !ps.history.HasOutstandingPackets() || (d == nil && !ps.history.latestLocalPTO().After(0)) {
 		return false
 	}
 	// Use the physical prefix, including retained holes and probe placeholders.
