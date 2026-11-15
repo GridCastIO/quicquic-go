@@ -184,9 +184,10 @@ func TestLocalBBRAcceptedMemberRecoveryDiagnostics(t *testing.T) {
 				// completion remains the oracle for both its state and final event.
 				r := &h.congestionEvents.recovery
 				r.episode = congestion.RecoveryEpisode{ID: 1, Boundary: 1, Active: true, Entered: true, UndoPossible: true}
-				if kind == "exit and undo" {
+				switch kind {
+				case "exit and undo":
 					r.ackOrdinal = 2
-				} else if kind == "pending recovery" {
+				case "pending recovery":
 					r.members = map[uint64]struct{}{1: {}}
 				}
 			}

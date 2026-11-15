@@ -158,9 +158,10 @@ func TestBBRNativeLargeMemberOutcomes(t *testing.T) {
 				require.Equal(t, c.emission.bbr.quantum-buffer.Len(), c.emission.bbr.budget(now))
 				require.Equal(t, now, c.emission.bbr.updated)
 				require.NotNil(t, c.datagramQueue.Peek(), "one handoff cannot consume the next member")
-				if outcome == "revoked" {
+				switch outcome {
+				case "revoked":
 					sender.endpoint.cancelGeneration(sender.participant, sender.generation)
-				} else if outcome == "expired" {
+				case "expired":
 					time.Sleep(sender.endpoint.budget + time.Millisecond)
 				}
 				socket.release()
@@ -234,9 +235,10 @@ func TestBBRNativeLargeMemberSelection(t *testing.T) {
 				sealing.EXPECT().Get1RTTSealer().Return(sealer, nil).AnyTimes()
 				c.emission.packer.cryptoSetup = sealing
 				payload := 1100
-				if scenario == "short datagrams" {
+				switch scenario {
+				case "short datagrams":
 					payload = 100
-				} else if scenario == "UDP ceiling" {
+				case "UDP ceiling":
 					_, pnLen := sender.recovery.PeekPacketNumber(protocol.Encryption1RTT)
 					payload = int(c.maxPacketSize()-wire.ShortHeaderLen(c.connIDManager.Get(), pnLen)) - 16 - 3
 				}
