@@ -86,7 +86,7 @@ Throwaway builds that raised the constant and pinned the size carried over 8 Gbp
 | [F11](#f11) | complete #1225 | Several short DATAGRAMs in one jumbo packet, with weighted admission | F5; the consumer's comparison selecting this design | n/a |
 | [F12](#f12) | new | The release that claims jumbo, at the qualified commit | The consumer's qualification; the first independent release | n/a |
 
-F1 #1208, F2 #1216, F3 #1217, F4 #1218, F5 #1219, F6 #1220, F7 #1221, F8 #1222, F9 #1223 and F10 #1224 are complete. F11 #1225 implements the owner-selected packing direction A from [wiremux program #1872](https://github.com/GridSwarm/wiremux/issues/1872). F12 #1226 still awaits ECN fallback fix #1335, exact-commit consumer qualification, independent release #1111 and owner approval. Nothing here waits for the quicquic-go identity transition before F12, and that transition doesn't wait for this.
+F1 #1208, F2 #1216, F3 #1217, F4 #1218, F5 #1219, F6 #1220, F7 #1221, F8 #1222, F9 #1223 and F10 #1224 are complete. F11 #1225 implements the owner-selected packing direction A from [wiremux program #1872](https://github.com/GridSwarm/wiremux/issues/1872). ECN fallback fix #1335 is complete. F12 #1226 still awaits exact-commit consumer qualification, independent release #1111 and owner approval. Nothing here waits for the quicquic-go identity transition before F12, and that transition doesn't wait for this.
 
 ## Implementation slices
 
