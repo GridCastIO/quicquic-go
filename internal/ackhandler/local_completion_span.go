@@ -1,6 +1,7 @@
 package ackhandler
 
 import (
+	"github.com/quic-go/quic-go/internal/congestion"
 	"github.com/quic-go/quic-go/internal/monotime"
 	"github.com/quic-go/quic-go/internal/protocol"
 )
@@ -12,8 +13,17 @@ import (
 func TryCompleteLocalAcceptedPackets(handler LocalSentPacketHandler, tokens []LocalCompletionToken, returnedAt monotime.Time) bool {
 	h, ok := handler.(*sentPacketHandler)
 	if !ok || h == nil || len(tokens) < 2 || !returnedAt.After(0) ||
-		h.local == nil || h.local.closed || h.congestionEvents != nil || h.bbrECN != nil ||
+		h.local == nil || h.local.closed ||
 		h.qlogger != nil || !h.handshakeConfirmed || h.isAmplificationLimited() || len(h.lostPackets.lostPackets) != 0 {
+		return false
+	}
+	d := h.congestionEvents
+	var records [64]*congestion.PacketInfo
+	if d != nil {
+		if _, bbr := h.congestion.(*congestion.BBRSender); !bbr || len(tokens) > len(records) || !d.localRoute || d.recovery.local == nil {
+			return false
+		}
+	} else if h.bbrECN != nil {
 		return false
 	}
 	ps := h.appDataPackets
@@ -28,13 +38,18 @@ func TryCompleteLocalAcceptedPackets(handler LocalSentPacketHandler, tokens []Lo
 		return false
 	}
 	if e := h.local.ecn; e != nil {
-		tracker, ok := h.ecnTracker.(*ecnTracker)
-		if e.pending || !ok || tracker == nil || tracker.qlogger != nil {
+		if e.pending || (d != nil && len(e.constraints) != 0) {
 			return false
+		}
+		if h.bbrECN == nil {
+			tracker, ok := h.ecnTracker.(*ecnTracker)
+			if !ok || tracker == nil || tracker.qlogger != nil {
+				return false
+			}
 		}
 	}
 	previous := protocol.InvalidPacketNumber
-	for _, token := range tokens {
+	for i, token := range tokens {
 		r := token.registration
 		// Epoch and owner are immutable. Reject foreign identities before reading
 		// mutable registration fields owned by another connection.
@@ -53,6 +68,17 @@ func TryCompleteLocalAcceptedPackets(handler LocalSentPacketHandler, tokens []Lo
 		if !present || ps.history.packets[index] != p || index >= len(ps.history.unresolvedLocal) || !ps.history.unresolvedLocal[index] {
 			return false
 		}
+		if d != nil {
+			key := congestionKey(r.level, r.pn)
+			info := d.packets.borrow(key)
+			slot := d.recovery.find(key)
+			if r.timingMissing || r.richOrdinal == 0 || info == nil || info.Ordinal != r.richOrdinal ||
+				slot < 0 || d.recovery.index.outcomes[slot].ordinal != r.richOrdinal ||
+				d.recovery.index.outcomes[slot].state != outcomeUnresolved || d.recovery.local.outcomes[slot].registration != r {
+				return false
+			}
+			records[i] = info
+		}
 		previous = r.pn
 	}
 
@@ -64,18 +90,30 @@ func TryCompleteLocalAcceptedPackets(handler LocalSentPacketHandler, tokens []Lo
 		r.outcome = LocalPacketAccepted
 		r.eligibleAt = returnedAt
 		ps.history.localPTOChanged(r.packet)
+		if d != nil {
+			records[i].TimingExcluded = false
+		}
 		// The pending live identity cannot have a lost ECN record. With no
 		// pending ECN report, this preserves only callback-free per-packet work.
 		h.completeLocalAcceptedECN(r)
 		ps.history.qualifyLocal(r.pn)
 		ps.lossTime = 0
-		if i == len(tokens)-1 {
-			// Every scalar intermediate alarm would be nonzero: a live accepted
-			// application packet supplies positive PTO evidence. There is no
-			// cancellation logger call, qlog, rich feedback, or undo observer.
-			// Read current RTT and final evidence; never reuse a cached deadline.
-			h.setLossDetectionTimer(returnedAt)
+		if d != nil {
+			// Keep every one-shot episode transition, including the final empty
+			// diagnostic. No-ACK feedback does not read qualification indexes.
+			d.localCompletionFeedback()
 		}
 	}
+	if d != nil {
+		// No observer intervenes in this closed span. Visit the same ordered
+		// facts once, including predecessors and completed facts outside it.
+		// They can still fence timing; never overwrite their flags afterwards.
+		d.advanceLocalQualification()
+	}
+	// Every scalar intermediate alarm would be nonzero: a live accepted
+	// application packet supplies positive PTO evidence. There is no
+	// cancellation logger call, qlog or undo observer. Read current RTT and
+	// final evidence; never reuse a cached deadline.
+	h.setLossDetectionTimer(returnedAt)
 	return true
 }

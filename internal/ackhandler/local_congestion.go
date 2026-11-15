@@ -18,13 +18,16 @@ func (h *sentPacketHandler) completeLocalBBRWithoutLoss(ps *packetNumberSpace) b
 		return false
 	}
 	ps.lossTime = 0
-	d := h.congestionEvents
+	h.congestionEvents.localCompletionFeedback()
+	return true
+}
+
+func (d *congestionDispatch) localCompletionFeedback() {
 	// Preserve the empty sample exposed by diagnostics and recovery's one-shot
 	// bookkeeping. No ACK means recovery needs neither PTO nor scratch storage;
 	// the unreported event needs no pending-byte query or controller callback.
 	d.event = congestion.FeedbackEvent{Delivery: congestion.DeliverySample{Delivered: d.sampler.delivered, Lost: d.sampler.lost}}
 	d.recovery.feedback(&d.event, 0)
-	return true
 }
 
 // fenceTiming requires a fresh registration snapshot after an excluded local
