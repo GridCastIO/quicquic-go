@@ -11008,3 +11008,28 @@ The repair's forced-skip overlay reproduced the original failure; focused assert
 ### Next
 
 As of this entry, [B9 #1382](https://github.com/the-sarge/quic-go-fast/issues/1382) is the sole ready frontier; B10–B12 are blocked in sequence. The [live program tracker #646](https://github.com/the-sarge/quic-go-fast/issues/646), [B track #1014](https://github.com/the-sarge/quic-go-fast/issues/1014), and [continuation #1374](https://github.com/the-sarge/quic-go-fast/issues/1374) own current state. Operator dispatch uses `$implement-architecture-slice` in a fresh context. Public multipath remains Reno primary/backup until B9 implements its accepted change.
+
+---
+
+## Experimental BBR primary/backup enabled - 2026-11-15 11:56 EST
+
+**Main:** `603f9461a0a6`
+**Actor:** Codex
+
+### Completed
+
+Merged [PR #1387 — Enable experimental BBR primary/backup (#1382)](https://github.com/the-sarge/quic-go-fast/pull/1387) as `603f9461a0a683c2eda4e5802f7653e9740409d2`, closing [B9 (#1382)](https://github.com/the-sarge/quic-go-fast/issues/1382). The common public capability gate now admits explicitly selected BBR primary/backup in the existing experimental draft-21 QUIC v1 Linux amd64 profile. Reno stays default, aggregation remains refused, and controller/scheduler/native ownership behavior is unchanged. The product PR also committed B9 completion and the B10 frontier transition.
+
+### Decisions
+
+The [B9 support/applicability record](audits/2026-11-15-bbr-b9-support.md) preserves [cost follow-up #1368](https://github.com/the-sarge/quic-go-fast/issues/1368)'s exact accepted mixed-bulk goodput/CPU ratios `0.944295141271208 / 1.2081314772756437` and stateless-pressure ratios `0.9590708299335772 / 1.1593702973325581`, separately from the unchanged thresholds and raw failed verdicts. Public support is unreleased on main, does not qualify the underlying BBR controller, and leaves full [Q2 (#599)](https://github.com/the-sarge/quic-go-fast/issues/599) deferred. No adoption claim or new performance campaign follows.
+
+### Validation
+
+The public admission regression failed at the original Reno-only gate, then constructor/clone/order/server-selected, two-path transfer/close/join and fallback checks passed natively. All six fixed public BBR peer cases passed at `af39990685fceee5d70f08770c692701548198ef` with raw identities retained; later diagnostic/comment changes have explicit source applicability rather than a binary-identity claim. Preparation completed, and full-panel RAS `20261115T163623-434891b36bae107dea8f54c0` led to six narrow publication/receipt corrections, with no runtime defect or surviving follow-up. The shared docs-only policy skipped another RAS cycle.
+
+Final head `38e22d9ebe5bcdfb2e048863a0d3350c2355ed8c`, base `40642102a8d83660d16a86b61133e8ec92897415`, passed the full local suite, native root/ACK-handler suites, focused lifecycle/completion race evidence, vet/tidy/lint and 78 Python tests. All applicable hosted checks passed; actual post-ready [peer run 43737537736](https://github.com/the-sarge/quic-go-fast/actions/runs/43737537736/job/132883345110) verified 16 Reno cases and separate non-independent zero evidence on the exact merged head. B9 native setup/cases/aggregate charged 6 instances /29.951419736 host-seconds; the hosted job charged 16 /166 once. [Program #646](https://github.com/the-sarge/quic-go-fast/issues/646) now records 321/420 instances and 13011.02220736435985/28800 host-seconds. No failed case or replacement occurred.
+
+### Next
+
+[B10 — Replace private aggregation with paced byte-round-robin (#1383)](https://github.com/the-sarge/quic-go-fast/issues/1383) is the next frontier under the accepted [continuation #1374](https://github.com/the-sarge/quic-go-fast/issues/1374), which remains the live coordination view. B11 (#1384) and B12 (#1385) remain blocked in sequence. The coordinator owns successor and parent mirror reconciliation after this journal closes.
