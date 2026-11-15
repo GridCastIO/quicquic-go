@@ -1,0 +1,231 @@
+{
+  "collection_utc": "2026-11-15T02:22:46.405599+00:00",
+  "host": "minimax",
+  "purpose": "Read-only artifact metadata for retrospective native setup accounting; no build or workload executed.",
+  "observations": [
+    {
+      "experiment": "e01",
+      "source": {
+        "path": "/tmp/qgf-bbr-cost-1368/e01-source",
+        "birth_utc": "2026-11-14 22:39:06.404305908 +0000",
+        "mtime_ns": 1794695946585307261,
+        "ctime_ns": 1794695946585307261,
+        "size": 8640
+      },
+      "binary": {
+        "path": "/tmp/qgf-bbr-cost-1368/e01.test",
+        "birth_utc": "2026-11-14 22:39:10.771338538 +0000",
+        "mtime_ns": 1794695951215341856,
+        "ctime_ns": 1794695951327013924,
+        "size": 25812065,
+        "sha256": "b9fcdc4a940b1db20573912880ad87e84d230a816360f2531db57bd0d31c12a5"
+      },
+      "first_control_log": {
+        "path": "/tmp/qgf-bbr-cost-1368/e01-timing/stateless-pressure/unregistered/server.log",
+        "birth_utc": "2026-11-14 22:39:46.504304835 +0000",
+        "mtime_ns": 1794696063499856254,
+        "ctime_ns": 1794696063499856254,
+        "size": 97
+      }
+    },
+    {
+      "experiment": "e02",
+      "source": {
+        "path": "/tmp/qgf-bbr-cost-1368/e02-source",
+        "birth_utc": "2026-11-14 22:52:03.120381741 +0000",
+        "mtime_ns": 1794696723300383148,
+        "ctime_ns": 1794696723300383148,
+        "size": 8640
+      },
+      "binary": {
+        "path": "/tmp/qgf-bbr-cost-1368/e02.test",
+        "birth_utc": "2026-11-14 22:52:07.410415283 +0000",
+        "mtime_ns": 1794696727843418669,
+        "ctime_ns": 1794696727947246886,
+        "size": 25812065,
+        "sha256": "1144f177ec6de7c5a4e8c12e5ca765559800f109c1336e839043ea849a7ce363"
+      },
+      "first_control_log": {
+        "path": "/tmp/qgf-bbr-cost-1368/e02-timing/stateless-pressure/unregistered/server.log",
+        "birth_utc": "2026-11-14 22:52:10.040435855 +0000",
+        "mtime_ns": 1794696807036037861,
+        "ctime_ns": 1794696807036037861,
+        "size": 97
+      }
+    },
+    {
+      "experiment": "e03",
+      "source": {
+        "path": "/tmp/qgf-bbr-cost-1368/e03-source",
+        "birth_utc": "2026-11-14 22:55:19.030913518 +0000",
+        "mtime_ns": 1794696919210914926,
+        "ctime_ns": 1794696919210914926,
+        "size": 8640
+      },
+      "binary": {
+        "path": "/tmp/qgf-bbr-cost-1368/e03.test",
+        "birth_utc": "2026-11-14 22:55:23.316947030 +0000",
+        "mtime_ns": 1794696923752950439,
+        "ctime_ns": 1794696923861155250,
+        "size": 25811706,
+        "sha256": "e6f8e7dc260435ef2545fcf83c8cc5f6d116d23c8e6a17e5da6e8baf51f275e7"
+      },
+      "first_control_log": {
+        "path": "/tmp/qgf-bbr-cost-1368/e03-timing/stateless-pressure/unregistered/server.log",
+        "birth_utc": "2026-11-14 22:55:47.892139179 +0000",
+        "mtime_ns": 1794697024886691498,
+        "ctime_ns": 1794697024886691498,
+        "size": 97
+      }
+    },
+    {
+      "experiment": "e04",
+      "source": {
+        "path": "/tmp/qgf-bbr-cost-1368/e04-source",
+        "birth_utc": "2026-11-14 23:16:29.368909253 +0000",
+        "mtime_ns": 1794698189550910502,
+        "ctime_ns": 1794698189550910502,
+        "size": 8740
+      },
+      "binary": {
+        "path": "/tmp/qgf-bbr-cost-1368/e04.test",
+        "birth_utc": "2026-11-14 23:16:33.889940293 +0000",
+        "mtime_ns": 1794698194321943259,
+        "ctime_ns": 1794698194484743031,
+        "size": 25882645,
+        "sha256": "87e532fc6762584775792e77d47dc1e4369a0f8cb2c519b3e333db6f51c3466c"
+      },
+      "first_control_log": {
+        "path": "/tmp/qgf-bbr-cost-1368/e04-observed/stateless-pressure/unregistered/server.log",
+        "birth_utc": "2026-11-14 23:23:06.045632761 +0000",
+        "mtime_ns": 1794698663045161425,
+        "ctime_ns": 1794698663045161425,
+        "size": 97
+      }
+    },
+    {
+      "experiment": "e05",
+      "source": {
+        "path": "/tmp/qgf-bbr-cost-1368/e05-source",
+        "birth_utc": "2026-11-14 23:52:03.921468176 +0000",
+        "mtime_ns": 1794700324115469836,
+        "ctime_ns": 1794700324115469836,
+        "size": 8680
+      },
+      "binary": {
+        "path": "/tmp/qgf-bbr-cost-1368/e05.test",
+        "birth_utc": "2026-11-14 23:52:08.266505335 +0000",
+        "mtime_ns": 1794700328679508867,
+        "ctime_ns": 1794700328803593097,
+        "size": 25904363,
+        "sha256": "06d570e0832dffd9172b885000544560a86345041570706620b148d6b7becee7"
+      },
+      "first_control_log": {
+        "path": "/tmp/qgf-bbr-cost-1368/e05-timing/stateless-pressure/unregistered/server.log",
+        "birth_utc": "2026-11-14 23:52:43.911810172 +0000",
+        "mtime_ns": 1794700440909468647,
+        "ctime_ns": 1794700440909468647,
+        "size": 97
+      }
+    },
+    {
+      "experiment": "e06",
+      "source": {
+        "path": "/tmp/qgf-bbr-cost-1368/e06-source",
+        "birth_utc": "2026-11-15 00:21:46.867181210 +0000",
+        "mtime_ns": 1794702107055182909,
+        "ctime_ns": 1794702107055182909,
+        "size": 8660
+      },
+      "binary": {
+        "path": "/tmp/qgf-bbr-cost-1368/e06.test",
+        "birth_utc": "2026-11-15 00:21:51.512223178 +0000",
+        "mtime_ns": 1794702111987227470,
+        "ctime_ns": 1794702112092642393,
+        "size": 25882391,
+        "sha256": "b80dd7dadb74e2b1eea3cc263fb86e3c217d17ce0b28da8081f6edd90fb4d205"
+      },
+      "first_control_log": {
+        "path": "/tmp/qgf-bbr-cost-1368/e06-timing/stateless-pressure/unregistered/server.log",
+        "birth_utc": "2026-11-15 00:23:53.379662882 +0000",
+        "mtime_ns": 1794702310375825695,
+        "ctime_ns": 1794702310375825695,
+        "size": 97
+      },
+      "native_unit_log": {
+        "path": "/tmp/qgf-bbr-cost-1368/e06-native-unit.log",
+        "birth_utc": "2026-11-15 00:21:52.116228635 +0000",
+        "mtime_ns": 1794702112157229006,
+        "ctime_ns": 1794702112157229006,
+        "size": 4234,
+        "sha256": "bb09e1f1ed220502f94682890267e5a98477a09f78f95f0adc6fc3ab4aeb5d0e"
+      }
+    },
+    {
+      "experiment": "e07",
+      "source": {
+        "path": "/tmp/qgf-bbr-cost-1368/e07-source",
+        "birth_utc": "2026-11-15 00:41:04.966718631 +0000",
+        "mtime_ns": 1794703265155720693,
+        "ctime_ns": 1794703265155720693,
+        "size": 8760
+      },
+      "binary": {
+        "path": "/tmp/qgf-bbr-cost-1368/e07.test",
+        "birth_utc": "2026-11-15 00:41:09.415767168 +0000",
+        "mtime_ns": 1794703269836771761,
+        "ctime_ns": 1794703270005750100,
+        "size": 25958524,
+        "sha256": "f46026aca1229fc2cbaad7a5ac0b1bf7950b16972ae4377878ce87d72ab4672c"
+      },
+      "first_control_log": {
+        "path": "/tmp/qgf-bbr-cost-1368/e07-observed/stateless-pressure/unregistered/server.log",
+        "birth_utc": "2026-11-15 00:42:49.242856232 +0000",
+        "mtime_ns": 1794703446242696262,
+        "ctime_ns": 1794703446242696262,
+        "size": 97
+      },
+      "native_unit_log": {
+        "path": "/tmp/qgf-bbr-cost-1368/e07-native-unit.log",
+        "birth_utc": "2026-11-15 00:41:10.028773855 +0000",
+        "mtime_ns": 1794703270060774205,
+        "ctime_ns": 1794703270060774205,
+        "size": 3814,
+        "sha256": "732b3c9ed0675f8c3b5fa4635e5eee03aa86c140f460d90a5d73b4100f382d46"
+      }
+    },
+    {
+      "experiment": "e08",
+      "source": {
+        "path": "/tmp/qgf-bbr-cost-1368/e08-source",
+        "birth_utc": "2026-11-15 01:02:44.720420069 +0000",
+        "mtime_ns": 1794704564915421905,
+        "ctime_ns": 1794704564915421905,
+        "size": 8700
+      },
+      "binary": {
+        "path": "/tmp/qgf-bbr-cost-1368/e08.test",
+        "birth_utc": "2026-11-15 01:02:49.177462026 +0000",
+        "mtime_ns": 1794704569604466046,
+        "ctime_ns": 1794704569726233341,
+        "size": 25924807,
+        "sha256": "1d6cf9c00e2e491a0d634a60967a3cd9de8ad36983e9a48532601d7a203a6ec2"
+      },
+      "first_control_log": {
+        "path": "/tmp/qgf-bbr-cost-1368/e08-timing/stateless-pressure/unregistered/server.log",
+        "birth_utc": "2026-11-15 01:05:06.606755751 +0000",
+        "mtime_ns": 1794704783603480579,
+        "ctime_ns": 1794704783603480579,
+        "size": 97
+      },
+      "native_unit_log": {
+        "path": "/tmp/qgf-bbr-cost-1368/e08-native-unit.log",
+        "birth_utc": "2026-11-15 01:02:49.747467392 +0000",
+        "mtime_ns": 1794704570397473511,
+        "ctime_ns": 1794704570397473511,
+        "size": 6802,
+        "sha256": "b097fba3342c9a8db00f2ea7dc8cd12ef4a37fd9568830c88f92f8ab8dc4f22b"
+      }
+    }
+  ]
+}
