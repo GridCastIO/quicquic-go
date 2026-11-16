@@ -1,7 +1,7 @@
 # Correctness and Architecture Program — November 16, 2026
 
 **Identity:** `N16-20261116`
-**Status:** Implementation in progress; current track dispositions below
+**Status:** Implementation in progress
 **Normative scope:** Stable track identities, pointers, real dependencies, priority and binding rules
 **Audit history:** [Source and slice audit](../audits/2026-11-16-architecture-handoff/README.md)
 
@@ -14,7 +14,7 @@ This program captures the final grilled decisions from the November 16 architect
 | Track | Plan | Parent issue | Slices | Blocking slices | Initial state |
 |---|---|---|---|---|---|
 | N16-A: announcement carrier identity (D2) | [Announcement plan](2026-11-16-announcement-carrier-plan.md) | pending | A1 | None | FRONTIER; recommended first |
-| N16-E: Reno testing reservation release (D3) | [ECN release plan](2026-11-16-ecn-testing-release-plan.md) | pending | E1 | None | FRONTIER; parallel with A1 |
+| N16-E: Reno testing reservation release (D3) | [ECN release plan](2026-11-16-ecn-testing-release-plan.md) | [#1431](https://github.com/the-sarge/quic-go-fast/issues/1431) | E1 | None | COMPLETE; no successors |
 | N16-M: path-zero MTU growth (D1) | [MTU growth plan](2026-11-16-path-zero-mtu-growth-plan.md) | [#1433](https://github.com/the-sarge/quic-go-fast/issues/1433) | M1 | None | COMPLETE; no successor |
 | N16-L: size-recovery loss evidence (D4) | [Probe-loss plan](2026-11-16-recovery-probe-ecn-plan.md) | pending | L1 | None | FRONTIER; next priority |
 | N16-S: STREAM admission work | [STREAM inspection plan](2026-11-16-stream-admission-plan.md) | pending | S1, S2 | S2 requires S1's published SUPPORT decision | S1 FRONTIER; S2 BLOCKED/conditional |
