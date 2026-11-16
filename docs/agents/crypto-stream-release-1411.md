@@ -47,3 +47,5 @@ Heap protocol: separate client/server processes, 1,000 persistent loopback conne
 Use one Standards/Spec preparation pass, the full configured RAS panel, one initial fresh review and at most one replacement after accepted fixes, with verification of accepted findings. Apply the shared disposition policy and [repository execution overlay](../REVIEW-LOOP.md). Certify the exact head, pass applicable hosted checks including the ready-only independent multipath job, and squash merge after base verification. Journal only after product merge, then revalidate deferrals and reconcile issue #1411 and its OmniFocus task.
 
 Return for decision if safe completion requires a changed ownership/public contract, excluded work, evidence beyond the approved scope, or unresolved material performance tradeoff. Review history and measurement results belong in linked audit evidence, not appended contract revisions.
+
+Evidence: [ownership argument](../audits/crypto-stream-release-1411/ownership.md) and [paired memory/CPU evaluation](../audits/crypto-stream-release-1411/report.md).
