@@ -12,13 +12,13 @@
 
 Determine whether the measured cost of temporary STREAM materialization during packet admission justifies the bounded change below. If it does, let the existing wire parser validate and skip a STREAM frame without acquiring payload ownership. Ordinary parsing remains owning and shares authoritative validation.
 
-## Current shape (verified 2026-11-16)
+## S1 baseline shape (verified 2026-11-16)
 
 [Admission](../../datagram_packet_admission.go#L14) requires DATAGRAMs enabled, a configured ceiling above 1,452 bytes, 0/1-RTT and plaintext frame bytes greater than remaining DATAGRAM queue slots (`1024 - receiveQueueLen`). Ordinary-sized and STREAM-only packets can scan; payloads below 1,024 also can when the queue is occupied. The gate is not UDP length or negotiated jumbo-active status.
 
-[The STREAM arm](../../datagram_packet_admission.go#L39) calls the owning parser and immediately PutBack. [STREAM parsing](../../internal/wire/stream_frame.go#L26) validates, acquires storage and copies data. This establishes removable work but no measured throughput benefit. The full admission scan must finish before its capacity verdict, including malformed tails after overcount.
+[The baseline STREAM arm](https://github.com/the-sarge/quic-go-fast/blob/b6cbcf823fb8d4fa5b9effe3ba64a63660fe0899/datagram_packet_admission.go#L39) called the owning parser and immediately returned the frame to its pool if pooled. [Baseline STREAM parsing](https://github.com/the-sarge/quic-go-fast/blob/b6cbcf823fb8d4fa5b9effe3ba64a63660fe0899/internal/wire/stream_frame.go#L26) validated, acquired storage and copied data. The full admission scan must finish before its capacity verdict, including malformed tails after overcount.
 
-[Existing BenchmarkParseStreamFrame](../../internal/wire/frame_parser_test.go#L782) uses the free parser through its helper, not a configured jumbo `FrameParser`. It is ordinary-parser preservation context, not admission cost evidence. [F11](2026-11-05-jumbo-packets-plan.md#f11--pack-several-short-datagrams-into-a-jumbo-packet-conditional) already records STREAM-only cost; F12 governs exact-candidate consumer/release qualification and is not this measurement's harness or blocker.
+[Existing BenchmarkParseStreamFrame](https://github.com/the-sarge/quic-go-fast/blob/b6cbcf823fb8d4fa5b9effe3ba64a63660fe0899/internal/wire/frame_parser_test.go#L782) uses the free parser through its helper, not a configured jumbo `FrameParser`. It is ordinary-parser preservation context, not admission cost evidence. [F11](2026-11-05-jumbo-packets-plan.md#f11--pack-several-short-datagrams-into-a-jumbo-packet-conditional) already records STREAM-only cost; F12 governs exact-candidate consumer/release qualification and is not this measurement's harness or blocker.
 
 ## Decision
 
@@ -86,7 +86,7 @@ go test ./internal/wire -run '^$' -bench '^BenchmarkParseStreamFrame$' -benchmem
 
 **What it delivers:** one independently green runtime-and-tests PR adds the shared private validator and length/error-only skip operation, then replaces admission's single owning STREAM call. It may start only after S1 is merged with SUPPORT and the receipt is included in dispatch context.
 
-**Existing-work disposition:** new conditional slice; no implementation exists. Do not mark ready from S1 issue closure alone. A published DEFER/INCONCLUSIVE disposition closes S2 without code.
+**Initial disposition:** new conditional slice, with no earlier implementation. Readiness required a published S1 SUPPORT decision. A published DEFER/INCONCLUSIVE disposition would have closed S2 without code.
 
 **Single owner / authority completeness:** existing wire parser owns STREAM representation and storage-capacity validity; admission owns full-packet count/refusal; normal dispatch and stream/queue owners retain data. No new persisted authority, payload lifetime or duplicate grammar. Private decoder and consumer ship together.
 
