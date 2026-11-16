@@ -11179,3 +11179,24 @@ Validated candidate `360284504738c2615352266bfaa992d8a4c9bc22` passed handshake/
 ### Decisions
 
 Follow the [approved issue #1405 plan](https://github.com/the-sarge/quic-go-fast/issues/1405#issuecomment-6903560892): correct the version-specific label without a legacy-label fallback or wider upstream synchronization. Corrected v2 peers no longer share the erroneous derivation with old buggy peers. Published vectors provide example-level cryptographic evidence, supplemented by packet and integration coverage.
+
+---
+
+## Blocked-write cancellation credit leak fixed - 2026-11-15 19:34 EST
+
+**Main:** `dc1634994081`
+**Actor:** Codex
+
+### Summary
+
+Merged [PR #1415 — release stream credit after blocked write cancellation](https://github.com/the-sarge/quic-go-fast/pull/1415), closing [issue #1406 — Prevent stream-credit leaks when a blocked Write is reset](https://github.com/the-sarge/quic-go-fast/issues/1406). The mutex-owned write loop now observes reset or shutdown before buffering more input, captures the accepted-byte count before clearing pending caller input, and uses the existing result and completion handling. This prevents a canceled suffix from being rebuffered and retaining stream credit. Public APIs, wire formats, reservation accounting, reliable-prefix delivery, and completion ownership remain unchanged.
+
+### Validation
+
+The first deterministic regression failed before the fix: cancellation returned success for 1,452 pending bytes instead of accepting zero. Synctest regressions now cover local and peer cancellation, reset acknowledgment before and after writer resumption, shutdown, partially and fully accepted input, reserved frames, limiter error precedence, and reliable-prefix delivery. A real bidirectional stream/incoming-map composition test verifies exactly one MAX_STREAMS credit return and admission of the next stream.
+
+Final candidate `be438912fc1f3eb5360707e2ae0f2d7fb71aeac4` passed focused send-stream tests, stream/map race tests, the root-package suite, vet, module-tidiness and whitespace checks. Separate Standards and Spec reviewers found no issues. Full configured RAS run `20261116T001022-4539b6972ace56f967e55691` completed all four reviewers with zero findings; the already-started base-advance run `20261116T002057-1074f2a416fa69dc27a9dfca` also finished with zero findings. All 18 applicable hosted checks passed on the final candidate, including the actual post-ready [multipath peer run for PR #1415](https://github.com/the-sarge/quic-go-fast/actions/runs/43780270322). The live head and unchanged main were checked before guarded squash merge as `dc1634994081645bd1013a9f855d7cae02e25ba5`.
+
+### Decisions
+
+The [approved plan for issue #1406](https://github.com/the-sarge/quic-go-fast/issues/1406#issuecomment-6903695921) confines the fix to the existing write owner with finite regression evidence. Josh explicitly instructed no new RAS review for subsequent patch-identical rebases; the intervening handshake and journal changes were inspected, range comparison confirmed the unchanged patch, and exact-head local/hosted validation remained required. The [current certification receipt for PR #1415](https://github.com/the-sarge/quic-go-fast/pull/1415#issuecomment-6903926360) records that override. No deferred findings remain.
