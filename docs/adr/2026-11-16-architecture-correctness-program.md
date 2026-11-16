@@ -1,7 +1,7 @@
 # Correctness and Architecture Program — November 16, 2026
 
 **Identity:** `N16-20261116`
-**Status:** Accepted handoff; implementation not started
+**Status:** Implementation in progress; current completion is recorded by track below
 **Normative scope:** Stable track identities, pointers, real dependencies, priority and binding rules
 **Audit history:** [Source and slice audit](../audits/2026-11-16-architecture-handoff/README.md)
 
