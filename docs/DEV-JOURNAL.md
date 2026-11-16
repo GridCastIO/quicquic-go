@@ -11200,3 +11200,22 @@ Final candidate `be438912fc1f3eb5360707e2ae0f2d7fb71aeac4` passed focused send-s
 ### Decisions
 
 The [approved plan for issue #1406](https://github.com/the-sarge/quic-go-fast/issues/1406#issuecomment-6903695921) confines the fix to the existing write owner with finite regression evidence. Josh explicitly instructed no new RAS review for subsequent patch-identical rebases; the intervening handshake and journal changes were inspected, range comparison confirmed the unchanged patch, and exact-head local/hosted validation remained required. The [current certification receipt for PR #1415](https://github.com/the-sarge/quic-go-fast/pull/1415#issuecomment-6903926360) records that override. No deferred findings remain.
+
+---
+
+## ECN testing-boundary and PTO accounting landed - 2026-11-15 19:58 EST
+
+**Main:** `d5f55d73eca4`
+**Actor:** Codex
+
+### Summary
+
+Merged [PR #1418 — Correct ECN testing boundary and PTO accounting](https://github.com/the-sarge/quic-go-fast/pull/1418), closing [issue #1407 — Correct ECN testing-boundary and PTO loss accounting](https://github.com/the-sarge/quic-go-fast/issues/1407). The ordinary tracker now includes the final testing packet. Actual 1-RTT PTO retirements share ordinary loss's local-evidence-first ECN dispatch, preserving BBR/legacy ownership, uncertainty fail-closed handling, path isolation, and the absence of congestion-loss credit for PTO.
+
+### Validation
+
+The final-packet bleaching regression and all four ordinary/local × Reno/BBR PTO regressions failed before their respective corrections and passed afterward. Added coverage checks valid feedback, unmarked neighbors, completion exclusions, mixed loss/PTO retirement, duplicate and late ACKs, encryption-level exclusions, and old-generation path feedback. Exact-head certification passed affected ackhandler/congestion tests, root ECN/multipath/migration/probe tests, vet, module tidiness, and diff checks. All 18 hosted checks passed on candidate `e4d2a1e26fefe4331f3762b93327276fde2afefc`, including the actual post-ready independent-peer run's fixed 16 cases and separate zero vectors. The merged product tree matches that candidate.
+
+### Decisions
+
+Standards/Spec preparation found no actionable findings. Full-panel RAS run `20261116T004544-a2f9f445ef25cbb68fe4eeb7` required no fixes. The multipath rescheduling observation was independently rejected as a defect: that caller already retires packets as lost, and the new dispatch reconciles ECN evidence without changing congestion-loss policy. No deferred follow-ups remain. See [PR #1418 review disposition](https://github.com/the-sarge/quic-go-fast/pull/1418#issuecomment-6904313749) and [PR #1418 certification receipt](https://github.com/the-sarge/quic-go-fast/pull/1418#issuecomment-6904317753). Rebase and review started only after both [product PR #1415](https://github.com/the-sarge/quic-go-fast/pull/1415) and [journal PR #1417](https://github.com/the-sarge/quic-go-fast/pull/1417) merged, as requested.
