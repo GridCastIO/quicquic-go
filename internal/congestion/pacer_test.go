@@ -1,6 +1,7 @@
 package congestion
 
 import (
+	"fmt"
 	"math"
 	"math/rand/v2"
 	"testing"
@@ -14,7 +15,7 @@ import (
 
 func TestPacerPacing(t *testing.T) {
 	bandwidth := 50 * initialMaxDatagramSize // 50 full-size packets per second
-	p := newPacer(func() Bandwidth { return Bandwidth(bandwidth) * BytesPerSecond * 4 / 5 })
+	p := newPacer(func() Bandwidth { return Bandwidth(bandwidth) * BytesPerSecond * 4 / 5 }, initialMaxDatagramSize)
 	now := monotime.Now()
 	require.Zero(t, p.TimeUntilSend())
 	budget := p.Budget(now)
@@ -82,52 +83,62 @@ func TestPacerDeadlineRounding(t *testing.T) {
 }
 
 func TestPacerUpdatePacketSize(t *testing.T) {
-	const bandwidth = 50 * initialMaxDatagramSize // 50 full-size packets per second
-	p := newPacer(func() Bandwidth { return Bandwidth(bandwidth) * BytesPerSecond * 4 / 5 })
+	for _, size := range []protocol.ByteCount{1200, 1280, 1452} {
+		t.Run(fmt.Sprint(size), func(t *testing.T) {
+			bandwidth := 50 * size // 50 full-size packets per second
+			p := newPacer(func() Bandwidth { return Bandwidth(bandwidth) * BytesPerSecond * 4 / 5 }, size)
 
-	// consume the initial budget by sending packets
-	now := monotime.Now()
-	for p.Budget(now) > 0 {
-		p.SentPacket(now, initialMaxDatagramSize)
+			// consume the initial budget by sending packets
+			now := monotime.Now()
+			for p.Budget(now) > 0 {
+				p.SentPacket(now, size)
+			}
+
+			require.Equal(t, time.Second/50, p.TimeUntilSend().Sub(now))
+			// Double the packet size. We now need to wait twice as long to send the next packet.
+			newDatagramSize := 2 * size
+			p.SetMaxDatagramSize(newDatagramSize)
+			require.Equal(t, 2*time.Second/50, p.TimeUntilSend().Sub(now))
+			require.Equal(t, newDatagramSize, p.Budget(p.TimeUntilSend()))
+
+			// check that the maximum burst size is updated
+			require.Equal(t, maxBurstSizePackets*newDatagramSize, p.Budget(now.Add(time.Hour)))
+		})
 	}
-
-	require.Equal(t, time.Second/50, p.TimeUntilSend().Sub(now))
-	// Double the packet size. We now need to wait twice as long to send the next packet.
-	const newDatagramSize = 2 * initialMaxDatagramSize
-	p.SetMaxDatagramSize(newDatagramSize)
-	require.Equal(t, 2*time.Second/50, p.TimeUntilSend().Sub(now))
-
-	// check that the maximum burst size is updated
-	require.Equal(t, maxBurstSizePackets*newDatagramSize, p.Budget(now.Add(time.Hour)))
 }
 
 func TestPacerFastPacing(t *testing.T) {
-	const bandwidth = 10000 * initialMaxDatagramSize // 10,000 full-size packets per second
-	p := newPacer(func() Bandwidth { return Bandwidth(bandwidth) * BytesPerSecond * 4 / 5 })
+	for _, size := range []protocol.ByteCount{1200, 1280, 1452} {
+		t.Run(fmt.Sprint(size), func(t *testing.T) {
+			bandwidth := 10000 * size // 10,000 full-size packets per second
+			p := newPacer(func() Bandwidth { return Bandwidth(bandwidth) * BytesPerSecond * 4 / 5 }, size)
 
-	// consume the initial budget by sending packets
-	now := monotime.Now()
-	for p.Budget(now) > 0 {
-		p.SentPacket(now, initialMaxDatagramSize)
+			// consume the initial budget by sending packets
+			now := monotime.Now()
+			require.Equal(t, 20*size, p.Budget(now))
+			for p.Budget(now) > 0 {
+				p.SentPacket(now, size)
+			}
+
+			// If we were pacing by packet, we'd expect the next packet to send in 1/10ms.
+			// However, we don't want to arm the pacing timer for less than 1ms,
+			// so we wait for 1ms, and then send 10 packets in a burst.
+			require.Equal(t, time.Millisecond, p.TimeUntilSend().Sub(now))
+			require.Equal(t, 10*size, p.Budget(now.Add(time.Millisecond)))
+
+			now = now.Add(time.Millisecond)
+			for range 10 {
+				require.NotZero(t, p.Budget(now))
+				p.SentPacket(now, size)
+			}
+			require.Zero(t, p.Budget(now))
+			require.Equal(t, time.Millisecond, p.TimeUntilSend().Sub(now))
+		})
 	}
-
-	// If we were pacing by packet, we'd expect the next packet to send in 1/10ms.
-	// However, we don't want to arm the pacing timer for less than 1ms,
-	// so we wait for 1ms, and then send 10 packets in a burst.
-	require.Equal(t, time.Millisecond, p.TimeUntilSend().Sub(now))
-	require.Equal(t, 10*initialMaxDatagramSize, p.Budget(now.Add(time.Millisecond)))
-
-	now = now.Add(time.Millisecond)
-	for range 10 {
-		require.NotZero(t, p.Budget(now))
-		p.SentPacket(now, initialMaxDatagramSize)
-	}
-	require.Zero(t, p.Budget(now))
-	require.Equal(t, time.Millisecond, p.TimeUntilSend().Sub(now))
 }
 
 func TestPacerNoOverflows(t *testing.T) {
-	p := newPacer(func() Bandwidth { return math.MaxUint64 })
+	p := newPacer(func() Bandwidth { return math.MaxUint64 }, initialMaxDatagramSize)
 	now := monotime.Now()
 	p.SentPacket(now, initialMaxDatagramSize)
 	for range 100000 {
@@ -149,7 +160,7 @@ func TestPacerNoOverflows(t *testing.T) {
 
 func BenchmarkPacer(b *testing.B) {
 	const bandwidth = 50 * initialMaxDatagramSize // 50 full-size packets per second
-	p := newPacer(func() Bandwidth { return Bandwidth(bandwidth) * BytesPerSecond * 4 / 5 })
+	p := newPacer(func() Bandwidth { return Bandwidth(bandwidth) * BytesPerSecond * 4 / 5 }, initialMaxDatagramSize)
 
 	now := monotime.Now()
 

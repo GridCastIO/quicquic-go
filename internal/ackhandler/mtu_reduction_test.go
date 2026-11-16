@@ -1,13 +1,41 @@
 package ackhandler
 
 import (
+	"fmt"
 	"testing"
 	"time"
 
 	"github.com/quic-go/quic-go/internal/monotime"
 	"github.com/quic-go/quic-go/internal/protocol"
+	"github.com/quic-go/quic-go/internal/utils"
 	"github.com/stretchr/testify/require"
 )
+
+func TestMTUReductionRenoPacing(t *testing.T) {
+	for _, size := range []protocol.ByteCount{1200, 1452} {
+		t.Run(fmt.Sprint(size), func(t *testing.T) {
+			rtt := utils.NewRTTStats()
+			rtt.UpdateRTT(time.Second, 0)
+			h := NewSentPacketHandler(0, 1500, rtt, &utils.ConnectionStats{}, true, false, nil, protocol.PerspectiveClient, nil, utils.DefaultLogger).(*sentPacketHandler)
+			now := monotime.Time(1)
+			sendCongestionTestPacket(h, now, protocol.Encryption1RTT, 1500)
+			ResetForMTUReduction(h, now, size, nil)
+			require.Zero(t, h.bytesInFlight)
+			// The reset sender retains the one-second RTT and starts with a
+			// ten-packet burst at the reduced size, followed by 40 packets/s.
+			for range 10 {
+				require.True(t, h.congestion.HasPacingBudget(now))
+				require.Zero(t, h.TimeUntilSend())
+				sendCongestionTestPacket(h, now, protocol.Encryption1RTT, size)
+			}
+			require.False(t, h.congestion.HasPacingBudget(now))
+			deadline := h.TimeUntilSend()
+			require.Equal(t, 25*time.Millisecond, deadline.Sub(now))
+			require.False(t, h.congestion.HasPacingBudget(deadline.Add(-time.Nanosecond)))
+			require.True(t, h.congestion.HasPacingBudget(deadline))
+		})
+	}
+}
 
 func TestMTUReductionPreservesECNAndResetsSamples(t *testing.T) {
 	h, r := newBBRECNTestHandler()
