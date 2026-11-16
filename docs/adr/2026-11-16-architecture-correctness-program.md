@@ -1,7 +1,7 @@
 # Correctness and Architecture Program — November 16, 2026
 
 **Identity:** `N16-20261116`
-**Status:** Implementation in progress; A1 complete
+**Status:** Implementation in progress; A1 and E1 complete
 **Normative scope:** Stable track identities, pointers, real dependencies, priority and binding rules
 **Audit history:** [Source and slice audit](../audits/2026-11-16-architecture-handoff/README.md)
 
@@ -14,12 +14,12 @@ This program captures the final grilled decisions from the November 16 architect
 | Track | Plan | Parent issue | Slices | Blocking slices | Initial state |
 |---|---|---|---|---|---|
 | N16-A: announcement carrier identity (D2) | [Announcement plan](2026-11-16-announcement-carrier-plan.md) | [#1429](https://github.com/the-sarge/quic-go-fast/issues/1429) | [A1 (#1430)](https://github.com/the-sarge/quic-go-fast/issues/1430) | None | COMPLETE |
-| N16-E: Reno testing reservation release (D3) | [ECN release plan](2026-11-16-ecn-testing-release-plan.md) | pending | E1 | None | FRONTIER; parallel with A1 |
+| N16-E: Reno testing reservation release (D3) | [ECN release plan](2026-11-16-ecn-testing-release-plan.md) | [#1431](https://github.com/the-sarge/quic-go-fast/issues/1431) | E1 | None | COMPLETE; no successors |
 | N16-M: path-zero MTU growth (D1) | [MTU growth plan](2026-11-16-path-zero-mtu-growth-plan.md) | pending | M1 | None | FRONTIER; next priority |
 | N16-L: size-recovery loss evidence (D4) | [Probe-loss plan](2026-11-16-recovery-probe-ecn-plan.md) | pending | L1 | None | FRONTIER; next priority |
 | N16-S: STREAM admission work | [STREAM inspection plan](2026-11-16-stream-admission-plan.md) | pending | S1, S2 | S2 requires S1's published SUPPORT decision | S1 FRONTIER; S2 BLOCKED/conditional |
 
-The current frontier is E1, M1, L1 and S1. Completing A1 creates no newly ready successor. The sole blocking edge is `S1 → S2`: the accepted decision requires sizing the optional optimization before committing to its implementation. Closing S1 is insufficient by itself; its published outcome must be SUPPORT. DEFER or INCONCLUSIVE completes S1 and closes S2 as not selected, without waiting for an unspecified future measurement. Source/representation invalidation is a stop, not automatic optimization authority.
+The current frontier is M1, L1 and S1. Completing A1 creates no newly ready successor. The sole blocking edge is `S1 → S2`: the accepted decision requires sizing the optional optimization before committing to its implementation. Closing S1 is insufficient by itself; its published outcome must be SUPPORT. DEFER or INCONCLUSIVE completes S1 and closes S2 as not selected, without waiting for an unspecified future measurement. Source/representation invalidation is a stop, not automatic optimization authority.
 
 A1, E1, M1, L1 and S1 have no technical dependencies on one another and are parallel-safe in separate worktrees. Prefer A1/E1, then M1/L1, then S1; this is priority, not a blocking graph. Coordinate an actual shared-host measurement with concurrent workloads and disclose relevant performance-core contention; ordinary background activity alone is not a dependency. Merge and certify each exact candidate independently. S2 can proceed independently of the correctness tracks once its own decision edge is satisfied.
 
