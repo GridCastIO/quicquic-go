@@ -324,6 +324,14 @@ func requestFromHeaders(decodeFn qpack.DecodeFunc, sizeLimit int, headerFields *
 		requestURI = hdr.Path
 	}
 
+	if !isConnect && hdr.Scheme == "" {
+		return nil, errors.New(":scheme must not be empty")
+	}
+	// Other schemes can use authorities that aren't HTTP host/port values.
+	if (hdr.Scheme == "http" || hdr.Scheme == "https" || (isConnect && !isExtendedConnected)) && !httpguts.ValidHostHeader(hdr.Authority) {
+		return nil, fmt.Errorf("invalid :authority: %q", hdr.Authority)
+	}
+
 	req := &http.Request{
 		Method:        hdr.Method,
 		URL:           u,
@@ -369,6 +377,10 @@ func updateResponseFromHeaders(rsp *http.Response, decodeFn qpack.DecodeFunc, si
 	status, err := strconv.Atoi(hdr.Status)
 	if err != nil {
 		return fmt.Errorf("invalid status code: %w", err)
+	}
+	// RFC 9110, Section 15 requires three digits in the range 100 to 599.
+	if len(hdr.Status) != 3 || status < 100 || status > 599 {
+		return fmt.Errorf("invalid status code: %q", hdr.Status)
 	}
 	rsp.StatusCode = status
 	rsp.Status = hdr.Status + " " + http.StatusText(status)

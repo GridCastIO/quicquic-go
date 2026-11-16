@@ -8,6 +8,9 @@ import (
 	mrand "math/rand/v2"
 	"net/http"
 	"net/http/httptest"
+	"net/http/httptrace"
+	"net/textproto"
+	"slices"
 	"strconv"
 	"testing"
 	"time"
@@ -256,6 +259,46 @@ func TestClientResponseValidation(t *testing.T) {
 	})
 }
 
+func TestClientInvalidStatusConnectionSurvives(t *testing.T) {
+	var recorder events.Recorder
+	client, server := newConnPair(t, withClientRecorder(&recorder))
+	cc := (&Transport{}).NewClientConn(client)
+	input := newExchangeInput()
+	t.Cleanup(func() { input.Close() })
+	type result struct {
+		rsp *http.Response
+		err error
+	}
+	resultChan := make(chan result, 1)
+	go func() {
+		rsp, err := cc.RoundTrip(httptest.NewRequest(http.MethodPost, "https://example.com", input))
+		resultChan <- result{rsp, err}
+	}()
+	ctx, cancel := context.WithTimeout(t.Context(), time.Second)
+	defer cancel()
+	str, err := server.AcceptStream(ctx)
+	require.NoError(t, err)
+	require.NoError(t, str.SetDeadline(time.Now().Add(time.Second)))
+	decodeHeader(t, str)
+	receiveExchange(t, input.entered)
+	_, err = str.Write(encodeHeaderFields(t, []qpack.HeaderField{{Name: ":status", Value: "+200"}}))
+	require.NoError(t, err)
+	res := receiveExchange(t, resultChan)
+	require.Nil(t, res.rsp)
+	require.ErrorContains(t, res.err, "http3: invalid response: invalid status code")
+	expectStreamReadReset(t, str, quic.StreamErrorCode(ErrCodeMessageError))
+	expectStreamWriteReset(t, str, quic.StreamErrorCode(ErrCodeMessageError))
+	parsed := filterQlogEventsForFrame(recorder.Events(qlog.FrameParsed{}), qlog.HeadersFrame{})
+	require.Len(t, parsed, 1)
+	require.Equal(t, []qlog.HeaderField{{Name: ":status", Value: "+200"}}, parsed[0].(qlog.FrameParsed).Frame.Frame.(qlog.HeadersFrame).HeaderFields)
+	require.NoError(t, client.Context().Err())
+	rsp, next := exchangeResponse(t, cc, server, httptest.NewRequest(http.MethodGet, "https://example.com", nil), encodeResponse(t, http.StatusOK))
+	require.NoError(t, next.Close())
+	_, err = io.ReadAll(rsp.Body)
+	require.NoError(t, err)
+	require.NoError(t, rsp.Body.Close())
+}
+
 func testClientResponseValidation(t *testing.T, tr *Transport, rsp []byte, expectedReset quic.StreamErrorCode) error {
 	clientConn, serverConn := newConnPair(t)
 
@@ -342,7 +385,6 @@ func TestClientResponseContentLength(t *testing.T) {
 		{name: "HEAD", method: http.MethodHead, status: http.StatusOK, contentLength: 6},
 		{name: "304", method: http.MethodGet, status: http.StatusNotModified, contentLength: 6},
 		{name: "204", method: http.MethodGet, status: http.StatusNoContent, contentLength: 6},
-		{name: "terminal 1xx", method: http.MethodGet, status: http.StatusSwitchingProtocols, contentLength: 6},
 		{name: "empty CONNECT", method: http.MethodConnect, status: http.StatusOK, contentLength: 6},
 		{name: "short CONNECT", method: http.MethodConnect, status: http.StatusOK, contentLength: 6, data: "foo"},
 		{name: "long CONNECT", method: http.MethodConnect, status: http.StatusOK, contentLength: 6, data: "foobarfoo"},
@@ -541,72 +583,117 @@ func testClientExtendedConnect(t *testing.T, enabled bool) {
 }
 
 func TestClient1xxHandling(t *testing.T) {
-	t.Run("a few early hints", func(t *testing.T) {
-		testClient1xxHandling(t, max1xxResponses, http.StatusOK, false)
-	})
-	t.Run("too many early hints", func(t *testing.T) {
-		testClient1xxHandling(t, max1xxResponses+1, http.StatusOK, true)
-	})
-	t.Run("EarlyHints followed by StatusSwitchingProtocols", func(t *testing.T) {
-		testClient1xxHandling(t, 1, http.StatusSwitchingProtocols, false)
-	})
+	for _, tc := range []struct {
+		name     string
+		statuses []int
+		end      string
+	}{
+		{name: "101 then final", statuses: []int{101}},
+		{name: "mixed informational", statuses: []int{103, 101, 100}},
+		{name: "limit", statuses: slices.Repeat([]int{101}, max1xxResponses)},
+		{name: "excessive", statuses: slices.Repeat([]int{101}, max1xxResponses+1), end: "excessive"},
+		{name: "early hints limit", statuses: slices.Repeat([]int{103}, max1xxResponses)},
+		{name: "early hints excessive", statuses: slices.Repeat([]int{103}, max1xxResponses+1), end: "excessive"},
+		{name: "EOF after 101", statuses: []int{101}, end: "EOF"},
+		{name: "cancel after 101", statuses: []int{101}, end: "cancel"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			client, server := newConnPair(t)
+			cc := (&Transport{}).NewClientConn(client)
+			ctx, cancel := context.WithTimeout(t.Context(), time.Second)
+			defer cancel()
+			var traced []int
+			var continued int
+			ctx = httptrace.WithClientTrace(ctx, &httptrace.ClientTrace{
+				Got1xxResponse: func(code int, header textproto.MIMEHeader) error {
+					traced = append(traced, code)
+					assert.Equal(t, []string{"foo", "bar"}, header.Values("Link"))
+					if tc.end == "cancel" {
+						cancel()
+					}
+					return nil
+				},
+				Got100Continue: func() { continued++ },
+			})
+			type result struct {
+				rsp *http.Response
+				err error
+			}
+			resultChan := make(chan result, 1)
+			input := newExchangeInput()
+			t.Cleanup(func() { input.Close() })
+			go func() {
+				rsp, err := cc.RoundTrip(httptest.NewRequest(http.MethodPost, "https://example.com", input).WithContext(ctx))
+				resultChan <- result{rsp, err}
+			}()
+			str, err := server.AcceptStream(ctx)
+			require.NoError(t, err)
+			require.NoError(t, str.SetDeadline(time.Now().Add(time.Second)))
+			decodeHeader(t, str)
+			receiveExchange(t, input.entered)
+			var wire []byte
+			for _, status := range tc.statuses {
+				wire = append(wire, encodeHeaderFields(t, []qpack.HeaderField{
+					{Name: ":status", Value: strconv.Itoa(status)},
+					{Name: "link", Value: "foo"},
+					{Name: "link", Value: "bar"},
+					{Name: "content-length", Value: "6"},
+				})...)
+			}
+			if tc.end == "" {
+				wire = append(wire, encodeHeaderFields(t, []qpack.HeaderField{
+					{Name: ":status", Value: "200"}, {Name: "content-length", Value: "3"},
+				})...)
+				wire = append(wire, getDataFrame([]byte("foo"))...)
+			}
+			_, err = str.Write(wire)
+			require.NoError(t, err)
+			if tc.end == "" || tc.end == "EOF" {
+				require.NoError(t, str.Close())
+			}
+			res := receiveExchange(t, resultChan)
+			switch tc.end {
+			case "excessive":
+				require.Nil(t, res.rsp)
+				require.EqualError(t, res.err, "http3: too many 1xx informational responses")
+				expectStreamReadReset(t, str, quic.StreamErrorCode(ErrCodeExcessiveLoad))
+				expectStreamWriteReset(t, str, quic.StreamErrorCode(ErrCodeExcessiveLoad))
+			case "EOF":
+				require.Nil(t, res.rsp)
+				require.ErrorIs(t, res.err, io.EOF)
+			case "cancel":
+				require.Nil(t, res.rsp)
+				require.ErrorIs(t, res.err, context.Canceled)
+			default:
+				require.NoError(t, res.err)
+				defer res.rsp.Body.Close()
+				require.Equal(t, http.StatusOK, res.rsp.StatusCode)
+				require.EqualValues(t, 3, res.rsp.ContentLength)
+				body, err := io.ReadAll(res.rsp.Body)
+				require.NoError(t, err)
+				require.Equal(t, "foo", string(body))
+			}
+			require.Equal(t, tc.statuses[:min(len(tc.statuses), max1xxResponses)], traced)
+			wantContinue := 0
+			if tc.name == "mixed informational" {
+				wantContinue = 1
+			}
+			require.Equal(t, wantContinue, continued)
+			cancel()
+			require.Eventually(t, func() bool { return input.closes.Load() == 1 }, time.Second, time.Millisecond)
+		})
+	}
 }
 
-func testClient1xxHandling(t *testing.T, numEarlyHints int, terminalStatus int, tooMany bool) {
-	var rspBuf bytes.Buffer
-	rstr := NewMockDatagramStream(gomock.NewController(t))
-	rstr.EXPECT().StreamID().Return(quic.StreamID(42)).AnyTimes()
-	rstr.EXPECT().Write(gomock.Any()).Do(rspBuf.Write).AnyTimes()
-	rw := newResponseWriter(newStream(rstr, nil, nil, func(io.Reader, *headersFrame, qlogwriter.Recorder) error { return nil }, nil), nil, false, nil)
-	rw.header.Add("Link", "foo")
-	rw.header.Add("Link", "bar")
-	for range numEarlyHints {
-		rw.WriteHeader(http.StatusEarlyHints)
+func encodeHeaderFields(t *testing.T, fields []qpack.HeaderField) []byte {
+	t.Helper()
+	var block bytes.Buffer
+	encoder := qpack.NewEncoder(&block)
+	for _, field := range fields {
+		require.NoError(t, encoder.WriteField(field))
 	}
-	rw.WriteHeader(terminalStatus)
-	rw.Flush()
-	rspBytes := rspBuf.Bytes()
-
-	clientConn, serverConn := newConnPair(t)
-
-	type result struct {
-		rsp *http.Response
-		err error
-	}
-	resultChan := make(chan result, 1)
-	go func() {
-		cc := (&Transport{}).NewClientConn(clientConn)
-		rsp, err := cc.RoundTrip(httptest.NewRequest(http.MethodGet, "http://quic-go.net", nil))
-		resultChan <- result{rsp: rsp, err: err}
-	}()
-
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
-	defer cancel()
-	str, err := serverConn.AcceptStream(ctx)
-	require.NoError(t, err)
-
-	// request headers
-	hfs := decodeHeader(t, str)
-	require.Equal(t, hfs[":method"], []string{http.MethodGet})
-
-	_, err = str.Write(rspBytes)
-	require.NoError(t, err)
-
-	var rsp *http.Response
-	select {
-	case res := <-resultChan:
-		if tooMany {
-			require.EqualError(t, res.err, "http3: too many 1xx informational responses")
-			return
-		}
-		require.NoError(t, res.err)
-		rsp = res.rsp
-	case <-time.After(time.Second):
-		t.Fatal("timeout")
-	}
-
-	require.Equal(t, []string{"foo", "bar"}, rsp.Header["Link"])
-	require.Equal(t, terminalStatus, rsp.StatusCode)
+	require.NoError(t, encoder.Close())
+	return append((&headersFrame{Length: uint64(block.Len())}).Append(nil), block.Bytes()...)
 }
 
 func TestClientGzip(t *testing.T) {

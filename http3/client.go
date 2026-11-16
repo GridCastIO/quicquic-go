@@ -484,9 +484,8 @@ func (c *ClientConn) doRequest(req *http.Request, str *RequestStream, lifetime *
 		}
 		resCode := res.StatusCode
 		is1xx := 100 <= resCode && resCode <= 199
-		// treat 101 as a terminal status, see https://github.com/golang/go/issues/26161
-		is1xxNonTerminal := is1xx && resCode != http.StatusSwitchingProtocols
-		if is1xxNonTerminal {
+		// HTTP/3 doesn't use 101 to switch protocols (RFC 9114, Section 4.5).
+		if is1xx {
 			num1xx++
 			if num1xx > max1xxResponses {
 				str.CancelRead(quic.StreamErrorCode(ErrCodeExcessiveLoad))
