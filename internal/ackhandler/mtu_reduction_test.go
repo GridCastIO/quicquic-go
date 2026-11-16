@@ -8,6 +8,7 @@ import (
 	"github.com/quic-go/quic-go/internal/monotime"
 	"github.com/quic-go/quic-go/internal/protocol"
 	"github.com/quic-go/quic-go/internal/utils"
+	"github.com/quic-go/quic-go/internal/wire"
 	"github.com/stretchr/testify/require"
 )
 
@@ -102,4 +103,77 @@ func TestMTUReductionPreservesECNRestrictions(t *testing.T) {
 		capable = true
 		require.Equal(t, protocol.ECT0, h.ECNMode(true))
 	})
+}
+
+type mtuRecoveryTestHandler struct{ FrameHandler }
+
+func (*mtuRecoveryTestHandler) IsMTURecoveryPacket() {}
+
+func TestMTURecoveryECNLossVerdict(t *testing.T) {
+	for _, bbr := range []bool{false, true} {
+		for _, verdict := range []string{"lost", "cancelled", "confirmed"} {
+			t.Run(fmt.Sprintf("BBR=%t/%s", bbr, verdict), func(t *testing.T) {
+				h := NewSentPacketHandler(0, 1452, utils.NewRTTStats(), &utils.ConnectionStats{}, true, true, nil, protocol.PerspectiveServer, nil, utils.DefaultLogger).(*sentPacketHandler)
+				recorder := &congestionRecorder{}
+				if bbr {
+					controller := EnableBBR(h, 1452, func() protocol.ByteCount { return 0 })
+					h.congestionEvents.sink = &localRichRecorder{recorder: recorder, controller: controller}
+					EnableBBRECN(h, func(bool) (uint64, bool, bool) { return h.congestionEvents.pathGeneration, true, true })
+				}
+				now := monotime.Time(time.Second)
+				var confirmations []protocol.PacketNumber
+				ObservePacketSize(h, func(_ PacketContext, _ protocol.ByteCount, pn protocol.PacketNumber) {
+					confirmations = append(confirmations, pn)
+				}, nil)
+				var frames packetTracker
+				pn := h.PopPacketNumber(protocol.Encryption1RTT)
+				ping := frames.NewPingFrame(pn)
+				ping.Handler = &mtuRecoveryTestHandler{ping.Handler}
+				h.SentPacket(now, pn, protocol.InvalidPacketNumber, nil, []Frame{ping}, protocol.Encryption1RTT, h.ECNMode(true), 1452, true, false)
+				// Unrelated flight survives dedicated retirement.
+				other := h.PopPacketNumber(protocol.Encryption1RTT)
+				h.SentPacket(now, other, protocol.InvalidPacketNumber, nil, []Frame{{Frame: &wire.PingFrame{}}}, protocol.Encryption1RTT, protocol.ECNNon, 64, false, false)
+				if verdict == "confirmed" {
+					ackBBRECNAt(t, h, now.Add(time.Millisecond), ackRanges(pn), 0, 1)
+				}
+				cwnd := h.congestion.GetCongestionWindow()
+				if verdict == "lost" {
+					DeclareMTURecoveryProbesLost(h, now.Add(time.Millisecond))
+				} else {
+					RetireMTURecoveryProbes(h, now.Add(time.Millisecond))
+				}
+				// Repeated loss declaration cannot recreate a retired packet's verdict.
+				DeclareMTURecoveryProbesLost(h, now.Add(2*time.Millisecond))
+				require.Equal(t, protocol.ByteCount(64), h.bytesInFlight)
+				require.Equal(t, cwnd, h.congestion.GetCongestionWindow())
+				losses := func() uint64 {
+					if bbr {
+						return h.bbrECN.testingLost
+					}
+					return uint64(h.ecnTracker.(*ecnTracker).numLostTesting)
+				}
+				wantLosses := uint64(0)
+				if verdict == "lost" {
+					wantLosses = 1
+				}
+				require.Equal(t, wantLosses, losses())
+				require.Empty(t, frames.Lost)
+				for range 2 {
+					ackBBRECNAt(t, h, now.Add(3*time.Millisecond), ackRanges(pn), 0, 1)
+				}
+				require.Equal(t, wantLosses, losses())
+				require.Equal(t, protocol.ByteCount(64), h.bytesInFlight)
+				if verdict == "cancelled" {
+					require.Empty(t, confirmations)
+				} else {
+					require.Equal(t, []protocol.PacketNumber{pn}, confirmations)
+				}
+				for _, event := range recorder.feedback {
+					require.Empty(t, event.Lost)
+				}
+				RetireMTURecoveryProbes(h, now.Add(4*time.Millisecond))
+				require.Empty(t, h.mtuRecoveryAcks)
+			})
+		}
+	}
 }
