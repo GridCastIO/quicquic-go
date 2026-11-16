@@ -2206,3 +2206,261 @@ func TestSendStreamResetStreamAtRandomized(t *testing.T) {
 	require.GreaterOrEqual(t, highestOffset, reliableOffset)
 	require.Equal(t, data[:reliableOffset], received[:reliableOffset])
 }
+
+func TestSendStreamBlockedWriteCanceled(t *testing.T) {
+	const streamID protocol.StreamID = 42
+	for _, remote := range []bool{false, true} {
+		for _, reserved := range []bool{false, true} {
+			for _, ackBeforeResume := range []bool{false, true} {
+				t.Run(fmt.Sprintf("remote=%t/reserved=%t/ackBeforeResume=%t", remote, reserved, ackBeforeResume), func(t *testing.T) {
+					synctest.Test(t, func(t *testing.T) {
+						ctrl := gomock.NewController(t)
+						sender := NewMockStreamSender(ctrl)
+						str := newSendStream(context.Background(), streamID, sender, newTestStreamFlowControllerWithSendWindow(streamID, protocol.MaxByteCount), false)
+						sender.EXPECT().onHasStreamData(streamID, str)
+						if reserved {
+							require.NoError(t, str.TryWriteAll([]byte("prefix")))
+						} else {
+							_, err := str.Write([]byte("prefix"))
+							require.NoError(t, err)
+						}
+						// Hold the unlocked sender notification to order the early ACK
+						// before the writer can observe cancellation.
+						resume := make(chan struct{})
+						sender.EXPECT().onHasStreamData(streamID, str).Do(func(protocol.StreamID, *SendStream) {
+							if ackBeforeResume {
+								<-resume
+							}
+						})
+						type result struct {
+							n   int
+							err error
+						}
+						results := make(chan result, 1)
+						go func() {
+							n, err := str.Write(make([]byte, protocol.MaxPacketBufferSize))
+							results <- result{n, err}
+						}()
+						synctest.Wait()
+						require.Empty(t, results, "write must be blocked behind the buffered prefix")
+						sender.EXPECT().onHasStreamControlFrame(streamID, str)
+						if remote {
+							str.handleStopSendingFrame(&wire.StopSendingFrame{StreamID: streamID, ErrorCode: 123})
+						} else {
+							str.CancelWrite(123)
+						}
+						reset, ok, more := str.getControlFrame(monotime.Now())
+						require.True(t, ok)
+						require.False(t, more)
+						var finalSize protocol.ByteCount
+						if reserved {
+							finalSize = 6
+						}
+						require.Equal(t, &wire.ResetStreamFrame{StreamID: streamID, ErrorCode: 123, FinalSize: finalSize}, reset.Frame)
+						sender.EXPECT().onStreamCompleted(streamID)
+						if ackBeforeResume {
+							reset.Handler.OnAcked(reset.Frame)
+							close(resume)
+						}
+						synctest.Wait()
+						r := <-results
+						require.Zero(t, r.n)
+						require.Same(t, context.Cause(str.Context()), r.err)
+						require.ErrorIs(t, r.err, &StreamError{StreamID: streamID, ErrorCode: 123, Remote: remote})
+						require.Nil(t, str.dataForWriting)
+						require.Nil(t, str.nextFrame)
+						require.False(t, str.nextFrameReserved)
+						frame, _, more := str.popStreamFrame(protocol.MaxByteCount, protocol.Version1)
+						require.Nil(t, frame.Frame)
+						require.False(t, more)
+						if !ackBeforeResume {
+							reset.Handler.OnAcked(reset.Frame)
+						}
+						str.CancelWrite(456)
+						_, err := str.Write([]byte("later"))
+						require.Same(t, r.err, err)
+					})
+				})
+			}
+		}
+	}
+}
+
+func TestSendStreamBlockedWriteShutdown(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		const streamID protocol.StreamID = 42
+		ctrl := gomock.NewController(t)
+		sender := NewMockStreamSender(ctrl)
+		str := newSendStream(context.Background(), streamID, sender, newTestStreamFlowControllerWithSendWindow(streamID, protocol.MaxByteCount), false)
+		sender.EXPECT().onHasStreamData(streamID, str).Times(2)
+		_, err := str.Write([]byte("prefix"))
+		require.NoError(t, err)
+		done := make(chan struct{})
+		go func() {
+			defer close(done)
+			n, err := str.Write(make([]byte, protocol.MaxPacketBufferSize))
+			assert.Zero(t, n)
+			assert.Same(t, assert.AnError, err)
+		}()
+		synctest.Wait()
+		select {
+		case <-done:
+			t.Fatal("write returned before shutdown")
+		default:
+		}
+		str.closeForShutdown(assert.AnError)
+		synctest.Wait()
+		<-done
+		require.Nil(t, str.dataForWriting)
+		require.Nil(t, str.nextFrame)
+		frame, _, more := str.popStreamFrame(protocol.MaxByteCount, protocol.Version1)
+		require.Nil(t, frame.Frame)
+		require.False(t, more)
+	})
+}
+
+func TestSendStreamBlockedWriteTerminalAccounting(t *testing.T) {
+	const streamID protocol.StreamID = 42
+	for _, terminal := range []string{"local", "remote", "shutdown"} {
+		for _, mode := range []string{"ordinary", "limiter", "limiter-short", "fully-accepted"} {
+			t.Run(terminal+"/"+mode, func(t *testing.T) {
+				synctest.Test(t, func(t *testing.T) {
+					ctrl := gomock.NewController(t)
+					sender := NewMockStreamSender(ctrl)
+					str := newSendStream(context.Background(), streamID, sender, newTestStreamFlowControllerWithSendWindow(streamID, protocol.MaxByteCount), false)
+					resume := make(chan struct{})
+					sender.EXPECT().onHasStreamData(streamID, str).Do(func(protocol.StreamID, *SendStream) { <-resume })
+					var limiter func(int) int
+					switch mode {
+					case "limiter":
+						limiter = func(n int) int { return n }
+					case "limiter-short":
+						limiter = func(int) int { return 7 }
+					}
+					data := bytes.Repeat([]byte("x"), int(protocol.MaxPacketBufferSize)+7)
+					type result struct {
+						n   int
+						err error
+					}
+					results := make(chan result, 1)
+					go func() {
+						n, err := str.WriteWithLimit(data, limiter)
+						results <- result{n, err}
+					}()
+					synctest.Wait()
+					require.Empty(t, results)
+					maxBytes := expectedFrameHeaderLen(streamID, 0) + 7
+					if mode == "limiter-short" || mode == "fully-accepted" {
+						maxBytes = protocol.MaxByteCount
+					}
+					frame, _, _ := str.popStreamFrame(maxBytes, protocol.Version1)
+					require.NotNil(t, frame.Frame)
+					wantN := 7
+					if mode == "fully-accepted" {
+						wantN = len(data)
+					}
+					require.Equal(t, data[:wantN], frame.Frame.Data)
+					frame.Handler.OnAcked(frame.Frame)
+					var wantErr error
+					if terminal == "shutdown" {
+						wantErr = assert.AnError
+						str.closeForShutdown(wantErr)
+					} else {
+						sender.EXPECT().onHasStreamControlFrame(streamID, str)
+						if terminal == "local" {
+							str.CancelWrite(123)
+						} else {
+							str.handleStopSendingFrame(&wire.StopSendingFrame{StreamID: streamID, ErrorCode: 123})
+						}
+						wantErr = context.Cause(str.Context())
+					}
+					close(resume)
+					synctest.Wait()
+					r := <-results
+					require.Equal(t, wantN, r.n)
+					if mode == "fully-accepted" {
+						require.NoError(t, r.err)
+					} else {
+						require.Same(t, wantErr, r.err)
+					}
+					require.Nil(t, str.dataForWriting)
+					require.Nil(t, str.nextFrame)
+					frame, _, more := str.popStreamFrame(protocol.MaxByteCount, protocol.Version1)
+					require.Nil(t, frame.Frame)
+					require.False(t, more)
+					if terminal != "shutdown" {
+						_, err := str.Write([]byte("later"))
+						require.Same(t, wantErr, err)
+						reset, ok, _ := str.getControlFrame(monotime.Now())
+						require.True(t, ok)
+						require.Equal(t, protocol.ByteCount(wantN), reset.Frame.(*wire.ResetStreamFrame).FinalSize)
+						sender.EXPECT().onStreamCompleted(streamID)
+						reset.Handler.OnAcked(reset.Frame)
+					}
+				})
+			})
+		}
+	}
+}
+
+func TestSendStreamBlockedWriteReliableReset(t *testing.T) {
+	for _, reserved := range []bool{false, true} {
+		t.Run(fmt.Sprintf("reserved=%t", reserved), func(t *testing.T) {
+			synctest.Test(t, func(t *testing.T) {
+				const streamID protocol.StreamID = 42
+				ctrl := gomock.NewController(t)
+				sender := NewMockStreamSender(ctrl)
+				str := newSendStream(context.Background(), streamID, sender, newTestStreamFlowControllerWithSendWindow(streamID, protocol.MaxByteCount), true)
+				sender.EXPECT().onHasStreamData(streamID, str).Times(3)
+				write := func(data string) {
+					t.Helper()
+					if reserved {
+						require.NoError(t, str.TryWriteAll([]byte(data)))
+					} else {
+						_, err := str.Write([]byte(data))
+						require.NoError(t, err)
+					}
+				}
+				write("prefix")
+				str.SetReliableBoundary()
+				write("discarded")
+				done := make(chan struct{})
+				go func() {
+					defer close(done)
+					n, err := str.Write(make([]byte, protocol.MaxPacketBufferSize-6))
+					assert.Zero(t, n)
+					assert.Same(t, context.Cause(str.Context()), err)
+				}()
+				synctest.Wait()
+				select {
+				case <-done:
+					t.Fatal("write returned before cancellation")
+				default:
+				}
+				sender.EXPECT().onHasStreamControlFrame(streamID, str)
+				str.CancelWrite(123)
+				synctest.Wait()
+				<-done
+				require.Nil(t, str.dataForWriting)
+				reset, ok, _ := str.getControlFrame(monotime.Now())
+				require.True(t, ok)
+				finalSize := protocol.ByteCount(6)
+				if reserved {
+					finalSize = 15
+				}
+				require.Equal(t, &wire.ResetStreamFrame{StreamID: streamID, ErrorCode: 123, FinalSize: finalSize, ReliableSize: 6}, reset.Frame)
+				reset.Handler.OnAcked(reset.Frame)
+				frame, _, more := str.popStreamFrame(protocol.MaxByteCount, protocol.Version1)
+				require.NotNil(t, frame.Frame)
+				require.Equal(t, []byte("prefix"), frame.Frame.Data)
+				require.False(t, more)
+				sender.EXPECT().onStreamCompleted(streamID)
+				frame.Handler.OnAcked(frame.Frame)
+				frame, _, more = str.popStreamFrame(protocol.MaxByteCount, protocol.Version1)
+				require.Nil(t, frame.Frame)
+				require.False(t, more)
+				str.CancelWrite(456)
+			})
+		})
+	}
+}
