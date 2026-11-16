@@ -11334,3 +11334,24 @@ Full-panel RAS run `20261116T192833-8b4f0681e427375ccb2d6c9e` and independent so
 ### Next
 
 The [live program tracker (#1440)](https://github.com/the-sarge/quic-go-fast/issues/1440) records ready, undispatched [A1 (#1430)](https://github.com/the-sarge/quic-go-fast/issues/1430), [E1 (#1432)](https://github.com/the-sarge/quic-go-fast/issues/1432), [M1 (#1434)](https://github.com/the-sarge/quic-go-fast/issues/1434), [L1 (#1436)](https://github.com/the-sarge/quic-go-fast/issues/1436) and [S1 (#1438)](https://github.com/the-sarge/quic-go-fast/issues/1438), with [S2 (#1439)](https://github.com/the-sarge/quic-go-fast/issues/1439) blocked/conditional. Recommended priority is A1/E1, then M1/L1, then S1; this is not a dependency graph.
+
+---
+
+## Reno tuple testing reservation release landed - 2026-11-16 15:55 EST
+
+**Main:** `c42152ec8969`
+**Actor:** Codex
+
+### Completed
+
+Merged [PR #1442 — Reject stale Reno testing releases after tuple restart](https://github.com/the-sarge/quic-go-fast/pull/1442), completing [E1 (#1432)](https://github.com/the-sarge/quic-go-fast/issues/1432) under [N16-E (#1431)](https://github.com/the-sarge/quic-go-fast/issues/1431). Reno's validator now rejects old local unsubmitted testing releases using its current first-testing packet boundary. Current release/reopening behavior and BBR's distinct policy remain intact; no new generation field was introduced. The product PR records E1 complete with no successors.
+
+### Validation
+
+The three real registration/migration/restart/completion regressions failed before the fix and passed afterward. Exact-head certification passed the focused preservation tests, complete ackhandler package, root migration fence/late-generation ACK tests, vet, module tidiness and diff checks. Independent Standards and Spec preparation reviews found no issues. Full configured RAS review `20261116T204228-19406ce8ffc134ded7003553` required no fixes or follow-ups; its marginal historical line-anchor observation was rejected as required work.
+
+All applicable hosted checks passed at reviewed/certified head `a1cad9d7b53793db0b5650ca36dcce91d0593a9c`, including the actual post-ready [independent-peer run 43953709551](https://github.com/the-sarge/quic-go-fast/actions/runs/43953709551). Merge commit: `c42152ec896981ce2e53608a9a4d5b094fb5904a`. [PR #1442's review and validation receipts](https://github.com/the-sarge/quic-go-fast/pull/1442#issuecomment-6929024852) retain the exact evidence.
+
+### Next
+
+E1 has no successor or surviving follow-up. Other independent tracks remain in progress; [program #1440](https://github.com/the-sarge/quic-go-fast/issues/1440) is the live coordination surface.

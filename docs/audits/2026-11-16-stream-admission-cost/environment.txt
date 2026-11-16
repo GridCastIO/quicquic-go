@@ -1,0 +1,23 @@
+$ git rev-parse HEAD
+b1898abdd910373f7ad5dc24bdacb2d2b3a19751
+$ go version
+go version go1.27.4 darwin/arm64
+$ go env -json GOOS GOARCH GOFLAGS GOTOOLCHAIN
+{
+	"GOARCH": "arm64",
+	"GOFLAGS": "",
+	"GOOS": "darwin",
+	"GOTOOLCHAIN": "auto"
+}
+$ sw_vers
+ProductName:		macOS
+ProductVersion:		27.2.1
+BuildVersion:		26B131
+$ sysctl machdep.cpu.brand_string hw.ncpu hw.memsize hw.perflevel0.name hw.perflevel0.physicalcpu hw.perflevel1.name hw.perflevel1.physicalcpu
+machdep.cpu.brand_string: Apple M4 Max
+hw.ncpu: 16
+hw.memsize: 137438953472
+hw.perflevel0.name: Performance
+hw.perflevel0.physicalcpu: 12
+hw.perflevel1.name: Efficiency
+hw.perflevel1.physicalcpu: 4

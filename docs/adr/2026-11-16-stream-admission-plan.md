@@ -1,7 +1,7 @@
 # STREAM Admission Inspection Implementation Plan
 
 **Date:** 2026-11-16
-**Status:** Measurement selected; implementation conditional
+**Status:** S1 complete with SUPPORT; S2 ready for its bounded implementation
 **Track:** `N16-S` in the [November 16 program](2026-11-16-architecture-correctness-program.md)
 **Depends on:** S1 has no blocker; S2 requires S1's published SUPPORT decision
 **Related:** [ADR 0005](0005-incoming-packet-lifetime.md); [jumbo F11/F12](2026-11-05-jumbo-packets-plan.md); [A20](2026-10-20-architecture-decisions.md)
@@ -38,12 +38,14 @@ Preserve truncation normalization, zero consumed bytes on failure, explicit/impl
 
 | Slice | Disposition | Delivers | Blocked by | Temporary seam |
 |---|---|---|---|---|
-| S1 | new | Baseline observations and terminal selection receipt | None | Disposable measurement source removed before receipt PR |
-| S2 | conditional | Shared validation plus real admission skip consumer | S1 published SUPPORT | None; decoder and consumer ship together |
+| S1 | complete (#1438), SUPPORT | [Baseline observations and terminal selection receipt](../audits/2026-11-16-stream-admission-cost/README.md) | None | Disposable measurement source removed |
+| S2 | ready (#1439) | Shared validation plus real admission skip consumer | S1 SUPPORT published in this revision | None; decoder and consumer ship together |
 
 ## Implementation slices
 
 ### S1 — Measure current admission cost and settle selection
+
+**Current state:** complete with [SUPPORT receipt](../audits/2026-11-16-stream-admission-cost/README.md); S2 #1439 is ready when this revision reaches the default branch.
 
 **What it delivers:** one independently green documentation/evidence PR publishes exact source/toolchain/host/settings, raw local observations, archived disposable harness text, interpretation and a terminal decision. No runtime code or maintained benchmark is delivered.
 

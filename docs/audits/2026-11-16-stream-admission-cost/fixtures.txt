@@ -1,0 +1,16 @@
+=== RUN   TestS1AdmissionFixtures
+=== RUN   TestS1AdmissionFixtures/stream1200_empty
+    s1_admission_cost_test.go:97: fixture=stream1200_empty payload=1200 frames=1 plaintext=1204 queue=0 room=1024 ceiling=8972 parser_cap=8972 encryption=1RTT admitted=true
+=== RUN   TestS1AdmissionFixtures/stream8900_empty
+    s1_admission_cost_test.go:97: fixture=stream8900_empty payload=8900 frames=1 plaintext=8904 queue=0 room=1024 ceiling=8972 parser_cap=8972 encryption=1RTT admitted=true
+=== RUN   TestS1AdmissionFixtures/stream64_full
+    s1_admission_cost_test.go:97: fixture=stream64_full payload=64 frames=1 plaintext=68 queue=1024 room=0 ceiling=8972 parser_cap=8972 encryption=1RTT admitted=true
+=== RUN   TestS1AdmissionFixtures/datagram8x1099_room4
+    s1_admission_cost_test.go:97: fixture=datagram8x1099_room4 payload=1099 frames=8 plaintext=8816 queue=1020 room=4 ceiling=8972 parser_cap=8972 encryption=1RTT admitted=false
+--- PASS: TestS1AdmissionFixtures (0.00s)
+    --- PASS: TestS1AdmissionFixtures/stream1200_empty (0.00s)
+    --- PASS: TestS1AdmissionFixtures/stream8900_empty (0.00s)
+    --- PASS: TestS1AdmissionFixtures/stream64_full (0.00s)
+    --- PASS: TestS1AdmissionFixtures/datagram8x1099_room4 (0.00s)
+PASS
+ok  	github.com/quic-go/quic-go	0.250s
