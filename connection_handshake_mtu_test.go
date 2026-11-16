@@ -162,14 +162,54 @@ func TestHandshakeMTUFallbackCongestionGrowth(t *testing.T) {
 			realHandler := c.sentPacketHandler
 			sph := mockackhandler.NewMockSentPacketHandler(ctrl)
 			c.sentPacketHandler = sph
-			sph.EXPECT().ReceivedAck(gomock.Any(), protocol.Encryption1RTT, gomock.Any()).Return(protocol.ApplicationKeyReceipt{Valid: true}, nil).Times(len(tc.growth))
 			cs.EXPECT().Set1RTTAcked(gomock.Any(), gomock.Any()).Times(len(tc.growth))
 			for _, expected := range tc.growth {
 				ping, _ := c.mtuDiscoverer.GetPing(monotime.Now())
-				ping.Handler.OnAcked(ping.Frame)
+				sph.EXPECT().ReceivedAck(gomock.Any(), protocol.Encryption1RTT, gomock.Any()).DoAndReturn(func(*wire.AckFrame, protocol.EncryptionLevel, monotime.Time) (protocol.ApplicationKeyReceipt, error) {
+					ping.Handler.OnAcked(ping.Frame)
+					return protocol.ApplicationKeyReceipt{Valid: true}, nil
+				})
 				sph.EXPECT().SetMaxDatagramSize(expected).Do(func(size protocol.ByteCount) { realHandler.SetMaxDatagramSize(size) })
 				require.NoError(t, c.handleAckFrame(&wire.AckFrame{AckRanges: []wire.AckRange{{Smallest: 1, Largest: 1}}}, protocol.Encryption1RTT, monotime.Now()))
 				require.EqualValues(t, estimateMaxPayloadSize(c.maxPacketSize()), c.maxPayloadSizeEstimate.Load())
+			}
+		})
+	}
+}
+
+func TestPathZeroMTUAckWithoutOwnGrowth(t *testing.T) {
+	for _, name := range []string{"no growth", "nil", "initialized", "replaced", "same-size reset"} {
+		t.Run(name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			cs := mocks.NewMockCryptoSetup(ctrl)
+			c := newClientTestConnection(t, ctrl, nil, false, connectionOptCryptoSetup(cs)).conn
+			c.handshakeConfirmed = true
+			c.mtuDiscoverer = c.newPathMTUFinder(1300, 1310)
+			if name == "nil" || name == "initialized" {
+				c.mtuDiscoverer = nil
+			}
+			c.maxPayloadSizeEstimate.Store(uint32(estimateMaxPayloadSize(1200)))
+			sph := mockackhandler.NewMockSentPacketHandler(ctrl)
+			c.sentPacketHandler = sph
+			sph.EXPECT().ReceivedAck(gomock.Any(), protocol.Encryption1RTT, gomock.Any()).DoAndReturn(func(*wire.AckFrame, protocol.EncryptionLevel, monotime.Time) (protocol.ApplicationKeyReceipt, error) {
+				switch name {
+				case "initialized", "replaced":
+					c.mtuDiscoverer = c.newPathMTUFinder(1400, 1410)
+				case "same-size reset":
+					c.mtuDiscoverer.Reset(1300, 1300)
+				}
+				return protocol.ApplicationKeyReceipt{Valid: true}, nil
+			})
+			// No accounting update is expected, but the final crypto receipt still runs.
+			cs.EXPECT().Set1RTTAcked(gomock.Any(), gomock.Any())
+			require.NoError(t, c.handleAckFrame(&wire.AckFrame{AckRanges: []wire.AckRange{{Smallest: 1, Largest: 1}}}, protocol.Encryption1RTT, monotime.Now()))
+			select {
+			case <-c.PathMTUSettledV1():
+				t.Fatal("an ACK without own-finder growth must not settle discovery")
+			default:
+			}
+			if c.mtuDiscoverer != nil {
+				require.EqualValues(t, estimateMaxPayloadSize(c.mtuDiscoverer.CurrentSize()), c.maxPayloadSizeEstimate.Load(), "aggregate publication remains independent")
 			}
 		})
 	}
