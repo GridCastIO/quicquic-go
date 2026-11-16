@@ -48,7 +48,7 @@ Compiler inspection shows `cryptoStreamManager.HasData` inlined at delivery-samp
 
 ## Reproduction and validation
 
-From separate worktrees at the revisions above, build each heap fixture with `go build -o <heap-binary> ./docs/audits/crypto-stream-release-1411/heap/main.go`, the root benchmarks with `go test -c -o <bench-binary> .`, and handshake benchmarks with `go test -c -o <handshake-binary> ./integrationtests/self`. To reconstruct the baseline fixtures from production baseline, copy the candidate's heap and benchmark source and apply `baseline-fixture.patch`.
+From separate worktrees at the revisions above, build each heap fixture with `go build -o <heap-binary> ./docs/audits/crypto-stream-release-1411/heap/main.go`, the root benchmarks with `go test -c -o <bench-binary> .`, and handshake benchmarks with `go test -c -o <handshake-binary> ./integrationtests/self`. To reconstruct the baseline fixtures from production baseline, copy the candidate's heap and benchmark source and apply `baseline-fixture.patch` with `git apply --unidiff-zero` (zero context avoids interpreting patch context as repository whitespace).
 
 [The executed driver](run_measurements.py) records the exact local binary paths, alternating order, commands, environment and result filenames. Each pair runs `GOMAXPROCS=4 <heap-binary> -connections 1000 -profile <output>`, then the root binary with `-test.run '^$' -test.bench '^BenchmarkCrypto' -test.benchtime 1s -test.count 1`, then the integration binary with the same flags and `-test.bench '^BenchmarkHandshake$'`. Inspect a profile with `go tool pprof -top -sample_index=inuse_space <heap-binary> <profile>`.
 

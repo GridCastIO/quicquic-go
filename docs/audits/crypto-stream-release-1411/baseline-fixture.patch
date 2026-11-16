@@ -2,33 +2,12 @@ diff --git a/packet_packer_test.go b/packet_packer_test.go
 index 33ce9b32d..6f98c1757 100644
 --- a/packet_packer_test.go
 +++ b/packet_packer_test.go
-@@ -25,6 +25,7 @@ import (
- const testPackerConnIDLen = 4
- 
- type testPacketPacker struct {
+@@ -27,0 +28 @@ type testPacketPacker struct {
 +	cryptoStreamManager *cryptoStreamManager
- 	packer              *packetPacker
- 	initialStream       *initialCryptoStream
- 	handshakeStream     *cryptoStream
-@@ -36,11 +37,12 @@ type testPacketPacker struct {
- 	retransmissionQueue *retransmissionQueue
- }
- 
+@@ -39 +40 @@ type testPacketPacker struct {
 -func newTestPacketPacker(t *testing.T, mockCtrl *gomock.Controller, pers protocol.Perspective) *testPacketPacker {
 +func newTestPacketPacker(t testing.TB, mockCtrl *gomock.Controller, pers protocol.Perspective) *testPacketPacker {
- 	destConnID := protocol.ParseConnectionID([]byte{1, 2, 3, 4})
- 	require.Equal(t, testPackerConnIDLen, destConnID.Len())
- 	initialStream := newInitialCryptoStream(pers == protocol.PerspectiveClient)
- 	handshakeStream := newCryptoStream()
+@@ -43,0 +45 @@ func newTestPacketPacker(t *testing.T, mockCtrl *gomock.Controller, pers protoco
 +	manager := newCryptoStreamManager(initialStream, handshakeStream, newCryptoStream())
- 	pnManager := mockackhandler.NewMockSentPacketHandler(mockCtrl)
- 	framer := NewMockFrameSource(mockCtrl)
- 	ackFramer := NewMockAckFrameSource(mockCtrl)
-@@ -48,6 +50,7 @@ func newTestPacketPacker(t *testing.T, mockCtrl *gomock.Controller, pers protoco
- 	datagramQueue := newDatagramQueue(func() {}, utils.DefaultLogger)
- 	retransmissionQueue := newRetransmissionQueue()
- 	return &testPacketPacker{
+@@ -50,0 +53 @@ func newTestPacketPacker(t *testing.T, mockCtrl *gomock.Controller, pers protoco
 +		cryptoStreamManager: manager,
- 		pnManager:           pnManager,
- 		initialStream:       initialStream,
- 		handshakeStream:     handshakeStream,
