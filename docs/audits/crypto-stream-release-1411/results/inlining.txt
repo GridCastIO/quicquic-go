@@ -1,0 +1,23 @@
+./crypto_stream_manager.go:59:6: cannot inline (*cryptoStreamManager).Finish: function too complex: cost 131 exceeds budget 80
+./crypto_stream_manager.go:123:6: cannot inline (*cryptoStreamManager).Drop: function too complex: cost 81 exceeds budget 80
+./crypto_stream_manager.go:72:6: cannot inline (*cryptoStreamManager).Write: function too complex: cost 185 exceeds budget 80
+./crypto_stream_manager.go:24:6: cannot inline (*cryptoStreamManager).HandleCryptoFrame: function too complex: cost 288 exceeds budget 80
+./crypto_stream_manager.go:38:6: cannot inline (*cryptoStreamManager).GetCryptoData: function too complex: cost 327 exceeds budget 80
+./crypto_stream_manager.go:89:6: can inline (*cryptoStreamManager).HasData with cost 77 as: method(*cryptoStreamManager) func(protocol.EncryptionLevel) bool { switch statement }
+./crypto_stream_manager.go:104:6: cannot inline (*cryptoStreamManager).PopCryptoFrame: function too complex: cost 210 exceeds budget 80
+./delivery_sampling.go:171:6: cannot inline (*framer).deliveryLimitation: unhandled op DEFER
+./delivery_sampling.go:173:2: can inline (*framer).deliveryLimitation.deferwrap1 with cost 76 as: func() { (*sync.Mutex).Unlock(.autotmp_2) }
+./delivery_sampling.go:175:2: can inline (*framer).deliveryLimitation.deferwrap2 with cost 76 as: func() { (*sync.Mutex).Unlock(.autotmp_3) }
+./delivery_sampling.go:150:6: cannot inline (*packetPacker).deliveryLimitation: function too complex: cost 509 exceeds budget 80
+./crypto_stream_manager.go:52:6: can inline (*cryptoStreamManager).GetPostHandshakeData with cost 79 as: method(*cryptoStreamManager) func(protocol.ByteCount) *wire.CryptoFrame { if !(*baseCryptoStream).HasData(m.oneRTTStream.baseCryptoStream) { return nil }; return (*baseCryptoStream).PopCryptoFrame(m.oneRTTStream.baseCryptoStream, maxSize) }
+./delivery_sampling.go:200:6: cannot inline (*SendStream).deliveryLimitation: unhandled op DEFER
+./delivery_sampling.go:202:2: can inline (*SendStream).deliveryLimitation.deferwrap1 with cost 76 as: func() { (*sync.Mutex).Unlock(.autotmp_2) }
+./connection.go:1215:36: inlining call to (*cryptoStreamManager).HasData
+./connection.go:1300:60: inlining call to (*cryptoStreamManager).HasData
+./connection.go:1300:121: inlining call to (*cryptoStreamManager).HasData
+./delivery_sampling.go:151:216: inlining call to (*cryptoStreamManager).HasData
+./delivery_sampling.go:151: inlining call to (*cryptoStreamManager).HasData
+./packet_packer.go:745:95: inlining call to (*cryptoStreamManager).HasData
+./packet_packer.go:747:35: inlining call to (*cryptoStreamManager).HasData
+./packet_packer.go:782:36: inlining call to (*cryptoStreamManager).HasData
+./connection.go:3070:53: inlining call to (*cryptoStreamManager).GetPostHandshakeData

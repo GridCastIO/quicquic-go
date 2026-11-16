@@ -1,0 +1,9 @@
+goos: darwin
+goarch: arm64
+pkg: github.com/quic-go/quic-go
+cpu: Apple M4 Max
+BenchmarkCryptoDeliveryLimitation/empty-4         	82118660	        13.35 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCryptoDeliveryLimitation/application-pending-4         	632323174	         1.883 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCryptoPacketPacking/server-4                           	  216742	      5576 ns/op	    2145 B/op	      49 allocs/op
+BenchmarkCryptoPacketPacking/client-4                           	  186697	      6509 ns/op	    2929 B/op	      56 allocs/op
+PASS
