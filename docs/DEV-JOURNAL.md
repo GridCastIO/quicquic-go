@@ -11219,3 +11219,26 @@ The final-packet bleaching regression and all four ordinary/local × Reno/BBR PT
 ### Decisions
 
 Standards/Spec preparation found no actionable findings. Full-panel RAS run `20261116T004544-a2f9f445ef25cbb68fe4eeb7` required no fixes. The multipath rescheduling observation was independently rejected as a defect: that caller already retires packets as lost, and the new dispatch reconciles ECN evidence without changing congestion-loss policy. No deferred follow-ups remain. See [PR #1418 review disposition](https://github.com/the-sarge/quic-go-fast/pull/1418#issuecomment-6904313749) and [PR #1418 certification receipt](https://github.com/the-sarge/quic-go-fast/pull/1418#issuecomment-6904317753). Rebase and review started only after both [product PR #1415](https://github.com/the-sarge/quic-go-fast/pull/1415) and [journal PR #1417](https://github.com/the-sarge/quic-go-fast/pull/1417) merged, as requested.
+
+---
+
+## HTTP/3 metadata validation landed (#1408) - 2026-11-15 20:40 EST
+
+**Main:** `6e51b87edd75`
+**Actor:** Codex
+
+### Summary
+
+Merged [PR #1420 — Tighten HTTP/3 status, authority and scheme validation](https://github.com/the-sarge/quic-go-fast/pull/1420), closing [issue #1408](https://github.com/the-sarge/quic-go-fast/issues/1408). Response status values now require three digits in the 100–599 range; 101 remains within the bounded informational loop until a final response or an existing failure path. Regular requests require a nonempty scheme. HTTP(S) regular/Extended CONNECT and plain-CONNECT effective authorities receive the existing host-byte validation after Host fallback and earlier validations.
+
+### Decisions
+
+Followed the [approved plan for issue #1408](https://github.com/the-sarge/quic-go-fast/issues/1408#issuecomment-6904057072): preserve non-HTTP schemes and authorities, CONNECT distinctions, validation precedence, tracing, error conversion, request lifetime and charged-header ownership. Full authority syntax parsing and an HTTP(S)-only allowlist remain outside scope. The server writer's broader status range and the pooled Transport's existing response-error connection-retirement policy remain unchanged. Rebased only after predecessor product [PR #1418](https://github.com/the-sarge/quic-go-fast/pull/1418) and journal [PR #1419](https://github.com/the-sarge/quic-go-fast/pull/1419) merged, before review or CI began.
+
+### Validation
+
+The status, scheme, authority and 101 regressions failed before their corresponding fixes. Real QPACK HEADERS exercise stream-level H3_MESSAGE_ERROR, subsequent ClientConn use, pooled input/usage release, handler exclusion, header-storage release and parsed-header qlog classification. Informational tests retain tracing, count limits, EOF/cancellation, direct no-content metadata and final-response Content-Length behavior.
+
+Separate Standards/Spec reviews and the full configured four-reviewer RAS panel completed. Initial review restored informational-body preservation coverage; replacement review corrected the shared benchmark's missing scheme. Both accepted corrections were verified; no deferred findings remain. The [review dispositions for PR #1420](https://github.com/the-sarge/quic-go-fast/pull/1420#issuecomment-6904677461), [fixture disposition for PR #1420](https://github.com/the-sarge/quic-go-fast/pull/1420#issuecomment-6904767363), and [exact-head certification for PR #1420](https://github.com/the-sarge/quic-go-fast/pull/1420#issuecomment-6904795077) retain the evidence.
+
+Certified `b6f452661afa822fcaa70e8d771cf0a3d57203e4` with HTTP/3 package tests, focused HTTP integration and race tests, parser-benchmark fixture smoke checks, go vet, module tidiness, formatting and diff checks. All 18 hosted checks passed, including the [actual post-ready independent-peer run for PR #1420](https://github.com/the-sarge/quic-go-fast/actions/runs/43787085319). The merged product tree matches the certified candidate exactly. Benchmark smoke results establish fixture validity only; no performance improvement is claimed.
