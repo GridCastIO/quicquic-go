@@ -2558,6 +2558,11 @@ type pathAckReceiver interface {
 func (c *Conn) handleAckFrame(frame *wire.AckFrame, encLevel protocol.EncryptionLevel, rcvTime monotime.Time) error {
 	var acked1RTTPacket protocol.ApplicationKeyReceipt
 	var err error
+	finder := c.mtuDiscoverer
+	var previousMTU protocol.ByteCount
+	if finder != nil {
+		previousMTU = finder.CurrentSize()
+	}
 	if h, ok := c.sentPacketHandler.(pathAckReceiver); ok && c.pathCredit != nil {
 		// A BBR path context trains its RTT and delivery rate only from an ACK
 		// its own path carried.
@@ -2589,6 +2594,10 @@ func (c *Conn) handleAckFrame(frame *wire.AckFrame, encLevel protocol.Encryption
 		maxPayloadSize := estimateMaxPayloadSize(mtu)
 		if maxPayloadSize > protocol.ByteCount(c.maxPayloadSizeEstimate.Load()) {
 			c.maxPayloadSizeEstimate.Store(uint32(maxPayloadSize))
+		}
+		// Aggregate admission can already reflect a larger surviving path. Observe
+		// this finder's ACK transition independently of that shared estimate.
+		if finder != nil && c.mtuDiscoverer == finder && mtu > previousMTU {
 			// Handshake fallback lowers packetization, not congestion accounting.
 			c.sentPacketHandler.SetMaxDatagramSize(max(mtu, c.config.initialPacketSize()))
 			// An acknowledged probe concludes the search only by raising the size, so

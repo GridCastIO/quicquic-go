@@ -1,0 +1,527 @@
+{
+  "method": "Mach host_processor_info PROCESSOR_CPU_LOAD_INFO tick deltas; IODeviceTree logical-cpu-id maps 0..3 E and 4..15 P. Scheduler unpinned; load includes benchmark itself. No per-process residency or frequency measurement.",
+  "before_one_second": [
+    {
+      "cpu": 0,
+      "busy_percent": 34.34,
+      "ticks_user_system_idle_nice": [
+        23,
+        11,
+        65,
+        0
+      ]
+    },
+    {
+      "cpu": 1,
+      "busy_percent": 24.0,
+      "ticks_user_system_idle_nice": [
+        16,
+        8,
+        76,
+        0
+      ]
+    },
+    {
+      "cpu": 2,
+      "busy_percent": 14.85,
+      "ticks_user_system_idle_nice": [
+        10,
+        5,
+        86,
+        0
+      ]
+    },
+    {
+      "cpu": 3,
+      "busy_percent": 7.0,
+      "ticks_user_system_idle_nice": [
+        5,
+        2,
+        93,
+        0
+      ]
+    },
+    {
+      "cpu": 4,
+      "busy_percent": 45.45,
+      "ticks_user_system_idle_nice": [
+        35,
+        10,
+        54,
+        0
+      ]
+    },
+    {
+      "cpu": 5,
+      "busy_percent": 43.88,
+      "ticks_user_system_idle_nice": [
+        33,
+        10,
+        55,
+        0
+      ]
+    },
+    {
+      "cpu": 6,
+      "busy_percent": 43.43,
+      "ticks_user_system_idle_nice": [
+        33,
+        10,
+        56,
+        0
+      ]
+    },
+    {
+      "cpu": 7,
+      "busy_percent": 45.45,
+      "ticks_user_system_idle_nice": [
+        37,
+        8,
+        54,
+        0
+      ]
+    },
+    {
+      "cpu": 8,
+      "busy_percent": 44.44,
+      "ticks_user_system_idle_nice": [
+        35,
+        9,
+        55,
+        0
+      ]
+    },
+    {
+      "cpu": 9,
+      "busy_percent": 44.44,
+      "ticks_user_system_idle_nice": [
+        36,
+        8,
+        55,
+        0
+      ]
+    },
+    {
+      "cpu": 10,
+      "busy_percent": 16.83,
+      "ticks_user_system_idle_nice": [
+        16,
+        1,
+        84,
+        0
+      ]
+    },
+    {
+      "cpu": 11,
+      "busy_percent": 12.87,
+      "ticks_user_system_idle_nice": [
+        12,
+        1,
+        88,
+        0
+      ]
+    },
+    {
+      "cpu": 12,
+      "busy_percent": 5.0,
+      "ticks_user_system_idle_nice": [
+        4,
+        1,
+        95,
+        0
+      ]
+    },
+    {
+      "cpu": 13,
+      "busy_percent": 2.97,
+      "ticks_user_system_idle_nice": [
+        2,
+        1,
+        98,
+        0
+      ]
+    },
+    {
+      "cpu": 14,
+      "busy_percent": 1.98,
+      "ticks_user_system_idle_nice": [
+        2,
+        0,
+        99,
+        0
+      ]
+    },
+    {
+      "cpu": 15,
+      "busy_percent": 0.0,
+      "ticks_user_system_idle_nice": [
+        0,
+        0,
+        100,
+        0
+      ]
+    }
+  ],
+  "runs": [
+    {
+      "command": [
+        "go",
+        "test",
+        ".",
+        "-run",
+        "^$",
+        "-bench",
+        "^BenchmarkS1DatagramAdmissionCost$",
+        "-benchmem",
+        "-benchtime=1s",
+        "-count=1",
+        "-cpu=1"
+      ],
+      "started_utc": "2026-11-16T20:44:10.808431+00:00",
+      "ended_utc": "2026-11-16T20:44:22.483609+00:00",
+      "exit": 0,
+      "per_cpu": [
+        {
+          "cpu": 0,
+          "busy_percent": 49.05,
+          "ticks_user_system_idle_nice": [
+            308,
+            257,
+            587,
+            0
+          ]
+        },
+        {
+          "cpu": 1,
+          "busy_percent": 44.59,
+          "ticks_user_system_idle_nice": [
+            300,
+            215,
+            640,
+            0
+          ]
+        },
+        {
+          "cpu": 2,
+          "busy_percent": 37.96,
+          "ticks_user_system_idle_nice": [
+            260,
+            180,
+            719,
+            0
+          ]
+        },
+        {
+          "cpu": 3,
+          "busy_percent": 34.39,
+          "ticks_user_system_idle_nice": [
+            233,
+            167,
+            763,
+            0
+          ]
+        },
+        {
+          "cpu": 4,
+          "busy_percent": 67.07,
+          "ticks_user_system_idle_nice": [
+            503,
+            265,
+            377,
+            0
+          ]
+        },
+        {
+          "cpu": 5,
+          "busy_percent": 67.13,
+          "ticks_user_system_idle_nice": [
+            497,
+            273,
+            377,
+            0
+          ]
+        },
+        {
+          "cpu": 6,
+          "busy_percent": 67.02,
+          "ticks_user_system_idle_nice": [
+            510,
+            258,
+            378,
+            0
+          ]
+        },
+        {
+          "cpu": 7,
+          "busy_percent": 66.96,
+          "ticks_user_system_idle_nice": [
+            503,
+            265,
+            379,
+            0
+          ]
+        },
+        {
+          "cpu": 8,
+          "busy_percent": 67.04,
+          "ticks_user_system_idle_nice": [
+            500,
+            269,
+            378,
+            0
+          ]
+        },
+        {
+          "cpu": 9,
+          "busy_percent": 66.96,
+          "ticks_user_system_idle_nice": [
+            507,
+            261,
+            379,
+            0
+          ]
+        },
+        {
+          "cpu": 10,
+          "busy_percent": 41.89,
+          "ticks_user_system_idle_nice": [
+            315,
+            173,
+            677,
+            0
+          ]
+        },
+        {
+          "cpu": 11,
+          "busy_percent": 40.41,
+          "ticks_user_system_idle_nice": [
+            302,
+            168,
+            693,
+            0
+          ]
+        },
+        {
+          "cpu": 12,
+          "busy_percent": 39.83,
+          "ticks_user_system_idle_nice": [
+            292,
+            172,
+            701,
+            0
+          ]
+        },
+        {
+          "cpu": 13,
+          "busy_percent": 39.06,
+          "ticks_user_system_idle_nice": [
+            293,
+            162,
+            710,
+            0
+          ]
+        },
+        {
+          "cpu": 14,
+          "busy_percent": 38.77,
+          "ticks_user_system_idle_nice": [
+            299,
+            153,
+            714,
+            0
+          ]
+        },
+        {
+          "cpu": 15,
+          "busy_percent": 38.59,
+          "ticks_user_system_idle_nice": [
+            288,
+            162,
+            716,
+            0
+          ]
+        }
+      ]
+    },
+    {
+      "command": [
+        "go",
+        "test",
+        "./internal/wire",
+        "-run",
+        "^$",
+        "-bench",
+        "^BenchmarkParseStreamFrame$",
+        "-benchmem",
+        "-benchtime=1s",
+        "-count=1",
+        "-cpu=1"
+      ],
+      "started_utc": "2026-11-16T20:44:22.484011+00:00",
+      "ended_utc": "2026-11-16T20:44:24.208177+00:00",
+      "exit": 0,
+      "per_cpu": [
+        {
+          "cpu": 0,
+          "busy_percent": 35.12,
+          "ticks_user_system_idle_nice": [
+            28,
+            31,
+            109,
+            0
+          ]
+        },
+        {
+          "cpu": 1,
+          "busy_percent": 34.12,
+          "ticks_user_system_idle_nice": [
+            26,
+            32,
+            112,
+            0
+          ]
+        },
+        {
+          "cpu": 2,
+          "busy_percent": 23.26,
+          "ticks_user_system_idle_nice": [
+            19,
+            21,
+            132,
+            0
+          ]
+        },
+        {
+          "cpu": 3,
+          "busy_percent": 18.71,
+          "ticks_user_system_idle_nice": [
+            15,
+            17,
+            139,
+            0
+          ]
+        },
+        {
+          "cpu": 4,
+          "busy_percent": 48.21,
+          "ticks_user_system_idle_nice": [
+            60,
+            21,
+            87,
+            0
+          ]
+        },
+        {
+          "cpu": 5,
+          "busy_percent": 47.62,
+          "ticks_user_system_idle_nice": [
+            61,
+            19,
+            88,
+            0
+          ]
+        },
+        {
+          "cpu": 6,
+          "busy_percent": 47.93,
+          "ticks_user_system_idle_nice": [
+            61,
+            20,
+            88,
+            0
+          ]
+        },
+        {
+          "cpu": 7,
+          "busy_percent": 47.62,
+          "ticks_user_system_idle_nice": [
+            61,
+            19,
+            88,
+            0
+          ]
+        },
+        {
+          "cpu": 8,
+          "busy_percent": 47.93,
+          "ticks_user_system_idle_nice": [
+            61,
+            20,
+            88,
+            0
+          ]
+        },
+        {
+          "cpu": 9,
+          "busy_percent": 47.93,
+          "ticks_user_system_idle_nice": [
+            61,
+            20,
+            88,
+            0
+          ]
+        },
+        {
+          "cpu": 10,
+          "busy_percent": 21.05,
+          "ticks_user_system_idle_nice": [
+            31,
+            5,
+            135,
+            0
+          ]
+        },
+        {
+          "cpu": 11,
+          "busy_percent": 17.44,
+          "ticks_user_system_idle_nice": [
+            24,
+            6,
+            142,
+            0
+          ]
+        },
+        {
+          "cpu": 12,
+          "busy_percent": 14.45,
+          "ticks_user_system_idle_nice": [
+            20,
+            5,
+            148,
+            0
+          ]
+        },
+        {
+          "cpu": 13,
+          "busy_percent": 11.63,
+          "ticks_user_system_idle_nice": [
+            16,
+            4,
+            152,
+            0
+          ]
+        },
+        {
+          "cpu": 14,
+          "busy_percent": 12.21,
+          "ticks_user_system_idle_nice": [
+            17,
+            4,
+            151,
+            0
+          ]
+        },
+        {
+          "cpu": 15,
+          "busy_percent": 10.98,
+          "ticks_user_system_idle_nice": [
+            15,
+            4,
+            154,
+            0
+          ]
+        }
+      ]
+    }
+  ]
+}

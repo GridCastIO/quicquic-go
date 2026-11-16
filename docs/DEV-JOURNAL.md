@@ -11334,3 +11334,49 @@ Full-panel RAS run `20261116T192833-8b4f0681e427375ccb2d6c9e` and independent so
 ### Next
 
 The [live program tracker (#1440)](https://github.com/the-sarge/quic-go-fast/issues/1440) records ready, undispatched [A1 (#1430)](https://github.com/the-sarge/quic-go-fast/issues/1430), [E1 (#1432)](https://github.com/the-sarge/quic-go-fast/issues/1432), [M1 (#1434)](https://github.com/the-sarge/quic-go-fast/issues/1434), [L1 (#1436)](https://github.com/the-sarge/quic-go-fast/issues/1436) and [S1 (#1438)](https://github.com/the-sarge/quic-go-fast/issues/1438), with [S2 (#1439)](https://github.com/the-sarge/quic-go-fast/issues/1439) blocked/conditional. Recommended priority is A1/E1, then M1/L1, then S1; this is not a dependency graph.
+
+---
+
+## Reno tuple testing reservation release landed - 2026-11-16 15:55 EST
+
+**Main:** `c42152ec8969`
+**Actor:** Codex
+
+### Completed
+
+Merged [PR #1442 — Reject stale Reno testing releases after tuple restart](https://github.com/the-sarge/quic-go-fast/pull/1442), completing [E1 (#1432)](https://github.com/the-sarge/quic-go-fast/issues/1432) under [N16-E (#1431)](https://github.com/the-sarge/quic-go-fast/issues/1431). Reno's validator now rejects old local unsubmitted testing releases using its current first-testing packet boundary. Current release/reopening behavior and BBR's distinct policy remain intact; no new generation field was introduced. The product PR records E1 complete with no successors.
+
+### Validation
+
+The three real registration/migration/restart/completion regressions failed before the fix and passed afterward. Exact-head certification passed the focused preservation tests, complete ackhandler package, root migration fence/late-generation ACK tests, vet, module tidiness and diff checks. Independent Standards and Spec preparation reviews found no issues. Full configured RAS review `20261116T204228-19406ce8ffc134ded7003553` required no fixes or follow-ups; its marginal historical line-anchor observation was rejected as required work.
+
+All applicable hosted checks passed at reviewed/certified head `a1cad9d7b53793db0b5650ca36dcce91d0593a9c`, including the actual post-ready [independent-peer run 43953709551](https://github.com/the-sarge/quic-go-fast/actions/runs/43953709551). Merge commit: `c42152ec896981ce2e53608a9a4d5b094fb5904a`. [PR #1442's review and validation receipts](https://github.com/the-sarge/quic-go-fast/pull/1442#issuecomment-6929024852) retain the exact evidence.
+
+### Next
+
+E1 has no successor or surviving follow-up. Other independent tracks remain in progress; [program #1440](https://github.com/the-sarge/quic-go-fast/issues/1440) is the live coordination surface.
+
+---
+
+## STREAM admission sizing supports bounded skip - 2026-11-16 16:32 EST
+
+**Main:** `aae05e5a64d0`
+**Actor:** Codex
+
+### Completed
+
+Merged [PR #1445 — Publish S1 admission cost SUPPORT decision](https://github.com/the-sarge/quic-go-fast/pull/1445), completing [S1 (#1438)](https://github.com/the-sarge/quic-go-fast/issues/1438) under [N16-S (#1437)](https://github.com/the-sarge/quic-go-fast/issues/1437). The documentation/evidence PR archives the four characterized fixtures, both once-only benchmark outputs, toolchain/host/source identities and disposable source text; no compiled benchmark or runtime change remains. The product PR records S1 complete and S2 ready after merged SUPPORT.
+
+### Decisions
+
+The [S1 receipt](audits/2026-11-16-stream-admission-cost/README.md) selects SUPPORT for S2's bounded shared-validator/length-only skip. The 8,900-byte STREAM admission measured 142.0 ns/op and its separate owning operation 110.9 ns/op; the 64-byte/full-queue case allocated 112 B and two objects per admission. The receipt discloses performance-core activity, unpinned placement and example-level scope, without claiming candidate speedup or subtracting paths into validation cost. S2 retains its own finite comparison and ordinary-parser preservation obligations.
+
+### Validation
+
+Four real parser/queue/admission fixtures passed characterization. Each accepted benchmark command ran once with `-count=1 -cpu=1 -benchtime=1s`; archived source hash and raw observations match the receipt. Independent Standards and Spec preparation found no actionable issues. Full configured RAS run `20261116T204915-013ef2f2fa697fb2c0860529` required no fixes or follow-ups; two cap-labeling allegations were independently rejected after tracing configuration to the parser consumer.
+
+Exact-head docs certification passed for `43f30b09756bdf5e8415ff8474aaca641eabc8a0`; all 17 applicable hosted checks succeeded on that head, including [unit run 43957167793](https://github.com/the-sarge/quic-go-fast/actions/runs/43957167793). The disjoint E1 journal base advance was inspected and certification refreshed before merge. Merge commit: `aae05e5a64d0fda118d0a7dceb48abcb981eb700`. [PR #1445's validation receipt](https://github.com/the-sarge/quic-go-fast/pull/1445#issuecomment-6929973064) links the complete hosted evidence.
+
+### Next
+
+[S2 (#1439)](https://github.com/the-sarge/quic-go-fast/issues/1439) is now eligible from the published SUPPORT decision; its coordinator owns dispatch after S1's journal and tracker closure. There are no surviving S1 follow-ups. [Program #1440](https://github.com/the-sarge/quic-go-fast/issues/1440) remains the live coordination surface for the other tracks.

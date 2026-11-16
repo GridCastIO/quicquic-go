@@ -272,9 +272,10 @@ func TestPathDatagramLegacyObservationUnchanged(t *testing.T) {
 		// The first path's conclusion still settles, on an acknowledged probe's raise.
 		c.pathCredit.selectPrimaryPrivate(0)
 		f.socket.writes = nil
-		f.write(t, 100)
+		c.mtuDiscoverer.init(1380, 1420)
+		c.mtuDiscoverer.Start(monotime.Now())
+		time.Sleep(time.Until(c.mtuDiscoverer.NextProbeTime().ToTime()) + time.Millisecond)
 		f.pass(t)
-		c.mtuDiscoverer.init(1400, 1410)
 		f.ackPath(t, 0, 0, f.parseWrites(t, 0))
 		require.True(t, settled())
 		require.EqualValues(t, estimateMaxPayloadSize(1400), c.maxPayloadSizeEstimate.Load())
