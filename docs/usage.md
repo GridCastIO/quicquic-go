@@ -71,4 +71,4 @@ GOTOOLCHAIN=go1.26.11 go test ./...
 
 These commands may download the named toolchain but do not permit automatic upgrades beyond it. CI installs the exact version for each lane, sets `GOTOOLCHAIN=local` to prevent automatic toolchain switching, and verifies the effective version. Integration CI also verifies the FIPS and vendor fixture modules. The root and nested integration modules retain their `go 1.26.0` language minimum. When reproducing a compatibility lane with a version manager, select Go 1.26.11 explicitly and use `GOTOOLCHAIN=local`.
 
-The [development journal](DEV-JOURNAL.md) records merged work and validation; [GLOSSARY.md](../GLOSSARY.md) defines domain terminology; the [release runbook](runbooks/release.md) describes publication.
+The development journal records merged work and validation, and [DEV-JOURNAL.md](DEV-JOURNAL.md) holds its entries recorded in this repository; [GLOSSARY.md](../GLOSSARY.md) defines domain terminology; the [release runbook](runbooks/release.md) describes publication.
