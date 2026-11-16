@@ -1,0 +1,12 @@
+{
+  "E": {
+    "min_core_equivalents": 0.47019999999999995,
+    "median_core_equivalents": 0.6784999999999999,
+    "max_core_equivalents": 2.3153
+  },
+  "P": {
+    "min_core_equivalents": 3.5494,
+    "median_core_equivalents": 3.8721,
+    "max_core_equivalents": 6.926900000000001
+  }
+}

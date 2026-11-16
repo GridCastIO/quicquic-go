@@ -1,0 +1,32 @@
+goos: darwin
+goarch: arm64
+pkg: github.com/quic-go/quic-go
+cpu: Apple M4 Max
+                             │ chunks4096.bench │          maprelease.bench          │
+                             │      sec/op      │   sec/op     vs base               │
+FrameSorterConstruct                160.0n ± 1%   161.2n ± 2%       ~ (p=0.092 n=10)
+FrameSorterOverlap/gaps=10          1.078µ ± 1%   1.079µ ± 1%       ~ (p=0.616 n=10)
+FrameSorterOverlap/gaps=100         12.29µ ± 1%   12.41µ ± 1%  +0.94% (p=0.014 n=10)
+FrameSorterOverlap/gaps=1000        124.3µ ± 1%   124.5µ ± 3%       ~ (p=0.436 n=10)
+FrameSorterOverlap/gaps=4096        473.4µ ± 1%   473.1µ ± 2%       ~ (p=0.684 n=10)
+geomean                             10.45µ        10.49µ       +0.38%
+
+                             │ chunks4096.bench │           maprelease.bench            │
+                             │       B/op       │     B/op      vs base                 │
+FrameSorterConstruct                 440.0 ± 0%     440.0 ± 0%       ~ (p=1.000 n=10) ¹
+FrameSorterOverlap/gaps=10         1.625Ki ± 0%   1.625Ki ± 0%       ~ (p=1.000 n=10) ¹
+FrameSorterOverlap/gaps=100        16.86Ki ± 0%   16.86Ki ± 0%       ~ (p=1.000 n=10) ¹
+FrameSorterOverlap/gaps=1000       225.8Ki ± 0%   225.8Ki ± 0%       ~ (p=1.000 n=10) ¹
+FrameSorterOverlap/gaps=4096       916.1Ki ± 0%   916.1Ki ± 0%       ~ (p=1.000 n=10) ¹
+geomean                            18.94Ki        18.94Ki       +0.00%
+¹ all samples are equal
+
+                             │ chunks4096.bench │          maprelease.bench           │
+                             │    allocs/op     │ allocs/op   vs base                 │
+FrameSorterConstruct                 4.000 ± 0%   4.000 ± 0%       ~ (p=1.000 n=10) ¹
+FrameSorterOverlap/gaps=10           11.00 ± 0%   11.00 ± 0%       ~ (p=1.000 n=10) ¹
+FrameSorterOverlap/gaps=100          24.00 ± 0%   24.00 ± 0%       ~ (p=1.000 n=10) ¹
+FrameSorterOverlap/gaps=1000         66.00 ± 0%   66.00 ± 0%       ~ (p=1.000 n=10) ¹
+FrameSorterOverlap/gaps=4096         190.0 ± 0%   190.0 ± 0%       ~ (p=1.000 n=10) ¹
+geomean                              26.57        26.57       +0.00%
+¹ all samples are equal

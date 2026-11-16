@@ -1,0 +1,30 @@
+goos: darwin
+goarch: arm64
+pkg: github.com/quic-go/quic-go
+cpu: Apple M4 Max
+,baseline.bench,,chunks4096.bench,,,,maprelease.bench,,,
+,sec/op,CI,sec/op,CI,vs base,P,sec/op,CI,vs base,P
+FrameSorterConstruct,2.0435000000000003e-07,4%,1.6005e-07,1%,-21.68%,p=0.000 n=10,1.6125e-07,2%,-21.09%,p=0.000 n=10
+FrameSorterOverlap/gaps=10,1.2095e-06,1%,1.078e-06,1%,-10.87%,p=0.000 n=10,1.0790000000000002e-06,1%,-10.79%,p=0.000 n=10
+FrameSorterOverlap/gaps=100,1.8202e-05,1%,1.2292e-05,1%,-32.47%,p=0.000 n=10,1.2408e-05,1%,-31.83%,p=0.000 n=10
+FrameSorterOverlap/gaps=1000,0.000624796,2%,0.000124283,1%,-80.11%,p=0.000 n=10,0.0001245175,3%,-80.07%,p=0.000 n=10
+FrameSorterOverlap/gaps=4096,,,0.00047343000000000005,1%,,,0.0004730695,2%
+geomean,7.281309076012925e-06,,1.0452806205556511e-05,,-44.66%,,1.0492419812740778e-05,,-44.39%,
+
+,baseline.bench,,chunks4096.bench,,,,maprelease.bench,,,
+,B/op,CI,B/op,CI,vs base,P,B/op,CI,vs base,P
+FrameSorterConstruct,528,0%,440,0%,-16.67%,p=0.000 n=10,440,0%,-16.67%,p=0.000 n=10
+FrameSorterOverlap/gaps=10,1272,0%,1664,0%,+30.82%,p=0.000 n=10,1664,0%,+30.82%,p=0.000 n=10
+FrameSorterOverlap/gaps=100,10858,0%,17264,0%,+59.00%,p=0.000 n=10,17264,0%,+59.00%,p=0.000 n=10
+FrameSorterOverlap/gaps=1000,193251,0%,231264,0%,+19.67%,p=0.000 n=10,231264,0%,+19.67%,p=0.000 n=10
+FrameSorterOverlap/gaps=4096,,,938048,0%,,,938048,0%
+geomean,6127.0038787745925,,19391.70983934848,,+20.01%,,19391.70983934848,,+20.01%,
+
+,baseline.bench,,chunks4096.bench,,,,maprelease.bench,,,
+,allocs/op,CI,allocs/op,CI,vs base,P,allocs/op,CI,vs base,P
+FrameSorterConstruct,4,0%,4,0%,~,p=1.000 n=10,4,0%,~,p=1.000 n=10
+FrameSorterOverlap/gaps=10,7,0%,11,0%,+57.14%,p=0.000 n=10,11,0%,+57.14%,p=0.000 n=10
+FrameSorterOverlap/gaps=100,13,0%,24,0%,+84.62%,p=0.000 n=10,24,0%,+84.62%,p=0.000 n=10
+FrameSorterOverlap/gaps=1000,27,0%,66,0%,+144.44%,p=0.000 n=10,66,0%,+144.44%,p=0.000 n=10
+FrameSorterOverlap/gaps=4096,,,190,0%,,,190,0%
+geomean,9.95671983391869,,26.570045060603427,,+63.19%,,26.570045060603427,,+63.19%,

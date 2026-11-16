@@ -1,0 +1,16 @@
+--- FAIL: TestFrameSorterDiscardReleasesQueueStorage (0.00s)
+    --- FAIL: TestFrameSorterDiscardReleasesQueueStorage/drained=false (0.00s)
+        frame_sorter_chunks_test.go:166: 
+            	Error Trace:	/Volumes/worktrees/issue-1410-frame-sorter/quic-go-fast/frame_sorter_chunks_test.go:166
+            	Error:      	Expected nil, but got: map[protocol.ByteCount]quic.frameSorterEntry{}
+            	Test:       	TestFrameSorterDiscardReleasesQueueStorage/drained=false
+            	Messages:   	terminal discard must release the map's backing storage
+    --- FAIL: TestFrameSorterDiscardReleasesQueueStorage/drained=true (0.00s)
+        frame_sorter_chunks_test.go:166: 
+            	Error Trace:	/Volumes/worktrees/issue-1410-frame-sorter/quic-go-fast/frame_sorter_chunks_test.go:166
+            	Error:      	Expected nil, but got: map[protocol.ByteCount]quic.frameSorterEntry{}
+            	Test:       	TestFrameSorterDiscardReleasesQueueStorage/drained=true
+            	Messages:   	terminal discard must release the map's backing storage
+FAIL
+FAIL	github.com/quic-go/quic-go	0.252s
+FAIL

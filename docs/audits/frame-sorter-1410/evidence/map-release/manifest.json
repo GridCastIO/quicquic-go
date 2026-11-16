@@ -1,0 +1,36 @@
+{
+  "baseline": {
+    "commit": "f4f51b28c09cbfc8b8ac3ced09cf81eb02993b12",
+    "test_binary_sha256": "208f165c66e15bbb5f9085308a37bed49fe0a0896064761bfe8ab2557fac1b8a",
+    "test_binary_bytes": 24523074
+  },
+  "chunks4096": {
+    "commit": "f03f9a1cb4ce2ff4963ce93de5a0d6c91770fefd",
+    "test_binary_sha256": "09f35b8d4f2bd4332255acf44856a14caea7f4cae110ecf459e66ace9e512afe",
+    "test_binary_bytes": 24557106
+  },
+  "maprelease": {
+    "commit": "066f012b17c7127c86990eeb5010e2c8b7002b36",
+    "test_binary_sha256": "719bb4cb039cc4a3de52479de27bc6859fd77e2dd127b8a3f47efae1fa420308",
+    "test_binary_bytes": 24557394
+  },
+  "evidence_sha256": {
+    "baseline.bench.gz": "428807a7777d1b34c4ea2727a7343abd2d99a16ccb947cf35b8a32be42e94d61",
+    "benchstat.csv": "d33dafe778d6b73986f6aa044413b5f8eb3ed331d23b2b7e55057afa05308b46",
+    "benchstat.log": "b0fcf108077644b1f008481db0012c6164680d98007499ede56505de469c6b1d",
+    "candidate-comparison.log": "8c77c8da5124da1a8d42c166baa2b84c21b54a3d2ce35759edae92b1a1fb9a58",
+    "chunks4096.bench.gz": "2c448f72accd59e48ff9257a6d0c451dc6b1bc463e55955260c650d7b6ed2230",
+    "environment.json": "2a608c8d1167cfb3cacc49e7f19599e92d65081f32123a4e2d521be026eea5f1",
+    "focused.log": "c6a1bfb0baa0fd6dfb56599cb80e0726eb98d9b6b783b4e8a51733069c0b6f97",
+    "load-summary.json": "b7799395322cbe7b7ea6d565f1082150a2b5d94b43410f7dc4a8434057ba3652",
+    "load.jsonl": "c6e61bd57b0bb6761b6f07f2d38a4bbc52f384ac7866e0bb1b08ccac186d4409",
+    "maprelease.bench.gz": "94f6d687dd5efd42ff5e02fef735c83cb461680835f152f9311bf0a8d9c0d4ea",
+    "package-tests.log": "026c7a021b01d542007d6165e8935b7a4fb47ede28770aa1acee4895c042bfa7",
+    "race.log": "16402f338218c1b8700f99770a56fe09b74e33bb66c9f2b19fd93b26030d0241",
+    "red.log": "912a2a70efd764261a687518fe21e70b22aed1e8ec5c9f7c6d9942fcf7d2151e",
+    "retained.jsonl": "0a6b9c621d6ab405d490140ba614cda3f093a3bbb1a63802ce5dd7c9c39845b1",
+    "summary.json": "8b710b5b08995cf067362083466f48be2eb41b0fd23e88b129325c73dd9c9c24",
+    "tidy.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "vet.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  }
+}
