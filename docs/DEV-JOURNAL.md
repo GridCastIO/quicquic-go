@@ -11468,3 +11468,28 @@ Merged [PR #1446 — qualified MTU recovery-probe ECN loss](https://github.com/t
 ### Next
 
 L1 has no successor slice and no surviving review follow-up. Its completion state shipped in the product PR. Reconcile journal closure and the exact OmniFocus slice task after this append merges; [program #1440](https://github.com/the-sarge/quic-go-fast/issues/1440) remains the live program view. No native performance campaign or release qualification was part of this slice.
+
+---
+
+## STREAM admission skip landed - 2026-11-16 18:14 EST
+
+**Main:** `4f6c7c1e7c26`
+**Actor:** Codex
+
+### Summary
+
+Merged [PR #1451 — Skip STREAM materialization during DATAGRAM admission](https://github.com/the-sarge/quic-go-fast/pull/1451) as `5c677ffbd4b586f6b345d1b28c77696926781ce2`, closing [S2 (#1439)](https://github.com/the-sarge/quic-go-fast/issues/1439) in [N16-S (#1437)](https://github.com/the-sarge/quic-go-fast/issues/1437). The wire parser now shares private scalar STREAM validation between owning parse and a consumed-length-only skip. Admission uses skip at its STREAM arm and continues scanning the whole payload before deciding capacity. Ordinary dispatch retains its owned copy, the parser preserves error precedence and the 8,972-byte storage limit, and refused mixed packets yield neither STREAM delivery nor an ACK.
+
+### Decisions
+
+The finite matched comparison supports retaining the optimization. At 1,200 bytes, STREAM admission went from 28.06 to 10.25 ns/op. At 8,900 bytes it went from 116.3 to 10.16 ns/op. At 64 bytes with a full queue it went from 40.24 to 10.18 ns/op and from 112 B/op and two allocs/op to zero. The ordinary ten-frame parser benchmark went from 197.7 to 201.0 ns/op with no allocations in either run, and the 64-byte configured owning parse went from 33.23 to 41.31 ns/op with two allocations in both runs. The comparison used one adjacent run per command and source revision on an unpinned host with active performance cores. [Matched output and limitations in PR #1451](https://github.com/the-sarge/quic-go-fast/pull/1451#issuecomment-6930672114)
+
+### Validation
+
+The named wire and admission tests, existing ordinary pooled allocation test, affected-package tests, vet, module tidiness, and diff checks passed. Mixed-packet cases verified that refusal prevented STREAM delivery and ACK in 0-RTT and 1-RTT, and that admission allowed both. Standards and Spec preparation and the full four-reviewer RAS run `20261116T220431-0c2911c34097a06327ff275e` left only historical documentation links to fix. The final Go patch matched the reviewed and measured patch byte-for-byte across base integration. [Local certification in PR #1451](https://github.com/the-sarge/quic-go-fast/pull/1451#issuecomment-6931940551)
+
+All 18 applicable hosted checks passed on certified head `fa4431104360d7805eb81ec37fc59e2387489a08`. The ready-only independent peer passed its fixed 16 cases and separate zero vectors. [Hosted and merge receipt in PR #1451](https://github.com/the-sarge/quic-go-fast/pull/1451#issuecomment-6932122645)
+
+### Next
+
+The product merge records all six audited slices complete and leaves no implementation frontier. S2 has no successor or surviving review follow-up. At the time of this entry, the S2 journal and final mirror reconciliation were the remaining closure steps. [Program tracker #1440](https://github.com/the-sarge/quic-go-fast/issues/1440) is the live coordination view.
