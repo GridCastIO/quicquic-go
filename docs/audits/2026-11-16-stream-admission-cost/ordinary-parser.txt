@@ -1,0 +1,8 @@
+$ go test ./internal/wire -run ^$ -bench ^BenchmarkParseStreamFrame$ -benchmem -benchtime=1s -count=1 -cpu=1
+goos: darwin
+goarch: arm64
+pkg: github.com/quic-go/quic-go/internal/wire
+cpu: Apple M4 Max
+BenchmarkParseStreamFrame 	 6014179	       198.2 ns/op	       0 B/op	       0 allocs/op
+PASS
+ok  	github.com/quic-go/quic-go/internal/wire	1.325s

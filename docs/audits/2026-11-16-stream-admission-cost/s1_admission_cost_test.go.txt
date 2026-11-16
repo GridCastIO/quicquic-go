@@ -1,0 +1,132 @@
+package quic
+
+import (
+	"bytes"
+	"testing"
+
+	"github.com/quic-go/quic-go/internal/protocol"
+	"github.com/quic-go/quic-go/internal/utils"
+	"github.com/quic-go/quic-go/internal/wire"
+)
+
+// Disposable S1 fixture: archive as text and remove compiled source after measurement.
+type s1Case struct {
+	name                    string
+	payload, frames, queued int
+	stream, admitted        bool
+}
+
+var s1Cases = []s1Case{
+	{"stream1200_empty", 1200, 1, 0, true, true},
+	{"stream8900_empty", 8900, 1, 0, true, true},
+	{"stream64_full", 64, 1, 1024, true, true},
+	{"datagram8x1099_room4", 1099, 8, 1020, false, false},
+}
+var s1Admitted bool
+var s1Consumed int
+
+func s1Fixture(t testing.TB, tc s1Case) (*Conn, []byte, wire.FrameType, int) {
+	t.Helper()
+	parser := wire.NewFrameParser(true, false, false)
+	parser.SetMaxStreamDataLen(8972)
+	c := &Conn{config: &Config{EnableDatagrams: true}, packetCeiling: 8972, frameParser: *parser, version: protocol.Version1, datagramQueue: newDatagramQueue(func() {}, utils.DefaultLogger)}
+	for range tc.queued {
+		c.datagramQueue.HandleDatagramFrame(&wire.DatagramFrame{Data: []byte{1}})
+	}
+	var data []byte
+	for range tc.frames {
+		var err error
+		payload := bytes.Repeat([]byte{0x5a}, tc.payload)
+		if tc.stream {
+			data, err = (&wire.StreamFrame{StreamID: 4, Data: payload, DataLenPresent: true}).Append(data, protocol.Version1)
+		} else {
+			data, err = (&wire.DatagramFrame{Data: payload, DataLenPresent: true}).Append(data, protocol.Version1)
+		}
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	if c.packetCeiling.size() != 8972 || !c.config.EnableDatagrams || c.datagramQueue.receiveQueueLen() != tc.queued || len(data) <= 1024-tc.queued {
+		t.Fatal("fixture does not exercise declared admission scan")
+	}
+	rest := data
+	for range tc.frames {
+		typ, n, err := parser.ParseType(rest, protocol.Encryption1RTT)
+		if err != nil {
+			t.Fatal(err)
+		}
+		rest = rest[n:]
+		if tc.stream {
+			f, n, err := parser.ParseStreamFrame(typ, rest, protocol.Version1)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if len(f.Data) != tc.payload || !bytes.Equal(f.Data, bytes.Repeat([]byte{0x5a}, tc.payload)) {
+				t.Fatal("STREAM payload mismatch")
+			}
+			f.PutBack()
+			rest = rest[n:]
+		} else {
+			f, n, err := parser.ParseDatagramFrame(typ, rest, protocol.Version1)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if len(f.Data) != tc.payload || !bytes.Equal(f.Data, bytes.Repeat([]byte{0x5a}, tc.payload)) {
+				t.Fatal("DATAGRAM payload mismatch")
+			}
+			rest = rest[n:]
+		}
+	}
+	if len(rest) != 0 {
+		t.Fatal("unconsumed fixture bytes")
+	}
+	admitted, err := c.admitDatagramPacket(data, protocol.Encryption1RTT)
+	if err != nil || admitted != tc.admitted || c.datagramQueue.receiveQueueLen() != tc.queued {
+		t.Fatalf("admission=%v err=%v queue=%d", admitted, err, c.datagramQueue.receiveQueueLen())
+	}
+	typ, n, err := parser.ParseType(data, protocol.Encryption1RTT)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Logf("fixture=%s payload=%d frames=%d plaintext=%d queue=%d room=%d ceiling=8972 parser_cap=8972 encryption=1RTT admitted=%v", tc.name, tc.payload, tc.frames, len(data), tc.queued, 1024-tc.queued, admitted)
+	return c, data, typ, n
+}
+
+func TestS1AdmissionFixtures(t *testing.T) {
+	for _, tc := range s1Cases {
+		t.Run(tc.name, func(t *testing.T) { s1Fixture(t, tc) })
+	}
+}
+
+func BenchmarkS1DatagramAdmissionCost(b *testing.B) {
+	for _, tc := range s1Cases {
+		b.Run(tc.name, func(b *testing.B) {
+			c, data, typ, typeLen := s1Fixture(b, tc)
+			b.Run("admission", func(b *testing.B) {
+				b.ReportAllocs()
+				b.ResetTimer()
+				for i := 0; i < b.N; i++ {
+					admitted, err := c.admitDatagramPacket(data, protocol.Encryption1RTT)
+					if err != nil {
+						b.Fatal(err)
+					}
+					s1Admitted = admitted
+				}
+			})
+			if tc.stream {
+				b.Run("owning_parse_putback", func(b *testing.B) {
+					b.ReportAllocs()
+					b.ResetTimer()
+					for i := 0; i < b.N; i++ {
+						f, n, err := c.frameParser.ParseStreamFrame(typ, data[typeLen:], protocol.Version1)
+						if err != nil {
+							b.Fatal(err)
+						}
+						s1Consumed = n
+						f.PutBack()
+					}
+				})
+			}
+		})
+	}
+}

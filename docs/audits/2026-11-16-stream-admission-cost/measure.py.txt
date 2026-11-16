@@ -1,0 +1,35 @@
+import ctypes, datetime, json, pathlib, platform, subprocess, time
+root = pathlib.Path('/Volumes/worktrees/n16-s1-1438/quic-go-fast')
+out = root / 'docs/audits/2026-11-16-stream-admission-cost'
+lib = ctypes.CDLL('/usr/lib/libSystem.B.dylib')
+lib.mach_host_self.restype = ctypes.c_uint
+lib.host_processor_info.argtypes = [ctypes.c_uint, ctypes.c_int, ctypes.POINTER(ctypes.c_uint), ctypes.POINTER(ctypes.POINTER(ctypes.c_int)), ctypes.POINTER(ctypes.c_uint)]
+def snapshot():
+    count, length = ctypes.c_uint(), ctypes.c_uint()
+    info = ctypes.POINTER(ctypes.c_int)()
+    result = lib.host_processor_info(lib.mach_host_self(), 2, ctypes.byref(count), ctypes.byref(info), ctypes.byref(length))
+    assert result == 0, result
+    return [list(info[i*4:i*4+4]) for i in range(count.value)]
+def delta(a, b):
+    rows = []
+    for i, (x, y) in enumerate(zip(a, b)):
+        ticks = [v-u for u,v in zip(x,y)]
+        total = sum(ticks)
+        rows.append({'cpu': i, 'busy_percent': round(100*(total-ticks[2])/total, 2) if total else None, 'ticks_user_system_idle_nice': ticks})
+    return rows
+commands = [
+ ['go','test','.','-run','^$','-bench','^BenchmarkS1DatagramAdmissionCost$','-benchmem','-benchtime=1s','-count=1','-cpu=1'],
+ ['go','test','./internal/wire','-run','^$','-bench','^BenchmarkParseStreamFrame$','-benchmem','-benchtime=1s','-count=1','-cpu=1'],
+]
+a = snapshot(); time.sleep(1); b = snapshot()
+receipt = {'method': 'Mach host_processor_info PROCESSOR_CPU_LOAD_INFO tick deltas; IODeviceTree logical-cpu-id maps 0..3 E and 4..15 P. Scheduler unpinned; load includes benchmark itself. No per-process residency or frequency measurement.', 'before_one_second': delta(a,b), 'runs': []}
+for cmd, name in zip(commands, ['admission.txt','ordinary-parser.txt']):
+    before = snapshot()
+    started = datetime.datetime.now(datetime.timezone.utc).isoformat()
+    with (out/name).open('w') as f:
+        f.write('$ ' + ' '.join(cmd) + '\n'); f.flush()
+        result = subprocess.run(cmd, cwd=root, stdout=f, stderr=subprocess.STDOUT)
+    after = snapshot()
+    receipt['runs'].append({'command': cmd, 'started_utc': started, 'ended_utc': datetime.datetime.now(datetime.timezone.utc).isoformat(), 'exit': result.returncode, 'per_cpu': delta(before,after)})
+    (out/'host-load.json').write_text(json.dumps(receipt,indent=2)+'\n')
+    if result.returncode: raise SystemExit(result.returncode)

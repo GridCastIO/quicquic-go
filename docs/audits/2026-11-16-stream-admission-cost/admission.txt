@@ -1,0 +1,14 @@
+$ go test . -run ^$ -bench ^BenchmarkS1DatagramAdmissionCost$ -benchmem -benchtime=1s -count=1 -cpu=1
+goos: darwin
+goarch: arm64
+pkg: github.com/quic-go/quic-go
+cpu: Apple M4 Max
+BenchmarkS1DatagramAdmissionCost/stream1200_empty/admission         	43039483	        29.22 ns/op	       0 B/op	       0 allocs/op
+BenchmarkS1DatagramAdmissionCost/stream1200_empty/owning_parse_putback         	51899840	        23.30 ns/op	       0 B/op	       0 allocs/op
+BenchmarkS1DatagramAdmissionCost/stream8900_empty/admission                    	10862743	       142.0 ns/op	       0 B/op	       0 allocs/op
+BenchmarkS1DatagramAdmissionCost/stream8900_empty/owning_parse_putback         	10614302	       110.9 ns/op	       0 B/op	       0 allocs/op
+BenchmarkS1DatagramAdmissionCost/stream64_full/admission                       	29130632	        40.29 ns/op	     112 B/op	       2 allocs/op
+BenchmarkS1DatagramAdmissionCost/stream64_full/owning_parse_putback            	36065730	        33.60 ns/op	     112 B/op	       2 allocs/op
+BenchmarkS1DatagramAdmissionCost/datagram8x1099_room4/admission                	 7479016	       157.9 ns/op	     256 B/op	       8 allocs/op
+PASS
+ok  	github.com/quic-go/quic-go	11.252s
