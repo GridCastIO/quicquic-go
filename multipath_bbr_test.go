@@ -414,7 +414,9 @@ func TestBBRPathAnnouncementEndpointTransition(t *testing.T) {
 				}
 				require.Equal(t, attempts+1, first.announces)
 				require.True(t, first.announceAt.After(monotime.Now()))
+				secondAttempts := second.announces
 				require.NoError(t, f.c.triggerSending(monotime.Now()).err)
+				require.Equal(t, secondAttempts+1, second.announces, "the later turn is the second announcement")
 				synctest.Wait()
 				require.NoError(t, e.consumeLocal())
 				f.socket = secondSocket
