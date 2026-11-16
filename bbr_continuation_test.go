@@ -97,7 +97,7 @@ func bbrLoopConnection(t *testing.T, onSeal func(c *Conn, n int, payload []byte)
 	}).AnyTimes()
 	sealing := NewMockSealingManager(ctrl)
 	sealing.EXPECT().Get1RTTSealer().Return(sealer, nil).AnyTimes()
-	c.emission.packer = newPacketPacker(tc.srcConnID, c.connIDManager.Get, c.initialStream, c.handshakeStream, c.sentPacketHandler, c.retransmissionQueue, sealing, c.framer, &c.receivedPacketHandler, c.datagramQueue, c.perspective)
+	c.emission.packer = newPacketPacker(tc.srcConnID, c.connIDManager.Get, c.cryptoStreamManager, c.sentPacketHandler, c.retransmissionQueue, sealing, c.framer, &c.receivedPacketHandler, c.datagramQueue, c.perspective)
 	c.emission.bbr = newBBRSendPolicy(100_000_000, 1200, monotime.Now())
 	tc.sendConn.EXPECT().Write(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
 	return tc

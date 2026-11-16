@@ -284,16 +284,16 @@ func TestNativeOrdinaryTerminalLifetime(t *testing.T) {
 					<-e.stop()
 				}()
 				for range 4 {
-					c.initialStream.Write([]byte("registered handshake crypto"))
+					c.cryptoStreamManager.initialStream.Write([]byte("registered handshake crypto"))
 					require.True(t, c.emission.coalesced(monotime.Now()).progress)
 					queue.finish()
 					synctest.Wait()
 				}
 				pn, _ := c.sentPacketHandler.PeekPacketNumber(protocol.EncryptionInitial)
-				c.initialStream.Write([]byte("producer remains owned while the mailbox is full"))
+				c.cryptoStreamManager.initialStream.Write([]byte("producer remains owned while the mailbox is full"))
 				result := c.emission.coalesced(monotime.Now())
 				require.Equal(t, emissionQueueFull, result.stop)
-				require.True(t, c.initialStream.HasData())
+				require.True(t, c.cryptoStreamManager.initialStream.HasData())
 				blockedPN, _ := c.sentPacketHandler.PeekPacketNumber(protocol.EncryptionInitial)
 				require.Equal(t, pn, blockedPN, "completion capacity is reserved before destructive construction")
 				var borrowed *packetBuffer
@@ -484,12 +484,12 @@ func TestNativeOrdinaryTerminalLifetime(t *testing.T) {
 			}
 			require.True(t, queue.recovery.CanRegisterLocalPackets(1))
 			c.handshakeConfirmed = false
-			c.initialStream.Write([]byte("coalesced work remains producer-owned"))
+			c.cryptoStreamManager.initialStream.Write([]byte("coalesced work remains producer-owned"))
 			before, _ := c.sentPacketHandler.PeekPacketNumber(protocol.Encryption1RTT)
 			require.Equal(t, emissionQueueFull, c.emission.coalesced(monotime.Now()).stop)
 			after, _ := c.sentPacketHandler.PeekPacketNumber(protocol.Encryption1RTT)
 			require.Equal(t, before, after)
-			require.True(t, c.initialStream.HasData())
+			require.True(t, c.cryptoStreamManager.initialStream.HasData())
 			c.handshakeConfirmed = true
 			require.False(t, queue.WouldBlock(), "the confirmed atomic quantum still fits")
 			queue.finish()

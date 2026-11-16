@@ -148,7 +148,7 @@ func (m *outgoingStreamsMap[T]) deliveryOpenPending() bool {
 }
 
 func (p *packetPacker) deliveryLimitation() congestion.SendLimitation {
-	if p.retransmissionQueue.HasData(protocol.EncryptionInitial) || p.retransmissionQueue.HasData(protocol.EncryptionHandshake) || p.retransmissionQueue.HasData(protocol.Encryption1RTT) || p.initialStream.HasData() || p.handshakeStream.HasData() || (p.datagramQueue != nil && p.datagramQueue.Peek() != nil) {
+	if p.retransmissionQueue.HasData(protocol.EncryptionInitial) || p.retransmissionQueue.HasData(protocol.EncryptionHandshake) || p.retransmissionQueue.HasData(protocol.Encryption1RTT) || p.cryptoStreamManager.HasData(protocol.EncryptionInitial) || p.cryptoStreamManager.HasData(protocol.EncryptionHandshake) || (p.datagramQueue != nil && p.datagramQueue.Peek() != nil) {
 		return congestion.SendUnknown
 	}
 	if f, ok := p.framer.(*framer); ok {

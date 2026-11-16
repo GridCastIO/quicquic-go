@@ -260,9 +260,9 @@ func TestE21CoalescedHandshakeKeepsDatagramCharge(t *testing.T) {
 		require.NoError(t, c.useNativeOrdinary(endpoint, nativeProbePeer, packetInfo{}))
 		sender := c.emission.local.(*nativeOrdinarySender)
 		t.Cleanup(sender.Close)
-		_, err := c.initialStream.Write([]byte("Initial"))
+		_, err := c.cryptoStreamManager.initialStream.Write([]byte("Initial"))
 		require.NoError(t, err)
-		_, err = c.handshakeStream.Write([]byte("Handshake"))
+		_, err = c.cryptoStreamManager.handshakeStream.Write([]byte("Handshake"))
 		require.NoError(t, err)
 		require.True(t, c.emission.coalesced(monotime.Now()).progress)
 		var found bool

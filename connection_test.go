@@ -126,7 +126,7 @@ func useLifecyclePacketPacker(t *testing.T, ctrl *gomock.Controller, tc *testCon
 		return sealer, nil
 	}).AnyTimes()
 	sealing.EXPECT().Get0RTTSealer().Return(nil, handshake.ErrKeysNotYetAvailable).AnyTimes()
-	c.emission.packer = newPacketPacker(tc.srcConnID, c.connIDManager.Get, c.initialStream, c.handshakeStream, c.sentPacketHandler, c.retransmissionQueue, sealing, c.framer, &c.receivedPacketHandler, c.datagramQueue, c.perspective)
+	c.emission.packer = newPacketPacker(tc.srcConnID, c.connIDManager.Get, c.cryptoStreamManager, c.sentPacketHandler, c.retransmissionQueue, sealing, c.framer, &c.receivedPacketHandler, c.datagramQueue, c.perspective)
 }
 
 func newServerTestConnection(
@@ -1490,7 +1490,7 @@ func testConnectionHandshakeClient(t *testing.T, usePreferredAddress bool) {
 		unpacker := NewMockUnpacker(mockCtrl)
 		tc := newClientTestConnection(t, mockCtrl, nil, false, connectionOptCryptoSetup(cs), connectionOptUnpacker(unpacker))
 		useLifecyclePacketPacker(t, mockCtrl, tc)
-		tc.conn.handshakeStream.Write([]byte("client handshake flight"))
+		tc.conn.cryptoStreamManager.handshakeStream.Write([]byte("client handshake flight"))
 		written := make(chan []byte, 1)
 		tc.sendConn.EXPECT().Write(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(func(data []byte, _ uint16, _ protocol.ECN) error {
 			select {
@@ -1612,7 +1612,7 @@ func TestConnection0RTTTransportParameters(t *testing.T) {
 	unpacker := NewMockUnpacker(mockCtrl)
 	tc := newClientTestConnection(t, mockCtrl, nil, false, connectionOptCryptoSetup(cs), connectionOptUnpacker(unpacker))
 	useLifecyclePacketPacker(t, mockCtrl, tc)
-	tc.conn.handshakeStream.Write([]byte("client handshake flight"))
+	tc.conn.cryptoStreamManager.handshakeStream.Write([]byte("client handshake flight"))
 	written := make(chan []byte, 1)
 	tc.sendConn.EXPECT().Write(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(func(data []byte, _ uint16, _ protocol.ECN) error {
 		select {
