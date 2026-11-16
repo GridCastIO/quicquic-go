@@ -1,7 +1,7 @@
 # Path-Zero ACK Growth Implementation Plan
 
 **Date:** 2026-11-16
-**Status:** Accepted design; not yet implemented
+**Status:** Complete — M1 implemented; no successor slice
 **Track:** `N16-M` in the [November 16 correctness and architecture program](2026-11-16-architecture-correctness-program.md)
 **Depends on:** nothing — M1 is independently startable
 **Related:** [packet-size plan](2026-11-05-jumbo-packets-plan.md); [A20 packet-size disposition](2026-10-20-architecture-decisions.md)
@@ -36,7 +36,7 @@ Keep the existing max-only shared-estimate publication as a separate operation, 
 
 | Slice | Disposition | Delivers | Blocked by | Temporary seam |
 |---|---|---|---|---|
-| M1 | new | Aborted-migration regression and own-finder ACK growth publication | None | None |
+| M1 | complete ([#1434](https://github.com/the-sarge/quic-go-fast/issues/1434)) | Aborted-migration regression and own-finder ACK growth publication | None | None |
 
 ## Implementation slices
 
