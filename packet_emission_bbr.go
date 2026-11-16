@@ -116,7 +116,7 @@ func (e *packetEmission) boundedPathTurns(now monotime.Time, confirmed bool) (em
 			// selected route's work; the announcement retries after backoff.
 			e.pathCredit.noteAnnounced(m, now)
 		} else {
-			if sent, err := e.announce(now, !paced); err != nil || sent {
+			if sent, err := e.announce(m, now, !paced); err != nil || sent {
 				return emissionResult{err: err, retry: err == nil}, pathTurnSignaling
 			}
 			e.reservation.completeLocal()

@@ -219,14 +219,14 @@ func (e *packetEmission) canConstruct(route *pathRoute) bool {
 // announcePath sends the non-probing packet a cutover owes on its new tuple. It is an
 // ordinary registered packet, so recovery tracks it and an acknowledgment discharges it.
 func (e *packetEmission) announcePath(now monotime.Time) (bool, error) {
-	return e.announce(now, false)
+	return e.announce(e.pathCredit.nextAnnouncement(now), now, false)
 }
 
 // announce is announcePath with BBR's choice of packing; announcePath stays Reno's
 // entry, which always packs payload. A control-only announcement is a PING with any
-// queued ACKs, and its route's payload waits for an ordinary opportunity.
-func (e *packetEmission) announce(now monotime.Time, controlOnly bool) (bool, error) {
-	m := e.pathCredit.nextAnnouncement(now)
+// queued ACKs, and its route's payload waits for an ordinary opportunity. Consume
+// the caller's selection so BBR's reservation always belongs to this carrier.
+func (e *packetEmission) announce(m *pathMember, now monotime.Time, controlOnly bool) (bool, error) {
 	if m == nil {
 		return false, nil
 	}

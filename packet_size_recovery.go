@@ -54,7 +54,7 @@ func (c *Conn) advancePacketSizeRecovery(now monotime.Time) {
 	if !p.laterSmallAck {
 		return
 	}
-	ackhandler.RetireMTURecoveryProbes(c.sentPacketHandler, now, true)
+	ackhandler.DeclareMTURecoveryProbesLost(c.sentPacketHandler, now)
 	f.lost++
 	f.probe = nil
 	if f.lost < ackhandler.MaxMTURecoveryProbes {
@@ -62,7 +62,7 @@ func (c *Conn) advancePacketSizeRecovery(now monotime.Time) {
 	}
 	if f.size == c.effectiveInitialPacketSize {
 		f.active = false
-		ackhandler.RetireMTURecoveryProbes(c.sentPacketHandler, now, false)
+		ackhandler.RetireMTURecoveryProbes(c.sentPacketHandler, now)
 		return
 	}
 	f.lost = 0
