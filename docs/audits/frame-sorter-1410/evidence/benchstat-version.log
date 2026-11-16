@@ -1,0 +1,15 @@
+/Volumes/worktrees/issue-1410-frame-sorter/evidence/benchstat: go1.27.4
+	path	golang.org/x/perf/cmd/benchstat
+	mod	golang.org/x/perf	v0.0.0-20261009192801-be2c69fb417e	h1:IB9P+pA897fozv0n9ldn+jTDNWtEMfbomaXXa4dKr74=
+	dep	github.com/aclements/go-moremath	v0.0.0-20210112150236-f10218a38794	h1:xlwdaKcTNVW4PtpQb8aKA4Pjy0CdJHEqvFbAnvR5m2g=
+	build	-buildmode=exe
+	build	-compiler=gc
+	build	DefaultGODEBUG=tracebacklabels=0,x509sslcertoverrideplatform=0
+	build	CGO_ENABLED=1
+	build	CGO_CFLAGS=
+	build	CGO_CPPFLAGS=
+	build	CGO_CXXFLAGS=
+	build	CGO_LDFLAGS=
+	build	GOARCH=arm64
+	build	GOOS=darwin
+	build	GOARM64=v8.0

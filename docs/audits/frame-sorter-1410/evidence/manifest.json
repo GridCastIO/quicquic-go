@@ -1,0 +1,40 @@
+{
+  "baseline": {
+    "commit": "f4f51b28c09cbfc8b8ac3ced09cf81eb02993b12",
+    "test_binary_sha256": "208f165c66e15bbb5f9085308a37bed49fe0a0896064761bfe8ab2557fac1b8a",
+    "test_binary_bytes": 24523074
+  },
+  "chunks1000": {
+    "commit": "79fc4161c8ef483e3501f3de56d4e3a7cb68bef6",
+    "test_binary_sha256": "ff590683b942378e3b0497f0cdffe22108a5f0d330fc5d1b14aa618cdc3cfd85",
+    "test_binary_bytes": 24557106
+  },
+  "chunks4096": {
+    "commit": "f03f9a1cb4ce2ff4963ce93de5a0d6c91770fefd",
+    "test_binary_sha256": "09f35b8d4f2bd4332255acf44856a14caea7f4cae110ecf459e66ace9e512afe",
+    "test_binary_bytes": 24557106
+  },
+  "evidence_sha256": {
+    "baseline-recovery.log": "3ab15d92657fcf0ce756d4e38c422704982bd23b077e54b7cf18a207d357c490",
+    "baseline.bench.gz": "14a2fbe574db22b45ce74dbb0187aea0a1c6673195cf4d4187dc8905ee7721d8",
+    "benchstat-version.log": "097d799ba28f1fe99114a5cc8000a4dce5653b46d02d04029fe83b40bcea1a92",
+    "benchstat.csv": "6239d35f8c4745e161c541926d3bb40471c330d57ecac85282ce8ae75ae2a8ab",
+    "benchstat.log": "23993902f65c5d06e689be13937cf61b0e14fdd3ccee4b7f95b1ec9cd74a9ede",
+    "candidate-a-boundaries.log": "755b03c613a6b76430dc00d27db7659b2f2c92353bdbb9828f26a309f817a4e6",
+    "candidate-a-focused.log": "cc2a8df13b38d4075f513b73fd250f06851297daf4934dcf4194926d99154bb2",
+    "candidate-b-focused.log": "31cf000c36089fd08db3811816c8695545cfe6f322beb62e5beeba1e98035e1c",
+    "chunks1000-recovery.log": "b1e92deb2a36d930655462f0302adac61931faee6371eac199c182aaef198892",
+    "chunks1000.bench.gz": "01d98298dd17f7f4501d2dc0f8ee66fd79c554adaca490a1c5b459804c1a0236",
+    "chunks4096-recovery.log": "21da0c70d183301741c0cdddcc98b279265e55057fa026d74c1a77ae7f62cda9",
+    "chunks4096.bench.gz": "27f9b774c8621cfc99f68aa77103f95089b977521acb9003c4bd098ed67f6290",
+    "environment.json": "431fc3aebca94384cc80efa74edc318c849c7c6ab2100f5ced8cdb605ba3b76b",
+    "load-summary.json": "50f32919c9dfc9e066a13d7fb3a1f08484c71627911035a001bc01688d1a38ae",
+    "load.jsonl": "f9b4cccc415de2fb5c137ad83f645e50a03971efc1f1ebda49f6a4ce7f0c5eb1",
+    "package-tests.log": "d80c468f15bee8457b72edc3e3bd1ccbf3b82b1287cc884f15a0b35279b5fcfe",
+    "race.log": "b1824847e0f30f61b71b0098a78d3617bd0782434cdcc1771230995dde23f9dd",
+    "retained.jsonl": "e9dd6ee536421724deb3dba69b323a42c176b2df2e00685813dac821efc9fe5d",
+    "summary.json": "377dc6e1875866b7434188a5f16f636880b8b9668ce00c86c17e0b8a2a4b3c78",
+    "tidy.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "vet.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  }
+}

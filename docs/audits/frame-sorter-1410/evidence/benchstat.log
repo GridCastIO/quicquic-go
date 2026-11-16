@@ -1,0 +1,172 @@
+goos: darwin
+goarch: arm64
+pkg: github.com/quic-go/quic-go
+cpu: Apple M4 Max
+                                               │ baseline.bench │           chunks1000.bench            │           chunks4096.bench            │
+                                               │     sec/op     │    sec/op      vs base                │    sec/op      vs base                │
+FrameSorterInOrder                                 28.70n ±  1%    27.58n ±  1%   -3.89% (p=0.000 n=10)    28.00n ±  2%   -2.42% (p=0.002 n=10)
+FrameSorterLossy/gaps=2                            63.27n ±  2%    68.34n ±  2%   +8.02% (p=0.000 n=10)    69.33n ±  2%   +9.59% (p=0.000 n=10)
+FrameSorterLossy/gaps=10                           111.4n ±  2%    113.3n ±  2%   +1.71% (p=0.005 n=10)    111.9n ±  3%        ~ (p=0.109 n=10)
+FrameSorterLossy/gaps=32                           146.9n ±  3%    131.5n ±  2%  -10.52% (p=0.000 n=10)    132.7n ±  1%   -9.67% (p=0.000 n=10)
+FrameSorterLossy/gaps=33                           148.4n ±  3%    130.9n ±  2%  -11.76% (p=0.000 n=10)    132.7n ±  4%  -10.61% (p=0.000 n=10)
+FrameSorterLossy/gaps=64                           184.6n ±  2%    144.4n ±  2%  -21.80% (p=0.000 n=10)    143.8n ±  1%  -22.12% (p=0.000 n=10)
+FrameSorterLossy/gaps=65                           187.7n ±  2%    165.1n ±  1%  -12.07% (p=0.000 n=10)    167.1n ±  2%  -10.97% (p=0.000 n=10)
+FrameSorterLossy/gaps=100                          217.8n ±  3%    166.6n ±  2%  -23.50% (p=0.000 n=10)    168.1n ±  1%  -22.84% (p=0.000 n=10)
+FrameSorterLossy/gaps=999                         1110.5n ±  2%    183.8n ±  3%  -83.44% (p=0.000 n=10)    185.4n ±  1%  -83.30% (p=0.000 n=10)
+FrameSorterLossy/gaps=1000                        1123.5n ±  3%    183.6n ±  1%  -83.66% (p=0.000 n=10)    184.4n ±  1%  -83.59% (p=0.000 n=10)
+FrameSorterDuplicate/gaps=2                        7.324n ±  3%   10.620n ±  2%  +45.01% (p=0.000 n=10)   10.575n ±  1%  +44.40% (p=0.000 n=10)
+FrameSorterDuplicate/gaps=10                       13.93n ±  1%    13.17n ±  2%   -5.46% (p=0.000 n=10)    13.17n ±  2%   -5.42% (p=0.000 n=10)
+FrameSorterDuplicate/gaps=32                       33.63n ±  1%    14.97n ±  2%  -55.47% (p=0.000 n=10)    14.86n ±  3%  -55.81% (p=0.000 n=10)
+FrameSorterDuplicate/gaps=33                       34.38n ±  1%    14.90n ±  2%  -56.68% (p=0.000 n=10)    15.03n ±  2%  -56.28% (p=0.000 n=10)
+FrameSorterDuplicate/gaps=64                       64.67n ±  2%    15.68n ±  2%  -75.75% (p=0.000 n=10)    15.71n ±  2%  -75.72% (p=0.000 n=10)
+FrameSorterDuplicate/gaps=65                       65.19n ±  1%    15.81n ±  3%  -75.75% (p=0.000 n=10)    15.73n ±  2%  -75.87% (p=0.000 n=10)
+FrameSorterDuplicate/gaps=100                     100.75n ±  2%    17.25n ±  5%  -82.88% (p=0.000 n=10)    17.39n ± 15%  -82.73% (p=0.000 n=10)
+FrameSorterDuplicate/gaps=999                     971.35n ±  2%    19.62n ±  2%  -97.98% (p=0.000 n=10)    19.77n ±  3%  -97.96% (p=0.000 n=10)
+FrameSorterDuplicate/gaps=1000                    982.35n ±  3%    19.62n ±  2%  -98.00% (p=0.000 n=10)    19.88n ±  2%  -97.98% (p=0.000 n=10)
+FrameSorterReordered/gaps=2                        65.96n ±  2%    70.61n ±  2%   +7.04% (p=0.000 n=10)    71.34n ±  1%   +8.16% (p=0.000 n=10)
+FrameSorterReordered/gaps=10                       83.80n ± 14%    92.90n ± 12%        ~ (p=0.052 n=10)    98.30n ±  7%  +17.29% (p=0.023 n=10)
+FrameSorterReordered/gaps=32                       93.15n ±  8%   115.50n ±  8%  +23.99% (p=0.000 n=10)   113.20n ±  5%  +21.52% (p=0.000 n=10)
+FrameSorterReordered/gaps=33                       94.16n ±  5%   113.80n ± 12%  +20.86% (p=0.000 n=10)   117.20n ±  8%  +24.48% (p=0.000 n=10)
+FrameSorterReordered/gaps=64                       94.63n ±  4%   125.70n ±  3%  +32.83% (p=0.000 n=10)   126.15n ±  9%  +33.31% (p=0.000 n=10)
+FrameSorterReordered/gaps=65                       94.44n ±  9%   117.10n ±  7%  +24.00% (p=0.000 n=10)   122.00n ±  3%  +29.19% (p=0.000 n=10)
+FrameSorterReordered/gaps=100                      135.4n ±  5%    155.8n ±  3%  +15.03% (p=0.000 n=10)    157.2n ±  2%  +16.10% (p=0.000 n=10)
+FrameSorterReordered/gaps=999                      105.8n ±  2%    129.5n ±  2%  +22.41% (p=0.000 n=10)    131.0n ±  2%  +23.92% (p=0.000 n=10)
+FrameSorterReordered/gaps=1000                     106.0n ±  1%    129.3n ±  2%  +22.03% (p=0.000 n=10)    131.2n ±  2%  +23.73% (p=0.000 n=10)
+FrameSorterConstruct                               194.1n ±  6%    153.5n ±  3%  -20.94% (p=0.000 n=10)    150.8n ±  3%  -22.28% (p=0.000 n=10)
+FrameSorterOverlap/gaps=10                         1.195µ ±  1%    1.053µ ±  1%  -11.89% (p=0.000 n=10)    1.054µ ±  1%  -11.76% (p=0.000 n=10)
+FrameSorterOverlap/gaps=100                        18.31µ ±  1%    12.12µ ±  1%  -33.80% (p=0.000 n=10)    12.16µ ±  1%  -33.59% (p=0.000 n=10)
+FrameSorterOverlap/gaps=1000                       641.7µ ± 10%    122.6µ ±  1%  -80.90% (p=0.000 n=10)    122.7µ ±  1%  -80.87% (p=0.000 n=10)
+FrameSorterReceiveStream/phase=false/gaps=0        148.6n ±  1%    149.4n ±  1%        ~ (p=0.171 n=10)    149.0n ±  1%        ~ (p=0.516 n=10)
+FrameSorterReceiveStream/phase=false/gaps=10       343.0n ±  2%    343.7n ±  4%        ~ (p=0.579 n=10)    341.7n ±  6%        ~ (p=0.813 n=10)
+FrameSorterReceiveStream/phase=false/gaps=1000     367.7n ±  1%    382.2n ±  2%   +3.94% (p=0.000 n=10)    382.6n ±  1%   +4.04% (p=0.000 n=10)
+FrameSorterReceiveStream/phase=true/gaps=0         151.1n ±  1%    149.7n ±  1%        ~ (p=0.100 n=10)    148.9n ±  2%   -1.46% (p=0.010 n=10)
+FrameSorterReceiveStream/phase=true/gaps=10        348.4n ±  4%    353.5n ±  4%        ~ (p=0.810 n=10)    344.4n ±  2%   -1.13% (p=0.034 n=10)
+FrameSorterReceiveStream/phase=true/gaps=1000      370.8n ±  2%    382.8n ±  2%   +3.22% (p=0.000 n=10)    385.6n ±  1%   +3.98% (p=0.000 n=10)
+FrameSorterPhaseSnapshot/gaps=10                   49.84n ±  2%    29.55n ±  4%  -40.69% (p=0.000 n=10)    29.51n ±  3%  -40.78% (p=0.000 n=10)
+FrameSorterPhaseSnapshot/gaps=100                  402.9n ±  1%    195.1n ±  4%  -51.58% (p=0.000 n=10)    194.4n ±  2%  -51.74% (p=0.000 n=10)
+FrameSorterPhaseSnapshot/gaps=1000                 4.212µ ±  1%    1.412µ ±  3%  -66.48% (p=0.000 n=10)    1.418µ ±  2%  -66.33% (p=0.000 n=10)
+FrameSorterLossy/gaps=4095                                                                                 212.4n ±  2%
+FrameSorterLossy/gaps=4096                                                                                 210.5n ±  3%
+FrameSorterDuplicate/gaps=4095                                                                             22.98n ±  2%
+FrameSorterDuplicate/gaps=4096                                                                             23.11n ±  1%
+FrameSorterReordered/gaps=4095                                                                             134.6n ±  3%
+FrameSorterReordered/gaps=4096                                                                             135.7n ±  2%
+FrameSorterOverlap/gaps=4096                                                                               479.0µ ±  3%
+FrameSorterReceiveStream/phase=false/gaps=4096                                                             405.7n ±  1%
+FrameSorterReceiveStream/phase=true/gaps=4096                                                              409.1n ±  1%
+FrameSorterPhaseSnapshot/gaps=4096                                                                         6.906µ ±  2%
+geomean                                            208.0n          123.9n        -40.44%                   159.1n        -40.15%
+
+                                               │ baseline.bench │            chunks1000.bench            │            chunks4096.bench            │
+                                               │      B/op      │     B/op      vs base                  │     B/op      vs base                  │
+FrameSorterInOrder                                 0.000 ± 0%       0.000 ± 0%        ~ (p=1.000 n=10) ¹     0.000 ± 0%        ~ (p=1.000 n=10) ¹
+FrameSorterLossy/gaps=2                            0.000 ± 0%       0.000 ± 0%        ~ (p=1.000 n=10) ¹     0.000 ± 0%        ~ (p=1.000 n=10) ¹
+FrameSorterLossy/gaps=10                           0.000 ± 0%       0.000 ± 0%        ~ (p=1.000 n=10) ¹     0.000 ± 0%        ~ (p=1.000 n=10) ¹
+FrameSorterLossy/gaps=32                           0.000 ± 0%       0.000 ± 0%        ~ (p=1.000 n=10) ¹     0.000 ± 0%        ~ (p=1.000 n=10) ¹
+FrameSorterLossy/gaps=33                           0.000 ± 0%       0.000 ± 0%        ~ (p=1.000 n=10) ¹     0.000 ± 0%        ~ (p=1.000 n=10) ¹
+FrameSorterLossy/gaps=64                           0.000 ± 0%       0.000 ± 0%        ~ (p=1.000 n=10) ¹     0.000 ± 0%        ~ (p=1.000 n=10) ¹
+FrameSorterLossy/gaps=65                            0.00 ± 0%       35.00 ± 0%        ? (p=0.000 n=10)       35.00 ± 0%        ? (p=0.000 n=10)
+FrameSorterLossy/gaps=100                           0.00 ± 0%       36.00 ± 0%        ? (p=0.000 n=10)       36.00 ± 0%        ? (p=0.000 n=10)
+FrameSorterLossy/gaps=999                           0.00 ± 0%       35.00 ± 3%        ? (p=0.000 n=10)       35.50 ± 1%        ? (p=0.000 n=10)
+FrameSorterLossy/gaps=1000                          0.00 ± 0%       35.00 ± 3%        ? (p=0.000 n=10)       36.00 ± 3%        ? (p=0.000 n=10)
+FrameSorterDuplicate/gaps=2                        0.000 ± 0%       0.000 ± 0%        ~ (p=1.000 n=10) ¹     0.000 ± 0%        ~ (p=1.000 n=10) ¹
+FrameSorterDuplicate/gaps=10                       0.000 ± 0%       0.000 ± 0%        ~ (p=1.000 n=10) ¹     0.000 ± 0%        ~ (p=1.000 n=10) ¹
+FrameSorterDuplicate/gaps=32                       0.000 ± 0%       0.000 ± 0%        ~ (p=1.000 n=10) ¹     0.000 ± 0%        ~ (p=1.000 n=10) ¹
+FrameSorterDuplicate/gaps=33                       0.000 ± 0%       0.000 ± 0%        ~ (p=1.000 n=10) ¹     0.000 ± 0%        ~ (p=1.000 n=10) ¹
+FrameSorterDuplicate/gaps=64                       0.000 ± 0%       0.000 ± 0%        ~ (p=1.000 n=10) ¹     0.000 ± 0%        ~ (p=1.000 n=10) ¹
+FrameSorterDuplicate/gaps=65                       0.000 ± 0%       0.000 ± 0%        ~ (p=1.000 n=10) ¹     0.000 ± 0%        ~ (p=1.000 n=10) ¹
+FrameSorterDuplicate/gaps=100                      0.000 ± 0%       0.000 ± 0%        ~ (p=1.000 n=10) ¹     0.000 ± 0%        ~ (p=1.000 n=10) ¹
+FrameSorterDuplicate/gaps=999                      0.000 ± 0%       0.000 ± 0%        ~ (p=1.000 n=10) ¹     0.000 ± 0%        ~ (p=1.000 n=10) ¹
+FrameSorterDuplicate/gaps=1000                     0.000 ± 0%       0.000 ± 0%        ~ (p=1.000 n=10) ¹     0.000 ± 0%        ~ (p=1.000 n=10) ¹
+FrameSorterReordered/gaps=2                        0.000 ± 0%       0.000 ± 0%        ~ (p=1.000 n=10) ¹     0.000 ± 0%        ~ (p=1.000 n=10) ¹
+FrameSorterReordered/gaps=10                       0.000 ± 0%       0.000 ± 0%        ~ (p=1.000 n=10) ¹     0.000 ± 0%        ~ (p=1.000 n=10) ¹
+FrameSorterReordered/gaps=32                       0.000 ± 0%       0.000 ± 0%        ~ (p=1.000 n=10) ¹     0.000 ± 0%        ~ (p=1.000 n=10) ¹
+FrameSorterReordered/gaps=33                       0.000 ± 0%       0.000 ± 0%        ~ (p=1.000 n=10) ¹     0.000 ± 0%        ~ (p=1.000 n=10) ¹
+FrameSorterReordered/gaps=64                       0.000 ± 0%       0.000 ± 0%        ~ (p=1.000 n=10) ¹     0.000 ± 0%        ~ (p=1.000 n=10) ¹
+FrameSorterReordered/gaps=65                       0.000 ± 0%       0.000 ± 0%        ~ (p=1.000 n=10) ¹     0.000 ± 0%        ~ (p=1.000 n=10) ¹
+FrameSorterReordered/gaps=100                      0.000 ± 0%       0.000 ± 0%        ~ (p=1.000 n=10) ¹     0.000 ± 0%        ~ (p=1.000 n=10) ¹
+FrameSorterReordered/gaps=999                      0.000 ± 0%       0.000 ± 0%        ~ (p=1.000 n=10) ¹     0.000 ± 0%        ~ (p=1.000 n=10) ¹
+FrameSorterReordered/gaps=1000                     0.000 ± 0%       0.000 ± 0%        ~ (p=1.000 n=10) ¹     0.000 ± 0%        ~ (p=1.000 n=10) ¹
+FrameSorterConstruct                               528.0 ± 0%       440.0 ± 0%  -16.67% (p=0.000 n=10)       440.0 ± 0%  -16.67% (p=0.000 n=10)
+FrameSorterOverlap/gaps=10                       1.242Ki ± 0%     1.625Ki ± 0%  +30.82% (p=0.000 n=10)     1.625Ki ± 0%  +30.82% (p=0.000 n=10)
+FrameSorterOverlap/gaps=100                      10.60Ki ± 0%     16.86Ki ± 0%  +58.99% (p=0.000 n=10)     16.86Ki ± 0%  +58.99% (p=0.000 n=10)
+FrameSorterOverlap/gaps=1000                     188.7Ki ± 0%     225.8Ki ± 0%  +19.67% (p=0.000 n=10)     225.8Ki ± 0%  +19.67% (p=0.000 n=10)
+FrameSorterReceiveStream/phase=false/gaps=0        64.00 ± 0%       64.00 ± 0%        ~ (p=1.000 n=10) ¹     64.00 ± 0%        ~ (p=1.000 n=10) ¹
+FrameSorterReceiveStream/phase=false/gaps=10       128.0 ± 0%       128.0 ± 0%        ~ (p=1.000 n=10) ¹     128.0 ± 0%        ~ (p=1.000 n=10) ¹
+FrameSorterReceiveStream/phase=false/gaps=1000     128.0 ± 0%       128.0 ± 0%        ~ (p=1.000 n=10) ¹     128.0 ± 0%        ~ (p=1.000 n=10) ¹
+FrameSorterReceiveStream/phase=true/gaps=0         64.00 ± 0%       64.00 ± 0%        ~ (p=1.000 n=10) ¹     64.00 ± 0%        ~ (p=1.000 n=10) ¹
+FrameSorterReceiveStream/phase=true/gaps=10        128.0 ± 0%       128.0 ± 0%        ~ (p=1.000 n=10) ¹     128.0 ± 0%        ~ (p=1.000 n=10) ¹
+FrameSorterReceiveStream/phase=true/gaps=1000      128.0 ± 0%       128.0 ± 0%        ~ (p=1.000 n=10) ¹     128.0 ± 0%        ~ (p=1.000 n=10) ¹
+FrameSorterPhaseSnapshot/gaps=10                   160.0 ± 0%       160.0 ± 0%        ~ (p=1.000 n=10) ¹     160.0 ± 0%        ~ (p=1.000 n=10) ¹
+FrameSorterPhaseSnapshot/gaps=100                1.750Ki ± 0%     1.750Ki ± 0%        ~ (p=1.000 n=10) ¹   1.750Ki ± 0%        ~ (p=1.000 n=10) ¹
+FrameSorterPhaseSnapshot/gaps=1000               16.00Ki ± 0%     16.00Ki ± 0%        ~ (p=1.000 n=10) ¹   16.00Ki ± 0%        ~ (p=1.000 n=10) ¹
+FrameSorterLossy/gaps=4095                                                                                   36.00 ± 0%
+FrameSorterLossy/gaps=4096                                                                                   36.00 ± 0%
+FrameSorterDuplicate/gaps=4095                                                                               0.000 ± 0%
+FrameSorterDuplicate/gaps=4096                                                                               0.000 ± 0%
+FrameSorterReordered/gaps=4095                                                                               0.000 ± 0%
+FrameSorterReordered/gaps=4096                                                                               0.000 ± 0%
+FrameSorterOverlap/gaps=4096                                                                               916.1Ki ± 0%
+FrameSorterReceiveStream/phase=false/gaps=4096                                                               128.0 ± 0%
+FrameSorterReceiveStream/phase=true/gaps=4096                                                                128.0 ± 0%
+FrameSorterPhaseSnapshot/gaps=4096                                                                         64.00Ki ± 0%
+geomean                                                       ²                 ?                      ²                 ?                      ²
+¹ all samples are equal
+² summaries must be >0 to compute geomean
+
+                                               │ baseline.bench │            chunks1000.bench            │            chunks4096.bench            │
+                                               │   allocs/op    │  allocs/op   vs base                   │  allocs/op   vs base                   │
+FrameSorterInOrder                                 0.000 ± 0%      0.000 ± 0%         ~ (p=1.000 n=10) ¹    0.000 ± 0%         ~ (p=1.000 n=10) ¹
+FrameSorterLossy/gaps=2                            0.000 ± 0%      0.000 ± 0%         ~ (p=1.000 n=10) ¹    0.000 ± 0%         ~ (p=1.000 n=10) ¹
+FrameSorterLossy/gaps=10                           0.000 ± 0%      0.000 ± 0%         ~ (p=1.000 n=10) ¹    0.000 ± 0%         ~ (p=1.000 n=10) ¹
+FrameSorterLossy/gaps=32                           0.000 ± 0%      0.000 ± 0%         ~ (p=1.000 n=10) ¹    0.000 ± 0%         ~ (p=1.000 n=10) ¹
+FrameSorterLossy/gaps=33                           0.000 ± 0%      0.000 ± 0%         ~ (p=1.000 n=10) ¹    0.000 ± 0%         ~ (p=1.000 n=10) ¹
+FrameSorterLossy/gaps=64                           0.000 ± 0%      0.000 ± 0%         ~ (p=1.000 n=10) ¹    0.000 ± 0%         ~ (p=1.000 n=10) ¹
+FrameSorterLossy/gaps=65                           0.000 ± 0%      0.000 ± 0%         ~ (p=1.000 n=10) ¹    0.000 ± 0%         ~ (p=1.000 n=10) ¹
+FrameSorterLossy/gaps=100                          0.000 ± 0%      0.000 ± 0%         ~ (p=1.000 n=10) ¹    0.000 ± 0%         ~ (p=1.000 n=10) ¹
+FrameSorterLossy/gaps=999                          0.000 ± 0%      0.000 ± 0%         ~ (p=1.000 n=10) ¹    0.000 ± 0%         ~ (p=1.000 n=10) ¹
+FrameSorterLossy/gaps=1000                         0.000 ± 0%      0.000 ± 0%         ~ (p=1.000 n=10) ¹    0.000 ± 0%         ~ (p=1.000 n=10) ¹
+FrameSorterDuplicate/gaps=2                        0.000 ± 0%      0.000 ± 0%         ~ (p=1.000 n=10) ¹    0.000 ± 0%         ~ (p=1.000 n=10) ¹
+FrameSorterDuplicate/gaps=10                       0.000 ± 0%      0.000 ± 0%         ~ (p=1.000 n=10) ¹    0.000 ± 0%         ~ (p=1.000 n=10) ¹
+FrameSorterDuplicate/gaps=32                       0.000 ± 0%      0.000 ± 0%         ~ (p=1.000 n=10) ¹    0.000 ± 0%         ~ (p=1.000 n=10) ¹
+FrameSorterDuplicate/gaps=33                       0.000 ± 0%      0.000 ± 0%         ~ (p=1.000 n=10) ¹    0.000 ± 0%         ~ (p=1.000 n=10) ¹
+FrameSorterDuplicate/gaps=64                       0.000 ± 0%      0.000 ± 0%         ~ (p=1.000 n=10) ¹    0.000 ± 0%         ~ (p=1.000 n=10) ¹
+FrameSorterDuplicate/gaps=65                       0.000 ± 0%      0.000 ± 0%         ~ (p=1.000 n=10) ¹    0.000 ± 0%         ~ (p=1.000 n=10) ¹
+FrameSorterDuplicate/gaps=100                      0.000 ± 0%      0.000 ± 0%         ~ (p=1.000 n=10) ¹    0.000 ± 0%         ~ (p=1.000 n=10) ¹
+FrameSorterDuplicate/gaps=999                      0.000 ± 0%      0.000 ± 0%         ~ (p=1.000 n=10) ¹    0.000 ± 0%         ~ (p=1.000 n=10) ¹
+FrameSorterDuplicate/gaps=1000                     0.000 ± 0%      0.000 ± 0%         ~ (p=1.000 n=10) ¹    0.000 ± 0%         ~ (p=1.000 n=10) ¹
+FrameSorterReordered/gaps=2                        0.000 ± 0%      0.000 ± 0%         ~ (p=1.000 n=10) ¹    0.000 ± 0%         ~ (p=1.000 n=10) ¹
+FrameSorterReordered/gaps=10                       0.000 ± 0%      0.000 ± 0%         ~ (p=1.000 n=10) ¹    0.000 ± 0%         ~ (p=1.000 n=10) ¹
+FrameSorterReordered/gaps=32                       0.000 ± 0%      0.000 ± 0%         ~ (p=1.000 n=10) ¹    0.000 ± 0%         ~ (p=1.000 n=10) ¹
+FrameSorterReordered/gaps=33                       0.000 ± 0%      0.000 ± 0%         ~ (p=1.000 n=10) ¹    0.000 ± 0%         ~ (p=1.000 n=10) ¹
+FrameSorterReordered/gaps=64                       0.000 ± 0%      0.000 ± 0%         ~ (p=1.000 n=10) ¹    0.000 ± 0%         ~ (p=1.000 n=10) ¹
+FrameSorterReordered/gaps=65                       0.000 ± 0%      0.000 ± 0%         ~ (p=1.000 n=10) ¹    0.000 ± 0%         ~ (p=1.000 n=10) ¹
+FrameSorterReordered/gaps=100                      0.000 ± 0%      0.000 ± 0%         ~ (p=1.000 n=10) ¹    0.000 ± 0%         ~ (p=1.000 n=10) ¹
+FrameSorterReordered/gaps=999                      0.000 ± 0%      0.000 ± 0%         ~ (p=1.000 n=10) ¹    0.000 ± 0%         ~ (p=1.000 n=10) ¹
+FrameSorterReordered/gaps=1000                     0.000 ± 0%      0.000 ± 0%         ~ (p=1.000 n=10) ¹    0.000 ± 0%         ~ (p=1.000 n=10) ¹
+FrameSorterConstruct                               4.000 ± 0%      4.000 ± 0%         ~ (p=1.000 n=10) ¹    4.000 ± 0%         ~ (p=1.000 n=10) ¹
+FrameSorterOverlap/gaps=10                         7.000 ± 0%     11.000 ± 0%   +57.14% (p=0.000 n=10)     11.000 ± 0%   +57.14% (p=0.000 n=10)
+FrameSorterOverlap/gaps=100                        13.00 ± 0%      24.00 ± 0%   +84.62% (p=0.000 n=10)      24.00 ± 0%   +84.62% (p=0.000 n=10)
+FrameSorterOverlap/gaps=1000                       27.00 ± 0%      66.00 ± 0%  +144.44% (p=0.000 n=10)      66.00 ± 0%  +144.44% (p=0.000 n=10)
+FrameSorterReceiveStream/phase=false/gaps=0        2.000 ± 0%      2.000 ± 0%         ~ (p=1.000 n=10) ¹    2.000 ± 0%         ~ (p=1.000 n=10) ¹
+FrameSorterReceiveStream/phase=false/gaps=10       4.000 ± 0%      4.000 ± 0%         ~ (p=1.000 n=10) ¹    4.000 ± 0%         ~ (p=1.000 n=10) ¹
+FrameSorterReceiveStream/phase=false/gaps=1000     4.000 ± 0%      4.000 ± 0%         ~ (p=1.000 n=10) ¹    4.000 ± 0%         ~ (p=1.000 n=10) ¹
+FrameSorterReceiveStream/phase=true/gaps=0         2.000 ± 0%      2.000 ± 0%         ~ (p=1.000 n=10) ¹    2.000 ± 0%         ~ (p=1.000 n=10) ¹
+FrameSorterReceiveStream/phase=true/gaps=10        4.000 ± 0%      4.000 ± 0%         ~ (p=1.000 n=10) ¹    4.000 ± 0%         ~ (p=1.000 n=10) ¹
+FrameSorterReceiveStream/phase=true/gaps=1000      4.000 ± 0%      4.000 ± 0%         ~ (p=1.000 n=10) ¹    4.000 ± 0%         ~ (p=1.000 n=10) ¹
+FrameSorterPhaseSnapshot/gaps=10                   1.000 ± 0%      1.000 ± 0%         ~ (p=1.000 n=10) ¹    1.000 ± 0%         ~ (p=1.000 n=10) ¹
+FrameSorterPhaseSnapshot/gaps=100                  1.000 ± 0%      1.000 ± 0%         ~ (p=1.000 n=10) ¹    1.000 ± 0%         ~ (p=1.000 n=10) ¹
+FrameSorterPhaseSnapshot/gaps=1000                 1.000 ± 0%      1.000 ± 0%         ~ (p=1.000 n=10) ¹    1.000 ± 0%         ~ (p=1.000 n=10) ¹
+FrameSorterLossy/gaps=4095                                                                                  0.000 ± 0%
+FrameSorterLossy/gaps=4096                                                                                  0.000 ± 0%
+FrameSorterDuplicate/gaps=4095                                                                              0.000 ± 0%
+FrameSorterDuplicate/gaps=4096                                                                              0.000 ± 0%
+FrameSorterReordered/gaps=4095                                                                              0.000 ± 0%
+FrameSorterReordered/gaps=4096                                                                              0.000 ± 0%
+FrameSorterOverlap/gaps=4096                                                                                190.0 ± 0%
+FrameSorterReceiveStream/phase=false/gaps=4096                                                              4.000 ± 0%
+FrameSorterReceiveStream/phase=true/gaps=4096                                                               4.000 ± 0%
+FrameSorterPhaseSnapshot/gaps=4096                                                                          1.000 ± 0%
+geomean                                                       ²                  +4.89%                ²                  +4.89%                ²
+¹ all samples are equal
+² summaries must be >0 to compute geomean

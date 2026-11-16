@@ -1,6 +1,6 @@
 # Frame sorter evaluation — issue #1410
 
-Status: user approved the inline evaluation plan in Codex on November 15, 2026. Production adoption is pending a separate user decision on measured results. Issue: [Evaluate chunked frame sorting and a higher reordering-gap limit (#1410)](https://github.com/the-sarge/quic-go-fast/issues/1410).
+Status: user approved the inline evaluation plan in Codex on November 15, 2026. Evaluation is complete; see [the decision report](README.md). Production adoption is pending a separate user decision on measured results. Issue: [Evaluate chunked frame sorting and a higher reordering-gap limit (#1410)](https://github.com/the-sarge/quic-go-fast/issues/1410).
 
 ## Outcome and boundary
 
@@ -14,11 +14,11 @@ The sorter owns sorted missing byte intervals over validated ranges admitted by 
 
 | Semantic class | Expected disposition and owner | Evidence | Initial status |
 | --- | --- | --- | --- |
-| In-order, duplicates, overlap replacement, trimming | Sorter preserves bytes/offsets and consumes callbacks once | Push/Pop/Peek behavior and callback counters | Pending |
-| Lookup boundaries, splitting, merging, multi-chunk spans | Sorter preserves ordered gaps/counts and readable data | Actual chunk boundary scenarios plus existing cases | Pending |
-| Fragmented phase snapshot and later overlap replacement | Sorter keeps first-reception provenance independent of mutable gaps | Phase queries and receive-stream reads | Pending |
-| Limit rejection and terminal discard | Sorter releases input and retained callbacks; no reuse after fatal rejection | Limit boundary and repeated discard tests | Pending |
-| Receive-stream and CRYPTO consumers | Existing owners preserve error, lifetime, and assembly contracts | Existing caller suites and focused fragmented stream case | Pending |
+| In-order, duplicates, overlap replacement, trimming | Sorter preserves bytes/offsets and consumes callbacks once | Push/Pop/Peek behavior and callback counters | Covered by the candidate evaluation tests; see report |
+| Lookup boundaries, splitting, merging, multi-chunk spans | Sorter preserves ordered gaps/counts and readable data | Actual chunk boundary scenarios plus existing cases | Covered by the candidate evaluation tests; see report |
+| Fragmented phase snapshot and later overlap replacement | Sorter keeps first-reception provenance independent of mutable gaps | Phase queries and receive-stream reads | Covered by the candidate evaluation tests; see report |
+| Limit rejection and terminal discard | Sorter releases input and retained callbacks; no reuse after fatal rejection | Limit boundary and repeated discard tests | Covered by the candidate evaluation tests; see report |
+| Receive-stream and CRYPTO consumers | Existing owners preserve error, lifetime, and assembly contracts | Existing caller suites and focused fragmented stream case | Covered by the candidate evaluation tests; see report |
 
 Use TDD for added behavior at these approved seams. Sorter tests do not establish network recovery; stream tests do not establish network throughput; internal assertions supplement observable results. Retain a 1,200-byte frame paired-loss model with delayed recovery, in-order and bounded-reordering controls. State window assumptions and distinguish this model from network replay.
 

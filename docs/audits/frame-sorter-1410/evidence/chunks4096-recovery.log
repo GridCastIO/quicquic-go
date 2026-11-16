@@ -1,0 +1,9 @@
+=== RUN   TestFrameSorterAccumulatedLossRecovery
+=== RUN   TestFrameSorterAccumulatedLossRecovery/in_order
+=== RUN   TestFrameSorterAccumulatedLossRecovery/bounded_reordering
+=== RUN   TestFrameSorterAccumulatedLossRecovery/delayed_recovery
+--- PASS: TestFrameSorterAccumulatedLossRecovery (0.04s)
+    --- PASS: TestFrameSorterAccumulatedLossRecovery/in_order (0.01s)
+    --- PASS: TestFrameSorterAccumulatedLossRecovery/bounded_reordering (0.01s)
+    --- PASS: TestFrameSorterAccumulatedLossRecovery/delayed_recovery (0.02s)
+PASS
