@@ -1198,19 +1198,25 @@ func (h *sentPacketHandler) detectLostPackets(now monotime.Time, encLevel protoc
 					h.congestion.OnCongestionEvent(congestion.NewPacketKey(p.EncryptionLevel, pn), p.Length, priorInFlight)
 				}
 				if encLevel == protocol.Encryption1RTT {
-					if h.local != nil && h.local.ecn != nil {
-						h.local.ecn.lost(h, pn)
-					} else {
-						if h.bbrECN != nil {
-							h.bbrECN.lostPacket(pn)
-						}
-						if h.ecnTracker != nil {
-							h.ecnTracker.LostPacket(pn)
-						}
-					}
+					h.reportECNLoss(pn)
 				}
 			}
 		}
+	}
+}
+
+// reportECNLoss preserves local transmission evidence as the authority when present.
+// This updates ECN validation only, not congestion-loss accounting.
+func (h *sentPacketHandler) reportECNLoss(pn protocol.PacketNumber) {
+	if h.local != nil && h.local.ecn != nil {
+		h.local.ecn.lost(h, pn)
+		return
+	}
+	if h.bbrECN != nil {
+		h.bbrECN.lostPacket(pn)
+	}
+	if h.ecnTracker != nil {
+		h.ecnTracker.LostPacket(pn)
 	}
 }
 
@@ -1524,6 +1530,9 @@ func (h *sentPacketHandler) QueueProbePacketAt(encLevel protocol.EncryptionLevel
 	h.retireLocal(p, false)
 	pnSpace.history.DeclareLost(pn)
 	h.removeFromBytesInFlight(p)
+	if p.EncryptionLevel == protocol.Encryption1RTT {
+		h.reportECNLoss(pn)
+	}
 	h.queueFramesForRetransmission(p)
 	if h.local != nil {
 		h.setLossDetectionTimer(now)
