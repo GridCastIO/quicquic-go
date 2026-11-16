@@ -146,7 +146,7 @@ func TestRenoInitialPacketSizePacing(t *testing.T) {
 			// The 32-packet window and 5/4 pacing gain allow 40 packets/s.
 			// The ten-packet floor therefore determines the initial burst.
 			require.Equal(t, 10*size, sender.pacer.Budget(now))
-			for pn := protocol.PacketNumber(0); pn < 10; pn++ {
+			for pn := range protocol.PacketNumber(10) {
 				require.True(t, sender.HasPacingBudget(now))
 				require.Zero(t, sender.TimeUntilSend(protocol.ByteCount(pn)*size))
 				sender.OnPacketSent(now, protocol.ByteCount(pn)*size, NewPacketKey(protocol.Encryption1RTT, pn), size, true, false)
