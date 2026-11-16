@@ -38,11 +38,19 @@ func (p *packet) isMTURecoveryPacket() bool {
 }
 
 // RetireMTURecoveryProbes releases recovery-probe flight without congestion loss.
-// While recovery continues, keepForACK retains the bounded probe records so a
-// later admitted ACK still confirms the size. Terminal recovery drops them.
-func RetireMTURecoveryProbes(handler SentPacketHandler, now monotime.Time, keepForACK bool) {
-	h := handler.(*sentPacketHandler)
-	if !keepForACK {
+// Cancellation drops retained size-confirmation receipts without an ECN-loss verdict.
+func RetireMTURecoveryProbes(handler SentPacketHandler, now monotime.Time) {
+	handler.(*sentPacketHandler).retireMTURecoveryProbes(now, false)
+}
+
+// DeclareMTURecoveryProbesLost applies the connection's qualified loss verdict to
+// ECN validation and retains bounded late-ACK receipts without congestion loss.
+func DeclareMTURecoveryProbesLost(handler SentPacketHandler, now monotime.Time) {
+	handler.(*sentPacketHandler).retireMTURecoveryProbes(now, true)
+}
+
+func (h *sentPacketHandler) retireMTURecoveryProbes(now monotime.Time, lost bool) {
+	if !lost {
 		clear(h.mtuRecoveryAcks[:])
 	}
 	for pn, p := range h.appDataPackets.history.Packets() {
@@ -50,7 +58,8 @@ func RetireMTURecoveryProbes(handler SentPacketHandler, now monotime.Time, keepF
 			continue
 		}
 		h.removeFromBytesInFlight(p)
-		if keepForACK {
+		if lost {
+			h.reportECNLoss(pn)
 			h.retainMTURecoveryAck(pn, p)
 		}
 		h.retainAckCarrier(pn, p, now)

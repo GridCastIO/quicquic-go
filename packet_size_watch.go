@@ -114,7 +114,7 @@ func (c *Conn) startPacketSizeLiveness() {
 func (c *Conn) advancePacketSizeWatch(now monotime.Time) {
 	w := &c.mtuWatch
 	if w.retire {
-		ackhandler.RetireMTURecoveryProbes(c.sentPacketHandler, now, false)
+		ackhandler.RetireMTURecoveryProbes(c.sentPacketHandler, now)
 		w.retire = false
 	}
 	if !c.watchingPacketSize() {
@@ -141,11 +141,11 @@ func (c *Conn) advancePacketSizeWatch(now monotime.Time) {
 	if !p.laterSmallAck {
 		// Without later small delivery the probe has no loss verdict. Retry liveness,
 		// including after a second outage immediately following the first small ACK.
-		ackhandler.RetireMTURecoveryProbes(c.sentPacketHandler, now, false)
+		ackhandler.RetireMTURecoveryProbes(c.sentPacketHandler, now)
 		c.startPacketSizeLiveness()
 		return
 	}
-	ackhandler.RetireMTURecoveryProbes(c.sentPacketHandler, now, true)
+	ackhandler.DeclareMTURecoveryProbesLost(c.sentPacketHandler, now)
 	w.lostProbes++
 	w.probe = nil
 	if w.lostProbes == ackhandler.MaxMTURecoveryProbes {
