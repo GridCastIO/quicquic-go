@@ -11263,3 +11263,28 @@ The constructor regression failed before the fix for 1200- and 1452-byte sizes w
 The [approved plan and review exception for issue #1409](https://github.com/the-sarge/quic-go-fast/issues/1409#issuecomment-6905296535) limit the change to constructor initialization and bounded regressions. Standards/Spec preparation and the initial full four-agent RAS review (`20261116T020745-682d2a27a81a60f29e3cf715`) reported zero findings. Hosted go fix required a one-line test-loop syntax correction; the user directed no new RAS review, so the started replacement was cancelled and local certification plus hosted checks were repeated. No deferred findings remain.
 
 No throughput or latency measurement was made. Nondefault startup/reset bursts intentionally change: smaller configured packets lose the old surplus credit, while larger packets receive their full ten-packet allowance. Default 1280-byte behavior is unchanged, and the correction adds no per-packet work or allocations.
+
+---
+
+## Discarded handshake stream release landed (#1411) - 2026-11-15 21:56 EST
+
+**Main:** `293723dee364`
+**Actor:** Codex
+
+### Summary
+
+[Evaluate releasing handshake crypto streams after key discard (#1411)](https://github.com/the-sarge/quic-go-fast/issues/1411) shipped in [PR #1423 — Release discarded handshake crypto streams](https://github.com/the-sarge/quic-go-fast/pull/1423), squash-merged as `293723dee3646a245f6c0279572ef3db9dd806e1`. The crypto-stream manager now solely owns Initial and Handshake stream references. Existing encryption-level discard releases those streams and retires their retransmission queues, including rejection of late loss callbacks. `Finish` validation remains earlier and separate; outstanding frame/datagram bytes, 1-RTT session tickets, 0-RTT rejection, ClientHello scrambling, Retry, version negotiation and packet-emission ownership retain their contracts.
+
+### Decisions
+
+The [approved contract for issue #1411](agents/crypto-stream-release-1411.md) conditioned adoption on fork measurements and correctness, with focused CPU/allocation comparisons added at the user's request. The [ownership argument](audits/crypto-stream-release-1411/ownership.md) and [paired evaluation](audits/crypto-stream-release-1411/report.md) retain the scope, commands, raw results and platform limits. TLS-state release, receive-queue shrinking, new pooling contracts and native-I/O architecture changes remain excluded.
+
+Five paired Go 1.27.4 Darwin/arm64 trials with 1,000 persistent idle server connections reduced median connection-attributed retained heap from 39,428,384 to 35,224,944 bytes (10.66%). Median paired saving was 4,204.8 bytes per connection. Delivery-classification and packet-packing timing ranges overlapped with unchanged allocation counts. Complete handshakes were slower in all five candidate samples: median 564,380 to 572,256 ns/op (+1.40%), with unchanged median allocation count. Adoption favors the persistent idle-memory benefit while retaining that possible setup-cost tradeoff; CPU neutrality and connection-churn or other-platform performance qualification are not claimed.
+
+### Validation
+
+Write-storage retention and connection-level obsolete-retransmission regressions failed before their respective fixes. Focused coverage verifies repeat discard, unread receive storage, late callbacks, surviving application recovery, and unchanged bytes during a blocked asynchronous send and shutdown. Root/recovery/handshake package tests, focused lifecycle/native race tests, targeted real TLS lifecycle integration race tests, go vet, module tidiness, lint and documentation checks passed.
+
+Independent Standards and Spec preparation reviews and all four configured RAS reviewers completed without findings. RAS run `20261116T022025-45242ce812ace1f8b74b30eb` required no fix verification; no deferred findings remain. At the user's direction, certification waited for product [PR #1422](https://github.com/the-sarge/quic-go-fast/pull/1422) and journal [PR #1424](https://github.com/the-sarge/quic-go-fast/pull/1424), then followed a conflict-free rebase with unchanged commit patches and no new RAS review solely for the rebase.
+
+[Final certification for PR #1423](https://github.com/the-sarge/quic-go-fast/pull/1423#issuecomment-6905756707) identifies head `3297383b638b095935470c1dd8f3c4c26506b0d0` and base `571ba7762067e6703743d010c4662a9855a13be2`. A final documentation-only correction repackaged the baseline fixture patch without context whitespace; reverse application verified identical fixture semantics. All 18 applicable hosted checks succeeded, including the [actual post-ready independent-peer run for PR #1423](https://github.com/the-sarge/quic-go-fast/actions/runs/43794560579). The merged product tree matches the certified candidate exactly.
