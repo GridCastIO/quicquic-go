@@ -1,7 +1,7 @@
 # Size-Recovery ECN Loss Evidence Implementation Plan
 
 **Date:** 2026-11-16
-**Status:** Accepted design; not yet implemented
+**Status:** Complete — implemented by [PR #1446](https://github.com/the-sarge/quic-go-fast/pull/1446); no successor slices
 **Track:** `N16-L` in the [November 16 correctness and architecture program](2026-11-16-architecture-correctness-program.md)
 **Depends on:** nothing — L1 is independently startable
 **Related:** [jumbo plan](2026-11-05-jumbo-packets-plan.md); [PR #1418](https://github.com/the-sarge/quic-go-fast/pull/1418)
@@ -34,7 +34,7 @@ The two deadline-plus-later-ACK callers choose the loss-qualified operation. Suc
 
 | Slice | Disposition | Delivers | Blocked by | Temporary seam |
 |---|---|---|---|---|
-| L1 | new | Reachable ECN-testing loss regression and verdict-specific retirement | None | None |
+| L1 | complete ([PR #1446](https://github.com/the-sarge/quic-go-fast/pull/1446)) | Reachable ECN-testing loss regression and verdict-specific retirement | None | None |
 
 ## Implementation slices
 
