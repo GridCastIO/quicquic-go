@@ -138,3 +138,40 @@ func TestReceivePhaseStreamFragmentedReplacement(t *testing.T) {
 	require.Nil(t, s.str.frameQueue.openGaps)
 	require.Nil(t, s.str.frameQueue.gaps)
 }
+
+func TestFrameSorterDiscardReleasesQueueStorage(t *testing.T) {
+	for _, drain := range []bool{false, true} {
+		t.Run(fmt.Sprintf("drained=%t", drain), func(t *testing.T) {
+			s := newFrameSorter()
+			var released int
+			for i := range 128 {
+				require.NoError(t, s.Push([]byte{1}, protocol.ByteCount(2*i+1), func() { released++ }))
+			}
+			s.openPhase()
+			if drain {
+				for i := range 128 {
+					require.NoError(t, s.Push([]byte{0}, protocol.ByteCount(2*i), nil))
+				}
+				for s.HasMoreData() {
+					_, data, done := s.Pop()
+					require.NotEmpty(t, data)
+					if done != nil {
+						done()
+					}
+				}
+			}
+			s.discard()
+			s.discard()
+			require.Equal(t, 128, released)
+			require.Nil(t, s.queue, "terminal discard must release the map's backing storage")
+			require.Nil(t, s.openGaps)
+			require.Nil(t, s.gaps)
+			require.False(t, s.HasMoreData())
+			_, data, done := s.Pop()
+			require.Nil(t, data)
+			require.Nil(t, done)
+			require.ErrorIs(t, s.Peek(s.readPos, make([]byte, 1)), errTooLittleData)
+			require.NoError(t, s.Peek(s.readPos, nil))
+		})
+	}
+}

@@ -326,6 +326,9 @@ func (s *frameSorter) discard() {
 			entry.DoneCb()
 		}
 	}
+	// Admission is sealed, so the empty queue can release its backing storage.
+	s.queue = nil
+
 	s.gaps = nil
 	s.numGaps = 0
 }
