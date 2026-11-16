@@ -1,0 +1,16 @@
+=== RUN   TestFrameSorterAccumulatedLossRecovery
+=== RUN   TestFrameSorterAccumulatedLossRecovery/in_order
+=== RUN   TestFrameSorterAccumulatedLossRecovery/bounded_reordering
+=== RUN   TestFrameSorterAccumulatedLossRecovery/delayed_recovery
+    frame_sorter_loss_test.go:36: 
+        	Error Trace:	/Volumes/worktrees/issue-1410-frame-sorter/quic-go-fast/frame_sorter_loss_test.go:36
+        	            				/Volumes/worktrees/issue-1410-frame-sorter/quic-go-fast/frame_sorter_loss_test.go:52
+        	Error:      	Received unexpected error:
+        	            	too many gaps in received data
+        	Test:       	TestFrameSorterAccumulatedLossRecovery/delayed_recovery
+        	Messages:   	frame=9992 offset=11990400 delivered=0
+--- FAIL: TestFrameSorterAccumulatedLossRecovery (0.03s)
+    --- PASS: TestFrameSorterAccumulatedLossRecovery/in_order (0.01s)
+    --- PASS: TestFrameSorterAccumulatedLossRecovery/bounded_reordering (0.01s)
+    --- FAIL: TestFrameSorterAccumulatedLossRecovery/delayed_recovery (0.00s)
+FAIL

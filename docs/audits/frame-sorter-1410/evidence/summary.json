@@ -1,0 +1,3184 @@
+{
+  "BenchmarkFrameSorterConstruct": {
+    "B/op": {
+      "baseline": {
+        "median": 528.0,
+        "min": 528.0,
+        "max": 528.0,
+        "samples": 10
+      },
+      "chunks1000": {
+        "median": 440.0,
+        "min": 440.0,
+        "max": 440.0,
+        "samples": 10,
+        "delta_percent": -16.666666666666664,
+        "pairs_higher": 0
+      },
+      "chunks4096": {
+        "median": 440.0,
+        "min": 440.0,
+        "max": 440.0,
+        "samples": 10,
+        "delta_percent": -16.666666666666664,
+        "pairs_higher": 0
+      }
+    },
+    "allocs/op": {
+      "baseline": {
+        "median": 4.0,
+        "min": 4.0,
+        "max": 4.0,
+        "samples": 10
+      },
+      "chunks1000": {
+        "median": 4.0,
+        "min": 4.0,
+        "max": 4.0,
+        "samples": 10,
+        "delta_percent": 0.0,
+        "pairs_higher": 0
+      },
+      "chunks4096": {
+        "median": 4.0,
+        "min": 4.0,
+        "max": 4.0,
+        "samples": 10,
+        "delta_percent": 0.0,
+        "pairs_higher": 0
+      }
+    },
+    "ns/op": {
+      "baseline": {
+        "median": 194.10000000000002,
+        "min": 190.2,
+        "max": 208.8,
+        "samples": 10
+      },
+      "chunks1000": {
+        "median": 153.45,
+        "min": 150.2,
+        "max": 160.9,
+        "samples": 10,
+        "delta_percent": -20.942812982998472,
+        "pairs_higher": 0
+      },
+      "chunks4096": {
+        "median": 150.85,
+        "min": 148.6,
+        "max": 156.2,
+        "samples": 10,
+        "delta_percent": -22.28232869654818,
+        "pairs_higher": 0
+      }
+    }
+  },
+  "BenchmarkFrameSorterDuplicate/gaps=10": {
+    "B/op": {
+      "baseline": {
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "samples": 10
+      },
+      "chunks1000": {
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "samples": 10,
+        "pairs_higher": 0
+      },
+      "chunks4096": {
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "samples": 10,
+        "pairs_higher": 0
+      }
+    },
+    "allocs/op": {
+      "baseline": {
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "samples": 10
+      },
+      "chunks1000": {
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "samples": 10,
+        "pairs_higher": 0
+      },
+      "chunks4096": {
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "samples": 10,
+        "pairs_higher": 0
+      }
+    },
+    "ns/op": {
+      "baseline": {
+        "median": 13.93,
+        "min": 13.35,
+        "max": 14.29,
+        "samples": 10
+      },
+      "chunks1000": {
+        "median": 13.17,
+        "min": 12.7,
+        "max": 13.51,
+        "samples": 10,
+        "delta_percent": -5.4558506819813335,
+        "pairs_higher": 0
+      },
+      "chunks4096": {
+        "median": 13.175,
+        "min": 12.94,
+        "max": 13.4,
+        "samples": 10,
+        "delta_percent": -5.4199569274946064,
+        "pairs_higher": 0
+      }
+    }
+  },
+  "BenchmarkFrameSorterDuplicate/gaps=100": {
+    "B/op": {
+      "baseline": {
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "samples": 10
+      },
+      "chunks1000": {
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "samples": 10,
+        "pairs_higher": 0
+      },
+      "chunks4096": {
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "samples": 10,
+        "pairs_higher": 0
+      }
+    },
+    "allocs/op": {
+      "baseline": {
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "samples": 10
+      },
+      "chunks1000": {
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "samples": 10,
+        "pairs_higher": 0
+      },
+      "chunks4096": {
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "samples": 10,
+        "pairs_higher": 0
+      }
+    },
+    "ns/op": {
+      "baseline": {
+        "median": 100.75,
+        "min": 96.08,
+        "max": 102.1,
+        "samples": 10
+      },
+      "chunks1000": {
+        "median": 17.25,
+        "min": 16.16,
+        "max": 19.94,
+        "samples": 10,
+        "delta_percent": -82.87841191066998,
+        "pairs_higher": 0
+      },
+      "chunks4096": {
+        "median": 17.395,
+        "min": 16.44,
+        "max": 20.17,
+        "samples": 10,
+        "delta_percent": -82.73449131513648,
+        "pairs_higher": 0
+      }
+    }
+  },
+  "BenchmarkFrameSorterDuplicate/gaps=1000": {
+    "B/op": {
+      "baseline": {
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "samples": 10
+      },
+      "chunks1000": {
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "samples": 10,
+        "pairs_higher": 0
+      },
+      "chunks4096": {
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "samples": 10,
+        "pairs_higher": 0
+      }
+    },
+    "allocs/op": {
+      "baseline": {
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "samples": 10
+      },
+      "chunks1000": {
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "samples": 10,
+        "pairs_higher": 0
+      },
+      "chunks4096": {
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "samples": 10,
+        "pairs_higher": 0
+      }
+    },
+    "ns/op": {
+      "baseline": {
+        "median": 982.3499999999999,
+        "min": 935.4,
+        "max": 1001.0,
+        "samples": 10
+      },
+      "chunks1000": {
+        "median": 19.625,
+        "min": 19.35,
+        "max": 19.94,
+        "samples": 10,
+        "delta_percent": -98.00223952766326,
+        "pairs_higher": 0
+      },
+      "chunks4096": {
+        "median": 19.875,
+        "min": 19.43,
+        "max": 20.33,
+        "samples": 10,
+        "delta_percent": -97.9767903496717,
+        "pairs_higher": 0
+      }
+    }
+  },
+  "BenchmarkFrameSorterDuplicate/gaps=2": {
+    "B/op": {
+      "baseline": {
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "samples": 10
+      },
+      "chunks1000": {
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "samples": 10,
+        "pairs_higher": 0
+      },
+      "chunks4096": {
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "samples": 10,
+        "pairs_higher": 0
+      }
+    },
+    "allocs/op": {
+      "baseline": {
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "samples": 10
+      },
+      "chunks1000": {
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "samples": 10,
+        "pairs_higher": 0
+      },
+      "chunks4096": {
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "samples": 10,
+        "pairs_higher": 0
+      }
+    },
+    "ns/op": {
+      "baseline": {
+        "median": 7.323499999999999,
+        "min": 7.118,
+        "max": 7.54,
+        "samples": 10
+      },
+      "chunks1000": {
+        "median": 10.620000000000001,
+        "min": 10.4,
+        "max": 10.82,
+        "samples": 10,
+        "delta_percent": 45.01263057281357,
+        "pairs_higher": 10
+      },
+      "chunks4096": {
+        "median": 10.575,
+        "min": 10.41,
+        "max": 10.76,
+        "samples": 10,
+        "delta_percent": 44.398170273776216,
+        "pairs_higher": 10
+      }
+    }
+  },
+  "BenchmarkFrameSorterDuplicate/gaps=32": {
+    "B/op": {
+      "baseline": {
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "samples": 10
+      },
+      "chunks1000": {
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "samples": 10,
+        "pairs_higher": 0
+      },
+      "chunks4096": {
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "samples": 10,
+        "pairs_higher": 0
+      }
+    },
+    "allocs/op": {
+      "baseline": {
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "samples": 10
+      },
+      "chunks1000": {
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "samples": 10,
+        "pairs_higher": 0
+      },
+      "chunks4096": {
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "samples": 10,
+        "pairs_higher": 0
+      }
+    },
+    "ns/op": {
+      "baseline": {
+        "median": 33.629999999999995,
+        "min": 32.58,
+        "max": 35.51,
+        "samples": 10
+      },
+      "chunks1000": {
+        "median": 14.975000000000001,
+        "min": 14.45,
+        "max": 15.4,
+        "samples": 10,
+        "delta_percent": -55.4713053820993,
+        "pairs_higher": 0
+      },
+      "chunks4096": {
+        "median": 14.86,
+        "min": 14.28,
+        "max": 15.29,
+        "samples": 10,
+        "delta_percent": -55.81326196848052,
+        "pairs_higher": 0
+      }
+    }
+  },
+  "BenchmarkFrameSorterDuplicate/gaps=33": {
+    "B/op": {
+      "baseline": {
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "samples": 10
+      },
+      "chunks1000": {
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "samples": 10,
+        "pairs_higher": 0
+      },
+      "chunks4096": {
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "samples": 10,
+        "pairs_higher": 0
+      }
+    },
+    "allocs/op": {
+      "baseline": {
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "samples": 10
+      },
+      "chunks1000": {
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "samples": 10,
+        "pairs_higher": 0
+      },
+      "chunks4096": {
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "samples": 10,
+        "pairs_higher": 0
+      }
+    },
+    "ns/op": {
+      "baseline": {
+        "median": 34.38,
+        "min": 34.05,
+        "max": 36.1,
+        "samples": 10
+      },
+      "chunks1000": {
+        "median": 14.895,
+        "min": 14.45,
+        "max": 15.42,
+        "samples": 10,
+        "delta_percent": -56.675392670157066,
+        "pairs_higher": 0
+      },
+      "chunks4096": {
+        "median": 15.030000000000001,
+        "min": 14.18,
+        "max": 15.35,
+        "samples": 10,
+        "delta_percent": -56.28272251308901,
+        "pairs_higher": 0
+      }
+    }
+  },
+  "BenchmarkFrameSorterDuplicate/gaps=4095": {
+    "B/op": {
+      "chunks4096": {
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "samples": 10
+      }
+    },
+    "allocs/op": {
+      "chunks4096": {
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "samples": 10
+      }
+    },
+    "ns/op": {
+      "chunks4096": {
+        "median": 22.979999999999997,
+        "min": 22.4,
+        "max": 23.53,
+        "samples": 10
+      }
+    }
+  },
+  "BenchmarkFrameSorterDuplicate/gaps=4096": {
+    "B/op": {
+      "chunks4096": {
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "samples": 10
+      }
+    },
+    "allocs/op": {
+      "chunks4096": {
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "samples": 10
+      }
+    },
+    "ns/op": {
+      "chunks4096": {
+        "median": 23.115000000000002,
+        "min": 22.73,
+        "max": 23.45,
+        "samples": 10
+      }
+    }
+  },
+  "BenchmarkFrameSorterDuplicate/gaps=64": {
+    "B/op": {
+      "baseline": {
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "samples": 10
+      },
+      "chunks1000": {
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "samples": 10,
+        "pairs_higher": 0
+      },
+      "chunks4096": {
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "samples": 10,
+        "pairs_higher": 0
+      }
+    },
+    "allocs/op": {
+      "baseline": {
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "samples": 10
+      },
+      "chunks1000": {
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "samples": 10,
+        "pairs_higher": 0
+      },
+      "chunks4096": {
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "samples": 10,
+        "pairs_higher": 0
+      }
+    },
+    "ns/op": {
+      "baseline": {
+        "median": 64.66999999999999,
+        "min": 61.42,
+        "max": 65.89,
+        "samples": 10
+      },
+      "chunks1000": {
+        "median": 15.68,
+        "min": 15.29,
+        "max": 16.05,
+        "samples": 10,
+        "delta_percent": -75.75382712231328,
+        "pairs_higher": 0
+      },
+      "chunks4096": {
+        "median": 15.705,
+        "min": 15.39,
+        "max": 16.89,
+        "samples": 10,
+        "delta_percent": -75.715169321169,
+        "pairs_higher": 0
+      }
+    }
+  },
+  "BenchmarkFrameSorterDuplicate/gaps=65": {
+    "B/op": {
+      "baseline": {
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "samples": 10
+      },
+      "chunks1000": {
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "samples": 10,
+        "pairs_higher": 0
+      },
+      "chunks4096": {
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "samples": 10,
+        "pairs_higher": 0
+      }
+    },
+    "allocs/op": {
+      "baseline": {
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "samples": 10
+      },
+      "chunks1000": {
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "samples": 10,
+        "pairs_higher": 0
+      },
+      "chunks4096": {
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "samples": 10,
+        "pairs_higher": 0
+      }
+    },
+    "ns/op": {
+      "baseline": {
+        "median": 65.195,
+        "min": 63.8,
+        "max": 67.72,
+        "samples": 10
+      },
+      "chunks1000": {
+        "median": 15.809999999999999,
+        "min": 15.39,
+        "max": 16.91,
+        "samples": 10,
+        "delta_percent": -75.7496740547588,
+        "pairs_higher": 0
+      },
+      "chunks4096": {
+        "median": 15.73,
+        "min": 15.09,
+        "max": 16.13,
+        "samples": 10,
+        "delta_percent": -75.87238285144566,
+        "pairs_higher": 0
+      }
+    }
+  },
+  "BenchmarkFrameSorterDuplicate/gaps=999": {
+    "B/op": {
+      "baseline": {
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "samples": 10
+      },
+      "chunks1000": {
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "samples": 10,
+        "pairs_higher": 0
+      },
+      "chunks4096": {
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "samples": 10,
+        "pairs_higher": 0
+      }
+    },
+    "allocs/op": {
+      "baseline": {
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "samples": 10
+      },
+      "chunks1000": {
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "samples": 10,
+        "pairs_higher": 0
+      },
+      "chunks4096": {
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "samples": 10,
+        "pairs_higher": 0
+      }
+    },
+    "ns/op": {
+      "baseline": {
+        "median": 971.35,
+        "min": 954.0,
+        "max": 1007.0,
+        "samples": 10
+      },
+      "chunks1000": {
+        "median": 19.62,
+        "min": 19.14,
+        "max": 19.99,
+        "samples": 10,
+        "delta_percent": -97.98013074586916,
+        "pairs_higher": 0
+      },
+      "chunks4096": {
+        "median": 19.775,
+        "min": 19.2,
+        "max": 20.07,
+        "samples": 10,
+        "delta_percent": -97.9641735728625,
+        "pairs_higher": 0
+      }
+    }
+  },
+  "BenchmarkFrameSorterInOrder": {
+    "B/op": {
+      "baseline": {
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "samples": 10
+      },
+      "chunks1000": {
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "samples": 10,
+        "pairs_higher": 0
+      },
+      "chunks4096": {
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "samples": 10,
+        "pairs_higher": 0
+      }
+    },
+    "allocs/op": {
+      "baseline": {
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "samples": 10
+      },
+      "chunks1000": {
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "samples": 10,
+        "pairs_higher": 0
+      },
+      "chunks4096": {
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "samples": 10,
+        "pairs_higher": 0
+      }
+    },
+    "ns/op": {
+      "baseline": {
+        "median": 28.695,
+        "min": 27.99,
+        "max": 30.09,
+        "samples": 10
+      },
+      "chunks1000": {
+        "median": 27.58,
+        "min": 27.13,
+        "max": 28.52,
+        "samples": 10,
+        "delta_percent": -3.885694371841786,
+        "pairs_higher": 0
+      },
+      "chunks4096": {
+        "median": 28.0,
+        "min": 27.5,
+        "max": 28.68,
+        "samples": 10,
+        "delta_percent": -2.4220247429865838,
+        "pairs_higher": 0
+      }
+    }
+  },
+  "BenchmarkFrameSorterLossy/gaps=10": {
+    "B/op": {
+      "baseline": {
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "samples": 10
+      },
+      "chunks1000": {
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "samples": 10,
+        "pairs_higher": 0
+      },
+      "chunks4096": {
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "samples": 10,
+        "pairs_higher": 0
+      }
+    },
+    "allocs/op": {
+      "baseline": {
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "samples": 10
+      },
+      "chunks1000": {
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "samples": 10,
+        "pairs_higher": 0
+      },
+      "chunks4096": {
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "samples": 10,
+        "pairs_higher": 0
+      }
+    },
+    "ns/op": {
+      "baseline": {
+        "median": 111.4,
+        "min": 106.8,
+        "max": 112.4,
+        "samples": 10
+      },
+      "chunks1000": {
+        "median": 113.3,
+        "min": 110.3,
+        "max": 116.0,
+        "samples": 10,
+        "delta_percent": 1.7055655296229766,
+        "pairs_higher": 7
+      },
+      "chunks4096": {
+        "median": 111.85,
+        "min": 108.3,
+        "max": 115.0,
+        "samples": 10,
+        "delta_percent": 0.4039497307001705,
+        "pairs_higher": 7
+      }
+    }
+  },
+  "BenchmarkFrameSorterLossy/gaps=100": {
+    "B/op": {
+      "baseline": {
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "samples": 10
+      },
+      "chunks1000": {
+        "median": 36.0,
+        "min": 36.0,
+        "max": 36.0,
+        "samples": 10,
+        "pairs_higher": 10
+      },
+      "chunks4096": {
+        "median": 36.0,
+        "min": 36.0,
+        "max": 36.0,
+        "samples": 10,
+        "pairs_higher": 10
+      }
+    },
+    "allocs/op": {
+      "baseline": {
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "samples": 10
+      },
+      "chunks1000": {
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "samples": 10,
+        "pairs_higher": 0
+      },
+      "chunks4096": {
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "samples": 10,
+        "pairs_higher": 0
+      }
+    },
+    "ns/op": {
+      "baseline": {
+        "median": 217.85,
+        "min": 208.1,
+        "max": 221.3,
+        "samples": 10
+      },
+      "chunks1000": {
+        "median": 166.64999999999998,
+        "min": 163.2,
+        "max": 167.9,
+        "samples": 10,
+        "delta_percent": -23.50240991507919,
+        "pairs_higher": 0
+      },
+      "chunks4096": {
+        "median": 168.10000000000002,
+        "min": 166.7,
+        "max": 170.1,
+        "samples": 10,
+        "delta_percent": -22.83681432178103,
+        "pairs_higher": 0
+      }
+    }
+  },
+  "BenchmarkFrameSorterLossy/gaps=1000": {
+    "B/op": {
+      "baseline": {
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "samples": 10
+      },
+      "chunks1000": {
+        "median": 35.0,
+        "min": 35.0,
+        "max": 36.0,
+        "samples": 10,
+        "pairs_higher": 10
+      },
+      "chunks4096": {
+        "median": 36.0,
+        "min": 35.0,
+        "max": 36.0,
+        "samples": 10,
+        "pairs_higher": 10
+      }
+    },
+    "allocs/op": {
+      "baseline": {
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "samples": 10
+      },
+      "chunks1000": {
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "samples": 10,
+        "pairs_higher": 0
+      },
+      "chunks4096": {
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "samples": 10,
+        "pairs_higher": 0
+      }
+    },
+    "ns/op": {
+      "baseline": {
+        "median": 1123.5,
+        "min": 1073.0,
+        "max": 1144.0,
+        "samples": 10
+      },
+      "chunks1000": {
+        "median": 183.55,
+        "min": 180.3,
+        "max": 186.2,
+        "samples": 10,
+        "delta_percent": -83.66266132621273,
+        "pairs_higher": 0
+      },
+      "chunks4096": {
+        "median": 184.35000000000002,
+        "min": 182.7,
+        "max": 187.1,
+        "samples": 10,
+        "delta_percent": -83.59145527369827,
+        "pairs_higher": 0
+      }
+    }
+  },
+  "BenchmarkFrameSorterLossy/gaps=2": {
+    "B/op": {
+      "baseline": {
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "samples": 10
+      },
+      "chunks1000": {
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "samples": 10,
+        "pairs_higher": 0
+      },
+      "chunks4096": {
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "samples": 10,
+        "pairs_higher": 0
+      }
+    },
+    "allocs/op": {
+      "baseline": {
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "samples": 10
+      },
+      "chunks1000": {
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "samples": 10,
+        "pairs_higher": 0
+      },
+      "chunks4096": {
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "samples": 10,
+        "pairs_higher": 0
+      }
+    },
+    "ns/op": {
+      "baseline": {
+        "median": 63.269999999999996,
+        "min": 60.71,
+        "max": 64.61,
+        "samples": 10
+      },
+      "chunks1000": {
+        "median": 68.345,
+        "min": 66.18,
+        "max": 69.4,
+        "samples": 10,
+        "delta_percent": 8.021179073810657,
+        "pairs_higher": 10
+      },
+      "chunks4096": {
+        "median": 69.335,
+        "min": 67.8,
+        "max": 70.05,
+        "samples": 10,
+        "delta_percent": 9.585901691164844,
+        "pairs_higher": 10
+      }
+    }
+  },
+  "BenchmarkFrameSorterLossy/gaps=32": {
+    "B/op": {
+      "baseline": {
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "samples": 10
+      },
+      "chunks1000": {
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "samples": 10,
+        "pairs_higher": 0
+      },
+      "chunks4096": {
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "samples": 10,
+        "pairs_higher": 0
+      }
+    },
+    "allocs/op": {
+      "baseline": {
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "samples": 10
+      },
+      "chunks1000": {
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "samples": 10,
+        "pairs_higher": 0
+      },
+      "chunks4096": {
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "samples": 10,
+        "pairs_higher": 0
+      }
+    },
+    "ns/op": {
+      "baseline": {
+        "median": 146.9,
+        "min": 143.4,
+        "max": 151.9,
+        "samples": 10
+      },
+      "chunks1000": {
+        "median": 131.45,
+        "min": 128.1,
+        "max": 134.7,
+        "samples": 10,
+        "delta_percent": -10.517358747447258,
+        "pairs_higher": 0
+      },
+      "chunks4096": {
+        "median": 132.7,
+        "min": 129.8,
+        "max": 134.6,
+        "samples": 10,
+        "delta_percent": -9.666439754935341,
+        "pairs_higher": 0
+      }
+    }
+  },
+  "BenchmarkFrameSorterLossy/gaps=33": {
+    "B/op": {
+      "baseline": {
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "samples": 10
+      },
+      "chunks1000": {
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "samples": 10,
+        "pairs_higher": 0
+      },
+      "chunks4096": {
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "samples": 10,
+        "pairs_higher": 0
+      }
+    },
+    "allocs/op": {
+      "baseline": {
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "samples": 10
+      },
+      "chunks1000": {
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "samples": 10,
+        "pairs_higher": 0
+      },
+      "chunks4096": {
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "samples": 10,
+        "pairs_higher": 0
+      }
+    },
+    "ns/op": {
+      "baseline": {
+        "median": 148.4,
+        "min": 142.0,
+        "max": 153.8,
+        "samples": 10
+      },
+      "chunks1000": {
+        "median": 130.95,
+        "min": 127.1,
+        "max": 135.5,
+        "samples": 10,
+        "delta_percent": -11.758760107816723,
+        "pairs_higher": 0
+      },
+      "chunks4096": {
+        "median": 132.64999999999998,
+        "min": 126.7,
+        "max": 134.5,
+        "samples": 10,
+        "delta_percent": -10.613207547169834,
+        "pairs_higher": 0
+      }
+    }
+  },
+  "BenchmarkFrameSorterLossy/gaps=4095": {
+    "B/op": {
+      "chunks4096": {
+        "median": 36.0,
+        "min": 36.0,
+        "max": 36.0,
+        "samples": 10
+      }
+    },
+    "allocs/op": {
+      "chunks4096": {
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "samples": 10
+      }
+    },
+    "ns/op": {
+      "chunks4096": {
+        "median": 212.45,
+        "min": 207.8,
+        "max": 217.5,
+        "samples": 10
+      }
+    }
+  },
+  "BenchmarkFrameSorterLossy/gaps=4096": {
+    "B/op": {
+      "chunks4096": {
+        "median": 36.0,
+        "min": 36.0,
+        "max": 36.0,
+        "samples": 10
+      }
+    },
+    "allocs/op": {
+      "chunks4096": {
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "samples": 10
+      }
+    },
+    "ns/op": {
+      "chunks4096": {
+        "median": 210.55,
+        "min": 204.4,
+        "max": 215.5,
+        "samples": 10
+      }
+    }
+  },
+  "BenchmarkFrameSorterLossy/gaps=64": {
+    "B/op": {
+      "baseline": {
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "samples": 10
+      },
+      "chunks1000": {
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "samples": 10,
+        "pairs_higher": 0
+      },
+      "chunks4096": {
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "samples": 10,
+        "pairs_higher": 0
+      }
+    },
+    "allocs/op": {
+      "baseline": {
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "samples": 10
+      },
+      "chunks1000": {
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "samples": 10,
+        "pairs_higher": 0
+      },
+      "chunks4096": {
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "samples": 10,
+        "pairs_higher": 0
+      }
+    },
+    "ns/op": {
+      "baseline": {
+        "median": 184.64999999999998,
+        "min": 178.2,
+        "max": 189.9,
+        "samples": 10
+      },
+      "chunks1000": {
+        "median": 144.4,
+        "min": 140.2,
+        "max": 146.8,
+        "samples": 10,
+        "delta_percent": -21.797996209044122,
+        "pairs_higher": 0
+      },
+      "chunks4096": {
+        "median": 143.8,
+        "min": 141.0,
+        "max": 145.9,
+        "samples": 10,
+        "delta_percent": -22.12293528296776,
+        "pairs_higher": 0
+      }
+    }
+  },
+  "BenchmarkFrameSorterLossy/gaps=65": {
+    "B/op": {
+      "baseline": {
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "samples": 10
+      },
+      "chunks1000": {
+        "median": 35.0,
+        "min": 35.0,
+        "max": 36.0,
+        "samples": 10,
+        "pairs_higher": 10
+      },
+      "chunks4096": {
+        "median": 35.0,
+        "min": 35.0,
+        "max": 35.0,
+        "samples": 10,
+        "pairs_higher": 10
+      }
+    },
+    "allocs/op": {
+      "baseline": {
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "samples": 10
+      },
+      "chunks1000": {
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "samples": 10,
+        "pairs_higher": 0
+      },
+      "chunks4096": {
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "samples": 10,
+        "pairs_higher": 0
+      }
+    },
+    "ns/op": {
+      "baseline": {
+        "median": 187.7,
+        "min": 180.5,
+        "max": 190.5,
+        "samples": 10
+      },
+      "chunks1000": {
+        "median": 165.05,
+        "min": 162.0,
+        "max": 167.4,
+        "samples": 10,
+        "delta_percent": -12.067128396377191,
+        "pairs_higher": 0
+      },
+      "chunks4096": {
+        "median": 167.10000000000002,
+        "min": 162.7,
+        "max": 174.2,
+        "samples": 10,
+        "delta_percent": -10.974960042621184,
+        "pairs_higher": 0
+      }
+    }
+  },
+  "BenchmarkFrameSorterLossy/gaps=999": {
+    "B/op": {
+      "baseline": {
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "samples": 10
+      },
+      "chunks1000": {
+        "median": 35.0,
+        "min": 35.0,
+        "max": 36.0,
+        "samples": 10,
+        "pairs_higher": 10
+      },
+      "chunks4096": {
+        "median": 35.5,
+        "min": 35.0,
+        "max": 36.0,
+        "samples": 10,
+        "pairs_higher": 10
+      }
+    },
+    "allocs/op": {
+      "baseline": {
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "samples": 10
+      },
+      "chunks1000": {
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "samples": 10,
+        "pairs_higher": 0
+      },
+      "chunks4096": {
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "samples": 10,
+        "pairs_higher": 0
+      }
+    },
+    "ns/op": {
+      "baseline": {
+        "median": 1110.5,
+        "min": 1083.0,
+        "max": 1146.0,
+        "samples": 10
+      },
+      "chunks1000": {
+        "median": 183.85,
+        "min": 176.9,
+        "max": 190.5,
+        "samples": 10,
+        "delta_percent": -83.44439441692931,
+        "pairs_higher": 0
+      },
+      "chunks4096": {
+        "median": 185.45,
+        "min": 177.8,
+        "max": 189.5,
+        "samples": 10,
+        "delta_percent": -83.30031517334534,
+        "pairs_higher": 0
+      }
+    }
+  },
+  "BenchmarkFrameSorterOverlap/gaps=10": {
+    "B/op": {
+      "baseline": {
+        "median": 1272.0,
+        "min": 1272.0,
+        "max": 1272.0,
+        "samples": 10
+      },
+      "chunks1000": {
+        "median": 1664.0,
+        "min": 1664.0,
+        "max": 1664.0,
+        "samples": 10,
+        "delta_percent": 30.817610062893074,
+        "pairs_higher": 10
+      },
+      "chunks4096": {
+        "median": 1664.0,
+        "min": 1664.0,
+        "max": 1664.0,
+        "samples": 10,
+        "delta_percent": 30.817610062893074,
+        "pairs_higher": 10
+      }
+    },
+    "allocs/op": {
+      "baseline": {
+        "median": 7.0,
+        "min": 7.0,
+        "max": 7.0,
+        "samples": 10
+      },
+      "chunks1000": {
+        "median": 11.0,
+        "min": 11.0,
+        "max": 11.0,
+        "samples": 10,
+        "delta_percent": 57.14285714285714,
+        "pairs_higher": 10
+      },
+      "chunks4096": {
+        "median": 11.0,
+        "min": 11.0,
+        "max": 11.0,
+        "samples": 10,
+        "delta_percent": 57.14285714285714,
+        "pairs_higher": 10
+      }
+    },
+    "ns/op": {
+      "baseline": {
+        "median": 1194.5,
+        "min": 1173.0,
+        "max": 1221.0,
+        "samples": 10
+      },
+      "chunks1000": {
+        "median": 1052.5,
+        "min": 1044.0,
+        "max": 1068.0,
+        "samples": 10,
+        "delta_percent": -11.887819171201341,
+        "pairs_higher": 0
+      },
+      "chunks4096": {
+        "median": 1054.0,
+        "min": 1037.0,
+        "max": 1066.0,
+        "samples": 10,
+        "delta_percent": -11.762243616575974,
+        "pairs_higher": 0
+      }
+    }
+  },
+  "BenchmarkFrameSorterOverlap/gaps=100": {
+    "B/op": {
+      "baseline": {
+        "median": 10858.5,
+        "min": 10858.0,
+        "max": 10859.0,
+        "samples": 10
+      },
+      "chunks1000": {
+        "median": 17264.0,
+        "min": 17264.0,
+        "max": 17264.0,
+        "samples": 10,
+        "delta_percent": 58.990652484228946,
+        "pairs_higher": 10
+      },
+      "chunks4096": {
+        "median": 17264.0,
+        "min": 17264.0,
+        "max": 17264.0,
+        "samples": 10,
+        "delta_percent": 58.990652484228946,
+        "pairs_higher": 10
+      }
+    },
+    "allocs/op": {
+      "baseline": {
+        "median": 13.0,
+        "min": 13.0,
+        "max": 13.0,
+        "samples": 10
+      },
+      "chunks1000": {
+        "median": 24.0,
+        "min": 24.0,
+        "max": 24.0,
+        "samples": 10,
+        "delta_percent": 84.61538461538463,
+        "pairs_higher": 10
+      },
+      "chunks4096": {
+        "median": 24.0,
+        "min": 24.0,
+        "max": 24.0,
+        "samples": 10,
+        "delta_percent": 84.61538461538463,
+        "pairs_higher": 10
+      }
+    },
+    "ns/op": {
+      "baseline": {
+        "median": 18314.0,
+        "min": 18098.0,
+        "max": 18438.0,
+        "samples": 10
+      },
+      "chunks1000": {
+        "median": 12124.5,
+        "min": 11991.0,
+        "max": 12280.0,
+        "samples": 10,
+        "delta_percent": -33.796549088129304,
+        "pairs_higher": 0
+      },
+      "chunks4096": {
+        "median": 12162.5,
+        "min": 12001.0,
+        "max": 12267.0,
+        "samples": 10,
+        "delta_percent": -33.589057551599865,
+        "pairs_higher": 0
+      }
+    }
+  },
+  "BenchmarkFrameSorterOverlap/gaps=1000": {
+    "B/op": {
+      "baseline": {
+        "median": 193247.5,
+        "min": 192980.0,
+        "max": 193351.0,
+        "samples": 10
+      },
+      "chunks1000": {
+        "median": 231264.0,
+        "min": 231264.0,
+        "max": 231264.0,
+        "samples": 10,
+        "delta_percent": 19.67244078189887,
+        "pairs_higher": 10
+      },
+      "chunks4096": {
+        "median": 231264.0,
+        "min": 231264.0,
+        "max": 231264.0,
+        "samples": 10,
+        "delta_percent": 19.67244078189887,
+        "pairs_higher": 10
+      }
+    },
+    "allocs/op": {
+      "baseline": {
+        "median": 27.0,
+        "min": 27.0,
+        "max": 28.0,
+        "samples": 10
+      },
+      "chunks1000": {
+        "median": 66.0,
+        "min": 66.0,
+        "max": 66.0,
+        "samples": 10,
+        "delta_percent": 144.44444444444446,
+        "pairs_higher": 10
+      },
+      "chunks4096": {
+        "median": 66.0,
+        "min": 66.0,
+        "max": 66.0,
+        "samples": 10,
+        "delta_percent": 144.44444444444446,
+        "pairs_higher": 10
+      }
+    },
+    "ns/op": {
+      "baseline": {
+        "median": 641728.5,
+        "min": 617888.0,
+        "max": 789858.0,
+        "samples": 10
+      },
+      "chunks1000": {
+        "median": 122567.0,
+        "min": 121453.0,
+        "max": 126110.0,
+        "samples": 10,
+        "delta_percent": -80.90048984890028,
+        "pairs_higher": 0
+      },
+      "chunks4096": {
+        "median": 122741.5,
+        "min": 120805.0,
+        "max": 125100.0,
+        "samples": 10,
+        "delta_percent": -80.87329766404329,
+        "pairs_higher": 0
+      }
+    }
+  },
+  "BenchmarkFrameSorterOverlap/gaps=4096": {
+    "B/op": {
+      "chunks4096": {
+        "median": 938048.0,
+        "min": 938048.0,
+        "max": 938048.0,
+        "samples": 10
+      }
+    },
+    "allocs/op": {
+      "chunks4096": {
+        "median": 190.0,
+        "min": 190.0,
+        "max": 190.0,
+        "samples": 10
+      }
+    },
+    "ns/op": {
+      "chunks4096": {
+        "median": 478976.5,
+        "min": 465656.0,
+        "max": 483872.0,
+        "samples": 10
+      }
+    }
+  },
+  "BenchmarkFrameSorterPhaseSnapshot/gaps=10": {
+    "B/op": {
+      "baseline": {
+        "median": 160.0,
+        "min": 160.0,
+        "max": 160.0,
+        "samples": 10
+      },
+      "chunks1000": {
+        "median": 160.0,
+        "min": 160.0,
+        "max": 160.0,
+        "samples": 10,
+        "delta_percent": 0.0,
+        "pairs_higher": 0
+      },
+      "chunks4096": {
+        "median": 160.0,
+        "min": 160.0,
+        "max": 160.0,
+        "samples": 10,
+        "delta_percent": 0.0,
+        "pairs_higher": 0
+      }
+    },
+    "allocs/op": {
+      "baseline": {
+        "median": 1.0,
+        "min": 1.0,
+        "max": 1.0,
+        "samples": 10
+      },
+      "chunks1000": {
+        "median": 1.0,
+        "min": 1.0,
+        "max": 1.0,
+        "samples": 10,
+        "delta_percent": 0.0,
+        "pairs_higher": 0
+      },
+      "chunks4096": {
+        "median": 1.0,
+        "min": 1.0,
+        "max": 1.0,
+        "samples": 10,
+        "delta_percent": 0.0,
+        "pairs_higher": 0
+      }
+    },
+    "ns/op": {
+      "baseline": {
+        "median": 49.835,
+        "min": 48.8,
+        "max": 51.52,
+        "samples": 10
+      },
+      "chunks1000": {
+        "median": 29.555,
+        "min": 28.65,
+        "max": 49.95,
+        "samples": 10,
+        "delta_percent": -40.694291160830744,
+        "pairs_higher": 0
+      },
+      "chunks4096": {
+        "median": 29.509999999999998,
+        "min": 28.37,
+        "max": 30.72,
+        "samples": 10,
+        "delta_percent": -40.78458914417579,
+        "pairs_higher": 0
+      }
+    }
+  },
+  "BenchmarkFrameSorterPhaseSnapshot/gaps=100": {
+    "B/op": {
+      "baseline": {
+        "median": 1792.0,
+        "min": 1792.0,
+        "max": 1792.0,
+        "samples": 10
+      },
+      "chunks1000": {
+        "median": 1792.0,
+        "min": 1792.0,
+        "max": 1792.0,
+        "samples": 10,
+        "delta_percent": 0.0,
+        "pairs_higher": 0
+      },
+      "chunks4096": {
+        "median": 1792.0,
+        "min": 1792.0,
+        "max": 1792.0,
+        "samples": 10,
+        "delta_percent": 0.0,
+        "pairs_higher": 0
+      }
+    },
+    "allocs/op": {
+      "baseline": {
+        "median": 1.0,
+        "min": 1.0,
+        "max": 1.0,
+        "samples": 10
+      },
+      "chunks1000": {
+        "median": 1.0,
+        "min": 1.0,
+        "max": 1.0,
+        "samples": 10,
+        "delta_percent": 0.0,
+        "pairs_higher": 0
+      },
+      "chunks4096": {
+        "median": 1.0,
+        "min": 1.0,
+        "max": 1.0,
+        "samples": 10,
+        "delta_percent": 0.0,
+        "pairs_higher": 0
+      }
+    },
+    "ns/op": {
+      "baseline": {
+        "median": 402.9,
+        "min": 400.3,
+        "max": 411.4,
+        "samples": 10
+      },
+      "chunks1000": {
+        "median": 195.10000000000002,
+        "min": 188.1,
+        "max": 204.4,
+        "samples": 10,
+        "delta_percent": -51.57607346736162,
+        "pairs_higher": 0
+      },
+      "chunks4096": {
+        "median": 194.45,
+        "min": 188.1,
+        "max": 214.8,
+        "samples": 10,
+        "delta_percent": -51.73740382228841,
+        "pairs_higher": 0
+      }
+    }
+  },
+  "BenchmarkFrameSorterPhaseSnapshot/gaps=1000": {
+    "B/op": {
+      "baseline": {
+        "median": 16384.0,
+        "min": 16384.0,
+        "max": 16384.0,
+        "samples": 10
+      },
+      "chunks1000": {
+        "median": 16384.0,
+        "min": 16384.0,
+        "max": 16384.0,
+        "samples": 10,
+        "delta_percent": 0.0,
+        "pairs_higher": 0
+      },
+      "chunks4096": {
+        "median": 16384.0,
+        "min": 16384.0,
+        "max": 16384.0,
+        "samples": 10,
+        "delta_percent": 0.0,
+        "pairs_higher": 0
+      }
+    },
+    "allocs/op": {
+      "baseline": {
+        "median": 1.0,
+        "min": 1.0,
+        "max": 1.0,
+        "samples": 10
+      },
+      "chunks1000": {
+        "median": 1.0,
+        "min": 1.0,
+        "max": 1.0,
+        "samples": 10,
+        "delta_percent": 0.0,
+        "pairs_higher": 0
+      },
+      "chunks4096": {
+        "median": 1.0,
+        "min": 1.0,
+        "max": 1.0,
+        "samples": 10,
+        "delta_percent": 0.0,
+        "pairs_higher": 0
+      }
+    },
+    "ns/op": {
+      "baseline": {
+        "median": 4212.0,
+        "min": 3931.0,
+        "max": 4272.0,
+        "samples": 10
+      },
+      "chunks1000": {
+        "median": 1412.0,
+        "min": 1365.0,
+        "max": 1477.0,
+        "samples": 10,
+        "delta_percent": -66.47673314339981,
+        "pairs_higher": 0
+      },
+      "chunks4096": {
+        "median": 1418.0,
+        "min": 1378.0,
+        "max": 1464.0,
+        "samples": 10,
+        "delta_percent": -66.33428300094967,
+        "pairs_higher": 0
+      }
+    }
+  },
+  "BenchmarkFrameSorterPhaseSnapshot/gaps=4096": {
+    "B/op": {
+      "chunks4096": {
+        "median": 65536.0,
+        "min": 65536.0,
+        "max": 65536.0,
+        "samples": 10
+      }
+    },
+    "allocs/op": {
+      "chunks4096": {
+        "median": 1.0,
+        "min": 1.0,
+        "max": 1.0,
+        "samples": 10
+      }
+    },
+    "ns/op": {
+      "chunks4096": {
+        "median": 6906.0,
+        "min": 6734.0,
+        "max": 7100.0,
+        "samples": 10
+      }
+    }
+  },
+  "BenchmarkFrameSorterReceiveStream/phase=false/gaps=0": {
+    "B/op": {
+      "baseline": {
+        "median": 64.0,
+        "min": 64.0,
+        "max": 64.0,
+        "samples": 10
+      },
+      "chunks1000": {
+        "median": 64.0,
+        "min": 64.0,
+        "max": 64.0,
+        "samples": 10,
+        "delta_percent": 0.0,
+        "pairs_higher": 0
+      },
+      "chunks4096": {
+        "median": 64.0,
+        "min": 64.0,
+        "max": 64.0,
+        "samples": 10,
+        "delta_percent": 0.0,
+        "pairs_higher": 0
+      }
+    },
+    "allocs/op": {
+      "baseline": {
+        "median": 2.0,
+        "min": 2.0,
+        "max": 2.0,
+        "samples": 10
+      },
+      "chunks1000": {
+        "median": 2.0,
+        "min": 2.0,
+        "max": 2.0,
+        "samples": 10,
+        "delta_percent": 0.0,
+        "pairs_higher": 0
+      },
+      "chunks4096": {
+        "median": 2.0,
+        "min": 2.0,
+        "max": 2.0,
+        "samples": 10,
+        "delta_percent": 0.0,
+        "pairs_higher": 0
+      }
+    },
+    "ns/op": {
+      "baseline": {
+        "median": 148.65,
+        "min": 145.9,
+        "max": 150.7,
+        "samples": 10
+      },
+      "chunks1000": {
+        "median": 149.45,
+        "min": 147.7,
+        "max": 151.4,
+        "samples": 10,
+        "delta_percent": 0.538176925664291,
+        "pairs_higher": 7
+      },
+      "chunks4096": {
+        "median": 148.95,
+        "min": 147.3,
+        "max": 150.9,
+        "samples": 10,
+        "delta_percent": 0.20181634712410634,
+        "pairs_higher": 5
+      }
+    }
+  },
+  "BenchmarkFrameSorterReceiveStream/phase=false/gaps=10": {
+    "B/op": {
+      "baseline": {
+        "median": 128.0,
+        "min": 128.0,
+        "max": 128.0,
+        "samples": 10
+      },
+      "chunks1000": {
+        "median": 128.0,
+        "min": 128.0,
+        "max": 128.0,
+        "samples": 10,
+        "delta_percent": 0.0,
+        "pairs_higher": 0
+      },
+      "chunks4096": {
+        "median": 128.0,
+        "min": 128.0,
+        "max": 128.0,
+        "samples": 10,
+        "delta_percent": 0.0,
+        "pairs_higher": 0
+      }
+    },
+    "allocs/op": {
+      "baseline": {
+        "median": 4.0,
+        "min": 4.0,
+        "max": 4.0,
+        "samples": 10
+      },
+      "chunks1000": {
+        "median": 4.0,
+        "min": 4.0,
+        "max": 4.0,
+        "samples": 10,
+        "delta_percent": 0.0,
+        "pairs_higher": 0
+      },
+      "chunks4096": {
+        "median": 4.0,
+        "min": 4.0,
+        "max": 4.0,
+        "samples": 10,
+        "delta_percent": 0.0,
+        "pairs_higher": 0
+      }
+    },
+    "ns/op": {
+      "baseline": {
+        "median": 343.0,
+        "min": 337.3,
+        "max": 358.0,
+        "samples": 10
+      },
+      "chunks1000": {
+        "median": 343.7,
+        "min": 338.6,
+        "max": 357.9,
+        "samples": 10,
+        "delta_percent": 0.20408163265306367,
+        "pairs_higher": 6
+      },
+      "chunks4096": {
+        "median": 341.65,
+        "min": 337.3,
+        "max": 362.9,
+        "samples": 10,
+        "delta_percent": -0.39358600583091485,
+        "pairs_higher": 5
+      }
+    }
+  },
+  "BenchmarkFrameSorterReceiveStream/phase=false/gaps=1000": {
+    "B/op": {
+      "baseline": {
+        "median": 128.0,
+        "min": 128.0,
+        "max": 128.0,
+        "samples": 10
+      },
+      "chunks1000": {
+        "median": 128.0,
+        "min": 128.0,
+        "max": 128.0,
+        "samples": 10,
+        "delta_percent": 0.0,
+        "pairs_higher": 0
+      },
+      "chunks4096": {
+        "median": 128.0,
+        "min": 128.0,
+        "max": 128.0,
+        "samples": 10,
+        "delta_percent": 0.0,
+        "pairs_higher": 0
+      }
+    },
+    "allocs/op": {
+      "baseline": {
+        "median": 4.0,
+        "min": 4.0,
+        "max": 4.0,
+        "samples": 10
+      },
+      "chunks1000": {
+        "median": 4.0,
+        "min": 4.0,
+        "max": 4.0,
+        "samples": 10,
+        "delta_percent": 0.0,
+        "pairs_higher": 0
+      },
+      "chunks4096": {
+        "median": 4.0,
+        "min": 4.0,
+        "max": 4.0,
+        "samples": 10,
+        "delta_percent": 0.0,
+        "pairs_higher": 0
+      }
+    },
+    "ns/op": {
+      "baseline": {
+        "median": 367.75,
+        "min": 358.1,
+        "max": 374.6,
+        "samples": 10
+      },
+      "chunks1000": {
+        "median": 382.25,
+        "min": 371.3,
+        "max": 389.1,
+        "samples": 10,
+        "delta_percent": 3.942895989123052,
+        "pairs_higher": 10
+      },
+      "chunks4096": {
+        "median": 382.6,
+        "min": 373.5,
+        "max": 388.1,
+        "samples": 10,
+        "delta_percent": 4.038069340584638,
+        "pairs_higher": 10
+      }
+    }
+  },
+  "BenchmarkFrameSorterReceiveStream/phase=false/gaps=4096": {
+    "B/op": {
+      "chunks4096": {
+        "median": 128.0,
+        "min": 128.0,
+        "max": 128.0,
+        "samples": 10
+      }
+    },
+    "allocs/op": {
+      "chunks4096": {
+        "median": 4.0,
+        "min": 4.0,
+        "max": 4.0,
+        "samples": 10
+      }
+    },
+    "ns/op": {
+      "chunks4096": {
+        "median": 405.70000000000005,
+        "min": 398.0,
+        "max": 409.4,
+        "samples": 10
+      }
+    }
+  },
+  "BenchmarkFrameSorterReceiveStream/phase=true/gaps=0": {
+    "B/op": {
+      "baseline": {
+        "median": 64.0,
+        "min": 64.0,
+        "max": 64.0,
+        "samples": 10
+      },
+      "chunks1000": {
+        "median": 64.0,
+        "min": 64.0,
+        "max": 64.0,
+        "samples": 10,
+        "delta_percent": 0.0,
+        "pairs_higher": 0
+      },
+      "chunks4096": {
+        "median": 64.0,
+        "min": 64.0,
+        "max": 64.0,
+        "samples": 10,
+        "delta_percent": 0.0,
+        "pairs_higher": 0
+      }
+    },
+    "allocs/op": {
+      "baseline": {
+        "median": 2.0,
+        "min": 2.0,
+        "max": 2.0,
+        "samples": 10
+      },
+      "chunks1000": {
+        "median": 2.0,
+        "min": 2.0,
+        "max": 2.0,
+        "samples": 10,
+        "delta_percent": 0.0,
+        "pairs_higher": 0
+      },
+      "chunks4096": {
+        "median": 2.0,
+        "min": 2.0,
+        "max": 2.0,
+        "samples": 10,
+        "delta_percent": 0.0,
+        "pairs_higher": 0
+      }
+    },
+    "ns/op": {
+      "baseline": {
+        "median": 151.1,
+        "min": 147.7,
+        "max": 152.9,
+        "samples": 10
+      },
+      "chunks1000": {
+        "median": 149.7,
+        "min": 146.5,
+        "max": 152.3,
+        "samples": 10,
+        "delta_percent": -0.9265387160820704,
+        "pairs_higher": 4
+      },
+      "chunks4096": {
+        "median": 148.9,
+        "min": 143.8,
+        "max": 152.1,
+        "samples": 10,
+        "delta_percent": -1.4559894109860916,
+        "pairs_higher": 1
+      }
+    }
+  },
+  "BenchmarkFrameSorterReceiveStream/phase=true/gaps=10": {
+    "B/op": {
+      "baseline": {
+        "median": 128.0,
+        "min": 128.0,
+        "max": 128.0,
+        "samples": 10
+      },
+      "chunks1000": {
+        "median": 128.0,
+        "min": 128.0,
+        "max": 128.0,
+        "samples": 10,
+        "delta_percent": 0.0,
+        "pairs_higher": 0
+      },
+      "chunks4096": {
+        "median": 128.0,
+        "min": 128.0,
+        "max": 128.0,
+        "samples": 10,
+        "delta_percent": 0.0,
+        "pairs_higher": 0
+      }
+    },
+    "allocs/op": {
+      "baseline": {
+        "median": 4.0,
+        "min": 4.0,
+        "max": 4.0,
+        "samples": 10
+      },
+      "chunks1000": {
+        "median": 4.0,
+        "min": 4.0,
+        "max": 4.0,
+        "samples": 10,
+        "delta_percent": 0.0,
+        "pairs_higher": 0
+      },
+      "chunks4096": {
+        "median": 4.0,
+        "min": 4.0,
+        "max": 4.0,
+        "samples": 10,
+        "delta_percent": 0.0,
+        "pairs_higher": 0
+      }
+    },
+    "ns/op": {
+      "baseline": {
+        "median": 348.35,
+        "min": 343.4,
+        "max": 364.9,
+        "samples": 10
+      },
+      "chunks1000": {
+        "median": 353.54999999999995,
+        "min": 336.6,
+        "max": 365.2,
+        "samples": 10,
+        "delta_percent": 1.4927515429883575,
+        "pairs_higher": 6
+      },
+      "chunks4096": {
+        "median": 344.4,
+        "min": 338.1,
+        "max": 355.4,
+        "samples": 10,
+        "delta_percent": -1.1339170374623397,
+        "pairs_higher": 2
+      }
+    }
+  },
+  "BenchmarkFrameSorterReceiveStream/phase=true/gaps=1000": {
+    "B/op": {
+      "baseline": {
+        "median": 128.0,
+        "min": 128.0,
+        "max": 128.0,
+        "samples": 10
+      },
+      "chunks1000": {
+        "median": 128.0,
+        "min": 128.0,
+        "max": 128.0,
+        "samples": 10,
+        "delta_percent": 0.0,
+        "pairs_higher": 0
+      },
+      "chunks4096": {
+        "median": 128.0,
+        "min": 128.0,
+        "max": 128.0,
+        "samples": 10,
+        "delta_percent": 0.0,
+        "pairs_higher": 0
+      }
+    },
+    "allocs/op": {
+      "baseline": {
+        "median": 4.0,
+        "min": 4.0,
+        "max": 4.0,
+        "samples": 10
+      },
+      "chunks1000": {
+        "median": 4.0,
+        "min": 4.0,
+        "max": 4.0,
+        "samples": 10,
+        "delta_percent": 0.0,
+        "pairs_higher": 0
+      },
+      "chunks4096": {
+        "median": 4.0,
+        "min": 4.0,
+        "max": 4.0,
+        "samples": 10,
+        "delta_percent": 0.0,
+        "pairs_higher": 0
+      }
+    },
+    "ns/op": {
+      "baseline": {
+        "median": 370.79999999999995,
+        "min": 363.9,
+        "max": 375.5,
+        "samples": 10
+      },
+      "chunks1000": {
+        "median": 382.75,
+        "min": 374.2,
+        "max": 391.9,
+        "samples": 10,
+        "delta_percent": 3.2227615965480183,
+        "pairs_higher": 10
+      },
+      "chunks4096": {
+        "median": 385.55,
+        "min": 381.0,
+        "max": 387.9,
+        "samples": 10,
+        "delta_percent": 3.977885652642943,
+        "pairs_higher": 10
+      }
+    }
+  },
+  "BenchmarkFrameSorterReceiveStream/phase=true/gaps=4096": {
+    "B/op": {
+      "chunks4096": {
+        "median": 128.0,
+        "min": 128.0,
+        "max": 128.0,
+        "samples": 10
+      }
+    },
+    "allocs/op": {
+      "chunks4096": {
+        "median": 4.0,
+        "min": 4.0,
+        "max": 4.0,
+        "samples": 10
+      }
+    },
+    "ns/op": {
+      "chunks4096": {
+        "median": 409.1,
+        "min": 401.0,
+        "max": 413.1,
+        "samples": 10
+      }
+    }
+  },
+  "BenchmarkFrameSorterReordered/gaps=10": {
+    "B/op": {
+      "baseline": {
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "samples": 10
+      },
+      "chunks1000": {
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "samples": 10,
+        "pairs_higher": 0
+      },
+      "chunks4096": {
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "samples": 10,
+        "pairs_higher": 0
+      }
+    },
+    "allocs/op": {
+      "baseline": {
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "samples": 10
+      },
+      "chunks1000": {
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "samples": 10,
+        "pairs_higher": 0
+      },
+      "chunks4096": {
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "samples": 10,
+        "pairs_higher": 0
+      }
+    },
+    "ns/op": {
+      "baseline": {
+        "median": 83.805,
+        "min": 80.96,
+        "max": 96.69,
+        "samples": 10
+      },
+      "chunks1000": {
+        "median": 92.905,
+        "min": 89.83,
+        "max": 105.4,
+        "samples": 10,
+        "delta_percent": 10.858540659865156,
+        "pairs_higher": 9
+      },
+      "chunks4096": {
+        "median": 98.295,
+        "min": 90.61,
+        "max": 106.1,
+        "samples": 10,
+        "delta_percent": 17.290137819939133,
+        "pairs_higher": 8
+      }
+    }
+  },
+  "BenchmarkFrameSorterReordered/gaps=100": {
+    "B/op": {
+      "baseline": {
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "samples": 10
+      },
+      "chunks1000": {
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "samples": 10,
+        "pairs_higher": 0
+      },
+      "chunks4096": {
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "samples": 10,
+        "pairs_higher": 0
+      }
+    },
+    "allocs/op": {
+      "baseline": {
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "samples": 10
+      },
+      "chunks1000": {
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "samples": 10,
+        "pairs_higher": 0
+      },
+      "chunks4096": {
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "samples": 10,
+        "pairs_higher": 0
+      }
+    },
+    "ns/op": {
+      "baseline": {
+        "median": 135.4,
+        "min": 127.9,
+        "max": 142.7,
+        "samples": 10
+      },
+      "chunks1000": {
+        "median": 155.75,
+        "min": 146.0,
+        "max": 161.6,
+        "samples": 10,
+        "delta_percent": 15.029542097488925,
+        "pairs_higher": 10
+      },
+      "chunks4096": {
+        "median": 157.2,
+        "min": 150.4,
+        "max": 162.4,
+        "samples": 10,
+        "delta_percent": 16.100443131462328,
+        "pairs_higher": 10
+      }
+    }
+  },
+  "BenchmarkFrameSorterReordered/gaps=1000": {
+    "B/op": {
+      "baseline": {
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "samples": 10
+      },
+      "chunks1000": {
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "samples": 10,
+        "pairs_higher": 0
+      },
+      "chunks4096": {
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "samples": 10,
+        "pairs_higher": 0
+      }
+    },
+    "allocs/op": {
+      "baseline": {
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "samples": 10
+      },
+      "chunks1000": {
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "samples": 10,
+        "pairs_higher": 0
+      },
+      "chunks4096": {
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "samples": 10,
+        "pairs_higher": 0
+      }
+    },
+    "ns/op": {
+      "baseline": {
+        "median": 106.0,
+        "min": 103.5,
+        "max": 107.6,
+        "samples": 10
+      },
+      "chunks1000": {
+        "median": 129.35,
+        "min": 125.8,
+        "max": 133.2,
+        "samples": 10,
+        "delta_percent": 22.028301886792455,
+        "pairs_higher": 10
+      },
+      "chunks4096": {
+        "median": 131.14999999999998,
+        "min": 127.6,
+        "max": 132.7,
+        "samples": 10,
+        "delta_percent": 23.726415094339593,
+        "pairs_higher": 10
+      }
+    }
+  },
+  "BenchmarkFrameSorterReordered/gaps=2": {
+    "B/op": {
+      "baseline": {
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "samples": 10
+      },
+      "chunks1000": {
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "samples": 10,
+        "pairs_higher": 0
+      },
+      "chunks4096": {
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "samples": 10,
+        "pairs_higher": 0
+      }
+    },
+    "allocs/op": {
+      "baseline": {
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "samples": 10
+      },
+      "chunks1000": {
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "samples": 10,
+        "pairs_higher": 0
+      },
+      "chunks4096": {
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "samples": 10,
+        "pairs_higher": 0
+      }
+    },
+    "ns/op": {
+      "baseline": {
+        "median": 65.96000000000001,
+        "min": 63.93,
+        "max": 67.71,
+        "samples": 10
+      },
+      "chunks1000": {
+        "median": 70.60499999999999,
+        "min": 69.33,
+        "max": 72.81,
+        "samples": 10,
+        "delta_percent": 7.042146755609435,
+        "pairs_higher": 10
+      },
+      "chunks4096": {
+        "median": 71.34,
+        "min": 69.88,
+        "max": 72.55,
+        "samples": 10,
+        "delta_percent": 8.156458459672521,
+        "pairs_higher": 10
+      }
+    }
+  },
+  "BenchmarkFrameSorterReordered/gaps=32": {
+    "B/op": {
+      "baseline": {
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "samples": 10
+      },
+      "chunks1000": {
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "samples": 10,
+        "pairs_higher": 0
+      },
+      "chunks4096": {
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "samples": 10,
+        "pairs_higher": 0
+      }
+    },
+    "allocs/op": {
+      "baseline": {
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "samples": 10
+      },
+      "chunks1000": {
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "samples": 10,
+        "pairs_higher": 0
+      },
+      "chunks4096": {
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "samples": 10,
+        "pairs_higher": 0
+      }
+    },
+    "ns/op": {
+      "baseline": {
+        "median": 93.15,
+        "min": 83.74,
+        "max": 103.2,
+        "samples": 10
+      },
+      "chunks1000": {
+        "median": 115.5,
+        "min": 102.2,
+        "max": 125.0,
+        "samples": 10,
+        "delta_percent": 23.99355877616747,
+        "pairs_higher": 10
+      },
+      "chunks4096": {
+        "median": 113.19999999999999,
+        "min": 108.5,
+        "max": 125.0,
+        "samples": 10,
+        "delta_percent": 21.52442297369832,
+        "pairs_higher": 10
+      }
+    }
+  },
+  "BenchmarkFrameSorterReordered/gaps=33": {
+    "B/op": {
+      "baseline": {
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "samples": 10
+      },
+      "chunks1000": {
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "samples": 10,
+        "pairs_higher": 0
+      },
+      "chunks4096": {
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "samples": 10,
+        "pairs_higher": 0
+      }
+    },
+    "allocs/op": {
+      "baseline": {
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "samples": 10
+      },
+      "chunks1000": {
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "samples": 10,
+        "pairs_higher": 0
+      },
+      "chunks4096": {
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "samples": 10,
+        "pairs_higher": 0
+      }
+    },
+    "ns/op": {
+      "baseline": {
+        "median": 94.155,
+        "min": 87.84,
+        "max": 102.5,
+        "samples": 10
+      },
+      "chunks1000": {
+        "median": 113.8,
+        "min": 97.97,
+        "max": 117.9,
+        "samples": 10,
+        "delta_percent": 20.86453188890658,
+        "pairs_higher": 9
+      },
+      "chunks4096": {
+        "median": 117.19999999999999,
+        "min": 108.0,
+        "max": 125.9,
+        "samples": 10,
+        "delta_percent": 24.475598746747362,
+        "pairs_higher": 10
+      }
+    }
+  },
+  "BenchmarkFrameSorterReordered/gaps=4095": {
+    "B/op": {
+      "chunks4096": {
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "samples": 10
+      }
+    },
+    "allocs/op": {
+      "chunks4096": {
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "samples": 10
+      }
+    },
+    "ns/op": {
+      "chunks4096": {
+        "median": 134.6,
+        "min": 129.6,
+        "max": 136.2,
+        "samples": 10
+      }
+    }
+  },
+  "BenchmarkFrameSorterReordered/gaps=4096": {
+    "B/op": {
+      "chunks4096": {
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "samples": 10
+      }
+    },
+    "allocs/op": {
+      "chunks4096": {
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "samples": 10
+      }
+    },
+    "ns/op": {
+      "chunks4096": {
+        "median": 135.65,
+        "min": 132.9,
+        "max": 138.0,
+        "samples": 10
+      }
+    }
+  },
+  "BenchmarkFrameSorterReordered/gaps=64": {
+    "B/op": {
+      "baseline": {
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "samples": 10
+      },
+      "chunks1000": {
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "samples": 10,
+        "pairs_higher": 0
+      },
+      "chunks4096": {
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "samples": 10,
+        "pairs_higher": 0
+      }
+    },
+    "allocs/op": {
+      "baseline": {
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "samples": 10
+      },
+      "chunks1000": {
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "samples": 10,
+        "pairs_higher": 0
+      },
+      "chunks4096": {
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "samples": 10,
+        "pairs_higher": 0
+      }
+    },
+    "ns/op": {
+      "baseline": {
+        "median": 94.63,
+        "min": 88.53,
+        "max": 100.4,
+        "samples": 10
+      },
+      "chunks1000": {
+        "median": 125.7,
+        "min": 118.0,
+        "max": 131.9,
+        "samples": 10,
+        "delta_percent": 32.833139596322525,
+        "pairs_higher": 10
+      },
+      "chunks4096": {
+        "median": 126.15,
+        "min": 120.6,
+        "max": 143.3,
+        "samples": 10,
+        "delta_percent": 33.30867589559339,
+        "pairs_higher": 10
+      }
+    }
+  },
+  "BenchmarkFrameSorterReordered/gaps=65": {
+    "B/op": {
+      "baseline": {
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "samples": 10
+      },
+      "chunks1000": {
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "samples": 10,
+        "pairs_higher": 0
+      },
+      "chunks4096": {
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "samples": 10,
+        "pairs_higher": 0
+      }
+    },
+    "allocs/op": {
+      "baseline": {
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "samples": 10
+      },
+      "chunks1000": {
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "samples": 10,
+        "pairs_higher": 0
+      },
+      "chunks4096": {
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "samples": 10,
+        "pairs_higher": 0
+      }
+    },
+    "ns/op": {
+      "baseline": {
+        "median": 94.435,
+        "min": 87.25,
+        "max": 106.2,
+        "samples": 10
+      },
+      "chunks1000": {
+        "median": 117.1,
+        "min": 113.3,
+        "max": 131.8,
+        "samples": 10,
+        "delta_percent": 24.0006353576534,
+        "pairs_higher": 10
+      },
+      "chunks4096": {
+        "median": 122.0,
+        "min": 114.4,
+        "max": 129.5,
+        "samples": 10,
+        "delta_percent": 29.189389527188013,
+        "pairs_higher": 10
+      }
+    }
+  },
+  "BenchmarkFrameSorterReordered/gaps=999": {
+    "B/op": {
+      "baseline": {
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "samples": 10
+      },
+      "chunks1000": {
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "samples": 10,
+        "pairs_higher": 0
+      },
+      "chunks4096": {
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "samples": 10,
+        "pairs_higher": 0
+      }
+    },
+    "allocs/op": {
+      "baseline": {
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "samples": 10
+      },
+      "chunks1000": {
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "samples": 10,
+        "pairs_higher": 0
+      },
+      "chunks4096": {
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "samples": 10,
+        "pairs_higher": 0
+      }
+    },
+    "ns/op": {
+      "baseline": {
+        "median": 105.75,
+        "min": 103.4,
+        "max": 107.5,
+        "samples": 10
+      },
+      "chunks1000": {
+        "median": 129.45,
+        "min": 124.6,
+        "max": 132.1,
+        "samples": 10,
+        "delta_percent": 22.411347517730484,
+        "pairs_higher": 10
+      },
+      "chunks4096": {
+        "median": 131.05,
+        "min": 125.1,
+        "max": 133.9,
+        "samples": 10,
+        "delta_percent": 23.9243498817967,
+        "pairs_higher": 10
+      }
+    }
+  }
+}
