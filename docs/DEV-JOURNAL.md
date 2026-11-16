@@ -11424,3 +11424,26 @@ Exact-head docs certification passed for `12f5e8b53f0694e17520a4d23daf4cc515e041
 ### Next
 
 S9 has no deferred findings or follow-ups. [Program tracker (the-sarge/dev-journal#112)](https://github.com/the-sarge/dev-journal/issues/112) is the live view of S10 readiness and the remaining cutover frontier.
+
+---
+
+## Announcement carrier identity landed - 2026-11-16 17:21 EST
+
+**Main:** `13af21db3920`
+**Actor:** Codex
+
+### Completed
+
+Merged [PR #1443 — Bind announcement execution to its reserved carrier](https://github.com/the-sarge/quic-go-fast/pull/1443), completing [A1 (#1430)](https://github.com/the-sarge/quic-go-fast/issues/1430) under [N16-A (#1429)](https://github.com/the-sarge/quic-go-fast/issues/1429). BBR now passes its originally selected path member into the existing announcement operation; Reno retains its single lookup. The selected carrier stays associated with its local send reservation while native admission and refusal remain authoritative. No public API, wire format, persisted state, dependency or owner changes. The product PR records A1 complete with no successor.
+
+### Validation
+
+The real emission/packer/recovery/native-sender regression reproduces a substitute announcement on unchanged production source after the first endpoint faults. The corrected two-route case retains the original attempt, releases refused local credit and later charges the second announcement to its own carrier; its no-alternative control passes before and after. The accepted focused suite, root package tests, vet, module tidiness and focused race run passed.
+
+Independent Standards and Spec preparation found no actionable issues. Initial full-panel RAS `20261116T204615-f1bd239ea052c888b9a886ff` found one test discriminator gap; the second announcement attempt-count assertion fixed it and exact-head source verification resolved it. Replacement full-panel review `20261116T210939-adf52ada1648e79a871f2b9a` was clean. Later M1 runtime integration preserved the A1 Go patch unchanged, passed independent bounded composition inspection, and received renewed local certification. No deferred follow-up or untraced effect remains.
+
+All 18 applicable hosted checks succeeded at final certified head `43248c4359e43f69f0f60c5ab1558b7c8a5a9a3f`, including actual ready-head [independent-peer run 43964395824](https://github.com/the-sarge/quic-go-fast/actions/runs/43964395824). Documentation-only frontier reconciliation and the final append-only journal base advance were inspected before guarded squash merge. Merge commit: `13af21db39209ef0dc5f4674bf474b6c3b46b111`. [PR #1443's final hosted receipt](https://github.com/the-sarge/quic-go-fast/pull/1443#issuecomment-6930951271) links the exact-head evidence.
+
+### Next
+
+A1 has no successor or surviving follow-up. The remaining tracks continue independently; [program #1440](https://github.com/the-sarge/quic-go-fast/issues/1440) remains the live coordination surface.
