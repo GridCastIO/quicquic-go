@@ -357,6 +357,79 @@ func TestBBRPathProbeKeepsSelectedSupplyState(t *testing.T) {
 	})
 }
 
+func TestBBRPathAnnouncementEndpointTransition(t *testing.T) {
+	for _, alternative := range []bool{true, false} {
+		t.Run(fmt.Sprintf("alternative=%t", alternative), func(t *testing.T) {
+			nativeOrdinaryTest(t, func(t *testing.T) {
+				f := newBBRPathFixture(t, protocol.PerspectiveClient)
+				p, e := f.c.pathCredit, &f.c.emission
+				spareZeroCID(t, f.admissionFixture, 2)
+				firstTarget, firstSocket := migrationTarget(t, f.admissionFixture)
+				migrate(t, f.admissionFixture, 0, firstTarget, firstSocket)
+				require.NoError(t, creditIngress(t, f.tc, monotime.Now(), &wire.PathNewConnectionIDFrame{PathID: 1, SequenceNumber: 1, ConnectionID: replacementPeerCID(1), StatelessResetToken: protocol.StatelessResetToken{0xab}}))
+				secondTarget, secondSocket := migrationTarget(t, f.admissionFixture)
+				migrate(t, f.admissionFixture, 1, secondTarget, secondSocket)
+				p.selectPrimaryPrivate(1)
+				first, second := p.members[0], p.members[1]
+				require.True(t, first.announcing)
+				require.True(t, second.announcing)
+				first.announceAt, second.announceAt = monotime.Now(), monotime.Now()
+				if !alternative {
+					second.announceAt = monotime.Now().Add(time.Hour)
+				}
+				firstSocket.writes, secondSocket.writes = nil, nil
+				root, path := e.bbr, f.bbrPath(1)
+				root.tokens, root.updated = int64(root.quantum)*1e9, monotime.Now()
+				path.tokens, path.updated = int64(path.quantum)*1e9, monotime.Now()
+				pathTokens := path.tokens
+				attempts := first.announces
+				transitioned := false
+				sizeReads := 0
+				e.policy = nativeNaturalTurnPolicy{emissionPolicy: e.policy, inspect: func() {
+					sizeReads++
+					// Selection first reads path zero's size for its scheduler view;
+					// the next read sizes the already chosen announcement's reservation.
+					if sizeReads != 2 {
+						return
+					}
+					transitioned = true
+					nativeTransportEndpoint(firstTarget).do(func(state *endpointState) { state.fail(endpointFaultNative, errEndpointFault) })
+				}}
+				require.NoError(t, f.c.triggerSending(monotime.Now()).err)
+				require.True(t, transitioned, "the endpoint fails between selection and execution")
+				require.Nil(t, e.reservation)
+				require.True(t, first.announcing, "local refusal does not discharge the obligation")
+				synctest.Wait()
+				require.Empty(t, firstSocket.writes)
+				require.Empty(t, secondSocket.writes, "the first reservation cannot carry a substitute announcement")
+				require.NoError(t, e.consumeLocal())
+				require.Zero(t, e.bbrPendingBytes(root), "refusal releases the original carrier's credit")
+				rootTokens := root.tokens
+				if !alternative {
+					require.Empty(t, secondSocket.writes, "no cross-member fallback")
+					require.Equal(t, pathTokens, path.tokens)
+					require.Zero(t, e.bbrPendingBytes(path))
+					require.True(t, second.announcing)
+					return
+				}
+				require.Equal(t, attempts+1, first.announces)
+				require.True(t, first.announceAt.After(monotime.Now()))
+				require.NoError(t, f.c.triggerSending(monotime.Now()).err)
+				synctest.Wait()
+				require.NoError(t, e.consumeLocal())
+				f.socket = secondSocket
+				writes := f.parseWrites(t, 1)
+				require.Len(t, writes, 1, "the other announcement gets its own later attempt")
+				require.Equal(t, pathTokens-int64(len(writes[0].data))*1e9, path.tokens, "the actual carrier pays")
+				require.Equal(t, rootTokens, root.tokens)
+				f.ackPath(t, 1, 0, writes)
+				require.False(t, second.announcing, "recovery registered the actual carrier's announcement")
+				require.True(t, first.announcing)
+			})
+		})
+	}
+}
+
 // A cutover's announcement never waits on pacing, but whatever payload it carries
 // is the announced route's ordinary paced work: with that route's pacing or
 // ordinary credit refusing a whole packet, it is a PING alone and spends nothing.
