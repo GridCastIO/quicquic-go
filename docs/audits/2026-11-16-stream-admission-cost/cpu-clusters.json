@@ -1,0 +1,66 @@
+[
+  {
+    "logical_cpu": 0,
+    "cluster": "E"
+  },
+  {
+    "logical_cpu": 1,
+    "cluster": "E"
+  },
+  {
+    "logical_cpu": 2,
+    "cluster": "E"
+  },
+  {
+    "logical_cpu": 3,
+    "cluster": "E"
+  },
+  {
+    "logical_cpu": 4,
+    "cluster": "P"
+  },
+  {
+    "logical_cpu": 5,
+    "cluster": "P"
+  },
+  {
+    "logical_cpu": 6,
+    "cluster": "P"
+  },
+  {
+    "logical_cpu": 7,
+    "cluster": "P"
+  },
+  {
+    "logical_cpu": 8,
+    "cluster": "P"
+  },
+  {
+    "logical_cpu": 9,
+    "cluster": "P"
+  },
+  {
+    "logical_cpu": 10,
+    "cluster": "P"
+  },
+  {
+    "logical_cpu": 11,
+    "cluster": "P"
+  },
+  {
+    "logical_cpu": 12,
+    "cluster": "P"
+  },
+  {
+    "logical_cpu": 13,
+    "cluster": "P"
+  },
+  {
+    "logical_cpu": 14,
+    "cluster": "P"
+  },
+  {
+    "logical_cpu": 15,
+    "cluster": "P"
+  }
+]

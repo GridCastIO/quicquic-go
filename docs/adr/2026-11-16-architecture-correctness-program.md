@@ -17,7 +17,7 @@ This program captures the final grilled decisions from the November 16 architect
 | N16-E: Reno testing reservation release (D3) | [ECN release plan](2026-11-16-ecn-testing-release-plan.md) | [#1431](https://github.com/the-sarge/quic-go-fast/issues/1431) | E1 | None | COMPLETE; no successors |
 | N16-M: path-zero MTU growth (D1) | [MTU growth plan](2026-11-16-path-zero-mtu-growth-plan.md) | pending | M1 | None | FRONTIER; next priority |
 | N16-L: size-recovery loss evidence (D4) | [Probe-loss plan](2026-11-16-recovery-probe-ecn-plan.md) | pending | L1 | None | FRONTIER; next priority |
-| N16-S: STREAM admission work | [STREAM inspection plan](2026-11-16-stream-admission-plan.md) | pending | S1, S2 | S2 requires S1's published SUPPORT decision | S1 FRONTIER; S2 BLOCKED/conditional |
+| N16-S: STREAM admission work | [STREAM inspection plan](2026-11-16-stream-admission-plan.md) | [#1437](https://github.com/the-sarge/quic-go-fast/issues/1437) | S1, S2 | S1 SUPPORT published in the [receipt](../audits/2026-11-16-stream-admission-cost/README.md) | S1 #1438 COMPLETE; S2 #1439 FRONTIER |
 
 The sole blocking edge is `S1 → S2`: the accepted decision requires sizing the optional optimization before committing to its implementation. Closing S1 is insufficient by itself; its published outcome must be SUPPORT. DEFER or INCONCLUSIVE completes S1 and closes S2 as not selected, without waiting for an unspecified future measurement. Source/representation invalidation is a stop, not automatic optimization authority.
 
