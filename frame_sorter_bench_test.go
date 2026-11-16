@@ -3,9 +3,11 @@ package quic
 // Workloads adapted from upstream commit 8d34dbcccc219375fa9fbaa9b7b22caeebd7d49d.
 import (
 	"fmt"
-	"github.com/quic-go/quic-go/internal/protocol"
-	"github.com/stretchr/testify/require"
 	"testing"
+
+	"github.com/quic-go/quic-go/internal/protocol"
+
+	"github.com/stretchr/testify/require"
 )
 
 var frameSorterBenchmarkGaps = []int{2, 10, 32, 33, 64, 65, 100, 999, 1000, 4095, 4096}

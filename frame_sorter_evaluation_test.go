@@ -157,7 +157,7 @@ func TestFrameSorterRetainedHeap(t *testing.T) {
 			}
 			for j := 0; j < n; j++ {
 				push(s, 2*j*1200)
-				for k := 0; k < 2; k++ {
+				for range 2 {
 					offset, data, done := s.Pop()
 					require.Len(t, data, 1200)
 					if phase {

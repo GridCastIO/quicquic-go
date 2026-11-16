@@ -1,6 +1,6 @@
 # Terminal map-release results — issue #1410
 
-Status: the maintainer-approved modification and targeted remeasurement are complete. **Recommend adoption of the modified candidate, subject to the maintainer accepting the remaining measured tradeoffs and the normal review/qualification process.** No production adoption decision or merge has occurred. This report supplies the requested return for decision for [issue #1410](https://github.com/the-sarge/quic-go-fast/issues/1410) and [draft PR #1426](https://github.com/the-sarge/quic-go-fast/pull/1426).
+Status: the maintainer-approved modification and targeted remeasurement are complete. The maintainer subsequently **approved adoption of the modified candidate with the recorded tradeoffs** and directed [PR #1426](https://github.com/the-sarge/quic-go-fast/pull/1426) through full review and qualification to merge. [Adoption receipt](adoption.md). This report preserves the measured decision evidence for [issue #1410](https://github.com/the-sarge/quic-go-fast/issues/1410).
 
 ## Modification and scope
 
@@ -52,7 +52,7 @@ The new modification removes the identified terminal-memory penalty with no allo
 
 The new regression's red/green result, full root and internal/protocol package tests, focused sorter/receive-phase/receive-stream retirement/CRYPTO/fuzz-seed tests, focused race tests, vet and tidy passed on the modified code. See [package tests](evidence/map-release/package-tests.log), [race](evidence/map-release/race.log), [vet](evidence/map-release/vet.log), and [tidy](evidence/map-release/tidy.log). No extended fuzz campaign was added.
 
-The draft stays pending the maintainer's adoption decision. Full configured RAS review, reconciliation with the latest main, final pushed-head certification, hosted checks, actual post-ready independent-peer qualification and merge have not been completed for this candidate. Approval to make and measure this change was not approval to adopt or merge it.
+Adoption is now approved; full configured RAS review, reconciliation with the latest main, final pushed-head certification, hosted checks and actual post-ready independent-peer qualification remain required before merge. The later adoption approval is recorded separately from the earlier approval to make and measure this change.
 
 ## Reproduction
 

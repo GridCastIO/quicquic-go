@@ -105,7 +105,7 @@ func TestFrameSorterChunkBoundaries(t *testing.T) {
 func TestFrameSorterChunkLimitCleanup(t *testing.T) {
 	s := newFrameSorter()
 	releases := make([]int, protocol.MaxStreamFrameSorterGaps)
-	for i := 0; i < protocol.MaxStreamFrameSorterGaps-1; i++ {
+	for i := range protocol.MaxStreamFrameSorterGaps - 1 {
 		require.NoError(t, s.Push([]byte{1}, protocol.ByteCount(2*i+1), func() { releases[i]++ }))
 	}
 	s.openPhase()
