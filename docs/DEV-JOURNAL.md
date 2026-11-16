@@ -11380,3 +11380,26 @@ Exact-head docs certification passed for `43f30b09756bdf5e8415ff8474aaca641eabc8
 ### Next
 
 [S2 (#1439)](https://github.com/the-sarge/quic-go-fast/issues/1439) is now eligible from the published SUPPORT decision; its coordinator owns dispatch after S1's journal and tracker closure. There are no surviving S1 follow-ups. [Program #1440](https://github.com/the-sarge/quic-go-fast/issues/1440) remains the live coordination surface for the other tracks.
+
+---
+
+## Path-zero ACK MTU growth landed - 2026-11-16 16:51 EST
+
+**Main:** `73a2032af181`
+**Actor:** Codex
+
+### Completed
+
+Merged [PR #1444 — Apply path-zero ACK MTU growth independently](https://github.com/the-sarge/quic-go-fast/pull/1444), completing [M1 (#1434)](https://github.com/the-sarge/quic-go-fast/issues/1434) under [N16-M (#1433)](https://github.com/the-sarge/quic-go-fast/issues/1433). The ACK operation now observes the existing finder's synchronous size growth independently of the aggregate DATAGRAM estimate, preserving the congestion floor and first-path settled signal. Finder, recovery, aggregate admission and packet-construction ownership remain unchanged; no durable size mirror was added. The product PR records M1 complete with no successor.
+
+### Validation
+
+A real held-fence/canceled-migration/recovery/probe sequence reproduced missed settlement on unchanged production code and passes for Reno and BBR after the correction. Focused tests observe accounting, finder growth, actual STREAM packet sizes, normal-selection DATAGRAM bounds, settlement and BBR refresh; boundary tests preserve no-growth/nil/new/replaced/same-size-reset classification. Existing floor and legacy fixtures now cause growth during ACK processing. The root suite, vet, module tidiness, formatting and diff checks passed.
+
+Independent Standards and Spec preparation found no issues. Initial full-panel RAS `20261116T204744-0fc68114c0e0e8b2a4018f89` found only test-output ordering and formatting defects; both were corrected and all five original clusters verified resolved. Replacement full-panel review `20261116T211006-d6800dd96436de8ade2c129c` was clean. No deferred finding or untraced effect remains.
+
+All 18 applicable hosted checks succeeded at reviewed/certified head `48d54a6a21d4dba7e7d466033651bd93c346b3b4`, including the actual post-ready [independent-peer run 43958030739](https://github.com/the-sarge/quic-go-fast/actions/runs/43958030739). The later documentation-only base advances and clean merged frontier were inspected before the guarded squash merge. Merge commit: `73a2032af18175409fb3f6a068aad02ea9e21932`. [PR #1444's final certification receipt](https://github.com/the-sarge/quic-go-fast/pull/1444#issuecomment-6930435082) links the exact-head history.
+
+### Next
+
+M1 has no successor or surviving follow-up. Other tracks continue independently; [program #1440](https://github.com/the-sarge/quic-go-fast/issues/1440) remains the live coordination surface.
