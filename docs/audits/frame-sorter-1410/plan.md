@@ -1,0 +1,29 @@
+# Frame sorter evaluation — issue #1410
+
+Status: user approved the inline evaluation plan in Codex on November 15, 2026. Production adoption is pending a separate user decision on measured results. Issue: [Evaluate chunked frame sorting and a higher reordering-gap limit (#1410)](https://github.com/the-sarge/quic-go-fast/issues/1410).
+
+## Outcome and boundary
+
+Evaluate a fork adaptation of upstream commit `8d34dbcccc219375fa9fbaa9b7b22caeebd7d49d`, comparing pooled linked lists at 1,000 gaps, chunks at 1,000 gaps, and chunks at 4,096 gaps. Baseline: `571ba7762067e6703743d010c4662a9855a13be2`. Preserve byte ordering, overlap/duplicate behavior, Peek, first-reception provenance, exactly-once callback consumption and terminal cleanup, receive-stream and CRYPTO behavior, API and wire compatibility. Keep ownership inside the sorter; no runtime selector, new dependencies, caller-side state, or flow/congestion-control redesign. Keep the limit in internal/protocol. Raising the cap alone is excluded because linear lookup cost remains; revisit only through explicit scope approval.
+
+Shipped behavior is the sorter and optional limit change; gap limits and storage retirement enforce resource/lifetime safety. Tests and measurement helpers are verification aids, not a new maintained benchmark service or CI gate. Reports and receipts are traceability metadata. Measurements must terminate with an adopt/modify/defer recommendation and return to the user before production adoption. A measured defer is a successful evaluation outcome.
+
+## Representation and evidence contract
+
+The sorter owns sorted missing byte intervals over validated ranges admitted by existing STREAM/CRYPTO callers. Existing callers own synchronization and terminal admission sealing. Invariants apply throughout that supported domain; finite tests and review provide regression evidence, not exhaustive proof. Data integrity, callback lifetime, and phase provenance trigger contract closure because they have material consequences across distinct reachable states. No new parser or external grammar is introduced.
+
+| Semantic class | Expected disposition and owner | Evidence | Initial status |
+| --- | --- | --- | --- |
+| In-order, duplicates, overlap replacement, trimming | Sorter preserves bytes/offsets and consumes callbacks once | Push/Pop/Peek behavior and callback counters | Pending |
+| Lookup boundaries, splitting, merging, multi-chunk spans | Sorter preserves ordered gaps/counts and readable data | Actual chunk boundary scenarios plus existing cases | Pending |
+| Fragmented phase snapshot and later overlap replacement | Sorter keeps first-reception provenance independent of mutable gaps | Phase queries and receive-stream reads | Pending |
+| Limit rejection and terminal discard | Sorter releases input and retained callbacks; no reuse after fatal rejection | Limit boundary and repeated discard tests | Pending |
+| Receive-stream and CRYPTO consumers | Existing owners preserve error, lifetime, and assembly contracts | Existing caller suites and focused fragmented stream case | Pending |
+
+Use TDD for added behavior at these approved seams. Sorter tests do not establish network recovery; stream tests do not establish network throughput; internal assertions supplement observable results. Retain a 1,200-byte frame paired-loss model with delayed recovery, in-order and bounded-reordering controls. State window assumptions and distinguish this model from network replay.
+
+Measure in-order, reordered, lossy and duplicate/overlap workloads at small, actual chunk-boundary, 100 and near-1,000 common gap counts, then candidate capacity near 4,096. Unsupported baseline cases are failures, not throughput. Measure construction separately from steady state and representative stream ingestion/drain with phase recording on/off. Start with ten interleaved timing samples per case; report distributions, absolute/relative changes, allocations and bytes/op. Retained-memory stages: gaps open, partial repair/drain, terminal discard with sorter reachable; account for queue buffers, chunk capacities and phase snapshots. Record exact revisions, commands, Go/host/architecture/GC settings and load, differentiating efficiency-core activity from performance-core contention. Inconclusive results remain inconclusive. No automatic percentage acceptance threshold; all credible regressions return to the user.
+
+## Review and completion
+
+One eventual PR: accepted candidate and evidence, or evaluation evidence without production adoption. Before adoption, present exact candidate/limit and explicit CPU, allocation and retained-memory tradeoffs. A modification decision requires affected measurements again. No extended fuzz or extra platform campaign. Focused tests, fuzz seeds, focused race tests, affected-package tests/vet, tidy and whitespace checks provide local certification. One Standards/Spec preparation pass, full configured RAS initial review and at most one replacement review; review/verify only, independent finding dispositions. Scope/ownership expansion, unresolved correctness, or materially changed tradeoffs stop for decision. Repository docs/REVIEW-LOOP.md owns hosted checks and exact-head squash merge, including actual post-ready independent peer. Use the authorized checks watcher. After merge only: append journal, revalidate deferrals and update issue/OmniFocus.
