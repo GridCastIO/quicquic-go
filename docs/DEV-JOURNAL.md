@@ -11158,3 +11158,24 @@ That exact head passed Go 1.27.4 Darwin/arm64 full package tests, focused packin
 ### Next
 
 [F11 issue #1225](https://github.com/the-sarge/quic-go-fast/issues/1225) is closed. The merged plan records F1–F11 complete. [Wiremux W6 #2258](https://github.com/GridSwarm/wiremux/issues/2258) still needs [module cutover #2175](https://github.com/GridSwarm/wiremux/issues/2175) before pinning the shipping candidate; [jumbo release #1226](https://github.com/the-sarge/quic-go-fast/issues/1226) awaits exact-commit qualification, [independent release #1111](https://github.com/the-sarge/quic-go-fast/issues/1111) and owner approval. These issues are the live frontier views. The materializing admission pre-scan still adds parsing/allocation and STREAM-copy costs, including on STREAM-only packets on jumbo/DATAGRAM-enabled receivers; its operational impact belongs to existing consumer qualification. No performance pass, new campaign or release authorization is claimed.
+
+---
+
+## QUIC v2 key-update derivation landed - 2026-11-15 19:12 EST
+
+**Main:** `2d410617ba3e`
+**Actor:** Codex
+
+### Summary
+
+Merged [PR #1414 — correct QUIC v2 key-update derivation](https://github.com/the-sarge/quic-go-fast/pull/1414), closing [issue #1405 — Fix QUIC v2 key-update traffic-secret derivation](https://github.com/the-sarge/quic-go-fast/issues/1405). The shared traffic-secret helper now selects `quicv2 ku` for QUIC v2 and preserves `quic ku` otherwise. Production changes remain confined to that helper; public APIs, update timing, ACK-generation ownership, previous-key retention, multipath admission, and protection reservations are unchanged.
+
+### Validation
+
+The independent RFC next-secret regression failed for v2 before the fix while v1 passed; both passed afterward. Packet coverage uses the independently published next secret and asserts plaintext, phase advancement, and outgoing encryption. Existing local/peer update scenarios now cover v1 and v2, including subsequent rotation and ACK gating.
+
+Validated candidate `360284504738c2615352266bfaa992d8a4c9bc22` passed handshake/root tests, race coverage for both packages, v1/v2 key-update integration runs, handshake vet, module tidiness, and whitespace checks. Separate Standards and Spec reviews returned zero findings. Full configured RAS review `20261116T000003-8f0383454016fbc4f8a7d315` completed with four reviewers and zero findings or follow-ups. All 18 hosted checks passed, including the post-ready independent multipath peer matrix. See the [PR #1414 review and certification receipt](https://github.com/the-sarge/quic-go-fast/pull/1414#issuecomment-6903603503). Product merge: `2d410617ba3e9d56eb92260a00e4ed7a5d0145b2`.
+
+### Decisions
+
+Follow the [approved issue #1405 plan](https://github.com/the-sarge/quic-go-fast/issues/1405#issuecomment-6903560892): correct the version-specific label without a legacy-label fallback or wider upstream synchronization. Corrected v2 peers no longer share the erroneous derivation with old buggy peers. Published vectors provide example-level cryptographic evidence, supplemented by packet and integration coverage.
