@@ -154,6 +154,41 @@ func TestLocalECNOutcomes(t *testing.T) {
 	}
 }
 
+func TestLocalECNTupleUnsubmitted(t *testing.T) {
+	for _, tc := range []struct {
+		name         string
+		currentTests int
+		oldTests     int
+	}{
+		{name: "before first current test", oldTests: 2},
+		{name: "after partial current testing", currentTests: 4, oldTests: 1},
+		{name: "after current Unknown", currentTests: 10, oldTests: 1},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			h, _ := newLocalECNTestHandler(t, false)
+			now := monotime.Now()
+			old := make([]LocalCompletionToken, tc.oldTests)
+			for i := range old {
+				_, old[i] = localECNPacket(t, h, now)
+			}
+			h.MigratedPath(now.Add(time.Millisecond), 1200)
+			h.RestartTupleECN()
+			for range tc.currentTests {
+				require.Equal(t, protocol.ECT0, h.ECNMode(true))
+				localECNPacket(t, h, now.Add(2*time.Millisecond))
+			}
+			for _, token := range old {
+				require.NoError(t, h.CompleteLocalPacket(token, LocalPacketUnsubmitted, now.Add(3*time.Millisecond)))
+			}
+			for i := tc.currentTests; i < 10; i++ {
+				require.Equal(t, protocol.ECT0, h.ECNMode(true), "the replacement tuple retains its ten testing reservations")
+				localECNPacket(t, h, now.Add(4*time.Millisecond))
+			}
+			require.Equal(t, protocol.ECNNon, h.ECNMode(true), "old releases neither extend testing nor reopen Unknown")
+		})
+	}
+}
+
 func TestLocalECNSnapshotSupersession(t *testing.T) {
 	t.Run("CE precedes Reno loss undo", func(t *testing.T) {
 		for _, tc := range []struct {
