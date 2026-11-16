@@ -99,15 +99,15 @@ func TestPathZeroMTUGrowthAfterAbortedMigration(t *testing.T) {
 				f.socket.writes = nil
 				f.write(t, 4000)
 				f.drain(t)
-			var largestDataPacket int
-			for _, write := range f.parseWrites(t, 0) {
-				if len(write.streams) > 0 {
-					largestDataPacket = max(largestDataPacket, len(write.data))
+				var largestDataPacket int
+				for _, write := range f.parseWrites(t, 0) {
+					if len(write.streams) > 0 {
+						largestDataPacket = max(largestDataPacket, len(write.data))
+					}
 				}
-			}
-			require.Equal(t, 1300, largestDataPacket, "STREAM packets use and respect the finder's bound")
+				require.Equal(t, 1300, largestDataPacket, "STREAM packets use and respect the finder's bound")
 				if controller == "bbrv3" {
-				require.EqualValues(t, 2600, c.emission.bbr.quantum, "ordinary emission refreshes BBR's two-packet quantum")
+					require.EqualValues(t, 2600, c.emission.bbr.quantum, "ordinary emission refreshes BBR's two-packet quantum")
 				}
 				c.peerParams.MaxDatagramFrameSize = wire.MaxDatagramSize
 				c.emission.selectRoute(monotime.Now())
