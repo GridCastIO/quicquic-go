@@ -14,7 +14,7 @@ Determine whether the measured cost of temporary STREAM materialization during p
 
 ## S1 baseline shape (verified 2026-11-16)
 
-[Admission](../../datagram_packet_admission.go#L14) requires DATAGRAMs enabled, a configured ceiling above 1,452 bytes, 0/1-RTT and plaintext frame bytes greater than remaining DATAGRAM queue slots (`1024 - receiveQueueLen`). Ordinary-sized and STREAM-only packets can scan; payloads below 1,024 also can when the queue is occupied. The gate is not UDP length or negotiated jumbo-active status.
+[Admission](https://github.com/the-sarge/quic-go-fast/blob/b6cbcf823fb8d4fa5b9effe3ba64a63660fe0899/datagram_packet_admission.go#L14) requires DATAGRAMs enabled, a configured ceiling above 1,452 bytes, 0/1-RTT and plaintext frame bytes greater than remaining DATAGRAM queue slots (`1024 - receiveQueueLen`). Ordinary-sized and STREAM-only packets can scan; payloads below 1,024 also can when the queue is occupied. The gate is not UDP length or negotiated jumbo-active status.
 
 [The baseline STREAM arm](https://github.com/the-sarge/quic-go-fast/blob/b6cbcf823fb8d4fa5b9effe3ba64a63660fe0899/datagram_packet_admission.go#L39) called the owning parser and immediately returned the frame to its pool if pooled. [Baseline STREAM parsing](https://github.com/the-sarge/quic-go-fast/blob/b6cbcf823fb8d4fa5b9effe3ba64a63660fe0899/internal/wire/stream_frame.go#L26) validated, acquired storage and copied data. The full admission scan must finish before its capacity verdict, including malformed tails after overcount.
 
