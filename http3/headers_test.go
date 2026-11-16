@@ -81,6 +81,122 @@ func TestRequestHeaderParsingWithHostHeader(t *testing.T) {
 	require.Empty(t, req.URL.Host)
 }
 
+func TestRequestHeadersSchemeRequired(t *testing.T) {
+	for _, present := range []bool{false, true} {
+		t.Run(fmt.Sprintf("present_%t", present), func(t *testing.T) {
+			headers := []qpack.HeaderField{
+				{Name: ":method", Value: "GET"},
+				{Name: ":path", Value: "/"},
+				{Name: ":authority", Value: "example.com"},
+			}
+			if present {
+				headers = append(headers, qpack.HeaderField{Name: ":scheme", Value: ""})
+			}
+			_, err := requestFromHeaders(decodeFromSlice(headers), math.MaxInt, nil)
+			require.EqualError(t, err, ":scheme must not be empty")
+		})
+	}
+}
+
+func TestRequestHeadersAuthorityBytes(t *testing.T) {
+	for _, context := range []struct {
+		name, method, scheme, protocol string
+		fallback                       bool
+	}{
+		{name: "HTTP", method: "GET", scheme: "http"},
+		{name: "HTTPS fallback", method: "GET", scheme: "HTTPS", fallback: true},
+		{name: "CONNECT", method: "CONNECT"},
+		{name: "Extended CONNECT", method: "CONNECT", scheme: "https", protocol: "webtransport"},
+	} {
+		t.Run(context.name, func(t *testing.T) {
+			for _, tc := range []struct {
+				authority string
+				valid     bool
+			}{
+				{"example.com:443", true},
+				{"[::1]:443", true},
+				{"example.com/foo", false},
+				{"example.com?foo", false},
+				{"example.com#foo", false},
+				{"example.com foo", false},
+				{"example.com\t", false},
+				{"user@example.com", false},
+			} {
+				t.Run(tc.authority, func(t *testing.T) {
+					headers := []qpack.HeaderField{{Name: ":method", Value: context.method}}
+					if context.scheme != "" {
+						headers = append(headers, qpack.HeaderField{Name: ":scheme", Value: context.scheme}, qpack.HeaderField{Name: ":path", Value: "/"})
+					}
+					if context.protocol != "" {
+						headers = append(headers, qpack.HeaderField{Name: ":protocol", Value: context.protocol})
+					}
+					field := ":authority"
+					if context.fallback {
+						field = "host"
+					}
+					headers = append(headers, qpack.HeaderField{Name: field, Value: tc.authority})
+					req, err := requestFromHeaders(decodeFromSlice(headers), math.MaxInt, nil)
+					if tc.valid {
+						require.NoError(t, err)
+						require.Equal(t, tc.authority, req.Host)
+					} else {
+						require.Error(t, err)
+						require.NotErrorAs(t, err, new(*qpackError))
+					}
+				})
+			}
+		})
+	}
+}
+
+func TestRequestHeadersOtherSchemeAuthority(t *testing.T) {
+	for _, method := range []string{"GET", "CONNECT"} {
+		t.Run(method, func(t *testing.T) {
+			headers := []qpack.HeaderField{
+				{Name: ":method", Value: method},
+				{Name: ":scheme", Value: "ftp"},
+				{Name: ":path", Value: "/"},
+				{Name: ":authority", Value: "user@example.com/opaque"},
+			}
+			if method == "CONNECT" {
+				headers = append(headers, qpack.HeaderField{Name: ":protocol", Value: "webtransport"})
+			}
+			req, err := requestFromHeaders(decodeFromSlice(headers), math.MaxInt, nil)
+			require.NoError(t, err)
+			require.Equal(t, "user@example.com/opaque", req.Host)
+		})
+	}
+}
+
+func TestRequestHeadersMetadataPrecedence(t *testing.T) {
+	for _, tc := range []struct {
+		name, path, authority, host, protocol, wantError string
+	}{
+		{name: "matching Host", path: "/", authority: "example.com", host: "example.com"},
+		{name: "Host mismatch before authority bytes", path: "/", authority: "example.com/path", host: "other.example", wantError: ":authority and Host header field values do not match"},
+		{name: "userinfo before authority bytes", path: "/", authority: "user@example.com/path", wantError: "userinfo is not allowed in :authority"},
+		{name: "path before authority bytes", path: "invalid", authority: "example.com/path", wantError: `invalid :path: "invalid"`},
+		{name: "protocol before authority bytes", path: "/", authority: "example.com/path", protocol: "webtransport", wantError: ":protocol must be omitted"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			fields := []qpack.HeaderField{{Name: ":method", Value: "GET"}, {Name: ":scheme", Value: "https"}, {Name: ":path", Value: tc.path}, {Name: ":authority", Value: tc.authority}}
+			if tc.protocol != "" {
+				fields = append(fields, qpack.HeaderField{Name: ":protocol", Value: tc.protocol})
+			}
+			if tc.host != "" {
+				fields = append(fields, qpack.HeaderField{Name: "host", Value: tc.host})
+			}
+			req, err := requestFromHeaders(decodeFromSlice(fields), math.MaxInt, nil)
+			if tc.wantError != "" {
+				require.EqualError(t, err, tc.wantError)
+			} else {
+				require.NoError(t, err)
+				require.Equal(t, tc.authority, req.Host)
+			}
+		})
+	}
+}
+
 func TestRequestHeadersPathForms(t *testing.T) {
 	for _, kind := range []struct {
 		name, method, protocol string
@@ -133,6 +249,7 @@ func TestRequestHeadersPathForms(t *testing.T) {
 func TestRequestHeadersContentLength(t *testing.T) {
 	t.Run("no content length", func(t *testing.T) {
 		headers := []qpack.HeaderField{
+			{Name: ":scheme", Value: "https"},
 			{Name: ":path", Value: "/"},
 			{Name: ":authority", Value: "quic-go.net"},
 			{Name: ":method", Value: http.MethodGet},
@@ -144,6 +261,7 @@ func TestRequestHeadersContentLength(t *testing.T) {
 
 	t.Run("multiple content lengths", func(t *testing.T) {
 		headers := []qpack.HeaderField{
+			{Name: ":scheme", Value: "https"},
 			{Name: ":path", Value: "/"},
 			{Name: ":authority", Value: "quic-go.net"},
 			{Name: ":method", Value: http.MethodGet},
@@ -442,6 +560,7 @@ func TestRequestHeadersValidation(t *testing.T) {
 
 func TestCookieHeader(t *testing.T) {
 	headers := []qpack.HeaderField{
+		{Name: ":scheme", Value: "https"},
 		{Name: ":path", Value: "/foo"},
 		{Name: ":authority", Value: "quic-go.net"},
 		{Name: ":method", Value: http.MethodGet},
@@ -457,6 +576,7 @@ func TestCookieHeader(t *testing.T) {
 
 func TestHeadersConcatenation(t *testing.T) {
 	headers := []qpack.HeaderField{
+		{Name: ":scheme", Value: "https"},
 		{Name: ":path", Value: "/foo"},
 		{Name: ":authority", Value: "quic-go.net"},
 		{Name: ":method", Value: http.MethodGet},
@@ -677,6 +797,26 @@ func TestResponseHeaderParsingValidation(t *testing.T) {
 	}
 }
 
+func TestResponseStatusRange(t *testing.T) {
+	for _, status := range []string{"foobar", "+200", "0200", "-1", "99", "099", "600"} {
+		t.Run(status, func(t *testing.T) {
+			err := updateResponseFromHeaders(&http.Response{}, decodeFromSlice([]qpack.HeaderField{{Name: ":status", Value: status}}), math.MaxInt, nil)
+			require.ErrorContains(t, err, "invalid status code")
+			require.NotErrorAs(t, err, new(*qpackError))
+		})
+	}
+	for _, tc := range []struct {
+		status string
+		code   int
+	}{{"100", 100}, {"200", 200}, {"471", 471}, {"599", 599}} {
+		t.Run(tc.status, func(t *testing.T) {
+			var rsp http.Response
+			require.NoError(t, updateResponseFromHeaders(&rsp, decodeFromSlice([]qpack.HeaderField{{Name: ":status", Value: tc.status}}), math.MaxInt, nil))
+			require.Equal(t, tc.code, rsp.StatusCode)
+		})
+	}
+}
+
 func TestResponseTrailerFields(t *testing.T) {
 	headers := []qpack.HeaderField{
 		{Name: ":status", Value: "200"},
@@ -832,6 +972,7 @@ func TestQpackError(t *testing.T) {
 }
 
 var benchmarkRequestHeaders = []qpack.HeaderField{
+	{Name: ":scheme", Value: "https"},
 	{Name: ":path", Value: "/api/v1/users/12345"},
 	{Name: ":authority", Value: "quic-go.net"},
 	{Name: ":method", Value: http.MethodPost},

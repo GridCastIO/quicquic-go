@@ -15,11 +15,59 @@ import (
 	"testing"
 	"time"
 
+	"github.com/quic-go/qpack"
 	"github.com/quic-go/quic-go"
+	"github.com/quic-go/quic-go/http3/qlog"
 	"github.com/quic-go/quic-go/qlogwriter"
 	"github.com/quic-go/quic-go/quicvarint"
+	"github.com/quic-go/quic-go/testutils/events"
 	"github.com/stretchr/testify/require"
 )
+
+func TestRawServerConnInvalidRequestMetadata(t *testing.T) {
+	for _, tc := range []struct {
+		name   string
+		fields []qpack.HeaderField
+	}{
+		{name: "missing scheme", fields: []qpack.HeaderField{{Name: ":authority", Value: "example.com"}}},
+		{name: "empty scheme", fields: []qpack.HeaderField{{Name: ":scheme", Value: ""}, {Name: ":authority", Value: "example.com"}}},
+		{name: "invalid authority", fields: []qpack.HeaderField{{Name: ":scheme", Value: "https"}, {Name: ":authority", Value: "example.com/path"}}},
+		{name: "invalid Host fallback", fields: []qpack.HeaderField{{Name: ":scheme", Value: "https"}, {Name: "host", Value: "example.com/path"}}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			var recorder events.Recorder
+			client, server := newConnPair(t, withServerRecorder(&recorder))
+			called := false
+			s := &Server{Handler: http.HandlerFunc(func(http.ResponseWriter, *http.Request) { called = true })}
+			conn, err := s.NewRawServerConn(server)
+			require.NoError(t, err)
+			before := conn.pendingHeaderBytes.Load()
+			fields := append([]qpack.HeaderField{{Name: ":method", Value: "GET"}, {Name: ":path", Value: "/"}}, tc.fields...)
+			str, err := client.OpenStream()
+			require.NoError(t, err)
+			_, err = str.Write(encodeHeaderFields(t, fields))
+			require.NoError(t, err)
+			ctx, cancel := context.WithTimeout(t.Context(), time.Second)
+			defer cancel()
+			incoming, err := server.AcceptStream(ctx)
+			require.NoError(t, err)
+			require.NoError(t, incoming.SetDeadline(time.Now().Add(time.Second)))
+			conn.HandleRequestStream(incoming)
+			require.False(t, called)
+			require.Equal(t, before, conn.pendingHeaderBytes.Load())
+			expectStreamReadReset(t, str, quic.StreamErrorCode(ErrCodeMessageError))
+			expectStreamWriteReset(t, str, quic.StreamErrorCode(ErrCodeMessageError))
+			require.NoError(t, server.Context().Err())
+			parsed := filterQlogEventsForFrame(recorder.Events(qlog.FrameParsed{}), qlog.HeadersFrame{})
+			require.Len(t, parsed, 1)
+			hfs := parsed[0].(qlog.FrameParsed).Frame.Frame.(qlog.HeadersFrame).HeaderFields
+			require.Len(t, hfs, len(fields))
+			for i, field := range fields {
+				require.Equal(t, qlog.HeaderField{Name: field.Name, Value: field.Value}, hfs[i])
+			}
+		})
+	}
+}
 
 func TestRawServerConnTruncatedRequestBody(t *testing.T) {
 	client, server := newConnPair(t)

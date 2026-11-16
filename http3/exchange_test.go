@@ -431,6 +431,38 @@ func TestExchangePreResponseFailure(t *testing.T) {
 	require.Eventually(t, func() bool { return entry.useCount.Load() == 0 }, time.Second, time.Millisecond)
 }
 
+func TestExchangeInvalidStatus(t *testing.T) {
+	tr, _, server := exchangeTransport(t)
+	input := newExchangeInput()
+	t.Cleanup(func() { input.Close() })
+	type result struct {
+		rsp *http.Response
+		err error
+	}
+	resultChan := make(chan result, 1)
+	go func() {
+		rsp, err := tr.RoundTrip(httptest.NewRequest(http.MethodPost, "https://example.com", input))
+		resultChan <- result{rsp, err}
+	}()
+	ctx, cancel := context.WithTimeout(t.Context(), time.Second)
+	defer cancel()
+	str, err := server.AcceptStream(ctx)
+	require.NoError(t, err)
+	require.NoError(t, str.SetDeadline(time.Now().Add(time.Second)))
+	decodeHeader(t, str)
+	receiveExchange(t, input.entered)
+	entry := exchangeEntry(t, tr)
+	_, err = str.Write(encodeHeaderFields(t, []qpack.HeaderField{{Name: ":status", Value: "+200"}}))
+	require.NoError(t, err)
+	res := receiveExchange(t, resultChan)
+	require.Nil(t, res.rsp)
+	require.ErrorContains(t, res.err, "http3: invalid response: invalid status code")
+	// Transport retires this connection on response errors. Stream-level resets
+	// and connection survival are covered separately through ClientConn.
+	require.EqualValues(t, 1, input.closes.Load())
+	require.Eventually(t, func() bool { return entry.useCount.Load() == 0 }, time.Second, time.Millisecond)
+}
+
 func TestExchangeAcquiredDialFailure(t *testing.T) {
 	entered, finish := make(chan struct{}), make(chan struct{})
 	tr := &Transport{Dial: func(context.Context, string, *tls.Config, *quic.Config) (*quic.Conn, error) {

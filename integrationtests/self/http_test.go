@@ -1370,11 +1370,12 @@ func TestHTTP1xxResponse(t *testing.T) {
 	require.NoError(t, resp.Body.Close())
 }
 
-func TestHTTP1xxTerminalResponse(t *testing.T) {
+func TestHTTP101FollowedByFinalResponse(t *testing.T) {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/101-switch-protocols", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Add("foo", "bar")
 		w.WriteHeader(http.StatusSwitchingProtocols)
+		w.WriteHeader(http.StatusOK)
 	})
 
 	port := startHTTPServer(t, mux)
@@ -1395,10 +1396,10 @@ func TestHTTP1xxTerminalResponse(t *testing.T) {
 	require.NoError(t, err)
 	resp, err := newHTTP3Client(t).Do(req)
 	require.NoError(t, err)
-	require.Equal(t, http.StatusSwitchingProtocols, resp.StatusCode)
+	require.Equal(t, http.StatusOK, resp.StatusCode)
 	require.Equal(t, "bar", resp.Header.Get("Foo"))
-	require.Zero(t, status)
-	require.Zero(t, cnt)
+	require.Equal(t, http.StatusSwitchingProtocols, status)
+	require.Equal(t, 1, cnt)
 	require.NoError(t, resp.Body.Close())
 }
 
