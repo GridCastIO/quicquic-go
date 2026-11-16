@@ -11406,6 +11406,27 @@ M1 has no successor or surviving follow-up. Other tracks continue independently;
 
 ---
 
+## Storage-neutral journal policy landed - 2026-11-16 17:26 EST
+
+**Main:** `8a7cc22681be`
+**Actor:** Claude
+
+### Completed
+
+Merged [PR #1449 — Make journal completion policy storage-neutral (S9)](https://github.com/the-sarge/quic-go-fast/pull/1449), completing [S9 (the-sarge/dev-journal#108)](https://github.com/the-sarge/dev-journal/issues/108) under [skills and installation cutover (the-sarge/dev-journal#88)](https://github.com/the-sarge/dev-journal/issues/88). The [execution overlay](REVIEW-LOOP.md) now delegates journal storage, evidence and pending state to the installed `append-dev-journal` skill. The repository's own obligations are unchanged: post-merge ordering on remote main, the docs path for repository journal changes and journal-only follow-up, pointer reconciliation, code-head certification kept distinct from journal and tracker metadata, and frozen evidence. A hosted entry's entry, request and receipt evidence completes an account once the installed method records one. The [usage pointer](usage.md) no longer presents this file as the whole journal. Historical entries, completed plans and briefs are unchanged.
+
+### Validation
+
+A classified readback of active references found storage-specific wording only in the overlay and the usage pointer. Open plans and briefs already delegated, and the remaining matches are completed or historical material. All four S9 readback cases hold. Independent Standards and Spec preparation produced five accepted wording fixes and three rejections, recorded in the [preparation receipt](https://github.com/the-sarge/quic-go-fast/pull/1449#issuecomment-6930521934). The four-reviewer RAS run `20261116T220039-2b6325c2e3658f00a65466b0` was clean. Two earlier attempts were discarded as invalid evidence: one degenerate run, and one stopped after its briefing file was found in a scratch area shared with other workers. Neither carried any finding.
+
+Exact-head docs certification passed for `12f5e8b53f0694e17520a4d23daf4cc515e0416a`, and all 17 applicable hosted checks succeeded on that head. The multipath peer job is path-ignored for documentation. Main advanced through [PR #1450](https://github.com/the-sarge/quic-go-fast/pull/1450) and [PR #1443](https://github.com/the-sarge/quic-go-fast/pull/1443) after the last pre-merge base inspection. Post-merge readback confirmed that neither touched the changed files or added journal wording. Merge commit: `8a7cc22681be8d04ac2347fc48dcc8f38093f898`. [PR #1449's certification receipt](https://github.com/the-sarge/quic-go-fast/pull/1449#issuecomment-6930743785) records the review evidence.
+
+### Next
+
+S9 has no deferred findings or follow-ups. [Program tracker (the-sarge/dev-journal#112)](https://github.com/the-sarge/dev-journal/issues/112) is the live view of S10 readiness and the remaining cutover frontier.
+
+---
+
 ## Announcement carrier identity landed - 2026-11-16 17:21 EST
 
 **Main:** `13af21db3920`
