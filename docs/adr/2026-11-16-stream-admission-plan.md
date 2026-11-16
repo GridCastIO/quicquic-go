@@ -1,7 +1,7 @@
 # STREAM Admission Inspection Implementation Plan
 
 **Date:** 2026-11-16
-**Status:** S1 complete with SUPPORT; S2 ready for its bounded implementation
+**Status:** Complete — S1 published SUPPORT and S2 implemented the bounded STREAM skip
 **Track:** `N16-S` in the [November 16 program](2026-11-16-architecture-correctness-program.md)
 **Depends on:** S1 has no blocker; S2 requires S1's published SUPPORT decision
 **Related:** [ADR 0005](0005-incoming-packet-lifetime.md); [jumbo F11/F12](2026-11-05-jumbo-packets-plan.md); [A20](2026-10-20-architecture-decisions.md)
@@ -39,13 +39,13 @@ Preserve truncation normalization, zero consumed bytes on failure, explicit/impl
 | Slice | Disposition | Delivers | Blocked by | Temporary seam |
 |---|---|---|---|---|
 | S1 | complete (#1438), SUPPORT | [Baseline observations and terminal selection receipt](../audits/2026-11-16-stream-admission-cost/README.md) | None | Disposable measurement source removed |
-| S2 | ready (#1439) | Shared validation plus real admission skip consumer | S1 SUPPORT published in this revision | None; decoder and consumer ship together |
+| S2 | complete (#1439) | Shared validation plus real admission skip consumer | S1 SUPPORT published | None; decoder and consumer shipped together |
 
 ## Implementation slices
 
 ### S1 — Measure current admission cost and settle selection
 
-**Current state:** complete with [SUPPORT receipt](../audits/2026-11-16-stream-admission-cost/README.md); S2 #1439 is ready when this revision reaches the default branch.
+**Current state:** complete with [SUPPORT receipt](../audits/2026-11-16-stream-admission-cost/README.md).
 
 **What it delivers:** one independently green documentation/evidence PR publishes exact source/toolchain/host/settings, raw local observations, archived disposable harness text, interpretation and a terminal decision. No runtime code or maintained benchmark is delivered.
 
@@ -81,6 +81,8 @@ go test ./internal/wire -run '^$' -bench '^BenchmarkParseStreamFrame$' -benchmem
 **Stop conditions:** the stated representation or fixture scope cannot be honored; evidence requires an unapproved maintained harness or operational campaign; or source change invalidates the selected seam. An inconclusive cost observation is a normal terminal outcome, not a reason to keep running.
 
 ### S2 — Skip STREAM materialization through shared validation
+
+**Current state:** implemented in [PR #1451](https://github.com/the-sarge/quic-go-fast/pull/1451) with [matched evidence in PR #1451](https://github.com/the-sarge/quic-go-fast/pull/1451#issuecomment-6930672114). No successor slice.
 
 **What it delivers:** one independently green runtime-and-tests PR adds the shared private validator and length/error-only skip operation, then replaces admission's single owning STREAM call. It may start only after S1 is merged with SUPPORT and the receipt is included in dispatch context.
 
