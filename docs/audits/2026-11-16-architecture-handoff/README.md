@@ -40,7 +40,7 @@ Draft graph: A1, E1, M1, L1 and S1 have no blockers; S2 is conditional on S1's S
 
 | Slice | Single owner and bounded outcome | Split/merge judgment | Context and evidence boundary |
 |---|---|---|---|
-| A1 | Existing emission executor binds the selected member to its reservation. | Regression plus fix is one coherent green PR; merging native readiness or turn ordering adds a different contract. | Two production call sites; three meaningful endpoint-transition scenarios plus existing preservation coverage. |
+| A1 | Existing emission executor binds the selected member to its reservation. | Regression plus fix is one coherent green PR; merging native readiness or turn ordering adds a different contract. | Two production call sites; one red/green wrong-carrier regression and one green/green no-alternative control, plus existing preservation coverage. |
 | E1 | Reno tracker owns current testing-slot release using existing PN bounds. | Release-only guard is the bounded accepted invariant; receipt/loss semantics are separate. No new cohort field or tests-only predecessor. | Three stale-release boundary cases, current-release preservation and existing token/BBR tests. |
 | M1 | Connection ACK operation observes a same-finder local size transition. | Local pointer/size snapshot avoids durable mirror obligations. Detection, accounting and settlement belong together. | Real aborted-fence regression; preserved floor, no-growth, constructor/replacement classification and existing DATAGRAM ownership. |
 | L1 | Connection owns verdict; recovery's two named operations own its consequences. | Two meanings must not be smuggled into keepForACK; general retirement stays out. | Real testing overlap plus two loss entrypoints and materially different no-verdict cases, without cross products. |
@@ -51,22 +51,24 @@ All proposed contracts use existing representation owners. The source/planning a
 
 ## Publication audit receipt
 
-**PASS — independent source/architecture audit and independent contract/slice audit**, November 16, 2026. Both auditors read the immutable `draft-v1` snapshot against source commit `ad76ab772160a9eabf88d06c508213b94ce37bd8` and verified all eight SHA-256 identities below. The source audit also used two narrow read-only reviewers for ECN and STREAM. Neither audit edited files or ran tests, benchmarks or implementation agents. No material correction, unresolved finding, new gate or expanded evidence obligation was returned.
+**Initial PASS — independent source/architecture audit and independent contract/slice audit**, November 16, 2026. Both auditors read the immutable `draft-v1` snapshot against source commit `ad76ab772160a9eabf88d06c508213b94ce37bd8` and verified all eight SHA-256 identities below. The source audit also used two narrow read-only reviewers for ECN and STREAM. Neither audit edited files or ran tests, benchmarks or implementation agents. No material correction, unresolved finding, new gate or expanded evidence obligation was returned.
 
 | Slice | Source/architecture | Contract/slice | Disposition |
 |---|---|---|---|
-| A1 | PASS | PASS | Retain selected-member execution and three endpoint-transition cases. |
+| A1 | Initial PASS; oversize premise later corrected | Initial PASS | Retain selected-member execution. The current two-case inventory supersedes the original three cases; see PR #1428. |
 | E1 | PASS | PASS | Retain current-reservation release ownership; exclude historical ACK/loss policy. |
 | M1 | PASS | PASS | Retain same-finder ACK snapshot and causal fixture repair. |
 | L1 | PASS | PASS | Retain two semantic retirement operations and production-reachable testing overlap. |
 | S1 | PASS | PASS | Retain finite observations and a terminal selection receipt. |
 | S2 | PASS, conditional | PASS, conditional | Retain the requirement for S1's merged SUPPORT decision, not merely S1 closure. |
 
-The drafting owner independently accepts both audit conclusions. The four correction premises remain source-supported hypotheses until their declared regressions execute. S1 SUPPORT authorizes an attempt at the bounded S2 design; it is not performance qualification or a speedup claim.
+The initial A1 audit missed a lifecycle constraint: a nonzero replacement still owing its announcement retains the 1,200-byte finder initialized at cutover, and a growth ACK clears announcing. [PR #1428](https://github.com/the-sarge/quic-go-fast/pull/1428) corrects that premise and records the scoped re-audit. A1 retains one wrong-carrier red/green regression and one no-alternative green/green control; no manufactured panic fixture is required.
+
+The drafting owner accepted the other initial audit conclusions; A1's original oversize-test approval is superseded as described above. The four correction premises remain source-supported hypotheses until their declared regressions execute. S1 SUPPORT authorizes an attempt at the bounded S2 design; it is not performance qualification or a speedup claim.
 
 ### Reviewed snapshot identities
 
-These are the identities the auditors reviewed before commit. The seven normative/index documents remain byte-identical to that snapshot. This audit artifact's snapshot hash identifies its pre-receipt version; the only subsequent change is replacing the pending receipt with this completed record. There is no recursive self-hash obligation.
+These are the identities the auditors reviewed before the initial commit. This audit artifact's snapshot hash identifies its pre-receipt version. Subsequent corrections and scoped re-audit receipts are recorded against exact heads in [PR #1428](https://github.com/the-sarge/quic-go-fast/pull/1428); these historical hashes are not a claim that later revisions remain byte-identical. There is no recursive self-hash obligation.
 
 | Reviewed document | SHA-256 |
 |---|---|
