@@ -136,6 +136,42 @@ func TestECNValidationInUnknownState(t *testing.T) {
 	)
 }
 
+func TestECNFinalTestingPacket(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		ect0    int64
+		state   qlog.ECNState
+		trigger string
+	}{
+		{"bleached", 0, qlog.ECNStateFailed, ecnFailedNoECNCounts},
+		{"valid", 1, qlog.ECNStateCapable, ""},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			var recorder events.Recorder
+			e := newECNTracker(utils.DefaultLogger, &recorder)
+			sendECNTestingPackets(t, e, &recorder)
+			require.False(t, e.HandleNewlyAcked(getAckedPackets(9), tc.ect0, 0, 0))
+			require.Equal(t, []qlogwriter.Event{qlog.ECNStateUpdated{State: tc.state, Trigger: tc.trigger}}, recorder.Events())
+		})
+	}
+}
+
+func TestECNUnmarkedTestingNeighbors(t *testing.T) {
+	var recorder events.Recorder
+	e := newECNTracker(utils.DefaultLogger, &recorder)
+	e.SentPacket(0, protocol.ECNNon)
+	for pn := protocol.PacketNumber(1); pn <= 10; pn++ {
+		require.Equal(t, protocol.ECT0, e.Mode())
+		e.SentPacket(pn, protocol.ECT0)
+	}
+	require.Equal(t, protocol.ECNNon, e.Mode())
+	e.SentPacket(11, protocol.ECNNon)
+	recorder.Clear()
+	require.False(t, e.HandleNewlyAcked(getAckedPackets(0, 11), 0, 0, 0))
+	require.Empty(t, recorder.Events(), "unmarked neighbors must not fail ECN validation")
+	require.Equal(t, ecnStateUnknown, e.state)
+}
+
 func TestECNValidationFailures(t *testing.T) {
 	t.Run("ECN bleaching", func(t *testing.T) {
 		// this ACK doesn't contain any ECN counts
