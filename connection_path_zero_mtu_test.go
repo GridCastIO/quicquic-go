@@ -99,8 +99,13 @@ func TestPathZeroMTUGrowthAfterAbortedMigration(t *testing.T) {
 				f.socket.writes = nil
 				f.write(t, 4000)
 				f.drain(t)
-				require.NotEmpty(t, f.socket.writes)
-				require.Len(t, f.socket.writes[0].data, 1300, "packet construction uses the finder")
+			var largestDataPacket int
+			for _, write := range f.parseWrites(t, 0) {
+				if len(write.streams) > 0 {
+					largestDataPacket = max(largestDataPacket, len(write.data))
+				}
+			}
+			require.Equal(t, 1300, largestDataPacket, "STREAM packets use and respect the finder's bound")
 				if controller == "bbrv3" {
 				require.EqualValues(t, 2600, c.emission.bbr.quantum, "ordinary emission refreshes BBR's two-packet quantum")
 				}
