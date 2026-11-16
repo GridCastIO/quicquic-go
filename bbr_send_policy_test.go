@@ -131,7 +131,7 @@ func TestBBRPendingCreditWorkerOwned(t *testing.T) {
 		now := monotime.Now()
 		c.emission.bbr = newBBRSendPolicy(1_000_000, 1200, now)
 		c.retransmissionQueue.addInitial(&wire.PingFrame{})
-		c.handshakeStream.Write([]byte("coalesced data"))
+		c.cryptoStreamManager.handshakeStream.Write([]byte("coalesced data"))
 		require.True(t, c.triggerSending(now).progress)
 		entry := <-c.emission.queue.(*sendQueue).queue
 		defer entry.release()

@@ -130,8 +130,7 @@ type packetPacker struct {
 	perspective protocol.Perspective
 	cryptoSetup sealingManager
 
-	initialStream   *initialCryptoStream
-	handshakeStream *cryptoStream
+	cryptoStreamManager *cryptoStreamManager
 
 	token []byte
 
@@ -175,8 +174,7 @@ func carrierOf(route *pathRoute) protocol.PathID {
 func newPacketPacker(
 	srcConnID protocol.ConnectionID,
 	getDestConnID func() protocol.ConnectionID,
-	initialStream *initialCryptoStream,
-	handshakeStream *cryptoStream,
+	cryptoStreamManager *cryptoStreamManager,
 	packetNumberManager packetNumberManager,
 	retransmissionQueue *retransmissionQueue,
 	cryptoSetup sealingManager,
@@ -192,8 +190,7 @@ func newPacketPacker(
 		cryptoSetup:         cryptoSetup,
 		getDestConnID:       getDestConnID,
 		srcConnID:           srcConnID,
-		initialStream:       initialStream,
-		handshakeStream:     handshakeStream,
+		cryptoStreamManager: cryptoStreamManager,
 		retransmissionQueue: retransmissionQueue,
 		datagramQueue:       datagramQueue,
 		perspective:         perspective,
@@ -742,23 +739,12 @@ func (p *packetPacker) maybeGetCryptoPacket(
 		return nil, payload{length: 0}
 	}
 
-	var hasCryptoData func() bool
-	var popCryptoFrame func(maxLen protocol.ByteCount) *wire.CryptoFrame
-	//nolint:exhaustive // Initial and Handshake are the only two encryption levels here.
-	switch encLevel {
-	case protocol.EncryptionInitial:
-		hasCryptoData = p.initialStream.HasData
-		popCryptoFrame = p.initialStream.PopCryptoFrame
-	case protocol.EncryptionHandshake:
-		hasCryptoData = p.handshakeStream.HasData
-		popCryptoFrame = p.handshakeStream.PopCryptoFrame
-	}
 	handler := p.retransmissionQueue.AckHandler(encLevel)
 	hasRetransmission := p.retransmissionQueue.HasData(encLevel)
 
-	ack := p.acks.GetAckFrame(encLevel, now, !hasRetransmission && !hasCryptoData())
+	ack := p.acks.GetAckFrame(encLevel, now, !hasRetransmission && !p.cryptoStreamManager.HasData(encLevel))
 	var pl payload
-	if !hasCryptoData() && !hasRetransmission && ack == nil {
+	if !p.cryptoStreamManager.HasData(encLevel) && !hasRetransmission && ack == nil {
 		if !addPingIfEmpty {
 			// nothing to send
 			return nil, payload{}
@@ -793,8 +779,8 @@ func (p *packetPacker) maybeGetCryptoPacket(
 		}
 		return hdr, pl
 	} else {
-		for hasCryptoData() {
-			cf := popCryptoFrame(maxPacketSize)
+		for p.cryptoStreamManager.HasData(encLevel) {
+			cf := p.cryptoStreamManager.PopCryptoFrame(encLevel, maxPacketSize)
 			if cf == nil {
 				break
 			}

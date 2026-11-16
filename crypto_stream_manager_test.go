@@ -22,10 +22,7 @@ func TestCryptoStreamManager(t *testing.T) {
 }
 
 func testCryptoStreamManager(t *testing.T, encLevel protocol.EncryptionLevel) {
-	initialStream := newInitialCryptoStream(true)
-	handshakeStream := newCryptoStream()
-	oneRTTStream := newCryptoStream()
-	csm := newCryptoStreamManager(initialStream, handshakeStream, oneRTTStream)
+	csm := newCryptoStreamManager(protocol.PerspectiveClient)
 
 	require.NoError(t, csm.HandleCryptoFrame(&wire.CryptoFrame{Data: []byte("foo")}, encLevel))
 	require.NoError(t, csm.HandleCryptoFrame(&wire.CryptoFrame{Data: []byte("bar"), Offset: 3}, encLevel))
@@ -41,7 +38,7 @@ func testCryptoStreamManager(t *testing.T, encLevel protocol.EncryptionLevel) {
 }
 
 func TestCryptoStreamManagerInvalidEncryptionLevel(t *testing.T) {
-	csm := newCryptoStreamManager(nil, nil, nil)
+	csm := newCryptoStreamManager(protocol.PerspectiveClient)
 	require.ErrorContains(t,
 		csm.HandleCryptoFrame(&wire.CryptoFrame{}, protocol.Encryption0RTT),
 		"received CRYPTO frame with unexpected encryption level",
@@ -58,10 +55,7 @@ func TestCryptoStreamManagerFinishEncryptionLevel(t *testing.T) {
 }
 
 func testCryptoStreamManagerFinishEncryptionLevel(t *testing.T, encLevel protocol.EncryptionLevel) {
-	initialStream := newInitialCryptoStream(true)
-	handshakeStream := newCryptoStream()
-	oneRTTStream := newCryptoStream()
-	csm := newCryptoStreamManager(initialStream, handshakeStream, oneRTTStream)
+	csm := newCryptoStreamManager(protocol.PerspectiveClient)
 
 	require.NoError(t, csm.HandleCryptoFrame(&wire.CryptoFrame{Data: []byte("foo")}, encLevel))
 	require.ErrorContains(t, csm.Finish(encLevel), "encryption level changed, but crypto stream has more data to read")
@@ -71,14 +65,11 @@ func testCryptoStreamManagerFinishEncryptionLevel(t *testing.T, encLevel protoco
 }
 
 func TestCryptoStreamManagerPostHandshake(t *testing.T) {
-	initialStream := newInitialCryptoStream(true)
-	handshakeStream := newCryptoStream()
-	oneRTTStream := newCryptoStream()
-	csm := newCryptoStreamManager(initialStream, handshakeStream, oneRTTStream)
+	csm := newCryptoStreamManager(protocol.PerspectiveClient)
 
-	_, err := oneRTTStream.Write([]byte("foo"))
+	err := csm.Write(protocol.Encryption1RTT, []byte("foo"))
 	require.NoError(t, err)
-	_, err = oneRTTStream.Write([]byte("bar"))
+	err = csm.Write(protocol.Encryption1RTT, []byte("bar"))
 	require.NoError(t, err)
 	require.Equal(t,
 		&wire.CryptoFrame{Data: []byte("foobar")},

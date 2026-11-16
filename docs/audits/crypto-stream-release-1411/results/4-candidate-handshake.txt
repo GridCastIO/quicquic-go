@@ -1,0 +1,7 @@
+using QUIC version: v1
+goos: darwin
+goarch: arm64
+pkg: github.com/quic-go/quic-go/integrationtests/self
+cpu: Apple M4 Max
+BenchmarkHandshake-4   	    1933	    565526 ns/op	  251468 B/op	    2195 allocs/op
+PASS

@@ -66,7 +66,7 @@ func TestEmissionConstructionInitial(t *testing.T) {
 				c.sentPacketHandler.ReceivedBytes(1200, now)
 			}
 			if name == "server" {
-				_, err := c.initialStream.Write([]byte("eligible Initial crypto work"))
+				_, err := c.cryptoStreamManager.initialStream.Write([]byte("eligible Initial crypto work"))
 				require.NoError(t, err)
 			} else {
 				// Use the existing retransmission producer: fresh client stream

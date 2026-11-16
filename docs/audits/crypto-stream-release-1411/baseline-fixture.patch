@@ -1,0 +1,13 @@
+diff --git a/packet_packer_test.go b/packet_packer_test.go
+index 33ce9b32d..6f98c1757 100644
+--- a/packet_packer_test.go
++++ b/packet_packer_test.go
+@@ -27,0 +28 @@ type testPacketPacker struct {
++	cryptoStreamManager *cryptoStreamManager
+@@ -39 +40 @@ type testPacketPacker struct {
+-func newTestPacketPacker(t *testing.T, mockCtrl *gomock.Controller, pers protocol.Perspective) *testPacketPacker {
++func newTestPacketPacker(t testing.TB, mockCtrl *gomock.Controller, pers protocol.Perspective) *testPacketPacker {
+@@ -43,0 +45 @@ func newTestPacketPacker(t *testing.T, mockCtrl *gomock.Controller, pers protoco
++	manager := newCryptoStreamManager(initialStream, handshakeStream, newCryptoStream())
+@@ -50,0 +53 @@ func newTestPacketPacker(t *testing.T, mockCtrl *gomock.Controller, pers protoco
++		cryptoStreamManager: manager,

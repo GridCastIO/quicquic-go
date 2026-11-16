@@ -44,7 +44,7 @@ func newSizedHandshakeEmissionConnection(t *testing.T, client bool, initialPacke
 	sealing.EXPECT().GetHandshakeSealer().Return(newTestLongHeaderSealer(), nil).AnyTimes()
 	sealing.EXPECT().Get1RTTSealer().Return(nil, handshake.ErrKeysNotYetAvailable).AnyTimes()
 	sealing.EXPECT().Get0RTTSealer().Return(nil, handshake.ErrKeysNotYetAvailable).AnyTimes()
-	c.emission.packer = newPacketPacker(tc.srcConnID, c.connIDManager.Get, c.initialStream, c.handshakeStream, c.sentPacketHandler, c.retransmissionQueue, sealing, c.framer, &c.receivedPacketHandler, c.datagramQueue, c.perspective)
+	c.emission.packer = newPacketPacker(tc.srcConnID, c.connIDManager.Get, c.cryptoStreamManager, c.sentPacketHandler, c.retransmissionQueue, sealing, c.framer, &c.receivedPacketHandler, c.datagramQueue, c.perspective)
 	c.sentPacketHandler.ReceivedBytes(1<<20, monotime.Now())
 	return tc
 }
@@ -64,7 +64,7 @@ func testEmissionCoalescedHandshake(t *testing.T, client bool, size uint16) {
 	c := newSizedHandshakeEmissionConnection(t, client, size).conn
 	c.pathGeneration = 9
 	c.retransmissionQueue.addInitial(&wire.PingFrame{})
-	c.handshakeStream.Write([]byte("handshake payload"))
+	c.cryptoStreamManager.handshakeStream.Write([]byte("handshake payload"))
 	now := monotime.Now()
 	result := c.triggerSending(now)
 	require.NoError(t, result.err)
@@ -85,7 +85,7 @@ func testEmissionCoalescedHandshake(t *testing.T, client bool, size uint16) {
 	_, err := c.sentPacketHandler.ReceivedAck(&wire.AckFrame{AckRanges: []wire.AckRange{{Smallest: hdrs[1].PacketNumber, Largest: hdrs[1].PacketNumber}}}, protocol.EncryptionHandshake, now.Add(time.Millisecond))
 	require.NoError(t, err, "registration precedes queue handoff")
 	if client {
-		c.handshakeStream.Write([]byte("next flight"))
+		c.cryptoStreamManager.handshakeStream.Write([]byte("next flight"))
 		require.NoError(t, c.triggerSending(now.Add(time.Millisecond)).err)
 		next := <-q.queue
 		defer next.buf.Release()
