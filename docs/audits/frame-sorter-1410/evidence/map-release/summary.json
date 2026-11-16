@@ -1,0 +1,342 @@
+{
+  "BenchmarkFrameSorterConstruct": {
+    "B/op": {
+      "baseline": {
+        "median": 528.0,
+        "min": 528.0,
+        "max": 528.0,
+        "samples": 10
+      },
+      "chunks4096": {
+        "median": 440.0,
+        "min": 440.0,
+        "max": 440.0,
+        "samples": 10,
+        "delta_percent": -16.666666666666664,
+        "pairs_higher": 0
+      },
+      "maprelease": {
+        "median": 440.0,
+        "min": 440.0,
+        "max": 440.0,
+        "samples": 10,
+        "delta_percent": -16.666666666666664,
+        "pairs_higher": 0
+      }
+    },
+    "allocs/op": {
+      "baseline": {
+        "median": 4.0,
+        "min": 4.0,
+        "max": 4.0,
+        "samples": 10
+      },
+      "chunks4096": {
+        "median": 4.0,
+        "min": 4.0,
+        "max": 4.0,
+        "samples": 10,
+        "delta_percent": 0.0,
+        "pairs_higher": 0
+      },
+      "maprelease": {
+        "median": 4.0,
+        "min": 4.0,
+        "max": 4.0,
+        "samples": 10,
+        "delta_percent": 0.0,
+        "pairs_higher": 0
+      }
+    },
+    "ns/op": {
+      "baseline": {
+        "median": 204.35000000000002,
+        "min": 202.0,
+        "max": 214.4,
+        "samples": 10
+      },
+      "chunks4096": {
+        "median": 160.05,
+        "min": 158.0,
+        "max": 164.1,
+        "samples": 10,
+        "delta_percent": -21.678492781991686,
+        "pairs_higher": 0
+      },
+      "maprelease": {
+        "median": 161.25,
+        "min": 159.7,
+        "max": 168.5,
+        "samples": 10,
+        "delta_percent": -21.0912649865427,
+        "pairs_higher": 0
+      }
+    }
+  },
+  "BenchmarkFrameSorterOverlap/gaps=10": {
+    "B/op": {
+      "baseline": {
+        "median": 1272.0,
+        "min": 1272.0,
+        "max": 1272.0,
+        "samples": 10
+      },
+      "chunks4096": {
+        "median": 1664.0,
+        "min": 1664.0,
+        "max": 1664.0,
+        "samples": 10,
+        "delta_percent": 30.817610062893074,
+        "pairs_higher": 10
+      },
+      "maprelease": {
+        "median": 1664.0,
+        "min": 1664.0,
+        "max": 1664.0,
+        "samples": 10,
+        "delta_percent": 30.817610062893074,
+        "pairs_higher": 10
+      }
+    },
+    "allocs/op": {
+      "baseline": {
+        "median": 7.0,
+        "min": 7.0,
+        "max": 7.0,
+        "samples": 10
+      },
+      "chunks4096": {
+        "median": 11.0,
+        "min": 11.0,
+        "max": 11.0,
+        "samples": 10,
+        "delta_percent": 57.14285714285714,
+        "pairs_higher": 10
+      },
+      "maprelease": {
+        "median": 11.0,
+        "min": 11.0,
+        "max": 11.0,
+        "samples": 10,
+        "delta_percent": 57.14285714285714,
+        "pairs_higher": 10
+      }
+    },
+    "ns/op": {
+      "baseline": {
+        "median": 1209.5,
+        "min": 1198.0,
+        "max": 1217.0,
+        "samples": 10
+      },
+      "chunks4096": {
+        "median": 1078.0,
+        "min": 1065.0,
+        "max": 1087.0,
+        "samples": 10,
+        "delta_percent": -10.872261264985529,
+        "pairs_higher": 0
+      },
+      "maprelease": {
+        "median": 1079.0,
+        "min": 1070.0,
+        "max": 1095.0,
+        "samples": 10,
+        "delta_percent": -10.789582472095905,
+        "pairs_higher": 0
+      }
+    }
+  },
+  "BenchmarkFrameSorterOverlap/gaps=100": {
+    "B/op": {
+      "baseline": {
+        "median": 10858.0,
+        "min": 10858.0,
+        "max": 10859.0,
+        "samples": 10
+      },
+      "chunks4096": {
+        "median": 17264.0,
+        "min": 17264.0,
+        "max": 17264.0,
+        "samples": 10,
+        "delta_percent": 58.997973844170204,
+        "pairs_higher": 10
+      },
+      "maprelease": {
+        "median": 17264.0,
+        "min": 17264.0,
+        "max": 17264.0,
+        "samples": 10,
+        "delta_percent": 58.997973844170204,
+        "pairs_higher": 10
+      }
+    },
+    "allocs/op": {
+      "baseline": {
+        "median": 13.0,
+        "min": 13.0,
+        "max": 13.0,
+        "samples": 10
+      },
+      "chunks4096": {
+        "median": 24.0,
+        "min": 24.0,
+        "max": 24.0,
+        "samples": 10,
+        "delta_percent": 84.61538461538463,
+        "pairs_higher": 10
+      },
+      "maprelease": {
+        "median": 24.0,
+        "min": 24.0,
+        "max": 24.0,
+        "samples": 10,
+        "delta_percent": 84.61538461538463,
+        "pairs_higher": 10
+      }
+    },
+    "ns/op": {
+      "baseline": {
+        "median": 18202.0,
+        "min": 17983.0,
+        "max": 18390.0,
+        "samples": 10
+      },
+      "chunks4096": {
+        "median": 12292.0,
+        "min": 12173.0,
+        "max": 12390.0,
+        "samples": 10,
+        "delta_percent": -32.46895945500494,
+        "pairs_higher": 0
+      },
+      "maprelease": {
+        "median": 12408.0,
+        "min": 12306.0,
+        "max": 12523.0,
+        "samples": 10,
+        "delta_percent": -31.831666849796726,
+        "pairs_higher": 0
+      }
+    }
+  },
+  "BenchmarkFrameSorterOverlap/gaps=1000": {
+    "B/op": {
+      "baseline": {
+        "median": 193251.0,
+        "min": 193202.0,
+        "max": 193303.0,
+        "samples": 10
+      },
+      "chunks4096": {
+        "median": 231264.0,
+        "min": 231264.0,
+        "max": 231264.0,
+        "samples": 10,
+        "delta_percent": 19.670273375040747,
+        "pairs_higher": 10
+      },
+      "maprelease": {
+        "median": 231264.0,
+        "min": 231264.0,
+        "max": 231264.0,
+        "samples": 10,
+        "delta_percent": 19.670273375040747,
+        "pairs_higher": 10
+      }
+    },
+    "allocs/op": {
+      "baseline": {
+        "median": 27.0,
+        "min": 27.0,
+        "max": 27.0,
+        "samples": 10
+      },
+      "chunks4096": {
+        "median": 66.0,
+        "min": 66.0,
+        "max": 66.0,
+        "samples": 10,
+        "delta_percent": 144.44444444444446,
+        "pairs_higher": 10
+      },
+      "maprelease": {
+        "median": 66.0,
+        "min": 66.0,
+        "max": 66.0,
+        "samples": 10,
+        "delta_percent": 144.44444444444446,
+        "pairs_higher": 10
+      }
+    },
+    "ns/op": {
+      "baseline": {
+        "median": 624796.0,
+        "min": 609857.0,
+        "max": 637801.0,
+        "samples": 10
+      },
+      "chunks4096": {
+        "median": 124283.0,
+        "min": 123012.0,
+        "max": 139743.0,
+        "samples": 10,
+        "delta_percent": -80.108227325399,
+        "pairs_higher": 0
+      },
+      "maprelease": {
+        "median": 124517.5,
+        "min": 122870.0,
+        "max": 275061.0,
+        "samples": 10,
+        "delta_percent": -80.07069507487243,
+        "pairs_higher": 0
+      }
+    }
+  },
+  "BenchmarkFrameSorterOverlap/gaps=4096": {
+    "B/op": {
+      "chunks4096": {
+        "median": 938048.0,
+        "min": 938048.0,
+        "max": 938048.0,
+        "samples": 10
+      },
+      "maprelease": {
+        "median": 938048.0,
+        "min": 938048.0,
+        "max": 938048.0,
+        "samples": 10
+      }
+    },
+    "allocs/op": {
+      "chunks4096": {
+        "median": 190.0,
+        "min": 190.0,
+        "max": 190.0,
+        "samples": 10
+      },
+      "maprelease": {
+        "median": 190.0,
+        "min": 190.0,
+        "max": 190.0,
+        "samples": 10
+      }
+    },
+    "ns/op": {
+      "chunks4096": {
+        "median": 473430.0,
+        "min": 465697.0,
+        "max": 479122.0,
+        "samples": 10
+      },
+      "maprelease": {
+        "median": 473069.5,
+        "min": 460633.0,
+        "max": 806715.0,
+        "samples": 10
+      }
+    }
+  }
+}

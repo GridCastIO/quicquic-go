@@ -1,6 +1,6 @@
 # Frame sorter evaluation — issue #1410
 
-Status: user approved the inline evaluation plan in Codex on November 15, 2026. The initial evaluation is complete; the user approved the targeted terminal queue-map release and affected remeasurement, with a return for decision before adoption. See [the decision report](README.md). Production adoption is pending a separate user decision on measured results. Issue: [Evaluate chunked frame sorting and a higher reordering-gap limit (#1410)](https://github.com/the-sarge/quic-go-fast/issues/1410).
+Status: user approved the inline evaluation plan in Codex on November 15, 2026. The initial evaluation and the user-approved targeted terminal queue-map release/remeasurement are complete; [targeted results](map-release.md) are ready for the required return for decision before adoption. See [the decision report](README.md). Production adoption is pending a separate user decision on measured results. Issue: [Evaluate chunked frame sorting and a higher reordering-gap limit (#1410)](https://github.com/the-sarge/quic-go-fast/issues/1410).
 
 ## Outcome and boundary
 

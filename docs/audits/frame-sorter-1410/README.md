@@ -1,6 +1,6 @@
 # Chunked frame sorter evaluation — issue #1410
 
-Status: evaluation complete; production adoption awaits the maintainer's explicit decision. Recommendation: **modify before adoption**, specifically release the queue map after terminal discard, then remeasure affected cases. The measured candidate fixes the modeled gap-limit failure, improves large-gap lookup substantially, and preserves tested behavior. It also has real reordering and allocation regressions. No production change has been accepted or merged.
+Status: the initial evaluation and maintainer-approved terminal map-release modification are complete; production adoption awaits the maintainer's explicit decision. **Recommend adoption of the modified candidate, with the remaining reordering, allocation and active-memory tradeoffs accepted explicitly.** [The targeted remeasurement report](map-release.md) records terminal retained heap falling from 393,671 to 87 bytes per live sorter at 4,096 gaps. No production adoption or merge has occurred. The initial comparison below remains frozen evidence for the representation/cap tradeoff; its terminal-memory results describe the candidate before map release.
 
 Scope and authority: [issue #1410](https://github.com/the-sarge/quic-go-fast/issues/1410), [approved evaluation plan](plan.md), and [approval receipt for issue #1410](https://github.com/the-sarge/quic-go-fast/issues/1410#issuecomment-6905849360). The source candidate is adapted from [upstream PR #6185](https://github.com/quic-go/quic-go/pull/6185), commit `8d34dbcccc219375fa9fbaa9b7b22caeebd7d49d`. Measurements below are local to this fork, not upstream results.
 
@@ -11,8 +11,9 @@ Scope and authority: [issue #1410](https://github.com/the-sarge/quic-go-fast/iss
 | Baseline | `f4f51b28c09cbfc8b8ac3ced09cf81eb02993b12` | Original linked list, 1,000 gaps; evaluation tests added to production base `571ba7762067e6703743d010c4662a9855a13be2` |
 | Candidate A | `79fc4161c8ef483e3501f3de56d4e3a7cb68bef6` | Chunked gaps, original 1,000 cap |
 | Candidate B | `f03f9a1cb4ce2ff4963ce93de5a0d6c91770fefd` | Same chunks, 4,096 cap; only the cap differs from A |
+| Modified candidate C | `066f012b17c7127c86990eeb5010e2c8b7002b36` | Candidate B plus terminal queue-map release; see [targeted results](map-release.md) |
 
-All variants use the same benchmark and retained-heap source. Test binary hashes and evidence hashes are in [the manifest](evidence/manifest.json). Later report-only commits do not change the measured Go source. The implementation keeps the fork's gap-limit rejection callback, independently copies receive-phase snapshots from the chunks, and drops gap/snapshot storage on discard. It preserves the existing queue-map cleanup policy, which deletes entries but retains the map.
+All variants use the same benchmark and retained-heap source. The original campaign below compares baseline/A/B; Candidate C has a separate targeted campaign. Test binary hashes and evidence hashes are in [the manifest](evidence/manifest.json). Later report-only commits do not change the measured Go source. The implementation keeps the fork's gap-limit rejection callback, independently copies receive-phase snapshots from the chunks, and drops gap/snapshot storage on discard. Candidate B preserves the existing queue-map cleanup policy, which deletes entries but retains the map. Candidate C releases that map after the callbacks; its separate results supersede the terminal-memory findings for the proposed adoption candidate.
 
 ## Failure reproduction and correctness
 
@@ -30,7 +31,7 @@ Candidate B passed:
 
 [Focused tests](evidence/candidate-b-focused.log), [package tests](evidence/package-tests.log), [race tests](evidence/race.log), [vet](evidence/vet.log), and [tidy](evidence/tidy.log) are retained. These are evaluation checks on the measured code, not final pushed-head certification. Standards/Spec preparation, full configured RAS review, hosted checks and post-ready independent-peer qualification remain for an accepted candidate.
 
-## Timing and allocation methodology
+## Initial timing and allocation methodology
 
 Apple M4 Max, macOS 27.2.1, Go 1.27.4 darwin/arm64; `GOMAXPROCS=1`, `GOGC=100`, `GOMEMLIMIT=off`. Ten samples per supported case, 200 ms per sample, rotating baseline/A/B order between rounds. Tests and builds finished before the timing campaign. No CPU pinning or frequency control was available. Core identity came from IORegistry and activity from Mach per-core CPU ticks: cores 0–3 are efficiency cores; 4–15 are performance cores. During benchmark passes, total performance-core activity ranged from 2.78 to 3.72 core equivalents out of 12, including the benchmark; efficiency-core activity ranged from 0.54 to 1.47 out of 4. This was a busy host, not an idle-host claim. Aggregate activity does not prove absence of scheduler interference. [Environment](evidence/environment.json) and [per-core observations](evidence/load.jsonl) preserve the details.
 
@@ -61,7 +62,7 @@ Both chunked variants show the same substantive pattern at common counts: these 
 
 Allocation tradeoffs are material even when elapsed time improves. At 1,000 gaps the lossy microbenchmark rises from approximately 0 to **36 B/op**. Go's integer `allocs/op` output truncates fractional amortized allocation rates to zero; this case is not allocation-free. Chunk splits allocate backing arrays. The overlap lifecycle at 1,000 gaps rises from **27 to 66 allocations** and about **193,248 to 231,264 B/op** (+19.7% bytes), despite being much faster. At ten gaps that lifecycle rises from 7 to 11 allocations and 1,272 to 1,664 B/op. In-order sorter processing stays at zero allocations; construction remains four allocations while falling from 528 to 440 B/op. Receive-stream allocation counts are unchanged in the measured cases. Snapshot storage costs 16,384 allocated bytes at 1,000 gaps and 65,536 at 4,096.
 
-## Retained memory
+## Initial retained memory, before map release
 
 Each cell runs in a fresh process with 16 live sorters. Each received 1,200-byte payload has its own 2,048-byte backing buffer, retained by a cleanup callback. Measurements use post-GC heap deltas while the sorter objects remain reachable. This models sorter-owned retention; it is not process RSS, peak memory, a packet-pool residency measurement, or a universal per-stream bound. A stream's flow-control window and queued contiguous data also govern memory; the gap count alone is not a complete byte-memory ceiling.
 
@@ -78,13 +79,13 @@ At a common 1,000-gap count, chunks save about 10.5 KB while fragmented, retain 
 
 The phase snapshot's original backing array remains retained after `phaseAt` advances to the final interval: the remaining slice capacity may be only 16 bytes, but the heap still includes the full 16,384-byte or 65,536-byte allocation. Terminal discard releases the snapshot and payload references. It also releases all chunks. The remaining roughly **96 KiB / 384 KiB** after discard is consistent with the empty queue map's retained backing storage; `discard` deletes entries but leaves `s.queue` reachable. Dropping the sorter itself would permit its collection, but that is deliberately outside this probe. [Raw retained-memory cells](evidence/retained.jsonl) include phase-disabled cases, exact callback counts, queued backing capacities and suffix snapshot capacities.
 
-## Decision proposal
+## Current adoption decision
 
-**Recommend modify, then decide adoption on the revised evidence.** Keep the 4,096-gap candidate and its existing sorter ownership, but set `s.queue = nil` after invoking all retained callbacks in `discard`. Terminal admission is already sealed by the owner and future Push is prohibited; nil-map lookup, length and iteration preserve empty Pop, Peek, HasMoreData and repeated discard behavior. This proposes releasing backing storage at the existing retirement owner without adding work to Push or lookup. It is not implemented in the measured candidate.
+The maintainer approved the proposed terminal queue-map release and remeasurement. Candidate C implements that one production assignment in the existing retirement owner. [The targeted report](map-release.md) records red/green retirement tests, the full validation results, all 16 discarded-state memory cells and ten samples of each affected lifecycle timing case.
 
-For that modification, add the focused retirement assertion, rerun sorter/receive-stream/CRYPTO behavior and the focused race checks, repeat the terminal-memory cells and the construction/overlap lifecycle timing cells affected by discard using the same ten-sample method. Preserve the current hot-path timing evidence unless Go code on those paths also changes. Report the resulting retained-memory effect before adoption. This is a narrower modification than rewriting chunk indexing to pursue the 4% reordered-stream cost; the latter remains an explicit acceptance tradeoff, with no claim that it has been removed.
+**Recommend adoption of Candidate C, pending explicit maintainer acceptance of the remaining tradeoffs.** The 4,096-gap terminal fixture now retains 87 bytes per live sorter instead of 393,671, with unchanged allocation counts and allocated bytes in all remeasured lifecycle cases. Four of five timing cases have no significant median change; the 100-gap overlap lifecycle is 0.94% slower. Elevated-load outliers are retained and discussed. Active fragmentation, pre-terminal retention, extra chunk allocations and the prior roughly 4% reordered-stream slowdown remain explicit costs. No hot-path improvement from map release is claimed.
 
-Alternative decisions are adopt the exact measured Candidate B with its named reordering/allocation/retention costs, or defer production adoption and retain the evaluation. A chunks-only change at the original cap would retain the representation regressions while failing the motivating loss model, so it is not recommended as the outcome. A cap-only linked-list change remains outside the approved plan. No automatic numerical acceptance threshold is imposed.
+The draft remains awaiting that adoption decision. Full configured RAS review, main reconciliation, final certification and hosted/post-ready qualification follow acceptance; nothing is merged. Deferral remains available if the remaining costs are unsuitable. A chunks-only change at the old cap still fails the motivating loss model, and a cap-only linked-list change remains outside the approved plan. No automatic numerical acceptance threshold is imposed.
 
 ## Reproduction
 

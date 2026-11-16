@@ -1,0 +1,37 @@
+{
+  "variants": {
+    "baseline": "f4f51b28c09cbfc8b8ac3ced09cf81eb02993b12",
+    "chunks4096": "f03f9a1cb4ce2ff4963ce93de5a0d6c91770fefd",
+    "maprelease": "066f012b17c7127c86990eeb5010e2c8b7002b36"
+  },
+  "go": "go version go1.27.4 darwin/arm64",
+  "host": "Apple M4 Max",
+  "os": "ProductName:\t\tmacOS\nProductVersion:\t\t27.2.1\nBuildVersion:\t\t26B131\n",
+  "clusters": {
+    "0": "E",
+    "1": "E",
+    "2": "E",
+    "3": "E",
+    "4": "P",
+    "5": "P",
+    "6": "P",
+    "7": "P",
+    "8": "P",
+    "9": "P",
+    "10": "P",
+    "11": "P",
+    "12": "P",
+    "13": "P",
+    "14": "P",
+    "15": "P"
+  },
+  "environment": {
+    "GOMAXPROCS": "1",
+    "GOGC": "100",
+    "GOMEMLIMIT": "off"
+  },
+  "scope": "Construct and Overlap timings; discarded-state retained heap only",
+  "samples": 10,
+  "benchtime": "200ms",
+  "note": "Per-core Mach CPU ticks; cluster identities from IORegistry. Includes benchmark CPU usage. No CPU pinning or frequency telemetry."
+}
