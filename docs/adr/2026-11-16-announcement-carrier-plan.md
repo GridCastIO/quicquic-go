@@ -1,7 +1,7 @@
 # Announcement Carrier Identity Implementation Plan
 
 **Date:** 2026-11-16
-**Status:** Accepted design; not yet implemented
+**Status:** A1 complete; selected-carrier execution implemented
 **Track:** `N16-A` in the [November 16 correctness and architecture program](2026-11-16-architecture-correctness-program.md)
 **Depends on:** nothing — A1 is independently startable
 **Related:** [ADR 0004](0004-packet-emission-ownership.md); [native endpoint plan](2026-10-24-multipath-endpoint-plan.md)
@@ -34,7 +34,7 @@ Keep paced payload versus exempt PING/ACK choice, carrier size, retry/backoff, s
 
 | Slice | Disposition | Delivers | Blocked by | Temporary seam |
 |---|---|---|---|---|
-| A1 | new | Legal endpoint-transition regression and original-carrier execution | None | None |
+| A1 | complete | Legal endpoint-transition regression and original-carrier execution | None | None |
 
 ## Implementation slices
 
