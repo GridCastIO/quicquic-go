@@ -83,16 +83,29 @@ func (p *FrameParser) ParseType(b []byte, encLevel protocol.EncryptionLevel) (Fr
 	return 0, parsed, io.EOF
 }
 
-func (p *FrameParser) ParseStreamFrame(frameType FrameType, data []byte, v protocol.Version) (*StreamFrame, int, error) {
-	frame, n, err := parseStreamFrame(data, frameType, v, p.maxStreamDataLen)
+func (p *FrameParser) ParseStreamFrame(frameType FrameType, data []byte, _ protocol.Version) (*StreamFrame, int, error) {
+	frame, n, err := parseStreamFrame(data, frameType, p.maxStreamDataLen)
 	if err != nil {
-		return nil, n, &qerr.TransportError{
-			ErrorCode:    qerr.FrameEncodingError,
-			FrameType:    uint64(frameType),
-			ErrorMessage: err.Error(),
-		}
+		return nil, 0, streamFrameEncodingError(frameType, err)
 	}
 	return frame, n, nil
+}
+
+// SkipStreamFrame validates a STREAM body after ParseType and returns the body bytes consumed.
+func (p *FrameParser) SkipStreamFrame(frameType FrameType, data []byte, _ protocol.Version) (int, error) {
+	layout, err := decodeStreamFrame(data, frameType, p.maxStreamDataLen)
+	if err != nil {
+		return 0, streamFrameEncodingError(frameType, err)
+	}
+	return layout.dataEnd, nil
+}
+
+func streamFrameEncodingError(frameType FrameType, err error) error {
+	return &qerr.TransportError{
+		ErrorCode:    qerr.FrameEncodingError,
+		FrameType:    uint64(frameType),
+		ErrorMessage: err.Error(),
+	}
 }
 
 func (p *FrameParser) ParseAckFrame(frameType FrameType, data []byte, encLevel protocol.EncryptionLevel, v protocol.Version) (*AckFrame, int, error) {

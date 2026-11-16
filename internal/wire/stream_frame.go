@@ -19,51 +19,17 @@ type StreamFrame struct {
 	fromPool bool
 }
 
-func ParseStreamFrame(b []byte, typ FrameType, v protocol.Version) (*StreamFrame, int, error) {
-	return parseStreamFrame(b, typ, v, protocol.MaxPacketBufferSize)
+func ParseStreamFrame(b []byte, typ FrameType, _ protocol.Version) (*StreamFrame, int, error) {
+	return parseStreamFrame(b, typ, protocol.MaxPacketBufferSize)
 }
 
-func parseStreamFrame(b []byte, typ FrameType, _ protocol.Version, maxDataLen protocol.ByteCount) (*StreamFrame, int, error) {
-	startLen := len(b)
-	hasOffset := typ&0b100 > 0
-	fin := typ&0b1 > 0
-	hasDataLen := typ&0b10 > 0
-
-	streamID, l, err := quicvarint.Parse(b)
+func parseStreamFrame(b []byte, typ FrameType, maxDataLen protocol.ByteCount) (*StreamFrame, int, error) {
+	layout, err := decodeStreamFrame(b, typ, maxDataLen)
 	if err != nil {
-		return nil, 0, replaceUnexpectedEOF(err)
-	}
-	b = b[l:]
-	var offset uint64
-	if hasOffset {
-		offset, l, err = quicvarint.Parse(b)
-		if err != nil {
-			return nil, 0, replaceUnexpectedEOF(err)
-		}
-		b = b[l:]
+		return nil, 0, err
 	}
 
-	var dataLen uint64
-	if hasDataLen {
-		var err error
-		var l int
-		dataLen, l, err = quicvarint.Parse(b)
-		if err != nil {
-			return nil, 0, replaceUnexpectedEOF(err)
-		}
-		b = b[l:]
-		if dataLen > uint64(len(b)) {
-			return nil, 0, io.EOF
-		}
-	} else {
-		// The rest of the packet is data
-		dataLen = uint64(len(b))
-	}
-
-	if dataLen > uint64(maxDataLen) {
-		return nil, 0, io.EOF
-	}
-
+	dataLen := layout.dataEnd - layout.dataStart
 	var frame *StreamFrame
 	if dataLen < protocol.MinStreamFrameBufferSize {
 		frame = &StreamFrame{}
@@ -72,28 +38,63 @@ func parseStreamFrame(b []byte, typ FrameType, _ protocol.Version, maxDataLen pr
 		}
 	} else {
 		frame = GetStreamFrameForSize(protocol.ByteCount(dataLen))
-		// The STREAM frame can't be larger than the StreamFrame we obtained from the buffer,
-		// since the pool selects a buffer that fits the payload.
-		if dataLen > uint64(cap(frame.Data)) {
-			frame.PutBack()
-			return nil, 0, io.EOF
-		}
 		frame.Data = frame.Data[:dataLen]
 	}
 
-	frame.StreamID = protocol.StreamID(streamID)
-	frame.Offset = protocol.ByteCount(offset)
-	frame.Fin = fin
-	frame.DataLenPresent = hasDataLen
-
+	frame.StreamID = layout.streamID
+	frame.Offset = layout.offset
+	frame.Fin = typ&0b1 != 0
+	frame.DataLenPresent = typ&0b10 != 0
 	if dataLen > 0 {
-		copy(frame.Data, b)
+		copy(frame.Data, b[layout.dataStart:])
 	}
-	if frame.Offset+frame.DataLen() > protocol.MaxByteCount {
-		frame.PutBack()
-		return nil, 0, errors.New("stream data overflows maximum offset")
+	return frame, layout.dataEnd, nil
+}
+
+// streamFrameLayout describes validated byte positions and fields without retaining the input.
+type streamFrameLayout struct {
+	streamID  protocol.StreamID
+	offset    protocol.ByteCount
+	dataStart int
+	dataEnd   int
+}
+
+func decodeStreamFrame(b []byte, typ FrameType, maxDataLen protocol.ByteCount) (streamFrameLayout, error) {
+	startLen := len(b)
+	streamID, n, err := quicvarint.Parse(b)
+	if err != nil {
+		return streamFrameLayout{}, replaceUnexpectedEOF(err)
 	}
-	return frame, startLen - len(b) + int(dataLen), nil
+	b = b[n:]
+	var offset uint64
+	if typ&0b100 != 0 {
+		offset, n, err = quicvarint.Parse(b)
+		if err != nil {
+			return streamFrameLayout{}, replaceUnexpectedEOF(err)
+		}
+		b = b[n:]
+	}
+
+	dataLen := uint64(len(b)) // With no LEN field, the rest of the packet is data.
+	if typ&0b10 != 0 {
+		dataLen, n, err = quicvarint.Parse(b)
+		if err != nil {
+			return streamFrameLayout{}, replaceUnexpectedEOF(err)
+		}
+		b = b[n:]
+		if dataLen > uint64(len(b)) {
+			return streamFrameLayout{}, io.EOF
+		}
+	}
+	// The configured ceiling cannot make a payload larger than the jumbo pool's buffer valid.
+	if dataLen > uint64(maxDataLen) || dataLen > maxStreamFrameBufferSize {
+		return streamFrameLayout{}, io.EOF
+	}
+	if offset+dataLen > uint64(protocol.MaxByteCount) {
+		return streamFrameLayout{}, errors.New("stream data overflows maximum offset")
+	}
+	dataStart := startLen - len(b)
+	return streamFrameLayout{protocol.StreamID(streamID), protocol.ByteCount(offset), dataStart, dataStart + int(dataLen)}, nil
 }
 
 func (f *StreamFrame) Append(b []byte, _ protocol.Version) ([]byte, error) {
