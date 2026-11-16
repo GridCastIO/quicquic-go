@@ -333,11 +333,7 @@ func (e *localECNEvidence) releaseTest(h *sentPacketHandler, pn protocol.PacketN
 			b.state = ecnStateTesting
 		}
 	} else if t, ok := h.ecnTracker.(*ecnTracker); ok {
-		t.numSentTesting--
-		if t.state == ecnStateUnknown && t.numSentTesting < numECNTestingPackets {
-			t.state = ecnStateTesting
-			t.lastTestingPacket = protocol.InvalidPacketNumber
-		}
+		t.releaseTestingPacket(pn)
 	}
 }
 
