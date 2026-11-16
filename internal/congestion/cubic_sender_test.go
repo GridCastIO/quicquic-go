@@ -136,6 +136,31 @@ func TestCubicSenderPacing(t *testing.T) {
 	require.Less(t, delay.Sub(monotime.Time(*sender.clock)), time.Hour)
 }
 
+func TestRenoInitialPacketSizePacing(t *testing.T) {
+	for _, size := range []protocol.ByteCount{1200, 1280, 1452} {
+		t.Run(fmt.Sprint(size), func(t *testing.T) {
+			rtt := utils.NewRTTStats()
+			rtt.UpdateRTT(time.Second, 0)
+			sender := NewCubicSender(DefaultClock{}, rtt, &utils.ConnectionStats{}, size, true, nil)
+			now := monotime.Time(1)
+			// The 32-packet window and 5/4 pacing gain allow 40 packets/s.
+			// The ten-packet floor therefore determines the initial burst.
+			require.Equal(t, 10*size, sender.pacer.Budget(now))
+			for pn := range protocol.PacketNumber(10) {
+				require.True(t, sender.HasPacingBudget(now))
+				require.Zero(t, sender.TimeUntilSend(protocol.ByteCount(pn)*size))
+				sender.OnPacketSent(now, protocol.ByteCount(pn)*size, NewPacketKey(protocol.Encryption1RTT, pn), size, true, false)
+			}
+			require.False(t, sender.HasPacingBudget(now))
+			require.Zero(t, sender.pacer.Budget(now))
+			deadline := sender.TimeUntilSend(10 * size)
+			require.Equal(t, 25*time.Millisecond, deadline.Sub(now))
+			require.False(t, sender.HasPacingBudget(deadline.Add(-time.Nanosecond)))
+			require.True(t, sender.HasPacingBudget(deadline))
+		})
+	}
+}
+
 func TestCubicSenderApplicationLimitedSlowStart(t *testing.T) {
 	sender := newTestCubicSender(false)
 
