@@ -11242,3 +11242,24 @@ The status, scheme, authority and 101 regressions failed before their correspond
 Separate Standards/Spec reviews and the full configured four-reviewer RAS panel completed. Initial review restored informational-body preservation coverage; replacement review corrected the shared benchmark's missing scheme. Both accepted corrections were verified; no deferred findings remain. The [review dispositions for PR #1420](https://github.com/the-sarge/quic-go-fast/pull/1420#issuecomment-6904677461), [fixture disposition for PR #1420](https://github.com/the-sarge/quic-go-fast/pull/1420#issuecomment-6904767363), and [exact-head certification for PR #1420](https://github.com/the-sarge/quic-go-fast/pull/1420#issuecomment-6904795077) retain the evidence.
 
 Certified `b6f452661afa822fcaa70e8d771cf0a3d57203e4` with HTTP/3 package tests, focused HTTP integration and race tests, parser-benchmark fixture smoke checks, go vet, module tidiness, formatting and diff checks. All 18 hosted checks passed, including the [actual post-ready independent-peer run for PR #1420](https://github.com/the-sarge/quic-go-fast/actions/runs/43787085319). The merged product tree matches the certified candidate exactly. Benchmark smoke results establish fixture validity only; no performance improvement is claimed.
+
+---
+
+## Configured-size Reno pacing landed (#1409) - 2026-11-15 21:25 EST
+
+**Main:** `2d229403d497`
+**Actor:** Codex
+
+### Summary
+
+[Initialize Reno pacing from the configured initial packet size (#1409)](https://github.com/the-sarge/quic-go-fast/issues/1409) shipped in [PR #1422 — Initialize Reno pacing from configured packet size](https://github.com/the-sarge/quic-go-fast/pull/1422), squash-merged as `2d229403d497208a0576d4937e5a79dd3f9e5a6c`. The pacer now receives the sender's effective initial datagram size before calculating its initial budget, including when recovery reconstructs Reno after MTU reduction. Pacing arithmetic, multiplier, rounding, minimum delay, MTU policy, BBR behavior, public API and wire contracts are unchanged.
+
+### Validation
+
+The constructor regression failed before the fix for 1200- and 1452-byte sizes while the 1280-byte control passed. Corrected fixtures permit ten full packets and fund the next packet at 25 ms with a one-second RTT. Recovery reconstruction coverage distinguishes the old initialization; direct pacer tests also retain bandwidth-dominated bursts and later size increases. Uncached congestion/recovery package tests, named transport/configuration fallback tests, go vet, module tidiness, go fix and formatting/diff checks passed on final head `c8e348b320e2a453e256ad6433a8567e0d251ccc`. All applicable hosted checks passed on that head, including the [post-ready independent-peer run for PR #1422](https://github.com/the-sarge/quic-go-fast/actions/runs/43791351674).
+
+### Decisions
+
+The [approved plan and review exception for issue #1409](https://github.com/the-sarge/quic-go-fast/issues/1409#issuecomment-6905296535) limit the change to constructor initialization and bounded regressions. Standards/Spec preparation and the initial full four-agent RAS review (`20261116T020745-682d2a27a81a60f29e3cf715`) reported zero findings. Hosted go fix required a one-line test-loop syntax correction; the user directed no new RAS review, so the started replacement was cancelled and local certification plus hosted checks were repeated. No deferred findings remain.
+
+No throughput or latency measurement was made. Nondefault startup/reset bursts intentionally change: smaller configured packets lose the old surplus credit, while larger packets receive their full ten-packet allowance. Default 1280-byte behavior is unchanged, and the correction adds no per-packet work or allocations.
