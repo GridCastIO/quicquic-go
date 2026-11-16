@@ -439,6 +439,35 @@ func TestClientResponseContentLength(t *testing.T) {
 	}
 }
 
+func TestRequestStreamInformationalContentLength(t *testing.T) {
+	client, server := newConnPair(t)
+	cc := (&Transport{}).NewClientConn(client)
+	ctx, cancel := context.WithTimeout(t.Context(), time.Second)
+	defer cancel()
+	str, err := cc.OpenRequestStream(ctx)
+	require.NoError(t, err)
+	require.NoError(t, str.SendRequestHeader(httptest.NewRequest(http.MethodGet, "https://example.com", nil)))
+	require.NoError(t, str.Close())
+	peer, err := server.AcceptStream(ctx)
+	require.NoError(t, err)
+	require.NoError(t, peer.SetDeadline(time.Now().Add(time.Second)))
+	decodeHeader(t, peer)
+	_, err = peer.Write(encodeHeaderFields(t, []qpack.HeaderField{
+		{Name: ":status", Value: "101"},
+		{Name: "content-length", Value: "6"},
+	}))
+	require.NoError(t, err)
+	require.NoError(t, peer.Close())
+	rsp, err := str.ReadResponse()
+	require.NoError(t, err)
+	defer rsp.Body.Close()
+	require.Equal(t, http.StatusSwitchingProtocols, rsp.StatusCode)
+	require.EqualValues(t, 6, rsp.ContentLength)
+	body, err := io.ReadAll(rsp.Body)
+	require.NoError(t, err)
+	require.Empty(t, body)
+}
+
 func TestClientExtendedConnect(t *testing.T) {
 	t.Run("enabled", func(t *testing.T) {
 		testClientExtendedConnect(t, true)

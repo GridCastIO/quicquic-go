@@ -457,8 +457,8 @@ func TestExchangeInvalidStatus(t *testing.T) {
 	res := receiveExchange(t, resultChan)
 	require.Nil(t, res.rsp)
 	require.ErrorContains(t, res.err, "http3: invalid response: invalid status code")
-	expectStreamReadReset(t, str, quic.StreamErrorCode(ErrCodeMessageError))
-	expectStreamWriteReset(t, str, quic.StreamErrorCode(ErrCodeMessageError))
+	// Transport retires this connection on response errors. Stream-level resets
+	// and connection survival are covered separately through ClientConn.
 	require.EqualValues(t, 1, input.closes.Load())
 	require.Eventually(t, func() bool { return entry.useCount.Load() == 0 }, time.Second, time.Millisecond)
 }
