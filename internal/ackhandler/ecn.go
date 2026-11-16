@@ -123,6 +123,20 @@ func (e *ecnTracker) SentPacket(pn protocol.PacketNumber, ecn protocol.ECN) {
 	}
 }
 
+// releaseTestingPacket returns a local unsubmitted registration's reservation only
+// when it belongs to the current testing interval. Historical local evidence can
+// outlive tuple restart, so it cannot establish current interval membership.
+func (e *ecnTracker) releaseTestingPacket(pn protocol.PacketNumber) {
+	if e.firstTestingPacket == protocol.InvalidPacketNumber || pn < e.firstTestingPacket {
+		return
+	}
+	e.numSentTesting--
+	if e.state == ecnStateUnknown && e.numSentTesting < numECNTestingPackets {
+		e.state = ecnStateTesting
+		e.lastTestingPacket = protocol.InvalidPacketNumber
+	}
+}
+
 // restartTuple validates a new tuple from here. A failure stays, so a tuple doesn't
 // mark after one on the path, and marking less is always safe.
 func (e *ecnTracker) restartTuple() {
