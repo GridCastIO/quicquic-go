@@ -1,7 +1,7 @@
 # Reno Testing Reservation Release Implementation Plan
 
 **Date:** 2026-11-16
-**Status:** Accepted design; not yet implemented
+**Status:** E1 complete
 **Track:** `N16-E` in the [November 16 correctness and architecture program](2026-11-16-architecture-correctness-program.md)
 **Depends on:** nothing — E1 is independently startable
 **Related:** [private BBR integration](0009-opt-in-bbrv3.md); [multipath endpoint plan](2026-10-24-multipath-endpoint-plan.md)
@@ -34,7 +34,7 @@ Introduce a private current-test release operation on `ecnTracker`. The caller s
 
 | Slice | Disposition | Delivers | Blocked by | Temporary seam |
 |---|---|---|---|---|
-| E1 | new | Late-unsubmitted regression and validator-owned current release | None | None |
+| E1 | complete | Late-unsubmitted regression and validator-owned current release | None | None |
 
 ## Implementation slices
 
