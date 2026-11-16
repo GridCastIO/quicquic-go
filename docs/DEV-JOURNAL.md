@@ -11447,3 +11447,24 @@ All 18 applicable hosted checks succeeded at final certified head `43248c4359e43
 ### Next
 
 A1 has no successor or surviving follow-up. The remaining tracks continue independently; [program #1440](https://github.com/the-sarge/quic-go-fast/issues/1440) remains the live coordination surface.
+
+---
+
+## Qualified recovery-probe ECN loss landed - 2026-11-16 17:59 EST
+
+**Main:** `ad049b8be7d1`
+**Actor:** Codex
+
+### Summary
+
+Merged [PR #1446 — qualified MTU recovery-probe ECN loss](https://github.com/the-sarge/quic-go-fast/pull/1446) as `f9eba42b68d4b478d05f43b14bae5bc9d526200a`, closing [L1 (#1436)](https://github.com/the-sarge/quic-go-fast/issues/1436) in [track N16-L (#1435)](https://github.com/the-sarge/quic-go-fast/issues/1435). The connection's existing deadline-plus-later-small-ACK verdict now selects `DeclareMTURecoveryProbesLost`, which supplies ECN loss through the existing local/BBR/Reno dispatcher and retains bounded late-ACK confirmation. Successful and no-verdict cleanup use cancellation without inventing loss. Congestion-loss credit, relative flight accounting, local transmission authority, and public/wire formats remain unchanged.
+
+### Validation
+
+- The production-transition regression failed on unchanged source: CE-only real jumbo discovery and a subsequent qualified padded-probe loss left ECN testing incomplete. It passed after the correction. Recheck/no-later-small-ACK controls and a Reno/BBR table cover cancellation, confirmation, duplicate retirement, late ACK and unrelated flight without congestion-loss credit.
+- The [accepted L1 contract](https://github.com/the-sarge/quic-go-fast/blob/b6cbcf823fb8d4fa5b9effe3ba64a63660fe0899/docs/adr/2026-11-16-recovery-probe-ecn-plan.md#l1--report-ecn-loss-only-for-a-qualified-recovery-probe-loss) remained unchanged through integration. Independent Standards and Spec preparation found no findings; full four-reviewer RAS run `20261116T205114-b24bc31f7a0c0ea5a6291892` completed with no findings or follow-ups. Reviewed L1 code and test blobs remained identical in the final integrated candidate.
+- Final certified head `eb297298e0f704dde3e3068a59c5ee08c828f621` passed focused MTU/ECN tests, all Jumbo tests, affected-package tests, `go vet ./internal/ackhandler .`, `go mod tidy -diff`, and clean-tree/diff checks. All 18 applicable hosted checks passed, including the exact-head [independent-peer run](https://github.com/the-sarge/quic-go-fast/actions/runs/43969250502) with the fixed 16 cases and separate zero vectors. The [final certification receipt for PR #1446](https://github.com/the-sarge/quic-go-fast/pull/1446#issuecomment-6931164073) and [hosted receipt for PR #1446](https://github.com/the-sarge/quic-go-fast/pull/1446#issuecomment-6931590743) record integration and base-drift evidence.
+
+### Next
+
+L1 has no successor slice and no surviving review follow-up. Its completion state shipped in the product PR. Reconcile journal closure and the exact OmniFocus slice task after this append merges; [program #1440](https://github.com/the-sarge/quic-go-fast/issues/1440) remains the live program view. No native performance campaign or release qualification was part of this slice.
