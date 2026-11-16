@@ -11288,3 +11288,26 @@ Write-storage retention and connection-level obsolete-retransmission regressions
 Independent Standards and Spec preparation reviews and all four configured RAS reviewers completed without findings. RAS run `20261116T022025-45242ce812ace1f8b74b30eb` required no fix verification; no deferred findings remain. At the user's direction, certification waited for product [PR #1422](https://github.com/the-sarge/quic-go-fast/pull/1422) and journal [PR #1424](https://github.com/the-sarge/quic-go-fast/pull/1424), then followed a conflict-free rebase with unchanged commit patches and no new RAS review solely for the rebase.
 
 [Final certification for PR #1423](https://github.com/the-sarge/quic-go-fast/pull/1423#issuecomment-6905756707) identifies head `3297383b638b095935470c1dd8f3c4c26506b0d0` and base `571ba7762067e6703743d010c4662a9855a13be2`. A final documentation-only correction repackaged the baseline fixture patch without context whitespace; reverse application verified identical fixture semantics. All 18 applicable hosted checks succeeded, including the [actual post-ready independent-peer run for PR #1423](https://github.com/the-sarge/quic-go-fast/actions/runs/43794560579). The merged product tree matches the certified candidate exactly.
+
+---
+
+## Chunked frame sorting adopted (#1410) - 2026-11-15 23:23 EST
+
+**Main:** `43185c3e93f4`
+**Actor:** Codex
+
+### Summary
+
+[Evaluate chunked frame sorting and a higher reordering-gap limit (#1410)](https://github.com/the-sarge/quic-go-fast/issues/1410) shipped in [PR #1426 — Adopt chunked frame sorting with bounded gap storage](https://github.com/the-sarge/quic-go-fast/pull/1426), squash-merged as `43185c3e93f4bc4145b3ae2975254d5f684ca883`. Private sorted gap chunks replace the pooled linked list, the gap cap rises from 1,000 to 4,096, and terminal discard releases queue backing storage after callbacks. STREAM/CRYPTO byte delivery, exactly-once callback ownership, independent receive-phase snapshots, API and wire contracts are preserved. The issue is closed.
+
+### Decisions
+
+The maintainer approved the modified candidate with the measured tradeoffs in the [adoption record](audits/frame-sorter-1410/adoption.md), under the [bounded plan](audits/frame-sorter-1410/plan.md). The [initial evaluation](audits/frame-sorter-1410/README.md) and [targeted map-release results](audits/frame-sorter-1410/map-release.md) retain commands, raw evidence, host-load observations and limits. At 1,000 gaps, the initial campaign measured lossy sorter time down 83.6% and duplicate lookup down 98.0%, with reordered sorter time up 23.7% and reordered ReceiveStream time up about 4%; in-order ReceiveStream was neutral. Overlap lifecycle allocations rose from 27 to 66. The larger cap allows more active retained buffers and larger snapshots. These synthetic component measurements do not establish network goodput or other-platform performance.
+
+The 12,000-frame paired-loss model fails at frame 9,992 with the 1,000-gap variants, while the adopted cap recovers all 14.4 MB. The targeted terminal map-release modification reduces retained fixture heap at 4,096 gaps from 393,671 to 87 bytes. Four of five lifecycle timing cells showed no significant change; the 100-gap case increased 0.94%, with allocation counts unchanged. Elevated-performance-core-load outliers remain in the evidence. Terminal release does not reduce active or pre-terminal retention.
+
+### Validation
+
+Chunk boundary, split/merge, overlap, Peek, phase snapshot, callback, cap rejection and terminal-discard tests passed, including the map-release regression's recorded red/green evidence. Standards/Spec preparation and the full four-reviewer RAS run `20261116T035006-f76d8844a1b97f5c4382add4` completed with no required code fix. The [independent dispositions for PR #1426](https://github.com/the-sarge/quic-go-fast/pull/1426#issuecomment-6907137162) reject the claimed new benchmark gate: the existing smoke step is unchanged, with roughly 25–40 seconds of extra execution reported for some hosted jobs. The nonblocking source-retention concern was resolved by publishing [the measured-source archive](https://github.com/the-sarge/quic-go-fast/tree/archive/issue-1410-measured-source); verified ancestry retains all four measured revisions. Revalidation against the merged head found no surviving deferred work.
+
+[Exact-head local certification for PR #1426](https://github.com/the-sarge/quic-go-fast/pull/1426#issuecomment-6907161648) covered head `704f66982c3a2dd27657bdee3a7e40849b840013` against base `4ef639aba5f729dfa5ca36fee0a4058b05fd9813`: root/protocol package tests, focused sorter/receive-phase/receive-stream/CRYPTO race coverage and fuzz seeds, vet, module tidiness, Go fixes, full lint, maintained-source/document whitespace, Markdown links and frozen evidence hashes. Original testify whitespace in three frozen failure logs was preserved. [Final qualification for PR #1426](https://github.com/the-sarge/quic-go-fast/pull/1426#issuecomment-6907234768) records all 18 hosted checks successful, including the [actual post-ready independent-peer run for PR #1426](https://github.com/the-sarge/quic-go-fast/actions/runs/43803142141). The merged tree matches the certified candidate, and the production sorter/cap match the measured modified source.
