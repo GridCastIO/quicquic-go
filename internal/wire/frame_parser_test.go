@@ -219,6 +219,113 @@ func TestParseStreamFrameSuccess(t *testing.T) {
 	require.Equal(t, original.Data, parsed.Data)
 }
 
+func TestFrameParserSkipStreamFrame(t *testing.T) {
+	t.Run("explicit length leaves the next frame", func(t *testing.T) {
+		parser := NewFrameParser(true, false, false)
+		typ := FrameType(0x0a)               // STREAM with explicit length.
+		body := []byte{4, 2, 'a', 'b', 0x01} // Stream ID, length, payload, then PING.
+		n, err := parser.SkipStreamFrame(typ, body, protocol.Version1)
+		require.NoError(t, err)
+		require.Equal(t, 4, n)
+		require.Equal(t, byte(0x01), body[n])
+
+		frame, parsed, err := parser.ParseStreamFrame(typ, body, protocol.Version1)
+		require.NoError(t, err)
+		defer frame.PutBack()
+		require.Equal(t, n, parsed)
+		require.Equal(t, protocol.StreamID(4), frame.StreamID)
+		body[2] = 'z'
+		require.Equal(t, []byte("ab"), frame.Data)
+	})
+
+	for _, tc := range []struct {
+		name     string
+		typ      FrameType
+		body     []byte
+		consumed int
+		want     StreamFrame
+	}{
+		{
+			name: "implicit length consumes the rest", typ: 0x08, body: []byte{4, 'a', 0x01}, consumed: 3,
+			want: StreamFrame{StreamID: 4, Data: []byte{'a', 0x01}},
+		},
+		{
+			name: "offset and FIN with empty explicit payload", typ: 0x0f, body: []byte{4, 3, 0, 0x01}, consumed: 3,
+			want: StreamFrame{StreamID: 4, Offset: 3, Fin: true, DataLenPresent: true},
+		},
+		{
+			name: "empty without FIN", typ: 0x08, body: []byte{4}, consumed: 1,
+			want: StreamFrame{StreamID: 4},
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			parser := NewFrameParser(false, false, false)
+			n, err := parser.SkipStreamFrame(tc.typ, tc.body, protocol.Version1)
+			require.NoError(t, err)
+			require.Equal(t, tc.consumed, n)
+
+			frame, parsed, err := parser.ParseStreamFrame(tc.typ, tc.body, protocol.Version1)
+			require.NoError(t, err)
+			defer frame.PutBack()
+			require.Equal(t, tc.consumed, parsed)
+			require.Equal(t, tc.want.StreamID, frame.StreamID)
+			require.Equal(t, tc.want.Offset, frame.Offset)
+			require.Equal(t, tc.want.Data, frame.Data)
+			require.Equal(t, tc.want.Fin, frame.Fin)
+			require.Equal(t, tc.want.DataLenPresent, frame.DataLenPresent)
+		})
+	}
+
+	t.Run("configured cap permits payload at the storage limit", func(t *testing.T) {
+		parser := NewFrameParser(false, false, false)
+		parser.SetMaxStreamDataLen(9000)
+		body := append([]byte{4}, bytes.Repeat([]byte{'x'}, 8972)...)
+		n, err := parser.SkipStreamFrame(0x08, body, protocol.Version1)
+		require.NoError(t, err)
+		require.Equal(t, 8973, n)
+
+		frame, parsed, err := parser.ParseStreamFrame(0x08, body, protocol.Version1)
+		require.NoError(t, err)
+		defer frame.PutBack()
+		require.Equal(t, 8973, parsed)
+		require.Equal(t, body[1:], frame.Data)
+	})
+
+	maxOffset := append([]byte{4}, encodeVarInt(uint64(protocol.MaxByteCount))...)
+	for _, tc := range []struct {
+		name    string
+		typ     FrameType
+		body    []byte
+		limit   protocol.ByteCount
+		message string
+	}{
+		{"truncated header", 0x0a, []byte{4, 0x40}, 0, "EOF"},
+		{"truncated payload", 0x0a, []byte{4, 2, 'a'}, 0, "EOF"},
+		{"default cap", 0x08, append([]byte{4}, make([]byte, protocol.MaxPacketBufferSize+1)...), 0, "EOF"},
+		{"truncation precedes offset overflow", 0x0e, append(bytes.Clone(maxOffset), 2, 'a'), 0, "EOF"},
+		{"configured cap precedes offset overflow", 0x0c, append(bytes.Clone(maxOffset), 'a', 'b'), 1, "EOF"},
+		{"storage cap precedes offset overflow", 0x0c, append(bytes.Clone(maxOffset), make([]byte, 8973)...), 9000, "EOF"},
+		{"offset overflow", 0x0c, append(bytes.Clone(maxOffset), 'a'), 0, "stream data overflows maximum offset"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			parser := NewFrameParser(false, false, false)
+			if tc.limit != 0 {
+				parser.SetMaxStreamDataLen(tc.limit)
+			}
+			want := &qerr.TransportError{ErrorCode: qerr.FrameEncodingError, FrameType: uint64(tc.typ), ErrorMessage: tc.message}
+
+			n, err := parser.SkipStreamFrame(tc.typ, tc.body, protocol.Version1)
+			require.Zero(t, n)
+			require.Equal(t, want, err)
+
+			frame, parsed, err := parser.ParseStreamFrame(tc.typ, tc.body, protocol.Version1)
+			require.Nil(t, frame)
+			require.Zero(t, parsed)
+			require.Equal(t, want, err)
+		})
+	}
+}
+
 func TestFrameParserFrames(t *testing.T) {
 	tests := []struct {
 		name      string

@@ -37,11 +37,7 @@ func (c *Conn) admitDatagramPacket(data []byte, encLevel protocol.EncryptionLeve
 			_, n, err = c.frameParser.ParseDatagramFrame(typ, data, c.version)
 			count++
 		case typ.IsStreamFrameType():
-			frame, consumed, parseErr := c.frameParser.ParseStreamFrame(typ, data, c.version)
-			n, err = consumed, parseErr
-			if frame != nil {
-				frame.PutBack()
-			}
+			n, err = c.frameParser.SkipStreamFrame(typ, data, c.version)
 		case typ.IsAckFrameType():
 			_, n, err = c.frameParser.ParseAckFrame(typ, data, encLevel, c.version)
 		default:
