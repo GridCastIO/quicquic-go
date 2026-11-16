@@ -11311,3 +11311,26 @@ The 12,000-frame paired-loss model fails at frame 9,992 with the 1,000-gap varia
 Chunk boundary, split/merge, overlap, Peek, phase snapshot, callback, cap rejection and terminal-discard tests passed, including the map-release regression's recorded red/green evidence. Standards/Spec preparation and the full four-reviewer RAS run `20261116T035006-f76d8844a1b97f5c4382add4` completed with no required code fix. The [independent dispositions for PR #1426](https://github.com/the-sarge/quic-go-fast/pull/1426#issuecomment-6907137162) reject the claimed new benchmark gate: the existing smoke step is unchanged, with roughly 25–40 seconds of extra execution reported for some hosted jobs. The nonblocking source-retention concern was resolved by publishing [the measured-source archive](https://github.com/the-sarge/quic-go-fast/tree/archive/issue-1410-measured-source); verified ancestry retains all four measured revisions. Revalidation against the merged head found no surviving deferred work.
 
 [Exact-head local certification for PR #1426](https://github.com/the-sarge/quic-go-fast/pull/1426#issuecomment-6907161648) covered head `704f66982c3a2dd27657bdee3a7e40849b840013` against base `4ef639aba5f729dfa5ca36fee0a4058b05fd9813`: root/protocol package tests, focused sorter/receive-phase/receive-stream/CRYPTO race coverage and fuzz seeds, vet, module tidiness, Go fixes, full lint, maintained-source/document whitespace, Markdown links and frozen evidence hashes. Original testify whitespace in three frozen failure logs was preserved. [Final qualification for PR #1426](https://github.com/the-sarge/quic-go-fast/pull/1426#issuecomment-6907234768) records all 18 hosted checks successful, including the [actual post-ready independent-peer run for PR #1426](https://github.com/the-sarge/quic-go-fast/actions/runs/43803142141). The merged tree matches the certified candidate, and the production sorter/cap match the measured modified source.
+
+---
+
+## Architecture correctness handoff published - 2026-11-16 15:13 EST
+
+**Main:** `b6cbcf823fb8`
+**Actor:** Codex
+
+### Summary
+
+Merged [PR #1428 — Publish November 16 architecture correctness handoff](https://github.com/the-sarge/quic-go-fast/pull/1428) as `b6cbcf823fb8d4fa5b9effe3ba64a63660fe0899`. The [normative program](adr/2026-11-16-architecture-correctness-program.md) contains five tracks and six bounded slices: four reproduction-and-correction slices plus STREAM cost measurement and conditional optimization. Published five parent issues, six child issues and eleven mirrored tasks under the [OmniFocus program](omnifocus:///task/eLqOZpf2G8F). Runtime implementation and slice dispatch have not started.
+
+### Decisions
+
+The [decision register](adr/2026-11-16-architecture-decisions.md) retains accepted, narrowed and rejected directions; settled D5 policy remains closed by [PR #1418](https://github.com/the-sarge/quic-go-fast/pull/1418). S2 requires S1's merged SUPPORT decision; closure alone is insufficient. DEFER or INCONCLUSIVE completes S1 and closes S2 as not selected.
+
+### Validation
+
+Full-panel RAS run `20261116T192833-8b4f0681e427375ccb2d6c9e` and independent source/contract audits completed. Two documentation corrections were accepted; no unresolved stop or deferred follow-up remained. All eight merged documents match the audited snapshot. All 17 applicable hosted checks passed on reviewed head `acf327464669020279a90902e975293969c77ec6`; a macOS job required a same-head retry after external runner allocation failed before any step ran. See the [review dispositions for PR #1428](https://github.com/the-sarge/quic-go-fast/pull/1428#issuecomment-6927200449) and [merge receipt for PR #1428](https://github.com/the-sarge/quic-go-fast/pull/1428#issuecomment-6927926542). Issue parentage, exact plan commit/slice anchors, readiness labels, blocker edges and task mappings were read back and verified.
+
+### Next
+
+The [live program tracker (#1440)](https://github.com/the-sarge/quic-go-fast/issues/1440) records ready, undispatched [A1 (#1430)](https://github.com/the-sarge/quic-go-fast/issues/1430), [E1 (#1432)](https://github.com/the-sarge/quic-go-fast/issues/1432), [M1 (#1434)](https://github.com/the-sarge/quic-go-fast/issues/1434), [L1 (#1436)](https://github.com/the-sarge/quic-go-fast/issues/1436) and [S1 (#1438)](https://github.com/the-sarge/quic-go-fast/issues/1438), with [S2 (#1439)](https://github.com/the-sarge/quic-go-fast/issues/1439) blocked/conditional. Recommended priority is A1/E1, then M1/L1, then S1; this is not a dependency graph.
