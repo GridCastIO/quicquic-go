@@ -6,7 +6,9 @@ Based on **quic-go v0.62.0**, retaining its module path and QUIC/HTTP/3 wire com
 
 **Latest fork release: [v0.62.1-fast.9](https://github.com/the-sarge/quic-go-fast/releases/tag/v0.62.1-fast.9)**, published October 25, 2026. This maintenance prerelease contains fast.8 plus the idle path-MTU discovery timer fix. The shipped highlights below remain part of its feature set; the separately marked multipath capability is unreleased on `main`.
 
-**Fast.9 and `main` differ:** fast.9 was released from a maintenance branch and excludes the adaptive application-loss thresholds in [#971](https://github.com/the-sarge/quic-go-fast/issues/971). That policy is implemented on `main` but remains unreleased, with no measured performance benefit or consumer qualification claimed. See [release and main selection](docs/usage.md#release-and-main-selection) and [Unreleased](CHANGELOG.md#unreleased).
+**Fast.9 and `main` differ:** fast.9 was released from a maintenance branch and excludes the adaptive application-loss thresholds in [#971](https://github.com/the-sarge/quic-go-fast/issues/971). That policy is implemented on `main` but remains unreleased, with no measured performance benefit or consumer qualification claimed. See [release and main selection](docs/usage.md#release-and-main-selection) and [fast.10 preparation](CHANGELOG.md#v0621-fast10--release-preparation).
+
+**Next release in preparation: v0.62.1-fast.10.** The [release inventory](docs/releases/v0.62.1-fast.10.md) covers experimental jumbo, multipath/BBR, recovery and the November correctness/storage improvements. The version is not published yet; installation below continues to use fast.9.
 
 ## Improvements over the v0.62.0 baseline
 
