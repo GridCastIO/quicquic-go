@@ -2,9 +2,11 @@
 
 quicquic-go is an independently maintained QUIC and HTTP/3 implementation in Go, focused on transport performance and practical application integration.
 
+**Formerly `the-sarge/quic-go-fast`.** This project began as a fork of [quic-go](https://github.com/quic-go/quic-go) and diverged far enough that it is now maintained as its own project, with its own module path. Links to the old repository redirect here; see [Origins and license](#origins-and-license).
+
 It is built for sustained bulk DATAGRAM and stream transfers, with explicit application control over sockets, connection admission and traffic delivery. It combines efficient cross-platform packet I/O, lower allocation and copying costs, and extended congestion and loss recovery, while keeping standard QUIC and HTTP/3 interoperability. The module is `github.com/GridCastIO/quicquic-go`; the root package is `quic`. Requires **Go 1.26.0+**.
 
-**Release status:** v0.63.0, the first independent release under this module path, is planned and **not yet published**. The latest published release is [v0.62.1-fast.10](https://github.com/the-sarge/quic-go-fast/releases/tag/v0.62.1-fast.10), from November 16, 2026. It is a prerelease of the earlier quic-go-fast fork, still declaring `github.com/quic-go/quic-go`. It carries experimental opt-in jumbo and multipath/BBR capabilities, DATAGRAM admission APIs, adaptive loss thresholds, and correctness and storage improvements. The planned v0.63.0 adds only the [identity transition](docs/releases/v0.63.0.md) to that source.
+**Release status:** v0.63.0 is the first independent release under this module path; [GitHub Releases](https://github.com/GridCastIO/quicquic-go/releases) shows whether it is published. The last release of the earlier quic-go-fast fork is [v0.62.1-fast.10](https://github.com/the-sarge/quic-go-fast/releases/tag/v0.62.1-fast.10), from November 16, 2026, a prerelease still declaring `github.com/quic-go/quic-go`. It carries experimental opt-in jumbo and multipath/BBR capabilities, DATAGRAM admission APIs, adaptive loss thresholds, and correctness and storage improvements. v0.63.0 adds only the [identity transition](docs/releases/v0.63.0.md) to that source.
 
 Fast.10 also increases the application DATAGRAM send queue from 32 to 128 entries, raises the reassembly gap limit to 4,096, tightens HTTP/3 metadata handling, and adds qlog path fields that require updating existing positional literals. The [release notes](https://github.com/the-sarge/quic-go-fast/releases/tag/v0.62.1-fast.10) and [release record](docs/releases/v0.62.1-fast.10.md) retain compatibility guidance, accepted costs and evidence limits. Historical measurements below do not measure the complete fast.10 source.
 
@@ -42,7 +44,7 @@ These are historical, workload-specific results; they do not establish an aggreg
 
 ## Adopt quicquic-go
 
-Installation instructions will name the published tag once v0.63.0 is released; no quicquic-go release is available yet. To move an application from the fast series or from upstream quic-go, follow the [migration guide](docs/usage.md#migrate-to-quicquic-go). Until v0.63.0 is published, fast.10 remains available as its [release notes](https://github.com/the-sarge/quic-go-fast/releases/tag/v0.62.1-fast.10) describe.
+[GitHub Releases](https://github.com/GridCastIO/quicquic-go/releases) lists the published quicquic-go versions; installation instructions name a version only after it is published. To move an application from the fast series or from upstream quic-go, follow the [migration guide](docs/usage.md#migrate-to-quicquic-go). Until v0.63.0 is published, fast.10 remains available as its [release notes](https://github.com/the-sarge/quic-go-fast/releases/tag/v0.62.1-fast.10) describe.
 
 Use keyed `Config` literals; positional literals no longer compile. Applications inspecting HTTP/3 errors should follow the [error-handling migration guide](http3/README.md#error-handling). [Integration instructions](docs/usage.md) cover this project's additional APIs and socket ownership. The [compatibility promise](docs/adr/0016-version-aware-compatibility.md) defines what patch and minor releases may change.
 
@@ -56,6 +58,8 @@ Unit and integration CI run on Linux, macOS and Windows, with additional Linux r
 ## Origins and license
 
 quicquic-go derives from [quic-go](https://github.com/quic-go/quic-go), and quic-go v0.62.0 is its historical baseline. It is maintained independently and adopts individual upstream changes only after validation here ([ADR 0015](docs/adr/0015-independent-maintenance.md)). The baseline records provenance; it does not promise upstream release tracking or API parity. The `v0.62.1-fast.N` prereleases were published as the quic-go-fast fork under the old module path, and they remain [recorded as published](CHANGELOG.md).
+
+It began as quic-go-fast, a fork focused on DATAGRAM and bulk-transfer performance. Its changes grew to span packet I/O ownership, congestion control and loss recovery, multipath and HTTP/3 behavior, and continuing as a fork that tracks upstream releases no longer matched how the project was developed. In November 2026 the repository was detached from the quic-go fork network and moved to `GridCastIO/quicquic-go`, and starting with v0.63.0 the module path is `github.com/GridCastIO/quicquic-go`.
 
 Built on the work of the quic-go authors and contributors. The [MIT license](LICENSE), with its copyright notice and author credits, is unchanged.
 
