@@ -3,7 +3,7 @@ package ackhandler
 import (
 	"math/bits"
 
-	"github.com/quic-go/quic-go/internal/protocol"
+	"github.com/GridCastIO/quicquic-go/internal/protocol"
 )
 
 // localPacketRanks is only a projection of unqualified packet numbers. It does

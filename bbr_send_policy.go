@@ -4,10 +4,10 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/quic-go/quic-go/internal/congestion"
-	"github.com/quic-go/quic-go/internal/monotime"
-	"github.com/quic-go/quic-go/internal/protocol"
-	"github.com/quic-go/quic-go/internal/utils"
+	"github.com/GridCastIO/quicquic-go/internal/congestion"
+	"github.com/GridCastIO/quicquic-go/internal/monotime"
+	"github.com/GridCastIO/quicquic-go/internal/protocol"
+	"github.com/GridCastIO/quicquic-go/internal/utils"
 )
 
 // bbrSendPolicy is connection-owned. rate includes BBR's 1% margin;

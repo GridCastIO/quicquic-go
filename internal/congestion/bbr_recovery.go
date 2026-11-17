@@ -3,7 +3,7 @@ package congestion
 import (
 	"time"
 
-	"github.com/quic-go/quic-go/internal/protocol"
+	"github.com/GridCastIO/quicquic-go/internal/protocol"
 )
 
 // Recovery owns exact episode membership. The reducer keeps only the saved

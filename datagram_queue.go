@@ -5,10 +5,10 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"github.com/quic-go/quic-go/internal/protocol"
-	"github.com/quic-go/quic-go/internal/utils"
-	"github.com/quic-go/quic-go/internal/utils/ringbuffer"
-	"github.com/quic-go/quic-go/internal/wire"
+	"github.com/GridCastIO/quicquic-go/internal/protocol"
+	"github.com/GridCastIO/quicquic-go/internal/utils"
+	"github.com/GridCastIO/quicquic-go/internal/utils/ringbuffer"
+	"github.com/GridCastIO/quicquic-go/internal/wire"
 )
 
 const (

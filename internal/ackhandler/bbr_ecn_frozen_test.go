@@ -6,9 +6,9 @@ package ackhandler
 // edit it to follow production changes.
 
 import (
-	"github.com/quic-go/quic-go/internal/congestion"
-	"github.com/quic-go/quic-go/internal/protocol"
-	"github.com/quic-go/quic-go/internal/wire"
+	"github.com/GridCastIO/quicquic-go/internal/congestion"
+	"github.com/GridCastIO/quicquic-go/internal/protocol"
+	"github.com/GridCastIO/quicquic-go/internal/wire"
 )
 
 // The marking ledger is independent of recovery and sampler retirement. Only

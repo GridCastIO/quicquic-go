@@ -15,14 +15,14 @@ import (
 	"testing"
 	"time"
 
-	"github.com/quic-go/quic-go"
-	"github.com/quic-go/quic-go/http3"
-	"github.com/quic-go/quic-go/integrationtests/tools"
-	"github.com/quic-go/quic-go/internal/protocol"
-	"github.com/quic-go/quic-go/internal/wire"
-	"github.com/quic-go/quic-go/qlog"
-	"github.com/quic-go/quic-go/qlogwriter"
-	"github.com/quic-go/quic-go/testutils/events"
+	"github.com/GridCastIO/quicquic-go"
+	"github.com/GridCastIO/quicquic-go/http3"
+	"github.com/GridCastIO/quicquic-go/integrationtests/tools"
+	"github.com/GridCastIO/quicquic-go/internal/protocol"
+	"github.com/GridCastIO/quicquic-go/internal/wire"
+	"github.com/GridCastIO/quicquic-go/qlog"
+	"github.com/GridCastIO/quicquic-go/qlogwriter"
+	"github.com/GridCastIO/quicquic-go/testutils/events"
 
 	"github.com/stretchr/testify/require"
 )

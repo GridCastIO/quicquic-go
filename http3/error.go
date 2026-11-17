@@ -4,7 +4,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/quic-go/quic-go"
+	"github.com/GridCastIO/quicquic-go"
 )
 
 // Error is returned, possibly wrapped, by HTTP/3 stream read, write and datagram

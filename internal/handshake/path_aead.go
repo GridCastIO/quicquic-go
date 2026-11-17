@@ -8,10 +8,10 @@ import (
 	"math"
 	"time"
 
-	"github.com/quic-go/quic-go/internal/monotime"
-	"github.com/quic-go/quic-go/internal/protocol"
-	"github.com/quic-go/quic-go/internal/qerr"
-	"github.com/quic-go/quic-go/internal/utils"
+	"github.com/GridCastIO/quicquic-go/internal/monotime"
+	"github.com/GridCastIO/quicquic-go/internal/protocol"
+	"github.com/GridCastIO/quicquic-go/internal/qerr"
+	"github.com/GridCastIO/quicquic-go/internal/utils"
 )
 
 // pathProtection is a bounded view of the connection's shared key schedule.

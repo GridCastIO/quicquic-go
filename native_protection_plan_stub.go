@@ -2,7 +2,7 @@
 
 package quic
 
-import "github.com/quic-go/quic-go/internal/handshake"
+import "github.com/GridCastIO/quicquic-go/internal/handshake"
 
 // These Unix writer builds have no ordinary protection-plan constructor.
 // Admission declines an unexpected plan; ordinary construction stays synchronous.

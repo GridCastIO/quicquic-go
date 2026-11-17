@@ -13,7 +13,7 @@ import (
 
 	"golang.org/x/sys/unix"
 
-	"github.com/quic-go/quic-go/testutils/events"
+	"github.com/GridCastIO/quicquic-go/testutils/events"
 	"github.com/stretchr/testify/require"
 )
 

@@ -12,10 +12,10 @@ import (
 	"testing/synctest"
 	"time"
 
-	"github.com/quic-go/quic-go"
-	"github.com/quic-go/quic-go/http3"
-	"github.com/quic-go/quic-go/quicvarint"
-	"github.com/quic-go/quic-go/testutils/simnet"
+	"github.com/GridCastIO/quicquic-go"
+	"github.com/GridCastIO/quicquic-go/http3"
+	"github.com/GridCastIO/quicquic-go/quicvarint"
+	"github.com/GridCastIO/quicquic-go/testutils/simnet"
 
 	"github.com/stretchr/testify/require"
 )

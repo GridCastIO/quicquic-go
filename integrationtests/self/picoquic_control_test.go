@@ -22,9 +22,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/quic-go/quic-go"
-	"github.com/quic-go/quic-go/integrationtests/tools"
-	"github.com/quic-go/quic-go/interop/http09"
+	"github.com/GridCastIO/quicquic-go"
+	"github.com/GridCastIO/quicquic-go/integrationtests/tools"
+	"github.com/GridCastIO/quicquic-go/interop/http09"
 
 	"github.com/stretchr/testify/require"
 )

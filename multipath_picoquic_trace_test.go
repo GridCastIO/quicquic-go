@@ -9,9 +9,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/quic-go/quic-go/internal/protocol"
-	"github.com/quic-go/quic-go/qlog"
-	"github.com/quic-go/quic-go/qlogwriter"
+	"github.com/GridCastIO/quicquic-go/internal/protocol"
+	"github.com/GridCastIO/quicquic-go/qlog"
+	"github.com/GridCastIO/quicquic-go/qlogwriter"
 )
 
 type matrixPathTraffic struct {

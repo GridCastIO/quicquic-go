@@ -3,7 +3,7 @@ package quic
 import (
 	"io"
 
-	"github.com/quic-go/quic-go/internal/protocol"
+	"github.com/GridCastIO/quicquic-go/internal/protocol"
 )
 
 // admitDatagramPacket runs after authentication and duplicate detection, before

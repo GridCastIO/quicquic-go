@@ -12,7 +12,7 @@ import (
 	"sync"
 	"syscall"
 
-	"github.com/quic-go/quic-go/internal/protocol"
+	"github.com/GridCastIO/quicquic-go/internal/protocol"
 )
 
 // darwinBatch caches the per-connection state for sendmsg_x batching: the

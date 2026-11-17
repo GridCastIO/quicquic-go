@@ -11,7 +11,7 @@ import (
 	"time"
 	"unsafe"
 
-	"github.com/quic-go/quic-go/internal/protocol"
+	"github.com/GridCastIO/quicquic-go/internal/protocol"
 )
 
 // managedPacketRawConn is the sole correlation and marked-route boundary for a

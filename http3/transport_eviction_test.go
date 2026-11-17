@@ -7,7 +7,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/quic-go/quic-go"
+	"github.com/GridCastIO/quicquic-go"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

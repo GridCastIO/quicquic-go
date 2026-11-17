@@ -10,9 +10,9 @@ import (
 	"testing"
 	"time"
 
-	quic "github.com/quic-go/quic-go"
-	"github.com/quic-go/quic-go/internal/testdata"
-	"github.com/quic-go/quic-go/internal/testutils/quicproxy"
+	quic "github.com/GridCastIO/quicquic-go"
+	"github.com/GridCastIO/quicquic-go/internal/testdata"
+	"github.com/GridCastIO/quicquic-go/internal/testutils/quicproxy"
 	"github.com/stretchr/testify/require"
 )
 

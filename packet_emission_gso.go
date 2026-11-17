@@ -5,9 +5,9 @@ import (
 	"runtime"
 	"strconv"
 
-	"github.com/quic-go/quic-go/internal/ackhandler"
-	"github.com/quic-go/quic-go/internal/protocol"
-	"github.com/quic-go/quic-go/internal/wire"
+	"github.com/GridCastIO/quicquic-go/internal/ackhandler"
+	"github.com/GridCastIO/quicquic-go/internal/protocol"
+	"github.com/GridCastIO/quicquic-go/internal/wire"
 )
 
 // maxGSOSegments bounds the packets in one segmented send. Linux before 6.9

@@ -23,7 +23,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/quic-go/quic-go/internal/testdata"
+	"github.com/GridCastIO/quicquic-go/internal/testdata"
 
 	"github.com/stretchr/testify/require"
 )

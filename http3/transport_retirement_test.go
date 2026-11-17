@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"github.com/quic-go/qpack"
-	"github.com/quic-go/quic-go"
+	"github.com/GridCastIO/quicquic-go"
 	"github.com/stretchr/testify/require"
 )
 

@@ -17,8 +17,8 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/quic-go/quic-go/internal/handshake"
-	"github.com/quic-go/quic-go/internal/monotime"
+	"github.com/GridCastIO/quicquic-go/internal/handshake"
+	"github.com/GridCastIO/quicquic-go/internal/monotime"
 )
 
 // Only Transport.configureNativeIO selects this route, behind the public

@@ -8,9 +8,9 @@ import (
 	"testing"
 	"unsafe"
 
-	"github.com/quic-go/quic-go/internal/handshake"
-	"github.com/quic-go/quic-go/internal/protocol"
-	"github.com/quic-go/quic-go/internal/wire"
+	"github.com/GridCastIO/quicquic-go/internal/handshake"
+	"github.com/GridCastIO/quicquic-go/internal/protocol"
+	"github.com/GridCastIO/quicquic-go/internal/wire"
 	"github.com/stretchr/testify/require"
 )
 

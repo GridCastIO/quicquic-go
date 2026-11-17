@@ -7,10 +7,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/quic-go/quic-go"
-	"github.com/quic-go/quic-go/qlog"
-	"github.com/quic-go/quic-go/qlogwriter"
-	"github.com/quic-go/quic-go/testutils/events"
+	"github.com/GridCastIO/quicquic-go"
+	"github.com/GridCastIO/quicquic-go/qlog"
+	"github.com/GridCastIO/quicquic-go/qlogwriter"
+	"github.com/GridCastIO/quicquic-go/testutils/events"
 
 	"github.com/stretchr/testify/require"
 )

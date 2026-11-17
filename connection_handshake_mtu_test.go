@@ -5,12 +5,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/quic-go/quic-go/internal/ackhandler"
-	"github.com/quic-go/quic-go/internal/mocks"
-	mockackhandler "github.com/quic-go/quic-go/internal/mocks/ackhandler"
-	"github.com/quic-go/quic-go/internal/monotime"
-	"github.com/quic-go/quic-go/internal/protocol"
-	"github.com/quic-go/quic-go/internal/wire"
+	"github.com/GridCastIO/quicquic-go/internal/ackhandler"
+	"github.com/GridCastIO/quicquic-go/internal/mocks"
+	mockackhandler "github.com/GridCastIO/quicquic-go/internal/mocks/ackhandler"
+	"github.com/GridCastIO/quicquic-go/internal/monotime"
+	"github.com/GridCastIO/quicquic-go/internal/protocol"
+	"github.com/GridCastIO/quicquic-go/internal/wire"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 )

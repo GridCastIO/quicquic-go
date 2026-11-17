@@ -11,8 +11,8 @@ import (
 
 	"golang.org/x/sys/unix"
 
-	mockackhandler "github.com/quic-go/quic-go/internal/mocks/ackhandler"
-	"github.com/quic-go/quic-go/internal/monotime"
+	mockackhandler "github.com/GridCastIO/quicquic-go/internal/mocks/ackhandler"
+	"github.com/GridCastIO/quicquic-go/internal/monotime"
 
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"

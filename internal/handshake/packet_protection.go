@@ -6,7 +6,7 @@ import (
 
 	"golang.org/x/crypto/chacha20"
 
-	"github.com/quic-go/quic-go/internal/protocol"
+	"github.com/GridCastIO/quicquic-go/internal/protocol"
 )
 
 // packetProtectionKind is minted only by the built-in cipher constructors.

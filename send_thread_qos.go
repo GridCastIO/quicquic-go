@@ -7,7 +7,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/quic-go/quic-go/internal/monotime"
+	"github.com/GridCastIO/quicquic-go/internal/monotime"
 )
 
 // sendQoSDisableEnv is the kill switch, following QUIC_GO_DISABLE_SENDMSG_X.

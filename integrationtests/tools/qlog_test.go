@@ -11,9 +11,9 @@ import (
 	"testing/synctest"
 	"time"
 
-	"github.com/quic-go/quic-go/integrationtests/tools"
-	"github.com/quic-go/quic-go/qlogwriter"
-	"github.com/quic-go/quic-go/qlogwriter/jsontext"
+	"github.com/GridCastIO/quicquic-go/integrationtests/tools"
+	"github.com/GridCastIO/quicquic-go/qlogwriter"
+	"github.com/GridCastIO/quicquic-go/qlogwriter/jsontext"
 
 	"github.com/stretchr/testify/require"
 )

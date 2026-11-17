@@ -3,7 +3,7 @@ package quic
 import (
 	"sync"
 
-	"github.com/quic-go/quic-go/internal/protocol"
+	"github.com/GridCastIO/quicquic-go/internal/protocol"
 )
 
 // localSendCredit is the only cross-goroutine byte owner. Pending includes

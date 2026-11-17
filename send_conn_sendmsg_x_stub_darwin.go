@@ -10,7 +10,7 @@ package quic
 // Common dispatch references the native methods, requiring an active or stub
 // implementation; Go rejects duplicate methods if their build tags overlap.
 
-import "github.com/quic-go/quic-go/internal/protocol"
+import "github.com/GridCastIO/quicquic-go/internal/protocol"
 
 func (c *sconn) nativeBatchSendAvailable() bool { return false }
 

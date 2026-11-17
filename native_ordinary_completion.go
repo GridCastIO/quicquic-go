@@ -3,8 +3,8 @@
 package quic
 
 import (
-	"github.com/quic-go/quic-go/internal/ackhandler"
-	"github.com/quic-go/quic-go/internal/monotime"
+	"github.com/GridCastIO/quicquic-go/internal/ackhandler"
+	"github.com/GridCastIO/quicquic-go/internal/monotime"
 )
 
 // completeAcceptedPackets attempts only a complete ordinary native member.

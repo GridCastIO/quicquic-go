@@ -13,11 +13,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/quic-go/quic-go/internal/protocol"
-	"github.com/quic-go/quic-go/internal/qerr"
-	"github.com/quic-go/quic-go/internal/testdata"
-	"github.com/quic-go/quic-go/internal/utils"
-	"github.com/quic-go/quic-go/internal/wire"
+	"github.com/GridCastIO/quicquic-go/internal/protocol"
+	"github.com/GridCastIO/quicquic-go/internal/qerr"
+	"github.com/GridCastIO/quicquic-go/internal/testdata"
+	"github.com/GridCastIO/quicquic-go/internal/utils"
+	"github.com/GridCastIO/quicquic-go/internal/wire"
 
 	"github.com/stretchr/testify/require"
 )

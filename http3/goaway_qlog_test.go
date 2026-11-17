@@ -9,9 +9,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/quic-go/quic-go/http3/qlog"
-	"github.com/quic-go/quic-go/qlogwriter"
-	"github.com/quic-go/quic-go/quicvarint"
+	"github.com/GridCastIO/quicquic-go/http3/qlog"
+	"github.com/GridCastIO/quicquic-go/qlogwriter"
+	"github.com/GridCastIO/quicquic-go/quicvarint"
 	"github.com/stretchr/testify/require"
 )
 

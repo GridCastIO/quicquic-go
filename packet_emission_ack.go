@@ -3,9 +3,9 @@ package quic
 import (
 	"slices"
 
-	"github.com/quic-go/quic-go/internal/ackhandler"
-	"github.com/quic-go/quic-go/internal/monotime"
-	"github.com/quic-go/quic-go/internal/protocol"
+	"github.com/GridCastIO/quicquic-go/internal/ackhandler"
+	"github.com/GridCastIO/quicquic-go/internal/monotime"
+	"github.com/GridCastIO/quicquic-go/internal/protocol"
 )
 
 // beginAckCarriage reads this call's home targets before any packing, and takes the

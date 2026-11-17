@@ -5,7 +5,7 @@ package quic
 import (
 	"testing"
 
-	"github.com/quic-go/quic-go/internal/protocol"
+	"github.com/GridCastIO/quicquic-go/internal/protocol"
 )
 
 // The fixture substitutes only socket I/O; the real queue owns buffer release.

@@ -1,11 +1,11 @@
-module github.com/quic-go/quic-go/integrationtests/fips
+module github.com/GridCastIO/quicquic-go/integrationtests/fips
 
 go 1.26.0
 
 toolchain go1.27.4
 
 // The version doesn't matter here, as we're replacing it with the currently checked out code anyway.
-require github.com/quic-go/quic-go v0.60.0
+require github.com/GridCastIO/quicquic-go v0.60.0
 
 require github.com/stretchr/testify v1.12.1
 
@@ -16,4 +16,4 @@ require (
 	golang.org/x/sys v0.49.0 // indirect
 )
 
-replace github.com/quic-go/quic-go => ../../
+replace github.com/GridCastIO/quicquic-go => ../../

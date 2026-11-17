@@ -4,8 +4,8 @@ import (
 	"context"
 	"testing"
 
-	"github.com/quic-go/quic-go/internal/utils"
-	"github.com/quic-go/quic-go/internal/wire"
+	"github.com/GridCastIO/quicquic-go/internal/utils"
+	"github.com/GridCastIO/quicquic-go/internal/wire"
 )
 
 func BenchmarkDatagramReceive(b *testing.B) {

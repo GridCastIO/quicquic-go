@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/quic-go/quic-go/internal/protocol"
+	"github.com/GridCastIO/quicquic-go/internal/protocol"
 
 	"github.com/stretchr/testify/require"
 )

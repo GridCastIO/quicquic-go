@@ -8,8 +8,8 @@ import (
 	"os"
 	"testing"
 
-	"github.com/quic-go/quic-go/internal/utils"
-	"github.com/quic-go/quic-go/internal/wire"
+	"github.com/GridCastIO/quicquic-go/internal/utils"
+	"github.com/GridCastIO/quicquic-go/internal/wire"
 )
 
 // BenchmarkDatagramReceiveConcurrent is an experimental unpaced producer/receiver

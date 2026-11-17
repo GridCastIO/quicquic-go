@@ -1,6 +1,6 @@
 package ackhandler
 
-import "github.com/quic-go/quic-go/internal/protocol"
+import "github.com/GridCastIO/quicquic-go/internal/protocol"
 
 // AckCarriage is one emission call's acknowledgment placement. Each held target
 // is home: only a packet on its own path may carry it. Every other target is

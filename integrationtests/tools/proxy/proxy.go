@@ -2,7 +2,7 @@
 // Implementation and private tests live in retained internal test support.
 package quicproxy
 
-import proxy "github.com/quic-go/quic-go/internal/testutils/quicproxy"
+import proxy "github.com/GridCastIO/quicquic-go/internal/testutils/quicproxy"
 
 type (
 	Proxy         = proxy.Proxy

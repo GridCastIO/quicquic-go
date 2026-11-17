@@ -2,7 +2,7 @@
 
 package quic
 
-import "github.com/quic-go/quic-go/internal/protocol"
+import "github.com/GridCastIO/quicquic-go/internal/protocol"
 
 // sconnBatchState is empty on platforms without a batched send path.
 type sconnBatchState struct{}
