@@ -1,6 +1,8 @@
 ---
-status: accepted
+status: superseded
 ---
+
+Superseded by [ADR 0015](0015-independent-maintenance.md).
 
 # Base fork releases on validated stable upstream releases
 

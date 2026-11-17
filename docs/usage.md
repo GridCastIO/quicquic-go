@@ -1,6 +1,6 @@
 # Integration and platform guide
 
-See the [README](../README.md#use-the-fork) for installation and the [published fast.10 release](https://github.com/the-sarge/quic-go-fast/releases/tag/v0.62.1-fast.10) for changes since fast.9, compatibility changes, accepted costs and limitations. The [changelog](../CHANGELOG.md) distinguishes released and unreleased changes. General QUIC and HTTP/3 usage is covered by the [upstream documentation](https://quic-go.net/docs/).
+See the [README](../README.md#adopt-quicquic-go) for release status, the [migration guide](#migrate-to-quicquic-go) for moving to `github.com/GridCastIO/quicquic-go`, and the [published fast.10 release](https://github.com/the-sarge/quic-go-fast/releases/tag/v0.62.1-fast.10) for changes since fast.9, compatibility changes, accepted costs and limitations. The [changelog](../CHANGELOG.md) distinguishes released and unreleased changes. General QUIC and HTTP/3 usage is covered by the [upstream documentation](https://quic-go.net/docs/).
 
 ## Release and main selection
 
@@ -11,9 +11,9 @@ See the [README](../README.md#use-the-fork) for installation and the [published 
 | `v0.62.1-fast.10` (`24d75daf288469e454f55717ec20463eaf87675a`) | Full main rollup: experimental jumbo and multipath/BBR, DATAGRAM APIs and 128-entry send queue, adaptive loss thresholds, November correctness and storage improvements | Published November 16, 2026; exact-source release validation, no consumer performance qualification; [inventory and limits](releases/v0.62.1-fast.10.md) |
 | `main` | Includes fast.10; subsequent development must be assessed at its exact revision | Development branch; release validation and historical measurements do not automatically transfer |
 
-Use the exact published fast.10 tag for the latest fork prerelease. Fast.9 remains the historical maintenance release. A higher fork prerelease suffix does not imply that all intervening `main` changes are included. Selecting `main` or a pseudo-version requires checking that exact revision's behavior and evidence; fast.8's measurements and advancement exceptions do not transfer automatically. The [#971 implementation closeout](https://github.com/the-sarge/quic-go-fast/issues/971) and [recovery assessment #962](https://github.com/the-sarge/quic-go-fast/issues/962) retain the unmeasured policy and deferred comparison context.
+v0.63.0, planned as the first independent release under `github.com/GridCastIO/quicquic-go`, is not yet published; its [release record](releases/v0.63.0.md) describes fast.10's source with the identity transition. Until it is published, use the exact published fast.10 tag for the latest fork prerelease. Fast.9 remains the historical maintenance release. A higher fork prerelease suffix does not imply that all intervening `main` changes are included. Selecting `main` or a pseudo-version requires checking that exact revision's behavior and evidence; fast.8's measurements and advancement exceptions do not transfer automatically. The [#971 implementation closeout](https://github.com/the-sarge/quic-go-fast/issues/971) and [recovery assessment #962](https://github.com/the-sarge/quic-go-fast/issues/962) retain the unmeasured policy and deferred comparison context.
 
-Reno remains default and BBRv3 remains experimental, opt-in and unqualified in the published releases and current `main`. Full [Q2 qualification #599](https://github.com/the-sarge/quic-go-fast/issues/599) awaits its execution preflight and separate operator dispatch. Publishing a fork version does not complete an application's certification or adoption; each consumer owns those decisions and its module replacement.
+Reno remains default and BBRv3 remains experimental, opt-in and unqualified in the published releases and current `main`. Full [Q2 qualification #599](https://github.com/the-sarge/quic-go-fast/issues/599) awaits its execution preflight and separate operator dispatch. Publishing a release does not complete an application's certification or adoption; each consumer owns those decisions, and its module replacement while it uses a fork-series release.
 
 ## Packet I/O and socket ownership
 
@@ -50,16 +50,34 @@ Set these environment variables to `true` to disable the named behavior:
 
 Qlog traces can contain sensitive HTTP headers and QUIC tokens. The QUIC and HTTP/3 default tracers create missing `QLOGDIR` directories with mode `0700` and new trace files with mode `0600`, subject to umask on Unix. Existing directory permissions are preserved; choose a trusted directory and parent path. An existing trace path, including a symlink, disables tracing for that connection instead of overwriting it. Restrict access to trace archives and review them before sharing.
 
-## Return to upstream
+## Migrate to quicquic-go
 
-First remove or adapt fork-only factory, registration, fixed-peer, admission and congestion-control selection calls, including any required managed-endpoint option. Then remove the replacement and tidy:
+quicquic-go declares module `github.com/GridCastIO/quicquic-go` and keeps the root package name `quic` ([ADR 0014](adr/0014-independent-module-identity.md)). v0.63.0 is planned and not yet published. The commands below that name it work only after publication.
 
-```sh
-go mod edit -dropreplace=github.com/quic-go/quic-go
-go mod tidy
-```
+1. **Change imports.** Replace the `github.com/quic-go/quic-go` prefix with `github.com/GridCastIO/quicquic-go` in root and subpackage imports, for example `github.com/GridCastIO/quicquic-go/http3`. Use that exact case: `github.com/gridcastio/quicquic-go` is a different module path and fails with a path mismatch, and the module cache stores the path as `github.com/!grid!cast!i!o/quicquic-go`. Identifiers such as `quic.Config` and `http3.Server` do not change. For example, to rewrite quoted import paths in place:
 
-Verify the selected upstream version and your application's compatibility before deployment. Fork releases follow the [stable-upstream adoption policy](adr/0003-follow-stable-upstream-releases.md).
+   ```sh
+   git grep -lz 'github.com/quic-go/quic-go' -- '*.go' |
+     xargs -0 perl -pi -e 's{"github\.com/quic-go/quic-go((?:/[^"]*)?)"}{"github.com/GridCastIO/quicquic-go$1"}g'
+   ```
+
+   `goimports` and the `goimports` formatter in golangci-lint write the root import as `quic "github.com/GridCastIO/quicquic-go"`. The path's last element is not the package name, so they add the explicit name. Accept it; it changes nothing else.
+2. **Require the release.** Once v0.63.0 is published, run `go get github.com/GridCastIO/quicquic-go@v0.63.0` and select later versions explicitly under the [compatibility promise](adr/0016-version-aware-compatibility.md). Inherited tags such as `v0.62.0` and the `v0.62.1-fast.N` prereleases are not quicquic-go releases. Those with a `go.mod` file declare an old path, so Go is expected to reject them for the new one, and #1111 verifies this after publication. A few pre-module tags such as `v0.10.1` can still resolve under the new path, but they are not supported versions.
+3. **Drop the old replacement.** After migrating imports, and any dependencies as in step 4, run `go mod tidy` with the replacement still in place; this removes your own now-unused requirement on the old path. Then check that `go mod why -m github.com/quic-go/quic-go` reports the module is not needed and `go mod graph | grep 'github.com/quic-go/quic-go@'` prints nothing. If either still shows the old path, a dependency still requires it; investigate that dependency rather than removing the replacement. Once both checks are clean, run `go mod edit -dropreplace=github.com/quic-go/quic-go` and `go mod tidy` again, and commit `go.mod` and `go.sum`.
+4. **Migrate dependencies that expose QUIC types first.** Defined types from the old and new paths are distinct, so a `*quic.Conn` from one cannot be passed where the other is expected. A dependency whose API exposes QUIC types must move to the new path before or together with your application. For GridCast and tapmux, that means wiremux's cutover in [GridSwarm/wiremux#2175](https://github.com/GridSwarm/wiremux/issues/2175) comes first. Until then, the old module stays in the graph alongside the new one.
+5. **Keep existing adaptations.** Use keyed literals for `Config` and every other exported struct from this module. Positional literals are outside the compatibility promise, and some, including `Config`'s, already do not compile. Inspect HTTP/3 errors as the [error-handling guide](../http3/README.md#error-handling) describes. Go 1.26.0 remains the minimum.
+
+From fast.10, the module path is the only difference: no Go source changed except identity. From upstream v0.62.0, also expect the differences the [changelog](../CHANGELOG.md) records for the fast series, including:
+
+- this project's additional `...V1` APIs, among them packet I/O, managed endpoints, fixed peers, admission, congestion-control selection, DATAGRAM admission, jumbo and multipath;
+- the 128-entry DATAGRAM send queue and the 1,024-entry receive queue;
+- the reassembly gap limit of 4,096;
+- the qlog `Path` fields that break positional literals;
+- HTTP/3 error conversion and stricter header validation.
+
+The [fast.10 release record](releases/v0.62.1-fast.10.md#compatibility-and-support) lists the latest of these.
+
+To roll back, return to the previous source and dependency state through ordinary version control. To return to upstream quic-go, first remove or adapt calls to this project's additional APIs, then restore the `github.com/quic-go/quic-go` imports and requirement. Verify the selected upstream version and your application's compatibility before deployment.
 
 ## Development toolchains
 

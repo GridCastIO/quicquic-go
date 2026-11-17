@@ -1,6 +1,8 @@
 ---
-status: accepted
+status: superseded
 ---
+
+Superseded by [ADR 0014](0014-independent-module-identity.md).
 
 # Adopt the fork through an application-owned module replacement
 

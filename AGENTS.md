@@ -2,7 +2,7 @@
 
 ### Issue tracker
 
-Use GitHub Issues in `the-sarge/quic-go-fast`; external PRs are not a triage surface. See `docs/agents/issue-tracker.md`.
+Use GitHub Issues in `GridCastIO/quicquic-go`; external PRs are not a triage surface. See `docs/agents/issue-tracker.md`.
 
 ### Triage labels
 

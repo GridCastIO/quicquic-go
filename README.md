@@ -1,16 +1,16 @@
-# quic-go-fast
+# quicquic-go
 
-A fork of [quic-go](https://github.com/quic-go/quic-go) for sustained bulk DATAGRAM and stream transfers, with explicit application control over sockets, connection admission, and traffic delivery. It combines efficient cross-platform packet I/O, lower allocation and copying costs, and extended congestion and loss recovery.
+quicquic-go is an independently maintained QUIC and HTTP/3 implementation in Go, focused on transport performance and practical application integration.
 
-Based on **quic-go v0.62.0**, retaining its module path and QUIC/HTTP/3 wire compatibility. Requires **Go 1.26.0+**.
+It is built for sustained bulk DATAGRAM and stream transfers, with explicit application control over sockets, connection admission and traffic delivery. It combines efficient cross-platform packet I/O, lower allocation and copying costs, and extended congestion and loss recovery, while keeping standard QUIC and HTTP/3 interoperability. The module is `github.com/GridCastIO/quicquic-go`; the root package is `quic`. Requires **Go 1.26.0+**.
 
-**Latest fork release: [v0.62.1-fast.10](https://github.com/the-sarge/quic-go-fast/releases/tag/v0.62.1-fast.10)**, published November 16, 2026. This prerelease carries the full main rollup since fast.9: experimental opt-in jumbo and multipath/BBR capabilities, DATAGRAM admission APIs, adaptive loss thresholds, and correctness/storage improvements.
+**Release status:** v0.63.0, the first independent release under this module path, is planned and **not yet published**. The latest published release is [v0.62.1-fast.10](https://github.com/the-sarge/quic-go-fast/releases/tag/v0.62.1-fast.10), from November 16, 2026. It is a prerelease of the earlier quic-go-fast fork, still declaring `github.com/quic-go/quic-go`. It carries experimental opt-in jumbo and multipath/BBR capabilities, DATAGRAM admission APIs, adaptive loss thresholds, and correctness and storage improvements. The planned v0.63.0 adds only the [identity transition](docs/releases/v0.63.0.md) to that source.
 
 Fast.10 also increases the application DATAGRAM send queue from 32 to 128 entries, raises the reassembly gap limit to 4,096, tightens HTTP/3 metadata handling, and adds qlog path fields that require updating existing positional literals. The [release notes](https://github.com/the-sarge/quic-go-fast/releases/tag/v0.62.1-fast.10) and [release record](docs/releases/v0.62.1-fast.10.md) retain compatibility guidance, accepted costs and evidence limits. Historical measurements below do not measure the complete fast.10 source.
 
 ## Improvements over the v0.62.0 baseline
 
-Shipped capabilities combine fork-specific work and selected upstream fixes. See the [integration guide](docs/usage.md) for API ownership and platform requirements.
+Shipped capabilities combine this project's own work and selected upstream fixes. See the [integration guide](docs/usage.md) for API ownership and platform requirements.
 
 - **Application-owned transport integration.** External packet I/O, reusable managed socket leases, fixed-peer filtering, bounded connection setup, candidate selection and receive-phase control give applications explicit resource and traffic ownership.
 - **Managed ECN and path-MTU discovery.** Qualified managed paths preserve ECN on Linux, macOS, FreeBSD and Windows, with path-MTU discovery on qualified Linux and macOS leases.
@@ -22,7 +22,7 @@ Shipped capabilities combine fork-specific work and selected upstream fixes. See
 
 **Experimental BBRv3 for lossy bulk transfers.** Opt in with `Config.SetCongestionControlV1("bbrv3")`. The measured benefit below is against fast.8 Reno. BBR remains **unqualified**: higher memory use, control-message latency and adverse Reno coexistence remain limitations. **Reno remains the default.** See the [release's BBR status](https://github.com/the-sarge/quic-go-fast/releases/tag/v0.62.1-fast.8#corrected-bbr-and-subsequent-recovery).
 
-**Experimental multipath in fast.10.** Opt in with `Config.ConfigureMultipathV1(true, 2, "primary-backup")` and an explicit native UDP socket grant. Draft-21 QUIC v1 on Linux amd64 supports default Reno or explicitly selected BBR. BBR also accepts `"aggregate"`, using uncoupled paced byte round-robin after its positive fixed comparison. BBR retains exact accepted ordinary-cost exceptions and its unqualified controller status. No universal performance, fairness or adoption claim follows. See the [tested profile, evidence and limitations](docs/audits/2026-11-15-bbr-b12-support.md).
+**Experimental multipath.** Opt in with `Config.ConfigureMultipathV1(true, 2, "primary-backup")` and an explicit native UDP socket grant. Draft-21 QUIC v1 on Linux amd64 supports default Reno or explicitly selected BBR. BBR also accepts `"aggregate"`, using uncoupled paced byte round-robin after its positive fixed comparison. BBR retains exact accepted ordinary-cost exceptions and its unqualified controller status. No universal performance, fairness or adoption claim follows. See the [tested profile, evidence and limitations](docs/audits/2026-11-15-bbr-b12-support.md).
 
 ## Performance evidence
 
@@ -36,27 +36,27 @@ Historical measurements of individual changes, using the explicit baselines belo
 | [macOS batch send](https://github.com/the-sarge/quic-go-fast/blob/23c83b9896980511286ca8b81cd632f7ec56afed/docs/audits/2026-09-12-d1-sendmsgx-results.md) | **1.17× throughput**, send syscalls/packet **×0.126** | Batch versus per-packet sends in the adoption build; paired Darwin 25 arm64 loopback transfers |
 | [Experimental BBRv3](https://github.com/the-sarge/quic-go-fast/blob/563785cf44a6be8b36f360bdf0e80acdf59df8ae/docs/audits/2026-10-22-bundle-990-readiness/result.md) | **14.06× STREAM / 14.27× DATAGRAM useful throughput** | Fast.8 BBR versus fast.8 Reno; Linux emulation, 100 Mbps each way, 100 ms base RTT, 0.1% random forward loss; median of five paired ratios per traffic type |
 
-These are historical, workload-specific results; they do not establish an aggregate speedup for the current fork against current upstream. The short-DATAGRAM result also raised mean RTT by 22.7 µs and lifetime minimum RTT by 9.8 µs, accepted under the [recorded decision](https://github.com/the-sarge/quic-go-fast/issues/743#issuecomment-6331925155). The [fast.1 measurements](CHANGELOG.md#recorded-measurements) and [fast.8 release notes](https://github.com/the-sarge/quic-go-fast/releases/tag/v0.62.1-fast.8) retain the baselines, accepted costs and limitations.
+These are historical, workload-specific results; they do not establish an aggregate speedup of the current source over current upstream quic-go. The short-DATAGRAM result also raised mean RTT by 22.7 µs and lifetime minimum RTT by 9.8 µs, accepted under the [recorded decision (#743)](https://github.com/the-sarge/quic-go-fast/issues/743#issuecomment-6331925155). The [fast.1 measurements](CHANGELOG.md#recorded-measurements) and [fast.8 release notes](https://github.com/the-sarge/quic-go-fast/releases/tag/v0.62.1-fast.8) retain the baselines, accepted costs and limitations.
 
-## Use the fork
+<a id="use-the-fork"></a>
 
-Keep `github.com/quic-go/quic-go` imports. Select the fork in your application's main module:
+## Adopt quicquic-go
 
-```sh
-go mod edit -replace=github.com/quic-go/quic-go=github.com/the-sarge/quic-go-fast@v0.62.1-fast.10
-go mod tidy
-go list -m github.com/quic-go/quic-go
-```
+Installation instructions will name the published tag once v0.63.0 is released; no quicquic-go release is available yet. To move an application from the fast series or from upstream quic-go, follow the [migration guide](docs/usage.md#migrate-to-quicquic-go). Until v0.63.0 is published, fast.10 remains available as its [release notes](https://github.com/the-sarge/quic-go-fast/releases/tag/v0.62.1-fast.10) describe.
 
-The version after `=>` identifies the selected fork. Commit the resulting `go.mod` and `go.sum`. Each application needs its own replacement; dependency replacements do not propagate. Use an exact published fork tag: `@latest` can select inherited upstream tags.
-
-Use keyed `Config` literals; positional literals no longer compile. Applications inspecting HTTP/3 errors should follow the [error-handling migration guide](http3/README.md#error-handling). Check compatibility when another dependency expects APIs newer than the v0.62.0 baseline. [Integration and rollback instructions](docs/usage.md) cover fork-only APIs and socket ownership.
+Use keyed `Config` literals; positional literals no longer compile. Applications inspecting HTTP/3 errors should follow the [error-handling migration guide](http3/README.md#error-handling). [Integration instructions](docs/usage.md) cover this project's additional APIs and socket ownership. The [compatibility promise](docs/adr/0016-version-aware-compatibility.md) defines what patch and minor releases may change.
 
 ## Support and development
 
-Unit and integration CI run on Linux, macOS and Windows, with additional Linux race coverage. Other cross-compiled targets are build-only; native offload support depends on the host and packet-I/O path. Review the [fast.10 changes and support boundaries](https://github.com/the-sarge/quic-go-fast/releases/tag/v0.62.1-fast.10) alongside the [historical fast.8 limitations](https://github.com/the-sarge/quic-go-fast/releases/tag/v0.62.1-fast.8), with current fast.10 guidance authoritative where it supersedes earlier statements, and evaluate this prerelease against your workloads. Consumer certification and adoption remain separate decisions.
+Unit and integration CI run on Linux, macOS and Windows, with additional Linux race coverage. Other cross-compiled targets are build-only; native offload support depends on the host and packet-I/O path. Review the [fast.10 changes and support boundaries](https://github.com/the-sarge/quic-go-fast/releases/tag/v0.62.1-fast.10) alongside the [historical fast.8 limitations](https://github.com/the-sarge/quic-go-fast/releases/tag/v0.62.1-fast.8), with current fast.10 guidance authoritative where it supersedes earlier statements, and evaluate the release you select against your workloads. Consumer certification and adoption remain separate decisions.
 
-- [Upstream usage documentation](https://quic-go.net/docs/) · [Fork changelog](CHANGELOG.md) · [Report a fork issue](https://github.com/the-sarge/quic-go-fast/issues)
+- [Changelog](CHANGELOG.md) · [Report an issue](https://github.com/GridCastIO/quicquic-go/issues) · [Security policy](SECURITY.md) · [Upstream quic-go usage documentation](https://quic-go.net/docs/)
 - [Development toolchains](docs/usage.md#development-toolchains) · [Development journal](docs/DEV-JOURNAL.md) · [Evidence index](docs/audit-evidence.md) · [Release runbook](docs/runbooks/release.md)
 
-Built on the work of the quic-go authors and contributors. [MIT license](LICENSE); upstream logo and brand assets have a [separate usage policy](assets/LICENSE.md).
+## Origins and license
+
+quicquic-go derives from [quic-go](https://github.com/quic-go/quic-go), and quic-go v0.62.0 is its historical baseline. It is maintained independently and adopts individual upstream changes only after validation here ([ADR 0015](docs/adr/0015-independent-maintenance.md)). The baseline records provenance; it does not promise upstream release tracking or API parity. The `v0.62.1-fast.N` prereleases were published as the quic-go-fast fork under the old module path, and they remain [recorded as published](CHANGELOG.md).
+
+Built on the work of the quic-go authors and contributors. The [MIT license](LICENSE), with its copyright notice and author credits, is unchanged.
+
+Upstream quic-go documentation describes upstream behavior, not this project's supported behavior. That includes [quic-go.net](https://quic-go.net/docs/) and the inherited [FIPS140.md](FIPS140.md), [FUZZING.md](FUZZING.md) and [http3/README.md](http3/README.md) apart from its error-handling section. This README, the [integration guide](docs/usage.md), the [changelog](CHANGELOG.md) and the [release records](docs/releases/) define what this project supports. The upstream logo and brand assets keep their [separate usage policy](assets/LICENSE.md).
