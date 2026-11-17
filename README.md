@@ -42,7 +42,7 @@ These are historical, workload-specific results; they do not establish an aggreg
 
 ## Adopt quicquic-go
 
-Installation instructions will name the published tag once v0.63.0 is released; no version of `github.com/GridCastIO/quicquic-go` is available yet. To move an application from the fast series or from upstream quic-go, follow the [migration guide](docs/usage.md#migrate-to-quicquic-go). Until v0.63.0 is published, fast.10 remains available as its [release notes](https://github.com/the-sarge/quic-go-fast/releases/tag/v0.62.1-fast.10) describe.
+Installation instructions will name the published tag once v0.63.0 is released; no quicquic-go release is available yet. To move an application from the fast series or from upstream quic-go, follow the [migration guide](docs/usage.md#migrate-to-quicquic-go). Until v0.63.0 is published, fast.10 remains available as its [release notes](https://github.com/the-sarge/quic-go-fast/releases/tag/v0.62.1-fast.10) describe.
 
 Use keyed `Config` literals; positional literals no longer compile. Applications inspecting HTTP/3 errors should follow the [error-handling migration guide](http3/README.md#error-handling). [Integration instructions](docs/usage.md) cover this project's additional APIs and socket ownership. The [compatibility promise](docs/adr/0016-version-aware-compatibility.md) defines what patch and minor releases may change.
 
