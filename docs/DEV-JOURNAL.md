@@ -11516,3 +11516,34 @@ The owner authorized the updated plan through publication. Consumer performance 
 ### Next
 
 Select and certify the main release source, verify the published-tag module, publish the GitHub prerelease after tag checks, and update adoption guidance. [Release #1456](https://github.com/the-sarge/quic-go-fast/issues/1456) is the live state; no fast.10 publication is claimed by this preparation entry.
+
+---
+
+## Fast.10 publication and adoption documentation - 2026-11-16 20:21 EST
+
+**Main:** `c1b3b1f067ba`
+**Actor:** Codex
+
+### Summary
+
+Published [v0.62.1-fast.10](https://github.com/the-sarge/quic-go-fast/releases/tag/v0.62.1-fast.10), the experimental jumbo and main rollup, at 2026-11-17 01:09:56 UTC (November 16 America/New_York). The source-only GitHub prerelease has no binary assets. Annotated tag object `c52a952f853bf3bec765548ddc5549a0b10e5cc3` peels to `24d75daf288469e454f55717ec20463eaf87675a`, the reviewed preparation merge on main.
+
+### Completed
+
+- Preparation [PR #1457](https://github.com/the-sarge/quic-go-fast/pull/1457) and its [journal PR #1458](https://github.com/the-sarge/quic-go-fast/pull/1458) preceded publication. Adoption [PR #1459](https://github.com/the-sarge/quic-go-fast/pull/1459) is merged at `c1b3b1f067bac0f9ea95dd2d3a5b72af6e165ae8`; installation and latest-release pointers select fast.10, with historical costs and experimental boundaries retained.
+- The full configured RAS panel reviewed both preparation and adoption documentation. Accepted documentation corrections were applied; adoption's historical-limitations navigation correction and publication-date reconciliation closed its actionable findings. Independent Standards/Spec preparation and exact-head local documentation certification passed. All 17 applicable hosted checks passed for each merged PR.
+
+### Validation
+
+- All five exact-source main workflows and all five tag workflows succeeded (17 jobs each), with job and step conclusions inspected. The [published notes](https://github.com/the-sarge/quic-go-fast/releases/tag/v0.62.1-fast.10) preserve workflow URLs and platform limits.
+- Fresh govulncheck v1.9.0, built with Go 1.27.4, found zero reachable vulnerabilities and zero advisories in imported packages for linux/amd64. Three module-only advisories remain disclosed: GO-2026-6866, GO-2026-6860 (x/net/html) and GO-2026-5932 (x/crypto/openpgp); the scanned graph imports neither package.
+- Separate revision and tagged consumers built QUIC/HTTP3 with Go 1.27.4 on darwin/arm64 through proxy.golang.org and sum.golang.org, using fresh caches and application-owned replacements. Module verification and archive inspection passed. The tag resolves to the selected source, retains the upstream module declaration and excludes docs/audits; its checksum is `h1:RcLPHkxQWpxeVnlpsjQ1nVd/HaIGIuU6oLJVRo1TEGw=`.
+- Post-publication inspection verified the release URL, exact notes, prerelease flag, absence of assets, immutable tag object and peeled commit. No runtime changes were introduced during release preparation or adoption documentation.
+
+### Decisions
+
+[Release #1456](https://github.com/the-sarge/quic-go-fast/issues/1456) records the authorized main-based publication and supporting evidence. Consumer performance qualification and the independent identity transition remain outside this release. Reno stays default; jumbo and multipath remain opt-in, and BBR remains experimental and unqualified. Historical measurements are not measurements of the assembled release.
+
+### Next
+
+At this entry's timestamp, publication and adoption documentation are complete; merge this journal account, then reconcile and close [release #1456](https://github.com/the-sarge/quic-go-fast/issues/1456) and its OmniFocus mirror. That tracker remains the live completion view. Qualified jumbo [#1226](https://github.com/the-sarge/quic-go-fast/issues/1226), independent release [#1111](https://github.com/the-sarge/quic-go-fast/issues/1111) and consumer identity cutover [GridSwarm/wiremux#2175](https://github.com/GridSwarm/wiremux/issues/2175) retain their separate contracts.
