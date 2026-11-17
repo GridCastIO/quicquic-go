@@ -16,7 +16,7 @@ Choose the version deliberately and record it in [CHANGELOG.md](../../CHANGELOG.
 
 Never move or reuse an existing tag, or replace an existing published release in place. A correction gets a new version.
 
-The `v0.62.1-fast.N` series ended at fast.10. Inherited tags, including upstream quic-go releases and the fast-series prereleases, are history, not releases of the new module. Tags with a `go.mod` file declare `github.com/quic-go/quic-go` or `github.com/lucas-clemente/quic-go`, so Go rejects them for the new path when it loads the requirement. The few pre-module tags without one, such as `v0.10.1`, resolve under any requested path because Go synthesizes their declaration; they rank below every independent release and are not supported versions.
+The `v0.62.1-fast.N` series ended at fast.10. Inherited tags, including upstream quic-go releases and the fast-series prereleases, are history, not releases of the new module. Tags with a `go.mod` file declare `github.com/quic-go/quic-go` or `github.com/lucas-clemente/quic-go`, so Go rejects them for the new path when it loads the requirement. The few pre-module tags without one, such as `v0.10.1`, resolve under any requested path because Go synthesizes their declaration; they rank below every independent release and are not supported versions. v0.63.0's `go.mod` retracts every tagged version below v0.63.0 with `retract [v0.0.0, v0.62.99]` and a rationale comment. Go reads retractions only from the `go.mod` of the module's latest version, so every later release must keep that directive.
 
 ## Prepare and validate
 
@@ -50,6 +50,7 @@ After publication, verify the following:
 - `go list -m -versions github.com/GridCastIO/quicquic-go` lists the release.
 - For a stable release, `go list -m github.com/GridCastIO/quicquic-go@latest` resolves to it, unless a later stable release exists. A `-rc.N` candidate resolves only when requested explicitly, and `@latest` continues to select the latest stable release.
 - In a disposable module with an empty module cache and no replacements, `go get github.com/GridCastIO/quicquic-go@v0.62.0` and `go get github.com/GridCastIO/quicquic-go@v0.62.1-fast.10` fail with the specific error that the module declares its path as `github.com/quic-go/quic-go`. A metadata lookup such as `go list -m` can succeed for these tags and is not evidence of rejection.
+- The retraction holds: `go list -m -retracted -versions github.com/GridCastIO/quicquic-go` lists the pre-module versions while `go list -m -versions github.com/GridCastIO/quicquic-go` omits them (the listing carries no retraction marker), `go list -m -retracted -f '{{.Retracted}}' github.com/GridCastIO/quicquic-go@v0.10.1` prints the rationale, in a disposable module `go get github.com/GridCastIO/quicquic-go@v0.10.1` warns that the version is retracted, and `@latest` never selects a retracted version.
 - The release URL, tag object and peeled commit, the prerelease flag matches the selected release type, the notes are as prepared, and the release has no unexpected assets.
 
 Record the tag-run URLs and the verification results in the release notes or the release issue.

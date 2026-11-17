@@ -27,3 +27,6 @@ tool (
 	github.com/jordanlewis/gcassert/cmd/gcassert
 	go.uber.org/mock/mockgen
 )
+
+// Versions before v0.63.0 are inherited upstream quic-go history, not releases of this module.
+retract [v0.0.0, v0.62.99]
