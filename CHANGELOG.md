@@ -1,8 +1,8 @@
 # Changelog
 
-## v0.63.0 — unreleased
+## v0.63.0 — 2026-11-17
 
-The first independent release of quicquic-go, planned under module `github.com/GridCastIO/quicquic-go` with root package `quic`. Earlier entries record releases of the quic-go-fast fork, which declared `github.com/quic-go/quic-go` and was adopted through application-owned module replacement. Their versions, tags, evidence and qualifications remain as published. The [release record](docs/releases/v0.63.0.md) holds scope, migration, the upstream-advisory applicability review and the checks that remain until publication.
+Published release from `29e02d690fb13ef1e60756bfc5700a07a48d3cfe`: the first independent release of quicquic-go, under module `github.com/GridCastIO/quicquic-go` with root package `quic`. Earlier entries record releases of the quic-go-fast fork, which declared `github.com/quic-go/quic-go` and was adopted through application-owned module replacement. Their versions, tags, evidence and qualifications remain as published. The [release notes](https://github.com/GridCastIO/quicquic-go/releases/tag/v0.63.0) and [release record](docs/releases/v0.63.0.md) hold scope, migration, the upstream-advisory applicability review and the publication results.
 
 - **Name and module path:** the project becomes quicquic-go at `GridCastIO/quicquic-go`, and every import moves from `github.com/quic-go/quic-go` to `github.com/GridCastIO/quicquic-go` ([ADR 0014](docs/adr/0014-independent-module-identity.md), [#650](https://github.com/the-sarge/quic-go-fast/issues/650)). Package names, APIs, wire behavior, defaults and experimental qualifications are unchanged from fast.10. Old-path and new-path types are distinct. Consumers depend on the new path directly, with no `replace` directive; see the [migration guide](docs/usage.md#migrate-to-quicquic-go).
 - **Ancestry:** derived from quic-go, with v0.62.0 as the historical baseline. The project no longer tracks upstream releases; it adopts individual upstream changes with recorded provenance and validation ([ADR 0015](docs/adr/0015-independent-maintenance.md)).

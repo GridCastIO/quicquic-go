@@ -10,7 +10,7 @@ Choose the version deliberately and record it in [CHANGELOG.md](../../CHANGELOG.
 
 - **First independent version.** Independent versions start at `v0.63.0`.
 - **Patch, minor and v1.** A patch release preserves the public contract within its minor series. A minor release may change it, with migration instructions, and raising the consumer's minimum Go version needs a minor release. `v1.0.0` is reserved for a deliberate long-term stability commitment.
-- **Release type.** Publish `v0.63.0` as a stable GitHub Release, not a prerelease. Choose the type of each later release deliberately.
+- **Release type.** [`v0.63.0`](https://github.com/GridCastIO/quicquic-go/releases/tag/v0.63.0) was published as a stable GitHub Release, not a prerelease. Choose the type of each later release deliberately.
 - **Release candidates.** Optional `-rc.N` candidates need an explicit decision. Consumers must select them explicitly, and they never stand in for `@latest`.
 - **Module path.** The canonical path is exactly `github.com/GridCastIO/quicquic-go`. Path case is significant: `github.com/gridcastio/quicquic-go` is a different module path and fails with a path mismatch.
 
