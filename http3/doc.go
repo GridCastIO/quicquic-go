@@ -4,6 +4,5 @@
 // transport performance and practical application integration.
 //
 // Its import path is github.com/GridCastIO/quicquic-go/http3. Applications
-// that inspect errors should use errors.As and errors.Is with *Error, as the
-// package README describes.
+// that inspect errors should use [errors.As] and [errors.Is] with [*Error].
 package http3

@@ -6,9 +6,7 @@ quicquic-go is an independently maintained QUIC and HTTP/3 implementation in Go.
 
 Report a suspected vulnerability privately through this repository's [private vulnerability reporting](https://github.com/GridCastIO/quicquic-go/security/advisories/new). Please **do not** file a public issue, pull request or discussion for it. Unpublished vulnerability details, reproductions and fixes stay private until Josh decides on disclosure.
 
-If the issue is theoretical, not exploitable, or limited to an experimental feature, you may discuss it openly in a regular issue.
-
-If the vulnerability is in upstream quic-go, report it to upstream through its own security policy as well. Report it here privately if quicquic-go may also be affected.
+If you are unsure whether an issue is a vulnerability, report it privately; it can be moved to a public issue once Josh decides it can be disclosed.
 
 ## Reporting a non-security bug
 

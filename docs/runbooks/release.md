@@ -10,7 +10,7 @@ Choose the version deliberately and record it in [CHANGELOG.md](../../CHANGELOG.
 
 - **First independent version.** Independent versions start at `v0.63.0`.
 - **Patch, minor and v1.** A patch release preserves the public contract within its minor series. A minor release may change it, with migration instructions, and raising the consumer's minimum Go version needs a minor release. `v1.0.0` is reserved for a deliberate long-term stability commitment.
-- **Release type.** Publish each release as a stable GitHub Release, not a prerelease. `v0.63.0` is a stable release.
+- **Release type.** Publish `v0.63.0` as a stable GitHub Release, not a prerelease. Choose the type of each later release deliberately.
 - **Release candidates.** Optional `-rc.N` candidates need an explicit decision. Consumers must select them explicitly, and they never stand in for `@latest`.
 - **Module path.** The canonical path is exactly `github.com/GridCastIO/quicquic-go`. Path case is significant: `github.com/gridcastio/quicquic-go` is a different module path and fails with a path mismatch.
 
@@ -27,7 +27,7 @@ The `v0.62.1-fast.N` series ended at fast.10. Inherited tags, including upstream
 5. Verify that a separate consumer builds QUIC and HTTP/3 from a fresh environment without replacements:
    - Use a new module and an empty module cache.
    - Before tagging, require the candidate commit with `go get github.com/GridCastIO/quicquic-go@<full-sha>`, which Go resolves as a pseudo-version.
-   - After tagging, repeat with the real tag.
+   - After tagging, repeat with the real tag before publishing the GitHub Release, and verify the downloaded module version, commit and archive boundary.
    - Record the resolved version, `go.sum` lines and a versioned `govulncheck` of the consumer.
 6. Write release notes covering:
    - the v0.62.0 ancestry and the provenance of adopted upstream changes;
@@ -42,7 +42,7 @@ The `v0.62.1-fast.N` series ended at fast.10. Inherited tags, including upstream
 
 Check that both the proposed remote tag and the GitHub Release are absent. Create an annotated tag at the selected SHA and push only that tag. Never force-push tags. The existing push workflows also validate tag pushes; no additional release workflow is required.
 
-Create a draft GitHub Release, not marked as a prerelease, from the verified tag and the prepared notes. Inspect the draft and wait for the tag-triggered workflows to succeed before publishing it. If a published tag's validation fails, keep the failure on record and stop publication. Repair through a new commit and a new version rather than moving the tag.
+Create a draft GitHub Release, not marked as a prerelease, from the verified tag and the prepared notes. Inspect the draft, verify the public Go module download and the consumer build from step 5 against the tag, and wait for the tag-triggered workflows to succeed before publishing it. If a published tag's validation fails, keep the failure on record and stop publication. Repair through a new commit and a new version rather than moving the tag.
 
 After publication, verify the following:
 
@@ -50,8 +50,7 @@ After publication, verify the following:
 - `go list -m -versions github.com/GridCastIO/quicquic-go` lists the release.
 - `go list -m github.com/GridCastIO/quicquic-go@latest` resolves to it, unless a later release exists.
 - An inherited old-path tag, for example `go list -m github.com/GridCastIO/quicquic-go@v0.62.0`, is rejected because it declares a different module path.
-- The fresh consumer from step 5 builds against the real tag.
-- The release URL, tag object and peeled commit, the stable (not prerelease) flag and the notes are as prepared, and the release has no unexpected assets.
+- The release URL, tag object and peeled commit, the prerelease flag matches the selected release type, the notes are as prepared, and the release has no unexpected assets.
 
 Record the tag-run URLs and the verification results in the release notes or the release issue.
 

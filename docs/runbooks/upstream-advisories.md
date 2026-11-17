@@ -65,7 +65,7 @@ Then read the fixed code at the candidate, find existing regression tests, and s
 
 ## Monitoring runner
 
-On 2026-11-17, Josh chose the runner that fulfills the policy's monitoring step ([decision receipt](https://github.com/the-sarge/quic-go-fast/issues/1109#issuecomment-6940490276)): a daily GitHub Actions scheduled workflow beside the existing `govulncheck` workflow. It does not exist yet. It is built and enabled at the final repository home as a follow-up after [#1111](https://github.com/the-sarge/quic-go-fast/issues/1111), under the ordinary review process. Its design:
+On 2026-11-17, Josh chose the runner that fulfills the policy's monitoring step ([#1109 decision receipt](https://github.com/the-sarge/quic-go-fast/issues/1109#issuecomment-6940490276)): a daily GitHub Actions scheduled workflow beside the existing `govulncheck` workflow. It does not exist yet. It is built and enabled at the final repository home as a follow-up after [#1111](https://github.com/the-sarge/quic-go-fast/issues/1111), under the ordinary review process. Its design:
 
 - **Sources.** Upstream quic-go's published security advisories and release notes, Go security announcements, and the release history, to detect the first release candidate of each new Go release.
 - **Durable watch state.** For each source, the identifiers last seen and their last-modified markers, persisted between runs. Only a new or changed item notifies. A missing or unreadable state is reported as a monitoring failure, not treated as "nothing new".
