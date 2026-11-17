@@ -54,7 +54,7 @@ Use keyed `Config` literals; positional literals no longer compile. Applications
 
 ## Support and development
 
-Unit and integration CI run on Linux, macOS and Windows, with additional Linux race coverage. Other cross-compiled targets are build-only; native offload support depends on the host and packet-I/O path. Review the [fast.10 release notes](https://github.com/the-sarge/quic-go-fast/releases/tag/v0.62.1-fast.10) and evaluate this prerelease against your workloads. Consumer certification and adoption remain separate decisions.
+Unit and integration CI run on Linux, macOS and Windows, with additional Linux race coverage. Other cross-compiled targets are build-only; native offload support depends on the host and packet-I/O path. Review the [fast.10 changes and support boundaries](https://github.com/the-sarge/quic-go-fast/releases/tag/v0.62.1-fast.10) alongside the [historical fast.8 limitations](https://github.com/the-sarge/quic-go-fast/releases/tag/v0.62.1-fast.8), with current fast.10 guidance authoritative where it supersedes earlier statements, and evaluate this prerelease against your workloads. Consumer certification and adoption remain separate decisions.
 
 - [Upstream usage documentation](https://quic-go.net/docs/) · [Fork changelog](CHANGELOG.md) · [Report a fork issue](https://github.com/the-sarge/quic-go-fast/issues)
 - [Development toolchains](docs/usage.md#development-toolchains) · [Development journal](docs/DEV-JOURNAL.md) · [Evidence index](docs/audit-evidence.md) · [Release runbook](docs/runbooks/release.md)

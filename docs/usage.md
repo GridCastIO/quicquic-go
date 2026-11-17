@@ -1,6 +1,6 @@
 # Integration and platform guide
 
-See the [README](../README.md#use-the-fork) for installation and the [published fast.10 release](https://github.com/the-sarge/quic-go-fast/releases/tag/v0.62.1-fast.10) for the current feature set, compatibility changes, accepted costs and limitations. The [changelog](../CHANGELOG.md) distinguishes released and unreleased changes. General QUIC and HTTP/3 usage is covered by the [upstream documentation](https://quic-go.net/docs/).
+See the [README](../README.md#use-the-fork) for installation and the [published fast.10 release](https://github.com/the-sarge/quic-go-fast/releases/tag/v0.62.1-fast.10) for changes since fast.9, compatibility changes, accepted costs and limitations. The [changelog](../CHANGELOG.md) distinguishes released and unreleased changes. General QUIC and HTTP/3 usage is covered by the [upstream documentation](https://quic-go.net/docs/).
 
 ## Release and main selection
 
