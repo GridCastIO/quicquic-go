@@ -50,7 +50,7 @@ The current release is [v0.63.0](https://github.com/GridCastIO/quicquic-go/relea
 go get github.com/GridCastIO/quicquic-go@v0.63.0
 ```
 
-[GitHub Releases](https://github.com/GridCastIO/quicquic-go/releases) lists the published quicquic-go versions. To move an application from the fast series or from upstream quic-go, follow the [migration guide](docs/usage.md#migrate-to-quicquic-go). Fast.10 remains available under its old module path, as its [release notes](https://github.com/the-sarge/quic-go-fast/releases/tag/v0.62.1-fast.10) describe, for applications that have not migrated.
+[GitHub Releases](https://github.com/GridCastIO/quicquic-go/releases) lists the published quicquic-go versions. To move an application from the fast series or from upstream quic-go, follow the [migration guide](docs/usage.md#migrate-to-quicquic-go). Applications that have not migrated can stay on fast.10: they keep their `github.com/quic-go/quic-go` imports and the replacement `replace github.com/quic-go/quic-go => github.com/the-sarge/quic-go-fast v0.62.1-fast.10`, as its [release notes](https://github.com/the-sarge/quic-go-fast/releases/tag/v0.62.1-fast.10) describe.
 
 Use keyed `Config` literals; positional literals no longer compile. Applications inspecting HTTP/3 errors should follow the [error-handling migration guide](http3/README.md#error-handling). [Integration instructions](docs/usage.md) cover this project's additional APIs and socket ownership. The [compatibility promise](docs/adr/0016-version-aware-compatibility.md) defines what patch and minor releases may change.
 
