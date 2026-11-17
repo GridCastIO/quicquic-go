@@ -2,7 +2,7 @@
 
 package quic
 
-import "github.com/quic-go/quic-go/internal/monotime"
+import "github.com/GridCastIO/quicquic-go/internal/monotime"
 
 // pacingKick exists only on Linux, where Go's idle timer wakes have
 // millisecond granularity.

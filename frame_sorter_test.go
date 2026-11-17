@@ -7,8 +7,8 @@ import (
 	"slices"
 	"testing"
 
+	"github.com/GridCastIO/quicquic-go/internal/protocol"
 	ossfuzzseeds "github.com/quic-go/go-ossfuzz-seeds"
-	"github.com/quic-go/quic-go/internal/protocol"
 
 	"github.com/stretchr/testify/require"
 )

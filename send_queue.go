@@ -6,8 +6,8 @@ import (
 	"net"
 	"sync"
 
-	"github.com/quic-go/quic-go/internal/monotime"
-	"github.com/quic-go/quic-go/internal/protocol"
+	"github.com/GridCastIO/quicquic-go/internal/monotime"
+	"github.com/GridCastIO/quicquic-go/internal/protocol"
 )
 
 type sender interface {

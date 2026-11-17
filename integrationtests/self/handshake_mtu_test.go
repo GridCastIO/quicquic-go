@@ -13,8 +13,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/quic-go/quic-go"
-	"github.com/quic-go/quic-go/testutils"
+	quic "github.com/GridCastIO/quicquic-go"
+	"github.com/GridCastIO/quicquic-go/testutils"
 	"github.com/stretchr/testify/require"
 )
 

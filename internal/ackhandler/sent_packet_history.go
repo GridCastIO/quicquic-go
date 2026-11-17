@@ -5,9 +5,9 @@ import (
 	"iter"
 	"slices"
 
-	"github.com/quic-go/quic-go/internal/monotime"
-	"github.com/quic-go/quic-go/internal/protocol"
-	list "github.com/quic-go/quic-go/internal/utils/linkedlist"
+	"github.com/GridCastIO/quicquic-go/internal/monotime"
+	"github.com/GridCastIO/quicquic-go/internal/protocol"
+	list "github.com/GridCastIO/quicquic-go/internal/utils/linkedlist"
 )
 
 const maxSkippedPackets = 4

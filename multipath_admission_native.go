@@ -7,8 +7,8 @@ import (
 	"fmt"
 	"net"
 
-	"github.com/quic-go/quic-go/internal/monotime"
-	"github.com/quic-go/quic-go/internal/protocol"
+	"github.com/GridCastIO/quicquic-go/internal/monotime"
+	"github.com/GridCastIO/quicquic-go/internal/protocol"
 )
 
 // openPathPrivate is the private driver for client initiation, behind OpenPathV1. The

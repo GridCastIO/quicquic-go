@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/quic-go/quic-go/internal/protocol"
+	"github.com/GridCastIO/quicquic-go/internal/protocol"
 
 	"github.com/stretchr/testify/require"
 )
@@ -192,11 +192,11 @@ func closureReaderInIOWait(stack []byte, complete bool, id string) bool {
 		}
 		if strings.Contains(frames, " frames elided") ||
 			!strings.Contains(frames, "internal/poll.runtime_pollWait(") ||
-			!strings.Contains(frames, "github.com/quic-go/quic-go.(*closureReader).runClosureReader(") {
+			!strings.Contains(frames, "github.com/GridCastIO/quicquic-go.(*closureReader).runClosureReader(") {
 			return false
 		}
 		for _, impl := range []string{"oobConn", "windowsConn", "basicConn"} {
-			if strings.Contains(frames, "github.com/quic-go/quic-go.(*"+impl+").ReadPacket(") {
+			if strings.Contains(frames, "github.com/GridCastIO/quicquic-go.(*"+impl+").ReadPacket(") {
 				return true
 			}
 		}
@@ -372,8 +372,8 @@ func TestClosureReaderIOWaitObservation(t *testing.T) {
 	// A representative diagnostic shape, not a general goroutine-stack grammar.
 	const parked = "goroutine 42 [IO wait]:\n" +
 		"internal/poll.runtime_pollWait(0x123, 0x72)\n\t/runtime/netpoll.go:351\n" +
-		"github.com/quic-go/quic-go.(*basicConn).ReadPacket(0x123)\n\t/sys_conn.go:139\n" +
-		"github.com/quic-go/quic-go.(*closureReader).runClosureReader(0x123)\n\t/sys_conn_closure_test.go:100\n"
+		"github.com/GridCastIO/quicquic-go.(*basicConn).ReadPacket(0x123)\n\t/sys_conn.go:139\n" +
+		"github.com/GridCastIO/quicquic-go.(*closureReader).runClosureReader(0x123)\n\t/sys_conn_closure_test.go:100\n"
 	for _, tc := range []struct {
 		name     string
 		stack    string

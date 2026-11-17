@@ -8,8 +8,8 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/quic-go/quic-go/internal/protocol"
-	"github.com/quic-go/quic-go/quicvarint"
+	"github.com/GridCastIO/quicquic-go/internal/protocol"
+	"github.com/GridCastIO/quicquic-go/quicvarint"
 )
 
 // A PathNewConnectionIDFrame is a PATH_NEW_CONNECTION_ID frame of the multipath extension.

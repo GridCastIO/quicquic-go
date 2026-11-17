@@ -6,7 +6,7 @@ import (
 	"slices"
 	"sort"
 
-	"github.com/quic-go/quic-go/internal/protocol"
+	"github.com/GridCastIO/quicquic-go/internal/protocol"
 )
 
 // maxGapChunkLen is the maximum number of gaps in a chunk of frameSorter.gaps.

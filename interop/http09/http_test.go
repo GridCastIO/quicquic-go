@@ -12,11 +12,11 @@ import (
 	"runtime"
 	"testing"
 
-	"github.com/quic-go/quic-go"
-	"github.com/quic-go/quic-go/internal/testdata"
-	"github.com/quic-go/quic-go/qlogwriter"
-	"github.com/quic-go/quic-go/qlogwriter/jsontext"
-	"github.com/quic-go/quic-go/testutils/events"
+	quic "github.com/GridCastIO/quicquic-go"
+	"github.com/GridCastIO/quicquic-go/internal/testdata"
+	"github.com/GridCastIO/quicquic-go/qlogwriter"
+	"github.com/GridCastIO/quicquic-go/qlogwriter/jsontext"
+	"github.com/GridCastIO/quicquic-go/testutils/events"
 
 	"github.com/stretchr/testify/require"
 )

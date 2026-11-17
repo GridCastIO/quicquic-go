@@ -5,8 +5,8 @@ package quic
 import (
 	"sync"
 
-	"github.com/quic-go/quic-go/internal/handshake"
-	"github.com/quic-go/quic-go/internal/protocol"
+	"github.com/GridCastIO/quicquic-go/internal/handshake"
+	"github.com/GridCastIO/quicquic-go/internal/protocol"
 )
 
 // Only constructor-minted packet protection is eligible, and its tag is 16 bytes.

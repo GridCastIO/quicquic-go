@@ -4,8 +4,8 @@
 package wire
 
 import (
-	"github.com/quic-go/quic-go/internal/protocol"
-	"github.com/quic-go/quic-go/quicvarint"
+	"github.com/GridCastIO/quicquic-go/internal/protocol"
+	"github.com/GridCastIO/quicquic-go/quicvarint"
 )
 
 // A PathRetireConnectionIDFrame is a PATH_RETIRE_CONNECTION_ID frame of the multipath extension.

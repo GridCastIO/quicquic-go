@@ -13,7 +13,7 @@ import (
 	"testing"
 	"time"
 
-	quicproxy "github.com/quic-go/quic-go/internal/testutils/quicproxy"
+	quicproxy "github.com/GridCastIO/quicquic-go/internal/testutils/quicproxy"
 	"github.com/stretchr/testify/require"
 )
 

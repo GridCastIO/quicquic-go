@@ -6,7 +6,7 @@ import (
 	"net"
 	"net/netip"
 
-	"github.com/quic-go/quic-go/internal/protocol"
+	"github.com/GridCastIO/quicquic-go/internal/protocol"
 )
 
 var errNetworkAdmissionDenied = errors.New("quic: network policy denied packet submission")

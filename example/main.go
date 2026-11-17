@@ -14,10 +14,10 @@ import (
 
 	_ "net/http/pprof"
 
-	"github.com/quic-go/quic-go"
-	"github.com/quic-go/quic-go/http3"
-	"github.com/quic-go/quic-go/http3/qlog"
-	"github.com/quic-go/quic-go/internal/testdata"
+	quic "github.com/GridCastIO/quicquic-go"
+	"github.com/GridCastIO/quicquic-go/http3"
+	"github.com/GridCastIO/quicquic-go/http3/qlog"
+	"github.com/GridCastIO/quicquic-go/internal/testdata"
 )
 
 type binds []string

@@ -4,9 +4,9 @@
 package wire
 
 import (
-	"github.com/quic-go/quic-go/internal/protocol"
-	"github.com/quic-go/quic-go/internal/qerr"
-	"github.com/quic-go/quic-go/quicvarint"
+	"github.com/GridCastIO/quicquic-go/internal/protocol"
+	"github.com/GridCastIO/quicquic-go/internal/qerr"
+	"github.com/GridCastIO/quicquic-go/quicvarint"
 )
 
 // A PathAbandonFrame is a PATH_ABANDON frame of the multipath extension.

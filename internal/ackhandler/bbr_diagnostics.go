@@ -3,7 +3,7 @@ package ackhandler
 import (
 	"fmt"
 
-	"github.com/quic-go/quic-go/internal/congestion"
+	"github.com/GridCastIO/quicquic-go/internal/congestion"
 )
 
 // BBRDiagnostics observes recovery-owned facts without advancing ECN validation

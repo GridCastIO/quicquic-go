@@ -12,9 +12,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/quic-go/quic-go/internal/utils"
+	"github.com/GridCastIO/quicquic-go/internal/utils"
 
-	"github.com/quic-go/quic-go/internal/protocol"
+	"github.com/GridCastIO/quicquic-go/internal/protocol"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sys/unix"
 )

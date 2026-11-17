@@ -1,8 +1,8 @@
 package qlog
 
 import (
-	"github.com/quic-go/quic-go"
-	"github.com/quic-go/quic-go/qlogwriter/jsontext"
+	quic "github.com/GridCastIO/quicquic-go"
+	"github.com/GridCastIO/quicquic-go/qlogwriter/jsontext"
 )
 
 // Frame represents an HTTP/3 frame.

@@ -7,7 +7,7 @@ import (
 	"testing/synctest"
 	"time"
 
-	"github.com/quic-go/quic-go"
+	quic "github.com/GridCastIO/quicquic-go"
 	"github.com/stretchr/testify/require"
 )
 

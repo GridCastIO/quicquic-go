@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/quic-go/quic-go/testutils/simnet"
+	"github.com/GridCastIO/quicquic-go/testutils/simnet"
 
 	"github.com/stretchr/testify/require"
 )

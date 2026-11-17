@@ -10,7 +10,7 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"github.com/quic-go/quic-go/qlog"
+	"github.com/GridCastIO/quicquic-go/qlog"
 )
 
 // externalPacketIO holds immutable registration and atomic diagnostic counters.

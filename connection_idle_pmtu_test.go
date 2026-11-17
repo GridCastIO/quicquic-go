@@ -5,7 +5,7 @@ import (
 	"testing/synctest"
 	"time"
 
-	"github.com/quic-go/quic-go/internal/monotime"
+	"github.com/GridCastIO/quicquic-go/internal/monotime"
 	"go.uber.org/mock/gomock"
 )
 

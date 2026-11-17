@@ -2,7 +2,7 @@
 
 package quic
 
-import "github.com/quic-go/quic-go/internal/protocol"
+import "github.com/GridCastIO/quicquic-go/internal/protocol"
 
 // coalescedReadCursor tracks one coalesced read while ReadPacket copies its
 // datagrams out of the reader's buffer, one per call. Only the reader uses it,

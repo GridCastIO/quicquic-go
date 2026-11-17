@@ -7,8 +7,8 @@ import (
 	"strings"
 	"testing"
 
-	quicproxy "github.com/quic-go/quic-go/integrationtests/tools/proxy"
-	"github.com/quic-go/quic-go/qlog"
+	quicproxy "github.com/GridCastIO/quicquic-go/integrationtests/tools/proxy"
+	"github.com/GridCastIO/quicquic-go/qlog"
 
 	"github.com/stretchr/testify/require"
 )

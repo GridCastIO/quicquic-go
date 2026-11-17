@@ -1,6 +1,6 @@
 package congestion
 
-import "github.com/quic-go/quic-go/internal/protocol"
+import "github.com/GridCastIO/quicquic-go/internal/protocol"
 
 // PacketKey identifies a registered transmission in a normalized packet-number
 // space. Recovery admits ACK identities before passing them to the controller;

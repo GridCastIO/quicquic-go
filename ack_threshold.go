@@ -4,7 +4,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/quic-go/quic-go/internal/ackhandler"
+	"github.com/GridCastIO/quicquic-go/internal/ackhandler"
 )
 
 // ConfigureAckThresholdV1 makes connections created by this transport

@@ -3,7 +3,7 @@ package quic
 import (
 	"sync"
 
-	"github.com/quic-go/quic-go/internal/protocol"
+	"github.com/GridCastIO/quicquic-go/internal/protocol"
 )
 
 // frozenLocalSendCredit is the predecessor ledger (fc4c1bf1), verbatim apart

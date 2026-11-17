@@ -7,8 +7,8 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/quic-go/quic-go/internal/utils"
-	"github.com/quic-go/quic-go/qlog"
+	"github.com/GridCastIO/quicquic-go/internal/utils"
+	"github.com/GridCastIO/quicquic-go/qlog"
 )
 
 // Setup evidence is immutable and owned by the endpoint, not a lease or transport.

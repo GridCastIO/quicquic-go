@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/quic-go/quic-go/internal/congestion"
-	"github.com/quic-go/quic-go/internal/protocol"
+	"github.com/GridCastIO/quicquic-go/internal/congestion"
+	"github.com/GridCastIO/quicquic-go/internal/protocol"
 	"github.com/stretchr/testify/require"
 )
 

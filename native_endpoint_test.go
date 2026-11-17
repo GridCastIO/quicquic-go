@@ -11,7 +11,7 @@ import (
 	"testing/synctest"
 	"time"
 
-	"github.com/quic-go/quic-go/internal/monotime"
+	"github.com/GridCastIO/quicquic-go/internal/monotime"
 	"github.com/stretchr/testify/require"
 )
 

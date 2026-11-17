@@ -13,10 +13,10 @@ import signal
 import subprocess
 import time
 
-PACKAGE = "github.com/quic-go/quic-go/integrationtests/self"
+PACKAGE = "github.com/GridCastIO/quicquic-go/integrationtests/self"
 EXPECTED = ["TestPicoquicOrdinaryControl/client", "TestPicoquicOrdinaryControl/server"]
 # R14's two-path smoke reads private owners, so it runs in the root package.
-SMOKE_PACKAGE = "github.com/quic-go/quic-go"
+SMOKE_PACKAGE = "github.com/GridCastIO/quicquic-go"
 SMOKE_EXPECTED = ["TestPicoquicMultipathSmoke/client", "TestPicoquicMultipathSmoke/server"]
 MATRIX_SCENARIOS = (
     "useful-transfer", "absent-negotiation", "path-zero-ack",

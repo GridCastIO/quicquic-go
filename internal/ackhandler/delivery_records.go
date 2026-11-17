@@ -1,8 +1,8 @@
 package ackhandler
 
 import (
-	"github.com/quic-go/quic-go/internal/congestion"
-	"github.com/quic-go/quic-go/internal/protocol"
+	"github.com/GridCastIO/quicquic-go/internal/congestion"
+	"github.com/GridCastIO/quicquic-go/internal/protocol"
 )
 
 // deliveryRecords holds the dispatch's live delivery records with map

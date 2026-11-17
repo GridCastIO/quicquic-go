@@ -3,8 +3,8 @@
 package quic
 
 import (
-	"github.com/quic-go/quic-go/internal/handshake"
-	"github.com/quic-go/quic-go/internal/protocol"
+	"github.com/GridCastIO/quicquic-go/internal/handshake"
+	"github.com/GridCastIO/quicquic-go/internal/protocol"
 )
 
 // This invocation owns its plan independently of the mutable completion sidecar.

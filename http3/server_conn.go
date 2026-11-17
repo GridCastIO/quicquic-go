@@ -12,9 +12,9 @@ import (
 	"sync/atomic"
 	"time"
 
+	quic "github.com/GridCastIO/quicquic-go"
+	"github.com/GridCastIO/quicquic-go/qlogwriter"
 	"github.com/quic-go/qpack"
-	"github.com/quic-go/quic-go"
-	"github.com/quic-go/quic-go/qlogwriter"
 )
 
 // RawServerConn is an HTTP/3 server connection.

@@ -12,8 +12,8 @@ import (
 	"testing/synctest"
 	"time"
 
+	quic "github.com/GridCastIO/quicquic-go"
 	"github.com/quic-go/qpack"
-	"github.com/quic-go/quic-go"
 
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"

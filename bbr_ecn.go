@@ -1,6 +1,6 @@
 package quic
 
-import "github.com/quic-go/quic-go/internal/ackhandler"
+import "github.com/GridCastIO/quicquic-go/internal/ackhandler"
 
 // enableBBRECN binds the selected BBR controller to queue-drain and endpoint
 // capability authority before packet registration.

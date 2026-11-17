@@ -12,8 +12,8 @@ import (
 	"testing/synctest"
 	"time"
 
-	"github.com/quic-go/quic-go/internal/testdata"
-	"github.com/quic-go/quic-go/testutils/events"
+	"github.com/GridCastIO/quicquic-go/internal/testdata"
+	"github.com/GridCastIO/quicquic-go/testutils/events"
 
 	"github.com/stretchr/testify/require"
 )

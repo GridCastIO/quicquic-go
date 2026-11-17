@@ -5,7 +5,7 @@ package quic
 import (
 	"net"
 
-	"github.com/quic-go/quic-go/internal/protocol"
+	"github.com/GridCastIO/quicquic-go/internal/protocol"
 )
 
 func appendExternalECN(oob []byte, addr *net.UDPAddr, ecn protocol.ECN) []byte {

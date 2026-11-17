@@ -3,7 +3,7 @@ package self_test
 import (
 	"testing"
 
-	"github.com/quic-go/quic-go/qlog"
+	"github.com/GridCastIO/quicquic-go/qlog"
 	"github.com/stretchr/testify/require"
 )
 

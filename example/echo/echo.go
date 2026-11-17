@@ -11,7 +11,7 @@ import (
 	"log"
 	"math/big"
 
-	"github.com/quic-go/quic-go"
+	quic "github.com/GridCastIO/quicquic-go"
 )
 
 const addr = "localhost:4242"

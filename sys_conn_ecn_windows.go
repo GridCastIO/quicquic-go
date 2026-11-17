@@ -3,7 +3,7 @@ package quic
 import (
 	"encoding/binary"
 
-	"github.com/quic-go/quic-go/internal/protocol"
+	"github.com/GridCastIO/quicquic-go/internal/protocol"
 	"golang.org/x/sys/windows"
 )
 
