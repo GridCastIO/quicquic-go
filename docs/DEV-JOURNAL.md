@@ -11634,3 +11634,43 @@ The proposed v0.63.0 release commit is on `main`. [PR #1464](https://github.com/
   - a pre-tag consumer build.
 - After that comes the stop for Josh's approval of the tag and release notes.
 - [#1111](https://github.com/GridCastIO/quicquic-go/issues/1111) is the live view.
+
+---
+
+## quicquic-go v0.63.0 published - 2026-11-17 17:26 EST
+
+**Main:** `783af2907635`
+**Actor:** Claude
+
+### Summary
+
+quicquic-go [v0.63.0](https://github.com/GridCastIO/quicquic-go/releases/tag/v0.63.0) is published as a stable release and is GitHub's latest release. It is the first independent release of `github.com/GridCastIO/quicquic-go`, from `29e02d690fb13ef1e60756bfc5700a07a48d3cfe`. Josh [approved](https://github.com/GridCastIO/quicquic-go/issues/1111#issuecomment-6962036015) the tag and notes. He created and pushed the annotated, SSH-signed tag object `17f935064668269fdb45cde653283f237af82a7a`, which GitHub reports as verified. [PR #1466](https://github.com/GridCastIO/quicquic-go/pull/1466) then merged as `783af2907635cc08d13567d155b5cf9b100d8e0b`, pointing the README and usage guide at v0.63.0 and turning the [release record](https://github.com/GridCastIO/quicquic-go/blob/783af2907635cc08d13567d155b5cf9b100d8e0b/docs/releases/v0.63.0.md#publication-results) into the published record.
+
+### Completed
+
+- A draft release was created with `--verify-tag` from the approved notes, unchanged (sha256 `c3e564f5…`). It was published with `--draft=false --prerelease=false --latest` after the tag runs passed. It has no assets.
+- PR #1466 had one RAS review with the configured panel. C-001, C-002 and C-004 were fixed and `ras verify` reported all eight clusters resolved or no longer applicable.
+
+### Validation
+
+- **Tag runs on `v0.63.0`:** all succeeded on their first attempt, 17 jobs in total: [unit](https://github.com/GridCastIO/quicquic-go/actions/runs/44184764061), [integration](https://github.com/GridCastIO/quicquic-go/actions/runs/44184764131), [lint](https://github.com/GridCastIO/quicquic-go/actions/runs/44184764138), [cross-compile](https://github.com/GridCastIO/quicquic-go/actions/runs/44184764128) and [interop image](https://github.com/GridCastIO/quicquic-go/actions/runs/44184764338).
+- **Public module:** checked with `GOENV=off`, the public proxy and checksum database, and no private patterns.
+  - The origin hash is the release commit.
+  - `Sum` `h1:4BzssbMAl3AkpsvVfyA5x0jscJHl3bPQZECxv5nhl/s=` matches `sum.golang.org` and a `zip.CreateFromVCS` hash of the release commit.
+- **Consumer through the proxy:** builds on darwin/arm64 and linux/amd64 with no replacement. `govulncheck` v1.9.0 found 0 reachable vulnerabilities and the three module-only advisories already reported for fast.10.
+- **Retraction:**
+  - `-versions` lists only v0.63.0, while `-retracted -versions` lists 141 versions.
+  - `{{.Retracted}}` prints the rationale, and `@latest` is v0.63.0.
+  - `go get …@v0.10.1` warns that the version is retracted, then fails to load the old packages and exits 1.
+- **Inherited tags:** `v0.62.0` and fast.10 fail with the declared-path error.
+- **pkg.go.dev:** renders the README and package docs for v0.63.0, and the `/http3` badge resolves.
+
+### Next
+
+- At this entry's timestamp, the consumer handoff packet on [#1111](https://github.com/GridCastIO/quicquic-go/issues/1111) is next. Consumers adopt only after wiremux's cutover, [GridSwarm/wiremux#2175](https://github.com/GridSwarm/wiremux/issues/2175).
+- Follow-ups are listed on #1111. They include:
+  - the advisory-monitoring workflow;
+  - the old `/issues/N` redirect gap under #1110;
+  - the dead Codecov step;
+  - the `TestJumboFallbackPathChangeCancelsRecovery` Windows flake;
+  - PR #1295's module-path rewrite.
