@@ -1,6 +1,8 @@
 ---
-status: accepted
+status: superseded
 ---
+
+Superseded by [ADR 0016](0016-version-aware-compatibility.md).
 
 # Preserve upstream compatibility with optional datagram APIs
 

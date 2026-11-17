@@ -1,8 +1,6 @@
 # Fuzzing
 
-[![Documentation](https://img.shields.io/badge/OSS--Fuzz-Introspector-red?style=flat)](https://introspector.oss-fuzz.com/project-profile?project=quic-go)
-[![ClusterFuzz coverage](https://img.shields.io/codecov/c/github/quic-go/quic-go/master.svg?flag=clusterfuzz&label=ClusterFuzz%20coverage&logo=codecov&logoColor=white&style=flat)](https://app.codecov.io/gh/quic-go/quic-go?flags%5B0%5D=clusterfuzz)
-[![ClusterFuzz Lite Batch coverage](https://img.shields.io/codecov/c/github/quic-go/quic-go/master.svg?flag=clusterfuzz-lite-batch&label=ClusterFuzz%20Lite%20Batch%20coverage&logo=codecov&logoColor=white&style=flat)](https://app.codecov.io/gh/quic-go/quic-go?flags%5B0%5D=clusterfuzz-lite-batch)
+> **quicquic-go note:** this guide is inherited from upstream quic-go and describes its OSS-Fuzz project, `quic-go`. quicquic-go's automatic ClusterFuzzLite workflows are disabled, and its CodSpeed benchmarks run only when started manually. Upstream's OSS-Fuzz and coverage badges are therefore not shown here.
 
 Run the commands below from a local [`google/oss-fuzz`](https://github.com/google/oss-fuzz) checkout.
 Fuzz target names match the binary names listed in `oss-fuzz.sh` (for example, `frame_fuzzer_v2`).

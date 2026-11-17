@@ -1,8 +1,13 @@
 # Changelog
 
-## Unreleased
+## v0.63.0 — unreleased
 
-No changes recorded beyond fast.10.
+The first independent release of quicquic-go, planned under module `github.com/GridCastIO/quicquic-go` with root package `quic`. Earlier entries record releases of the quic-go-fast fork, which declared `github.com/quic-go/quic-go` and was adopted through application-owned module replacement. Their versions, tags, evidence and qualifications remain as published. The [release record](docs/releases/v0.63.0.md) holds scope, migration, the upstream-advisory applicability review and the checks that remain until publication.
+
+- **Name and module path:** the project becomes quicquic-go at `GridCastIO/quicquic-go`, and every import moves from `github.com/quic-go/quic-go` to `github.com/GridCastIO/quicquic-go` ([ADR 0014](docs/adr/0014-independent-module-identity.md), [#650](https://github.com/the-sarge/quic-go-fast/issues/650)). Package names, APIs, wire behavior, defaults and experimental qualifications are unchanged from fast.10. Old-path and new-path types are distinct. Consumers depend on the new path directly, with no `replace` directive; see the [migration guide](docs/usage.md#migrate-to-quicquic-go).
+- **Ancestry:** derived from quic-go, with v0.62.0 as the historical baseline. The project no longer tracks upstream releases; it adopts individual upstream changes with recorded provenance and validation ([ADR 0015](docs/adr/0015-independent-maintenance.md)).
+- **Versions:** v0.63.0 starts independent numbering, and the `-fast.N` series ends. Patch releases preserve the public contract within a minor series; minor releases may change it with migration instructions ([ADR 0016](docs/adr/0016-version-aware-compatibility.md), [#653](https://github.com/the-sarge/quic-go-fast/issues/653)). Inherited tags, including upstream quic-go tags and the `-fast.N` prereleases, are history that declares the old module path, not releases of the new module.
+- **Security:** vulnerabilities are reported privately to this repository ([SECURITY.md](SECURITY.md)). A clean scan of the new module path does not cover inherited upstream code; the release record's advisory review does.
 
 ## v0.62.1-fast.10 — 2026-11-16
 

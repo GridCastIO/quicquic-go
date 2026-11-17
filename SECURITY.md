@@ -1,14 +1,25 @@
-# Security Policy
+# Security policy
 
-quic-go is an implementation of the QUIC protocol and related standards. No software is perfect, and we take reports of potential security issues very seriously.
+quicquic-go is an independently maintained QUIC and HTTP/3 implementation in Go. Joshua Sargent owns security triage, disclosure, release timing and consumer notification for this project. Security response is best effort, with no fixed response-time commitment.
 
-## Reporting a Vulnerability
+## Reporting a vulnerability
 
-If you discover a vulnerability that could affect production deployments (e.g., a remotely exploitable issue), please report it [**privately**](https://github.com/quic-go/quic-go/security/advisories/new).
-Please **DO NOT file a public issue** for exploitable vulnerabilities.
+Report a suspected vulnerability privately through this repository's [private vulnerability reporting](https://github.com/GridCastIO/quicquic-go/security/advisories/new). Please **do not** file a public issue, pull request or discussion for it. Unpublished vulnerability details, reproductions and fixes stay private until Josh decides on disclosure.
 
-If the issue is theoretical, non-exploitable, or related to an experimental feature, you may discuss it openly by filing a regular issue.
+If the issue is theoretical, not exploitable, or limited to an experimental feature, you may discuss it openly in a regular issue.
+
+If the vulnerability is in upstream quic-go, report it to upstream through its own security policy as well. Report it here privately if quicquic-go may also be affected.
 
 ## Reporting a non-security bug
 
-For bugs, feature requests, or other non-security concerns, please open a GitHub [issue](https://github.com/quic-go/quic-go/issues/new).
+For bugs, feature requests and other non-security concerns, open an [issue](https://github.com/GridCastIO/quicquic-go/issues/new) in this repository.
+
+## Fixes and versions
+
+Fixes ship as new versions under the [compatibility promise](docs/adr/0016-version-aware-compatibility.md). A fix that changes the documented API, error, ownership or wire contract ships as a minor release with migration guidance. There is no backport window.
+
+## Upstream advisories and scanner coverage
+
+quicquic-go derives from quic-go, so upstream quic-go advisories can apply to inherited code. They are monitored and assessed against this project's actual source under the [upstream-advisory runbook](docs/runbooks/upstream-advisories.md), and each release record carries its applicability review.
+
+Go vulnerability scanners match records by module path. Records for inherited code name `github.com/quic-go/quic-go`, so a clean `govulncheck` result for `github.com/GridCastIO/quicquic-go` does not show that inherited upstream code is unaffected.

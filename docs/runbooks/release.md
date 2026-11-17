@@ -1,29 +1,61 @@
 # Library releases
 
-quic-go-fast uses an annotated Git tag and a GitHub Release without a dedicated publishing workflow. Releases follow the [stable upstream policy](../adr/0003-follow-stable-upstream-releases.md) and preserve the [application-owned module replacement](../adr/0002-adopt-through-module-replacement.md).
+quicquic-go releases module `github.com/GridCastIO/quicquic-go` as an annotated Git tag plus a GitHub Release. Versions follow the [version-aware compatibility promise](../adr/0016-version-aware-compatibility.md). Releases follow [independent maintenance](../adr/0015-independent-maintenance.md) and the [independent module identity](../adr/0014-independent-module-identity.md).
+
+There is no publishing workflow. An audit for the identity transition found no prerelease or publication automation. The only prerelease assumptions were the earlier versions of this runbook and the README, which described the fork's draft GitHub prereleases. Push and tag workflows validate tags, and the interop workflow builds an image without publishing it.
 
 ## Version selection
 
-Choose the version deliberately and record it in [CHANGELOG.md](../../CHANGELOG.md) or a release issue before tagging. The fork's `v0.62.1-fast.N` series is based on upstream `v0.62.0`; each `-fast.N` suffix identifies a Go semantic prerelease that sorts after `v0.62.0` and before `v0.62.1`. Increment the suffix only after selecting and recording the next release. Future upstream-base and final-release version choices remain deliberate maintainer decisions.
+Choose the version deliberately and record it in [CHANGELOG.md](../../CHANGELOG.md) or a release issue before tagging:
 
-Never move or reuse an existing tag, or replace an existing published release in place. A correction gets a new version. Inherited upstream tags are not fork releases. Consumers must pin an explicit fork version; `@latest` can select an inherited upstream release instead of a fork prerelease.
+- **First independent version.** Independent versions start at `v0.63.0`.
+- **Patch, minor and v1.** A patch release preserves the public contract within its minor series. A minor release may change it, with migration instructions, and raising the consumer's minimum Go version needs a minor release. `v1.0.0` is reserved for a deliberate long-term stability commitment.
+- **Release type.** Publish each release as a stable GitHub Release, not a prerelease. `v0.63.0` is a stable release.
+- **Release candidates.** Optional `-rc.N` candidates need an explicit decision. Consumers must select them explicitly, and they never stand in for `@latest`.
+- **Module path.** The canonical path is exactly `github.com/GridCastIO/quicquic-go`. Path case is significant: `github.com/gridcastio/quicquic-go` is a different module path and fails with a path mismatch.
+
+Never move or reuse an existing tag, or replace an existing published release in place. A correction gets a new version.
+
+The `v0.62.1-fast.N` series ended at fast.10. Inherited tags, including upstream quic-go releases and the fast-series prereleases, are history that declares `github.com/quic-go/quic-go`. They are not releases of the new module, and Go must not select them for it.
 
 ## Prepare and validate
 
-1. Prepare the changelog and any adoption changes in a dedicated feature worktree and merge their PR through the repository's existing checks. Keep archived evidence unchanged.
+1. Prepare the changelog, release record and any adoption changes in a dedicated feature worktree. Merge their PR through the repository's existing checks. Keep archived evidence unchanged.
 2. Select a full commit SHA on `main`. Verify it is an ancestor of the current remote default branch and that the worktree used for tagging is clean.
-3. Require successful unit, integration, lint, cross-compilation, and interop-image workflows at that exact commit. Inspect individual jobs and relevant steps. Document existing limitations; do not count an unexplained failed check as green or rerun it until it passes.
-4. Run a fresh `govulncheck ./...` with a recorded scanner and Go version. Inspect reachable findings before release, and record the target platform and any uncalled module advisories. A source scan can run for another `GOOS`/`GOARCH` by building the scanner for the host first, then setting the target environment when invoking that executable.
-5. Verify a separate consumer can build QUIC and HTTP/3 using an application-owned replacement at the candidate revision. After tagging, repeat with the real published tag and verify the downloaded module version, commit, and archive boundary.
-6. Write release notes covering the upstream base, changes, Go minimum, adoption, known limitations, and tested versus build-only platforms. Link the exact commit's workflow results. This library release has no binary assets; adding binary distribution is a separate scope decision.
+3. Require successful unit, integration, lint, cross-compilation and interop-image workflows at that exact commit. Inspect individual jobs and relevant steps. Document existing limitations; do not count an unexplained failed check as green or rerun it until it passes.
+4. Run a fresh `govulncheck ./...` and record the scanner and Go versions. Inspect reachable findings before release, and record the target platform and any uncalled module advisories. To scan for another `GOOS`/`GOARCH`, build the scanner for the host first, then set the target environment when invoking that executable. A clean scan of this module path does not cover inherited upstream code. Refresh the upstream-advisory applicability record at the candidate commit under the [advisory runbook](upstream-advisories.md), with Josh's disposition, and include only what he classifies as disclosable.
+5. Verify that a separate consumer builds QUIC and HTTP/3 from a fresh environment without replacements:
+   - Use a new module and an empty module cache.
+   - Before tagging, require the candidate commit with `go get github.com/GridCastIO/quicquic-go@<full-sha>`, which Go resolves as a pseudo-version.
+   - After tagging, repeat with the real tag.
+   - Record the resolved version, `go.sum` lines and a versioned `govulncheck` of the consumer.
+6. Write release notes covering:
+   - the v0.62.0 ancestry and the provenance of adopted upstream changes;
+   - the changes and the Go minimum;
+   - migration instructions for any incompatible change;
+   - the advisory applicability record and the scanner coverage limit;
+   - known limitations, and tested versus build-only platforms.
+
+   Link the exact commit's workflow results. This library release has no binary assets; adding binary distribution is a separate scope decision.
 
 ## Publish and verify
 
-Check that both the proposed remote tag and GitHub Release are absent. Create an annotated tag at the selected SHA and push only that tag. Never force-push tags. Existing push workflows also validate tag pushes; no additional release workflow is required.
+Check that both the proposed remote tag and the GitHub Release are absent. Create an annotated tag at the selected SHA and push only that tag. Never force-push tags. The existing push workflows also validate tag pushes; no additional release workflow is required.
 
-Create a draft GitHub prerelease using the verified tag and prepared notes, inspect the draft, verify the public Go module download and consumer build, and wait for tag-triggered workflows to succeed before publishing it. If a published tag's validation fails, retain the failure and stop publication; repair through a new commit and a new version rather than moving the tag. Once published, verify the release URL, tag object and peeled commit, prerelease flag, notes, and absence of unexpected assets. Record the tag-run URLs and consumer verification in the release notes or release issue.
+Create a draft GitHub Release, not marked as a prerelease, from the verified tag and the prepared notes. Inspect the draft and wait for the tag-triggered workflows to succeed before publishing it. If a published tag's validation fails, keep the failure on record and stop publication. Repair through a new commit and a new version rather than moving the tag.
 
-For subsequent releases, use the same flow: changelog PR, validated default-branch commit, fresh vulnerability scan, immutable annotated tag, consumer verification, and GitHub Release. Update the README's installation example only to a real released tag or a Go-generated pseudo-version. Never present a planned tag as an already available dependency.
+After publication, verify the following:
+
+- `GOPROXY=https://proxy.golang.org GOFLAGS=-mod=mod go list -m -json github.com/GridCastIO/quicquic-go@<version>` returns the expected version, commit and origin. Downloading the module verifies it against the checksum database.
+- `go list -m -versions github.com/GridCastIO/quicquic-go` lists the release.
+- `go list -m github.com/GridCastIO/quicquic-go@latest` resolves to it, unless a later release exists.
+- An inherited old-path tag, for example `go list -m github.com/GridCastIO/quicquic-go@v0.62.0`, is rejected because it declares a different module path.
+- The fresh consumer from step 5 builds against the real tag.
+- The release URL, tag object and peeled commit, the stable (not prerelease) flag and the notes are as prepared, and the release has no unexpected assets.
+
+Record the tag-run URLs and the verification results in the release notes or the release issue.
+
+For later releases, use the same flow: changelog PR, validated default-branch commit, fresh vulnerability scan and advisory refresh, immutable annotated tag, consumer verification and GitHub Release. Update the README's installation example only to a real released tag or a Go-generated pseudo-version. Never present a planned tag as an already available dependency.
 
 ## Recorded maintenance exception
 

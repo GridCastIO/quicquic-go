@@ -1,18 +1,18 @@
 # Issue tracker: GitHub
 
-Issues and PRDs live in GitHub Issues in `the-sarge/quic-go-fast`. Use the `gh` CLI and explicitly pass `--repo the-sarge/quic-go-fast` for issue and PR commands because this checkout also has an upstream remote.
+Issues and PRDs live in GitHub Issues in `GridCastIO/quicquic-go`. Use the `gh` CLI and explicitly pass `--repo GridCastIO/quicquic-go` for issue and PR commands because this checkout also has an upstream remote.
 
 ## Conventions
 
-- Create: `gh issue create --repo the-sarge/quic-go-fast --title "..." --body-file <path>`.
-- Read: `gh issue view <number> --repo the-sarge/quic-go-fast --json number,title,body,labels,comments` so the body and labels come through with the comments.
-- List: `gh issue list --repo the-sarge/quic-go-fast --state open --json number,title,body,labels,comments`, adding appropriate filters.
-- Comment: `gh issue comment <number> --repo the-sarge/quic-go-fast --body-file <path>`.
-- Apply or remove labels: `gh issue edit <number> --repo the-sarge/quic-go-fast --add-label "..." --remove-label "..."`.
-- Sub-issue: `gh issue create --repo the-sarge/quic-go-fast --parent <parent> ...`, or `gh issue edit <parent> --repo the-sarge/quic-go-fast --add-sub-issue <child>` afterwards. Without sub-issues, put `Part of #<parent>` at the top of the child body.
-- Blocking: use native GitHub issue dependencies with `gh issue create --repo the-sarge/quic-go-fast --blocked-by <n>,<n> ...` or `gh issue edit <child> --repo the-sarge/quic-go-fast --add-blocked-by <blocker>`. If dependencies are unavailable, use a `Blocked by: #<number>` line at the top of the child body. A ticket is unblocked when every blocker is closed.
-- Count open blockers: `gh api repos/the-sarge/quic-go-fast/issues/<n> --jq .issue_dependencies_summary.blocked_by` (open blockers only; 0 means startable). `gh issue view --json blockedBy` also lists closed blockers.
-- Close: post the explanation with `gh issue comment <number> --repo the-sarge/quic-go-fast --body-file <path>`, then `gh issue close <number> --repo the-sarge/quic-go-fast`. On an already-closed issue, `gh issue close --comment` drops the comment and still exits 0.
+- Create: `gh issue create --repo GridCastIO/quicquic-go --title "..." --body-file <path>`.
+- Read: `gh issue view <number> --repo GridCastIO/quicquic-go --json number,title,body,labels,comments` so the body and labels come through with the comments.
+- List: `gh issue list --repo GridCastIO/quicquic-go --state open --json number,title,body,labels,comments`, adding appropriate filters.
+- Comment: `gh issue comment <number> --repo GridCastIO/quicquic-go --body-file <path>`.
+- Apply or remove labels: `gh issue edit <number> --repo GridCastIO/quicquic-go --add-label "..." --remove-label "..."`.
+- Sub-issue: `gh issue create --repo GridCastIO/quicquic-go --parent <parent> ...`, or `gh issue edit <parent> --repo GridCastIO/quicquic-go --add-sub-issue <child>` afterwards. Without sub-issues, put `Part of #<parent>` at the top of the child body.
+- Blocking: use native GitHub issue dependencies with `gh issue create --repo GridCastIO/quicquic-go --blocked-by <n>,<n> ...` or `gh issue edit <child> --repo GridCastIO/quicquic-go --add-blocked-by <blocker>`. If dependencies are unavailable, use a `Blocked by: #<number>` line at the top of the child body. A ticket is unblocked when every blocker is closed.
+- Count open blockers: `gh api repos/GridCastIO/quicquic-go/issues/<n> --jq .issue_dependencies_summary.blocked_by` (open blockers only; 0 means startable). `gh issue view --json blockedBy` also lists closed blockers.
+- Close: post the explanation with `gh issue comment <number> --repo GridCastIO/quicquic-go --body-file <path>`, then `gh issue close <number> --repo GridCastIO/quicquic-go`. On an already-closed issue, `gh issue close --comment` drops the comment and still exits 0.
 
 For multiline bodies, write the exact Markdown to a file and use `--body-file`.
 
@@ -22,7 +22,7 @@ For multiline bodies, write the exact Markdown to a file and use `--body-file`.
 
 External PRs do not enter the issue triage queue. Explicitly requested PR review remains a separate workflow.
 
-GitHub shares issue and PR numbers. When a reference is ambiguous, resolve its type with `gh pr view <number> --repo the-sarge/quic-go-fast`, falling back to `gh issue view` when it is an issue.
+GitHub shares issue and PR numbers. When a reference is ambiguous, resolve its type with `gh pr view <number> --repo GridCastIO/quicquic-go`, falling back to `gh issue view` when it is an issue.
 
 ## Skill instructions
 
