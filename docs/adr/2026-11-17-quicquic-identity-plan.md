@@ -1,7 +1,7 @@
 # quicquic-go Identity Transition Preparation Plan
 
 **Date:** 2026-11-17
-**Status:** Revision `e6a835ef` was [approved under delegated authority](https://github.com/the-sarge/quic-go-fast/issues/1109#issuecomment-6940514904). This revision adds the `goimports` step that PR A's lint evidence showed is required and adapts the normalized-equality seam to it; it awaits delegated approval before PR A's code or tests resume.
+**Status:** Revision `e6a835ef` was [approved under delegated authority](https://github.com/the-sarge/quic-go-fast/issues/1109#issuecomment-6940514904). Amendment `a02af3b0`, which adds the `goimports` step that PR A's lint evidence showed is required and adapts the normalized-equality seam to it, was [approved under delegated authority](https://github.com/the-sarge/quic-go-fast/issues/1109#issuecomment-6940846036) on the condition that the formatter is pinned in the rerunnable procedure; this revision pins it.
 **Issue:** [Prepare the quicquic-go module, documentation and release transition (#1109)](https://github.com/the-sarge/quic-go-fast/issues/1109), part of [Execute quicquic-go independence and consumer cutovers (#1108)](https://github.com/the-sarge/quic-go-fast/issues/1108)
 **Decision sources:** [Sequence detach, transfer, rename and consumer cutover (#655)](https://github.com/the-sarge/quic-go-fast/issues/655#issuecomment-6584616162); approved policies [#650](https://github.com/the-sarge/quic-go-fast/issues/650#issuecomment-6564455591), [#651](https://github.com/the-sarge/quic-go-fast/issues/651#issuecomment-6563772122), [#653](https://github.com/the-sarge/quic-go-fast/issues/653#issuecomment-6564715434), [#654](https://github.com/the-sarge/quic-go-fast/issues/654#issuecomment-6564813895) and [#1067](https://github.com/the-sarge/quic-go-fast/issues/1067#issuecomment-6564931617)
 **Downstream:** [Human move (#1110)](https://github.com/the-sarge/quic-go-fast/issues/1110), then [Merge the identity transition and publish quicquic-go v0.63.0 at its final home (#1111)](https://github.com/the-sarge/quic-go-fast/issues/1111)
@@ -90,12 +90,12 @@ go mod edit -module "$NEW"
 go mod edit -module "$NEW/docs/audits" docs/audits/go.mod
 git grep -lz "$OLD" -- ':!docs/' ':!testdata/' ':!*.md' |
   xargs -0 perl -pi -e 's{(?<!://)\bgithub\.com/quic-go/quic-go(?![\w-])}{github.com/GridCastIO/quicquic-go}g'
-goimports -w $(git ls-files -- '*.go' ':!docs/' ':!testdata/')
+go run golang.org/x/tools/cmd/goimports@v0.52.0 -w $(git ls-files -- '*.go' ':!docs/' ':!testdata/')
 (cd integrationtests/fips && go mod tidy)
 git add -A && .github/workflows/go-generate.sh
 ```
 
-`goimports` is required because the configured `goimports` formatter infers package name `quicquic` from the new path's last element, so it adds an explicit `quic` name to unaliased root imports, moves `github.com/quic-go/qpack` after the new path and merges the affected import groups. The base is `gofmt`- and `goimports`-clean for every maintained file, so these import-block changes are rename-induced only. The repository-wide `golangci-lint fmt` is not used because it also reformats files outside identity scope. The negative lookbehind keeps `https://github.com/quic-go/quic-go/...` URLs upstream; the lookahead permits `.` so stack-frame symbols such as `github.com/quic-go/quic-go.(*closureReader)` are rewritten. Then two hand edits:
+`goimports` is pinned to `golang.org/x/tools` v0.52.0, the version `go.mod` requires, so a rerun by #1111 formats identically. It is required because the configured `goimports` formatter infers package name `quicquic` from the new path's last element, so it adds an explicit `quic` name to unaliased root imports, moves `github.com/quic-go/qpack` after the new path and merges the affected import groups. The base is `gofmt`- and `goimports`-clean for every maintained file, so these import-block changes are rename-induced only. The repository-wide `golangci-lint fmt` is not used because it also reformats files outside identity scope. The negative lookbehind keeps `https://github.com/quic-go/quic-go/...` URLs upstream; the lookahead permits `.` so stack-frame symbols such as `github.com/quic-go/quic-go.(*closureReader)` are rewritten. Then two hand edits:
 
 - `qlogwriter/version_test.go`: the module constant becomes the new path, the replacement constant becomes a synthetic `example.com/quicquic-go-replacement`, and a local helper escapes each uppercase letter as `!` plus its lowercase form for the fake proxy keys. No new dependency.
 - Review the `perl` result for `oss-fuzz.sh`'s GOPATH `cd` line and accept it: the script is dormant upstream OSS-Fuzz integration, and only its Go package paths are identity.
