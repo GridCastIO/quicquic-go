@@ -1,7 +1,7 @@
 # quicquic-go Identity Transition Preparation Plan
 
 **Date:** 2026-11-17
-**Status:** Proposed; awaiting delegated plan approval by the #1108 orchestrator. No product code is written before that approval.
+**Status:** Revised after the [delegated `revise` decision](https://github.com/the-sarge/quic-go-fast/issues/1109#issuecomment-6940490276) on revision `fb14a6d7`; awaiting delegated approval of this revision. No product code is written before that approval.
 **Issue:** [Prepare the quicquic-go module, documentation and release transition (#1109)](https://github.com/the-sarge/quic-go-fast/issues/1109), part of [Execute quicquic-go independence and consumer cutovers (#1108)](https://github.com/the-sarge/quic-go-fast/issues/1108)
 **Decision sources:** [Sequence detach, transfer, rename and consumer cutover (#655)](https://github.com/the-sarge/quic-go-fast/issues/655#issuecomment-6584616162); approved policies [#650](https://github.com/the-sarge/quic-go-fast/issues/650#issuecomment-6564455591), [#651](https://github.com/the-sarge/quic-go-fast/issues/651#issuecomment-6563772122), [#653](https://github.com/the-sarge/quic-go-fast/issues/653#issuecomment-6564715434), [#654](https://github.com/the-sarge/quic-go-fast/issues/654#issuecomment-6564813895) and [#1067](https://github.com/the-sarge/quic-go-fast/issues/1067#issuecomment-6564931617)
 **Downstream:** [Human move (#1110)](https://github.com/the-sarge/quic-go-fast/issues/1110), then [Merge the identity transition and publish quicquic-go v0.63.0 at its final home (#1111)](https://github.com/the-sarge/quic-go-fast/issues/1111)
@@ -145,7 +145,7 @@ No other closure is triggered. No fuzz, repetition, timing or extra platform sco
   3. New ADRs: 0014 independent module identity and adoption (supersedes 0002, including its wiremux dual-path section, pointing to GridSwarm/wiremux#2175); 0015 independent maintenance with selective validated upstream adoption (supersedes 0003); 0016 version-aware compatibility promise (supersedes 0001 and carries forward its protection against silently imposed ownership obligations; cites ADR 0009's keyed-`Config` exception). ADRs 0001–0003 change only their front-matter status to superseded and gain one leading line naming the successor; their bodies are byte-identical.
   4. SECURITY.md routes vulnerabilities to this repository's private vulnerability reporting at the final home and ordinary bugs to its issues, states Josh's security ownership, keeps unpublished details private, and states the scanner coverage limit. Its merge in #1111 requires the private channel to be enabled and verified first, as #651 already requires.
   5. Release runbook: independent versions starting at v0.63.0 under the #653 meaning; canonical module path; stable GitHub Release (not prerelease) for v0.63.0; optional `-rc.N` candidates need explicit selection and never stand in for `@latest`; existing exact-commit unit, integration, lint, cross-compile and interop-image evidence; fresh `govulncheck` with recorded scanner and Go versions plus the upstream-advisory applicability record; a separate downloaded consumer that builds QUIC and HTTP/3 from a fresh environment without replacements; explicit-version and `@latest` checks after publication; inherited old-path tags are history, not releases of the new module; corrections get new versions. The fast.9 exception stays as history. The prerelease-automation audit finding (none exists) is recorded.
-  6. New runbook `docs/runbooks/upstream-advisories.md`: the #651 procedure (sources, cadence, notify-on-action, applicability assessment, private handling, fix preparation, Go-release validation, Josh's disposition, record keeping), scanner identity limits (vulnerability records match module paths; replacements and versions affect lookup; a clean independent-path scan does not cover inherited upstream code; never falsify the module path), and the reproducible review commands. It schedules nothing.
+  6. New runbook `docs/runbooks/upstream-advisories.md`: the #651 procedure (sources, cadence, notify-on-action, applicability assessment, private handling, fix preparation, Go-release validation, Josh's disposition, record keeping), scanner identity limits (vulnerability records match module paths; replacements and versions affect lookup; a clean independent-path scan does not cover inherited upstream code; never falsify the module path), and the reproducible review commands. It selects and documents the monitoring runner Josh chose on 2026-11-17, satisfying #651 step 8: a daily GitHub Actions scheduled workflow beside the existing `govulncheck` job. The design covers its sources (upstream quic-go's published advisories and release notes, Go security announcements, and detection of the first Go release candidate); a durable watch state (the last-seen identifiers per source, kept so that only new or changed items notify and a lost state is detectable); notification through a GitHub issue assigned to Josh that carries only public identifiers and links; a notification when monitoring itself fails; and enablement checks that confirm, once enabled, that the schedule is active, a recent run succeeded, the watch state advanced and a test notification reached Josh. Unpublished vulnerability details never enter the workflow, its state or its issues. #1109 creates no workflow file and schedules nothing; building and enabling the workflow is a follow-up after #1111 at the final home.
   7. `docs/usage.md` replaces "Use the fork" and "Return to upstream" with the migration packet: root and subpackage import changes with exact path case; `go get github.com/GridCastIO/quicquic-go@v0.63.0` once published; dropping the old replacement after `go mod why -m` and `go mod graph` show no remaining requirement; keyed `Config` literals; HTTP/3 error handling; Go 1.26.0 minimum; mixed old/new type exposure at dependency boundaries (wiremux first); other actual public differences from upstream v0.62.0 and from fast.10.
   8. `docs/releases/v0.63.0.md` preparation record: scope, migration summary, scanner coverage note, the advisory applicability record with Josh's disposition, destination-dependent checks and expected metadata changes.
   9. Package doc comments for root `quic` and `http3` describe the approved identity. No other package gains or changes a doc comment.
@@ -157,7 +157,7 @@ No other closure is triggered. No fuzz, repetition, timing or extra platform sco
 - **Artifact classes:** process metadata and documentation, except the two doc comments (shipped package documentation).
 - **Representation domain and owner:** the enumerated files; Markdown rendering by GitHub; relative links owned by the repository tree.
 - **Guarantee level:** example-level for prose; exact byte preservation for historical CHANGELOG lines and ADR bodies.
-- **Review-round budget:** as PR A. Adding Josh's advisory disposition after review uses the shared docs-only polish exemption: lightweight docs checks and a new local certification without another RAS round.
+- **Review-round budget:** as PR A. PR B's code-review preparation pass and RAS review start only after the disclosable advisory record and Josh's disposition are in PR B's candidate (see the advisory section). The docs-only polish exemption does not apply to that security content.
 
 ### Evidence and test seams
 
@@ -171,13 +171,14 @@ No other closure is triggered. No fuzz, repetition, timing or extra platform sco
 | `go vet ./... && go doc . && go doc ./http3` | Doc comment placement and syntax | pkg.go.dev rendering, deferred |
 | Optional `apidiff` (pinned `golang.org/x/exp/cmd/apidiff`) of upstream v0.62.0 and fast.10 against the base, same old module path, for the supported packages | Unlisted incompatible public differences for the migration packet | Behavioral differences without signature change (taken from the changelog) |
 
-Contract closure: not triggered. Terminating evidence: every row once on the final candidate, Josh's advisory disposition recorded, hosted draft checks green on the exact head, review budget satisfied.
+Contract closure: not triggered. Terminating evidence: the disclosable advisory record and Josh's disposition present in the candidate before review begins, every row once on the final candidate, hosted draft checks green on the exact head, review budget satisfied.
 
 ## Upstream-advisory applicability review
 
 - **Preparation.** During PR B, record retrieval time and sources (upstream security advisories API, the Go vulnerability database entries for `github.com/quic-go/quic-go`). For each advisory record GHSA, CVE and GO identifiers, affected and patched ranges, upstream fix commits, whether each fix is an ancestor of `v0.62.0` (`git merge-base --is-ancestor`), fork changes since `v0.62.0` touching the fixed code (`git log v0.62.0..<head> -- <files>`), existing regression tests, and an applicability conclusion with remaining uncertainty. Read the scanner's module-lookup and replacement code at a pinned current `golang/vuln` revision and record its actual behavior.
 - **Privacy.** The analysis is prepared privately and returned to the coordinator for Josh, not committed or posted first. Entries Josh classifies as disclosable are committed to the release record; any applicable and unfixed finding stays out of the repository and public issues. A fix for such a finding is a separate security task under Josh's disposition, not part of #1109.
 - **Disposition.** Josh's disposition is a reserved human decision, requested through the coordinator once the review is ready.
+- **Sequence.** (1) Prepare the private applicability review. (2) Return it to the coordinator for Josh; it is not committed, posted or summarized with specifics on GitHub. (3) Add only the disclosable record and Josh's disposition to PR B's candidate. (4) Only then start PR B's code-review preparation pass and RAS review. PR A proceeds independently and does not wait for this sequence.
 
 ## Local certification and hosted checks
 
@@ -197,6 +198,7 @@ CI at the old home is not expected to fail because of the new path: every workfl
 8. pkg.go.dev rendering of README and package docs (observational).
 9. Repository description and topics applied during #1110.
 10. Post-publication docs update pointing installation at the real tag and recording publication.
+11. Follow-up after #1111, not filed by #1109: build and enable the daily upstream-advisory monitoring workflow at the final home as designed in `docs/runbooks/upstream-advisories.md`, then run its enablement checks.
 
 ## Handoff packet
 
@@ -217,9 +219,12 @@ PR numbers and URLs; final heads and the base they were certified against; norma
 
 ## Decisions requested
 
-- **Josh — upstream-advisory disposition (reserved).** Requested through the coordinator when the private review is ready, before PR B's record is finalized. Recommendation: commit only entries Josh marks disclosable; keep any applicable unfixed finding in a private location he chooses (for example a draft repository security advisory once private reporting is enabled at the final home).
-- **Josh — monitoring cadence versus no new automation.** The #651 runbook stub asks for a daily check and for the execution package to name a runner and notification destination; #1109 forbids scheduling new automation. Recommendation: the runbook states the daily target as Josh's policy, records that no scheduler is enabled, names the existing daily `govulncheck` workflow as the only automated signal, and leaves runner selection to a follow-up issue Josh may open after #1111.
-- **Coordinator — scope interpretations.** Package descriptions are read as doc comments for root `quic` and `http3` only; the default User-Agent and other protocol strings stay unchanged; `main` is not frozen, and #1111 reruns PR A's procedure if it moves.
+- **Josh — upstream-advisory disposition (reserved).** Requested through the coordinator when the private review is ready, before PR B's review begins. Recommendation: commit only entries Josh marks disclosable; keep any applicable unfixed finding in a private location he chooses (for example a draft repository security advisory once private reporting is enabled at the final home).
+
+## Settled decisions
+
+- **Monitoring runner (Josh, 2026-11-17):** a daily GitHub Actions scheduled workflow beside the existing `govulncheck` job, documented by PR B and built after #1111. Recorded in the [decision receipt](https://github.com/the-sarge/quic-go-fast/issues/1109#issuecomment-6940490276).
+- **Scope readings (confirmed by the coordinator):** package descriptions are the root `quic` and `http3` doc comments only; the default User-Agent and other protocol, crypto-domain and diagnostic strings stay unchanged; `main` is not frozen, and #1111 reruns PR A's procedure if it moved.
 
 ## Stop conditions
 
