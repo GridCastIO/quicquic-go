@@ -11547,3 +11547,46 @@ Published [v0.62.1-fast.10](https://github.com/the-sarge/quic-go-fast/releases/t
 ### Next
 
 At this entry's timestamp, publication and adoption documentation are complete; merge this journal account, then reconcile and close [release #1456](https://github.com/the-sarge/quic-go-fast/issues/1456) and its OmniFocus mirror. That tracker remains the live completion view. Qualified jumbo [#1226](https://github.com/the-sarge/quic-go-fast/issues/1226), independent release [#1111](https://github.com/the-sarge/quic-go-fast/issues/1111) and consumer identity cutover [GridSwarm/wiremux#2175](https://github.com/GridSwarm/wiremux/issues/2175) retain their separate contracts.
+
+---
+
+## quicquic-go identity transition merged - 2026-11-17 15:22 EST
+
+**Main:** `bf633790b04f`
+**Actor:** Claude
+
+### Summary
+
+The identity transition is on `main` at the repository's final home, `GridCastIO/quicquic-go`. [PR #1461](https://github.com/GridCastIO/quicquic-go/pull/1461), the module rename, merged as `7d7c10d6b8e9abb66c0fa85ca5e72bcc4e34d887`. [PR #1462](https://github.com/GridCastIO/quicquic-go/pull/1462), the declaration, documentation, release and security instructions, merged as `bf633790b04f1fa397040dfbc1552b69e023c8ce`. The module is now `github.com/GridCastIO/quicquic-go`, with root `package quic`. No version is tagged; v0.63.0 remains unpublished.
+
+### Completed
+
+- Both reviewed heads merged without content changes.
+  - The PR #1461 squash has the same tree as its certified head `096472b3`.
+  - PR #1462 was rebased with `--onto` from `096472b3` to `7d7c10d6b`, giving `66db427e`. Its tree and patch-id match the reviewed head `643f76e9`, and its squash has that tree.
+  - Under the [approved #1111 plan](https://github.com/GridCastIO/quicquic-go/issues/1111#issuecomment-6959219703), neither PR needed a new review round. Their RAS reviews and preparation passes are recorded in the [#1109 handoff](https://github.com/GridCastIO/quicquic-go/issues/1109#issuecomment-6943504995).
+- Private vulnerability reporting was verified enabled before `SECURITY.md` merged.
+
+### Validation
+
+- PR #1461 at `096472b3`, Go 1.27.4 on darwin/arm64:
+  - `go test -count=1 ./...` passed.
+  - A `go/parser` scan found 0 old-path imports in 916 maintained files.
+  - These passed: `go mod tidy -diff` for the root and FIPS modules, `go fix -diff`, generation drift, `go mod vendor`, `gcassert`, and the module-graph check.
+  - golangci-lint v2.14.0 reported 0 issues on six GOOS values.
+- PR #1461 hosted runs at the new home: five reruns passed (unit, integration, lint, cross-compile and interop image), and so did the post-ready `independent-peer` run [44165249200](https://github.com/GridCastIO/quicquic-go/actions/runs/44165249200).
+- PR #1462 at `66db427e`:
+  - The documentation checks passed: ADR status lines only, CHANGELOG history and the #654 opening unchanged, relative links resolve, vet and `go doc` pass, and lint reports 0 issues on six GOOS values.
+  - All 17 hosted checks passed, and so did `independent-peer` [44167761975](https://github.com/GridCastIO/quicquic-go/actions/runs/44167761975).
+
+### Decisions
+
+- Merge order, revalidation without changing heads, and the separate release-commit PR follow the [approved release plan](https://github.com/GridCastIO/quicquic-go/issues/1111#issuecomment-6959219703).
+- Josh's [retraction decision](https://github.com/GridCastIO/quicquic-go/issues/1111#issuecomment-6953255891) applies in the release commit, not in these PRs.
+
+### Next
+
+- At this entry's timestamp, the release-commit PR comes next: the `go.mod` retraction, the release-record finalization and the README origins note.
+- Pre-publication evidence follows at the release commit, then a stop for Josh's approval of the tag and release notes.
+- Codex's open PR #1295 needs the module-path rewrite before it can merge.
+- [#1111](https://github.com/GridCastIO/quicquic-go/issues/1111) is the live view.
