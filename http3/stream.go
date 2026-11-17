@@ -10,7 +10,7 @@ import (
 	"net/http/httptrace"
 	"time"
 
-	"github.com/GridCastIO/quicquic-go"
+	quic "github.com/GridCastIO/quicquic-go"
 	"github.com/GridCastIO/quicquic-go/http3/qlog"
 	"github.com/GridCastIO/quicquic-go/qlogwriter"
 

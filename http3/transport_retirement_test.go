@@ -10,8 +10,8 @@ import (
 	"testing"
 	"time"
 
+	quic "github.com/GridCastIO/quicquic-go"
 	"github.com/quic-go/qpack"
-	"github.com/GridCastIO/quicquic-go"
 	"github.com/stretchr/testify/require"
 )
 

@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/GridCastIO/quicquic-go"
+	quic "github.com/GridCastIO/quicquic-go"
 	quicproxy "github.com/GridCastIO/quicquic-go/integrationtests/tools/proxy"
 
 	"github.com/stretchr/testify/require"

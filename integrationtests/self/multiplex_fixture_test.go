@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/GridCastIO/quicquic-go"
+	quic "github.com/GridCastIO/quicquic-go"
 )
 
 const multiplexShutdown = "multiplex fixture shutdown"

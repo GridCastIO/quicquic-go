@@ -12,7 +12,7 @@ import (
 	"testing/synctest"
 	"time"
 
-	"github.com/GridCastIO/quicquic-go"
+	quic "github.com/GridCastIO/quicquic-go"
 	"github.com/GridCastIO/quicquic-go/http3"
 	"github.com/GridCastIO/quicquic-go/quicvarint"
 	"github.com/GridCastIO/quicquic-go/testutils/simnet"

@@ -7,7 +7,7 @@ import (
 	"net/textproto"
 	"time"
 
-	"github.com/GridCastIO/quicquic-go"
+	quic "github.com/GridCastIO/quicquic-go"
 )
 
 func traceGetConn(trace *httptrace.ClientTrace, hostPort string) {

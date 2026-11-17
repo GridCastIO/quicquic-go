@@ -6,7 +6,7 @@ import (
 	"os"
 	"sync"
 
-	"github.com/GridCastIO/quicquic-go"
+	quic "github.com/GridCastIO/quicquic-go"
 )
 
 const streamDatagramQueueLen = 32

@@ -15,12 +15,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/quic-go/qpack"
-	"github.com/GridCastIO/quicquic-go"
+	quic "github.com/GridCastIO/quicquic-go"
 	"github.com/GridCastIO/quicquic-go/http3/qlog"
 	"github.com/GridCastIO/quicquic-go/qlogwriter"
 	"github.com/GridCastIO/quicquic-go/quicvarint"
 	"github.com/GridCastIO/quicquic-go/testutils/events"
+	"github.com/quic-go/qpack"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

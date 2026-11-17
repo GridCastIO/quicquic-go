@@ -10,9 +10,9 @@ import (
 	"os"
 	"testing"
 
-	"github.com/quic-go/qpack"
-	"github.com/GridCastIO/quicquic-go"
+	quic "github.com/GridCastIO/quicquic-go"
 	"github.com/GridCastIO/quicquic-go/qlogwriter"
+	"github.com/quic-go/qpack"
 
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"

@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/GridCastIO/quicquic-go"
+	quic "github.com/GridCastIO/quicquic-go"
 	"github.com/GridCastIO/quicquic-go/qlogwriter"
 
 	"github.com/stretchr/testify/assert"

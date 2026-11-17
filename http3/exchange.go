@@ -5,7 +5,7 @@ import (
 	"io"
 	"sync"
 
-	"github.com/GridCastIO/quicquic-go"
+	quic "github.com/GridCastIO/quicquic-go"
 )
 
 // requestLifetime owns one attempt, including setup, the delivered (possibly

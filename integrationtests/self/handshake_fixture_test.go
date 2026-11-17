@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/GridCastIO/quicquic-go"
+	quic "github.com/GridCastIO/quicquic-go"
 )
 
 type configForClientResult struct {

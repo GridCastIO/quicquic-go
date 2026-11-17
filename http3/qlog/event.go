@@ -3,7 +3,7 @@ package qlog
 import (
 	"time"
 
-	"github.com/GridCastIO/quicquic-go"
+	quic "github.com/GridCastIO/quicquic-go"
 	"github.com/GridCastIO/quicquic-go/qlogwriter/jsontext"
 )
 

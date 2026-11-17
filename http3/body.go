@@ -6,7 +6,7 @@ import (
 	"io"
 	"sync"
 
-	"github.com/GridCastIO/quicquic-go"
+	quic "github.com/GridCastIO/quicquic-go"
 )
 
 // Settingser allows waiting for and retrieving the peer's HTTP/3 settings.

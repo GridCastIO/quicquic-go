@@ -7,7 +7,7 @@ import (
 	"flag"
 	"os"
 
-	"github.com/GridCastIO/quicquic-go"
+	quic "github.com/GridCastIO/quicquic-go"
 	"github.com/GridCastIO/quicquic-go/integrationtests/tools"
 	"github.com/GridCastIO/quicquic-go/qlogwriter"
 )

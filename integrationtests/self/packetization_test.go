@@ -11,7 +11,7 @@ import (
 	"testing/synctest"
 	"time"
 
-	"github.com/GridCastIO/quicquic-go"
+	quic "github.com/GridCastIO/quicquic-go"
 	quicproxy "github.com/GridCastIO/quicquic-go/integrationtests/tools/proxy"
 	"github.com/GridCastIO/quicquic-go/internal/protocol"
 	"github.com/GridCastIO/quicquic-go/qlog"

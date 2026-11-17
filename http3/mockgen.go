@@ -6,7 +6,7 @@ import (
 	"context"
 	"net/http"
 
-	"github.com/GridCastIO/quicquic-go"
+	quic "github.com/GridCastIO/quicquic-go"
 )
 
 // Synchronous transport fixtures report completion through their test adapter.

@@ -12,7 +12,7 @@ import (
 	"runtime"
 	"testing"
 
-	"github.com/GridCastIO/quicquic-go"
+	quic "github.com/GridCastIO/quicquic-go"
 	"github.com/GridCastIO/quicquic-go/internal/testdata"
 	"github.com/GridCastIO/quicquic-go/qlogwriter"
 	"github.com/GridCastIO/quicquic-go/qlogwriter/jsontext"

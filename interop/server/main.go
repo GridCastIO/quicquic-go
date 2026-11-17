@@ -8,7 +8,7 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/GridCastIO/quicquic-go"
+	quic "github.com/GridCastIO/quicquic-go"
 	"github.com/GridCastIO/quicquic-go/http3"
 	"github.com/GridCastIO/quicquic-go/internal/qtls"
 	"github.com/GridCastIO/quicquic-go/interop/http09"

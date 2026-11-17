@@ -16,9 +16,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/quic-go/qpack"
-	"github.com/GridCastIO/quicquic-go"
+	quic "github.com/GridCastIO/quicquic-go"
 	"github.com/GridCastIO/quicquic-go/quicvarint"
+	"github.com/quic-go/qpack"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

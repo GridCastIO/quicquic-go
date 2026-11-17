@@ -23,7 +23,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/GridCastIO/quicquic-go"
+	quic "github.com/GridCastIO/quicquic-go"
 	"github.com/GridCastIO/quicquic-go/integrationtests/tools"
 	"github.com/GridCastIO/quicquic-go/internal/handshake"
 	"github.com/GridCastIO/quicquic-go/qlog"

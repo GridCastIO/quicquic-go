@@ -8,7 +8,7 @@ import (
 	"log"
 	"os"
 
-	"github.com/GridCastIO/quicquic-go"
+	quic "github.com/GridCastIO/quicquic-go"
 	h3qlog "github.com/GridCastIO/quicquic-go/http3/qlog"
 	"github.com/GridCastIO/quicquic-go/internal/utils"
 	"github.com/GridCastIO/quicquic-go/qlog"
