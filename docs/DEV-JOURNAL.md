@@ -11590,3 +11590,47 @@ The identity transition is on `main` at the repository's final home, `GridCastIO
 - Pre-publication evidence follows at the release commit, then a stop for Josh's approval of the tag and release notes.
 - Codex's open PR #1295 needs the module-path rewrite before it can merge.
 - [#1111](https://github.com/GridCastIO/quicquic-go/issues/1111) is the live view.
+
+---
+
+## quicquic-go v0.63.0 release commit merged - 2026-11-17 16:30 EST
+
+**Main:** `29e02d690fb1`
+**Actor:** Claude
+
+### Summary
+
+The proposed v0.63.0 release commit is on `main`. [PR #1464](https://github.com/GridCastIO/quicquic-go/pull/1464) merged as `29e02d690fb13ef1e60756bfc5700a07a48d3cfe`, and its tree equals the validated head `bab00985`. It retracts the inherited versions in `go.mod` with `retract [v0.0.0, v0.62.99]` and a rationale comment. It also finalizes the v0.63.0 release record, README, runbook, CHANGELOG and usage wording, and adds the [release plan](https://github.com/GridCastIO/quicquic-go/blob/29e02d690fb13ef1e60756bfc5700a07a48d3cfe/docs/adr/2026-11-17-quicquic-v0.63.0-release-plan.md). No version is tagged; v0.63.0 remains unpublished.
+
+### Completed
+
+- The `go.mod` retraction follows Josh's [retraction decision](https://github.com/GridCastIO/quicquic-go/issues/1111#issuecomment-6953255891). A sentence in the release record notes that untagged-base pseudo-versions fall outside the interval.
+- The README status sentences are publication-neutral, and Josh's [approved README amendment](https://github.com/GridCastIO/quicquic-go/issues/1111#issuecomment-6959380102) adds the "Formerly `the-sarge/quic-go-fast`" and origins paragraphs.
+- The release record now counts eleven inherited tags without `go.mod`: nine canonical versions, plus `v0.4` and `race`. It records the advisory refresh at the candidate: the same eight advisories, with every cited file unchanged.
+- RAS review and replacement review ran with the configured panel and default timeouts. Every finding was resolved by `ras verify` except one: recording the public-proxy Go environment and the `go get …@v0.10.1` exit status, which is deferred to the post-tag checks on #1111. Dispositions are in the PR #1464 body.
+- The branch was collapsed into one tree-identical commit on `main` so that the plan's head-parent merge check holds as written.
+
+### Validation
+
+- Local certification at `bab00985`, Go 1.27.4 on darwin/arm64:
+  - `go mod edit -json` reports exactly one retraction, and `go.sum` is unchanged.
+  - These passed: `go mod tidy -diff` for the root and FIPS modules, `go mod vendor`, generation drift, `go fix`, `gcassert`, build, vet and `go test ./qlogwriter/...`.
+  - golangci-lint v2.14.0 reported 0 issues on six GOOS values. Only the 7 planned paths changed.
+- A tag census over 282 remote tag refs found 140 canonical versions, all inside the interval, and none at or above v0.63.0.
+- A file-proxy simulation under `GOENV=off` showed:
+  - `-versions` hides the retracted versions;
+  - `@latest` resolves to v0.63.0;
+  - the rationale is reported;
+  - release candidates and later versions are not retracted.
+- All 17 hosted checks passed at `bab00985`, and so did the post-ready `independent-peer` run [44179116601](https://github.com/GridCastIO/quicquic-go/actions/runs/44179116601). The multipath evidence carries to the release commit by tree equality.
+
+### Next
+
+- At this entry's timestamp, pre-publication evidence at `29e02d690` comes next:
+  - push runs;
+  - `govulncheck` v1.9.0;
+  - the advisory refresh;
+  - identity and tag-absence checks;
+  - a pre-tag consumer build.
+- After that comes the stop for Josh's approval of the tag and release notes.
+- [#1111](https://github.com/GridCastIO/quicquic-go/issues/1111) is the live view.
