@@ -8,6 +8,8 @@ Based on **quic-go v0.62.0**, retaining its module path and QUIC/HTTP/3 wire com
 
 **Fast.9 and `main` differ:** fast.9 was released from a maintenance branch and excludes the adaptive application-loss thresholds in [#971](https://github.com/the-sarge/quic-go-fast/issues/971). That policy is implemented on `main` but remains unreleased, with no measured performance benefit or consumer qualification claimed. See [release and main selection](docs/usage.md#release-and-main-selection) and [Unreleased](CHANGELOG.md#unreleased).
 
+**Next release in preparation: v0.62.1-fast.10.** The [release inventory](docs/releases/v0.62.1-fast.10.md) covers experimental jumbo, multipath/BBR, recovery and the November correctness/storage improvements. The version is not published yet; installation below continues to use fast.9.
+
 ## Improvements over the v0.62.0 baseline
 
 Shipped capabilities combine fork-specific work and selected upstream fixes. See the [integration guide](docs/usage.md) for API ownership and platform requirements.

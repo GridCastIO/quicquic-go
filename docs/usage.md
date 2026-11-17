@@ -8,7 +8,7 @@ See the [README](../README.md#use-the-fork) for installation, the [published fas
 | --- | --- | --- |
 | `v0.62.1-fast.8` (`8095c72244755f0c1e24f4158253bf09cfbe6e17`) | Eleven-slice bundle, corrected BBR sender and Reno undo; excludes adaptive application-loss thresholds | Published October 23, 2026, with candidate-specific memory, baseline and Linux readiness decisions |
 | `v0.62.1-fast.9` (`0f717339f767df5d2e4091b2515266d61f66e2ac`) | Fast.8 plus the idle path-MTU timer fix only; excludes adaptive application-loss thresholds | Published October 25, 2026, from an approved maintenance branch; inherits fast.8 limitations and adds exact-source timer-fix validation |
-| `main` | Includes the timer fix and adaptive application-loss thresholds (#971) | Development branch; #971 remains unreleased and its proposed performance comparison remains deferred |
+| `main` / fast.10 preparation | Full rollup: experimental jumbo and multipath/BBR, DATAGRAM APIs, adaptive loss thresholds, November correctness and storage improvements | Unpublished development source; see the [fast.10 inventory](releases/v0.62.1-fast.10.md). Historical measurements do not certify this revision |
 
 Use the exact published fast.9 tag for the latest maintenance release. A higher fork prerelease suffix does not imply that all intervening `main` changes are included. Selecting `main` or a pseudo-version requires checking that exact revision's behavior and evidence; fast.8's measurements and advancement exceptions do not transfer automatically. The [#971 implementation closeout](https://github.com/the-sarge/quic-go-fast/issues/971) and [recovery assessment #962](https://github.com/the-sarge/quic-go-fast/issues/962) retain the unmeasured policy and deferred comparison context.
 
