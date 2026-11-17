@@ -11493,3 +11493,26 @@ All 18 applicable hosted checks passed on certified head `fa4431104360d7805eb81e
 ### Next
 
 The product merge records all six audited slices complete and leaves no implementation frontier. S2 has no successor or surviving review follow-up. At the time of this entry, the S2 journal and final mirror reconciliation were the remaining closure steps. [Program tracker #1440](https://github.com/the-sarge/quic-go-fast/issues/1440) is the live coordination view.
+
+---
+
+## Fast.10 release preparation - 2026-11-16 19:48 EST
+
+**Main:** `24d75daf2884`
+**Actor:** Codex
+
+### Completed
+
+Merged [fast.10 release preparation PR #1457](https://github.com/the-sarge/quic-go-fast/pull/1457) as `24d75daf288469e454f55717ec20463eaf87675a`. The changelog and release record cover the full main rollup from fast.9, including experimental jumbo/multipath, DATAGRAM admission, November correctness/storage work, the global 32-to-128 send queue change and qlog positional-literal compatibility. Historical evidence and runtime source are unchanged; installation remains on fast.9 pending publication.
+
+### Validation
+
+Separate Standards/Spec preparation found no issues. Full configured RAS run `20261117T002726-7e7671ffb56811b6c43a6524` found five consolidated documentation corrections, all source-checked and fixed; no follow-ups remain. The existing docs-only policy skipped another review/verify cycle after those corrections. Clean pushed head `43e2fdb90ae4e8fe53b9fdaa362ca8fa3dfd5082` passed relative file-link checks, diff whitespace checks and all 17 applicable hosted jobs before exact-head squash merge. [Review disposition on PR #1457](https://github.com/the-sarge/quic-go-fast/pull/1457#issuecomment-6933899358) retains details.
+
+### Decisions
+
+The owner authorized the updated plan through publication. Consumer performance qualification and independent identity transition remain outside [release #1456](https://github.com/the-sarge/quic-go-fast/issues/1456). Ordinary exact-candidate workflows, a fresh vulnerability scan, separate QUIC/HTTP3 consumer build and immutable-tag verification remain required by the existing runbook.
+
+### Next
+
+Select and certify the main release source, verify the published-tag module, publish the GitHub prerelease after tag checks, and update adoption guidance. [Release #1456](https://github.com/the-sarge/quic-go-fast/issues/1456) is the live state; no fast.10 publication is claimed by this preparation entry.
