@@ -37,7 +37,7 @@ go tool cover -html="/tmp/quic-go-$FUZZ_TARGET.coverprofile"
 
 The `sed` command rewrites the container paths in `fuzz.cov` so that `go tool cover` can locate the source files in the local checkout.
 
-To produce a coverage report against a modified local source tree, mount the local checkout when building the coverage fuzzers, the same way you would for reproducers:
+To produce a coverage report for local changes to upstream quic-go, use your modified upstream checkout as `<local_quic_go_dir>` when building the coverage fuzzers.
 
 ```sh
 python3 infra/helper.py build_fuzzers --sanitizer coverage --mount_path /root/go/src/github.com/quic-go/quic-go quic-go <local_quic_go_dir>
@@ -45,7 +45,7 @@ python3 infra/helper.py build_fuzzers --sanitizer coverage --mount_path /root/go
 
 ## Reproducing an OSS-Fuzz testcase
 
-Download the reproducer file from the OSS-Fuzz report. To test a local fix, rebuild the fuzzers with the modified quic-go checkout mounted at the path expected by `oss-fuzz.sh`:
+Download the reproducer file from the OSS-Fuzz report. To test a local fix, use your modified upstream quic-go checkout as `<local_quic_go_dir>` when rebuilding the fuzzers.
 
 ```sh
 export DOCKER_DEFAULT_PLATFORM=linux/amd64
