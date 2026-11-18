@@ -91,18 +91,3 @@ jobs:
         run: |
           rm -f build/out/quic-go/qpack_decode_fuzzer
           python3 infra/helper.py coverage --no-corpus-download --no-serve quic-go
-      - name: Prepare Codecov coverage
-        working-directory: oss-fuzz
-        run: |
-          sed "s#^/out/src/quic-go/#${GITHUB_WORKSPACE}/#" \
-            build/out/quic-go/fuzz.cov > "$GITHUB_WORKSPACE/clusterfuzz.coverprofile"
-          test -s "$GITHUB_WORKSPACE/clusterfuzz.coverprofile"
-      - name: Upload coverage to Codecov
-        if: ${{ !cancelled() }}
-        uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
-        with:
-          disable_search: true
-          files: clusterfuzz.coverprofile
-          flags: clusterfuzz
-          name: ClusterFuzz fuzzing
-          token: ${{ secrets.CODECOV_TOKEN }}
