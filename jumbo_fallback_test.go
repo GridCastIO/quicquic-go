@@ -489,32 +489,63 @@ func TestJumboFallbackAllProbesLost(t *testing.T) {
 }
 
 func TestJumboFallbackPathChangeCancelsRecovery(t *testing.T) {
-	synctest.Test(t, func(t *testing.T) {
-		c, _, socket, migration := newJumboRefusalPair(t, "reno", "ordinary")
-		synctest.Wait()
-		socket.limit.Store(1500)
-		socket.dropAtOrAbove.Store(1232)
-		require.NoError(t, c.SendDatagram(bytes.Repeat([]byte{'d'}, 7000)))
-		<-c.PathMTUFallbackV1()
-		synctest.Wait()
-		require.NotNil(t, c.mtuFallback.probe)
-		oldGeneration := c.pathGeneration
-		ctx, cancel := context.WithTimeout(t.Context(), time.Second)
-		defer cancel()
-		path, err := c.AddPath(migration)
-		require.NoError(t, err)
-		require.NoError(t, path.Probe(ctx))
-		require.NoError(t, path.Switch())
-		time.Sleep(time.Second)
-		synctest.Wait()
-		require.Greater(t, c.pathGeneration, oldGeneration)
-		require.False(t, c.mtuFallback.active)
-		require.Nil(t, c.mtuFallback.probe)
-		require.Zero(t, c.mtuFallback.lost, "migration loss callbacks aren't recovery verdicts")
-		require.EqualValues(t, 1438, c.mtuFallback.size, "migration doesn't trigger the initial-size fallback")
-		require.LessOrEqual(t, c.maxPacketSize(), protocol.ByteCount(1452))
-		require.NoError(t, c.CloseWithError(0, "done"))
-	})
+	for _, tc := range []struct {
+		name string
+		lost int
+	}{
+		{name: "before first loss", lost: 0},
+		{name: "after one old-path loss", lost: 1},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			synctest.Test(t, func(t *testing.T) {
+				c, _, socket, migration := newJumboRefusalPair(t, "reno", "ordinary")
+				ctx, cancel := context.WithTimeout(t.Context(), time.Second)
+				defer cancel()
+				path, err := c.AddPath(migration)
+				require.NoError(t, err)
+				// Finish validation before starting the recovery probe's clock.
+				require.NoError(t, path.Probe(ctx))
+				synctest.Wait()
+
+				socket.limit.Store(1500)
+				socket.dropAtOrAbove.Store(1232)
+				require.NoError(t, c.SendDatagram(bytes.Repeat([]byte{'d'}, 7000)))
+				<-c.PathMTUFallbackV1()
+				synctest.Wait()
+
+				// Let the run loop record the old-path loss and send its next probe.
+				for until := time.Now().Add(time.Second); c.mtuFallback.lost < tc.lost && time.Now().Before(until); {
+					time.Sleep(time.Millisecond)
+					synctest.Wait()
+				}
+				require.Equal(t, tc.lost, c.mtuFallback.lost)
+				require.True(t, c.mtuFallback.active)
+				require.NotNil(t, c.mtuFallback.probe)
+				deadline := c.mtuFallback.probe.deadline
+				require.True(t, monotime.Now().Before(deadline), "an old-path probe must still be outstanding")
+
+				oldGeneration := c.pathGeneration
+				require.NoError(t, path.Switch())
+				// The run loop applies the switch on its next send attempt.
+				c.scheduleSending()
+				synctest.Wait()
+				require.Greater(t, c.pathGeneration, oldGeneration)
+				require.True(t, monotime.Now().Before(deadline), "the switch must apply before the outstanding probe expires")
+				require.False(t, c.mtuFallback.active)
+				require.Nil(t, c.mtuFallback.probe)
+				require.Equal(t, tc.lost, c.mtuFallback.lost, "the switch must preserve the old-path loss count")
+
+				time.Sleep(deadline.Sub(monotime.Now()) + time.Millisecond)
+				synctest.Wait()
+				require.False(t, c.mtuFallback.active)
+				require.Nil(t, c.mtuFallback.probe)
+				require.Equal(t, tc.lost, c.mtuFallback.lost, "the old-path deadline must not count after the switch")
+				require.EqualValues(t, 1438, c.mtuFallback.size, "migration doesn't trigger the initial-size fallback")
+				require.LessOrEqual(t, c.maxPacketSize(), protocol.ByteCount(1452))
+				require.NoError(t, c.CloseWithError(0, "done"))
+			})
+		})
+	}
 }
 
 func TestJumboFallbackProbeDeadlineAndLaterAck(t *testing.T) {
