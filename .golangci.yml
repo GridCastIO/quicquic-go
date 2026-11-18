@@ -28,7 +28,7 @@ linters:
         quicvarint:
           list-mode: strict
           files:
-            - '${base-path}/quicvarint/*.go'
+            - '**/quicvarint/*.go'
             - '!$test'
           allow:
             - $gostd
@@ -68,6 +68,11 @@ linters:
       - legacy
       - std-error-handling
     rules:
+      # Depguard matches absolute filenames. Keep this list's diagnostics only in the root package directory.
+      - linters:
+          - depguard
+        path-except: '^quicvarint/[^/]+\.go$'
+        text: " is not allowed from list 'quicvarint'$"
       - linters:
           - depguard
         path: internal/qtls
