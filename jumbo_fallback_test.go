@@ -513,11 +513,14 @@ func TestJumboFallbackPathChangeCancelsRecovery(t *testing.T) {
 				<-c.PathMTUFallbackV1()
 				synctest.Wait()
 
-				// Let the run loop record the old-path loss and send its next probe.
-				for until := time.Now().Add(time.Second); c.mtuFallback.lost < tc.lost && time.Now().Before(until); {
+				// The socket observes one dropped probe per attempt. Wait for the
+				// outstanding attempt without repeatedly reading run-loop state.
+				wantDropped := int64(tc.lost + 1)
+				for until := time.Now().Add(time.Second); socket.dropped.Load() < wantDropped && time.Now().Before(until); {
 					time.Sleep(time.Millisecond)
 					synctest.Wait()
 				}
+				require.Equal(t, wantDropped, socket.dropped.Load())
 				require.Equal(t, tc.lost, c.mtuFallback.lost)
 				require.True(t, c.mtuFallback.active)
 				require.NotNil(t, c.mtuFallback.probe)
