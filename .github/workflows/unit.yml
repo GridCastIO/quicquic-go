@@ -94,25 +94,3 @@ jobs:
           path: ${{ runner.temp }}/quic-go-unit/
           if-no-files-found: ignore
           retention-days: 14
-      - name: Upload coverage to Codecov
-        if: ${{ !cancelled() }}
-        uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
-        env:
-          OS: ${{ matrix.os }}
-          GO: ${{ matrix.go }}
-        with:
-          files: coverage.txt,coverage-root.txt
-          env_vars: OS,GO
-          token: ${{ secrets.CODECOV_TOKEN }}
-      - name: Upload test report to Codecov
-        if: ${{ !cancelled() }}
-        uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
-        env:
-          OS: ${{ matrix.os }}
-          GO: ${{ matrix.go }}
-        with:
-          report_type: test_results
-          name: Unit tests
-          files: report.xml,report_root.xml
-          env_vars: OS,GO
-          token: ${{ secrets.CODECOV_TOKEN }}

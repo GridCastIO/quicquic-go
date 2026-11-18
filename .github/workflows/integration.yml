@@ -119,12 +119,3 @@ jobs:
           path: ${{ runner.temp }}/quic-go-http/
           if-no-files-found: ignore
           retention-days: 14
-      - name: Upload report to Codecov
-        if: ${{ !cancelled() && !matrix.race }}
-        uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
-        with:
-          report_type: test_results
-          name: Unit tests
-          files: report_tools.xml,report_versionnegotiation.xml,report_self.xml,report_self_v2.xml,report_self_nogso.xml,report_self_noecn.xml,report_fips.xml
-          env_vars: OS,GO
-          token: ${{ secrets.CODECOV_TOKEN }}

@@ -73,18 +73,3 @@ jobs:
       - name: Generate coverage
         working-directory: oss-fuzz
         run: python3 infra/helper.py coverage --no-corpus-download --no-serve quic-go
-      - name: Prepare Codecov coverage
-        working-directory: oss-fuzz
-        run: |
-          sed "s#^/out/src/quic-go/#${GITHUB_WORKSPACE}/#" \
-            build/out/quic-go/fuzz.cov > "$GITHUB_WORKSPACE/clusterfuzz-lite-batch.coverprofile"
-          test -s "$GITHUB_WORKSPACE/clusterfuzz-lite-batch.coverprofile"
-      - name: Upload coverage to Codecov
-        if: ${{ !cancelled() }}
-        uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
-        with:
-          disable_search: true
-          files: clusterfuzz-lite-batch.coverprofile
-          flags: clusterfuzz-lite-batch
-          name: ClusterFuzzLite batch fuzzing
-          token: ${{ secrets.CODECOV_TOKEN }}
