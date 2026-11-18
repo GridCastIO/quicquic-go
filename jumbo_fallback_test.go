@@ -525,6 +525,7 @@ func TestJumboFallbackPathChangeCancelsRecovery(t *testing.T) {
 				require.True(t, c.mtuFallback.active)
 				require.NotNil(t, c.mtuFallback.probe)
 				deadline := c.mtuFallback.probe.deadline
+				require.NotZero(t, deadline, "the old-path probe must have been sent")
 				require.True(t, monotime.Now().Before(deadline), "an old-path probe must still be outstanding")
 
 				oldGeneration := c.pathGeneration
@@ -538,7 +539,8 @@ func TestJumboFallbackPathChangeCancelsRecovery(t *testing.T) {
 				require.Nil(t, c.mtuFallback.probe)
 				require.Equal(t, tc.lost, c.mtuFallback.lost, "the switch must preserve the old-path loss count")
 
-				time.Sleep(deadline.Sub(monotime.Now()) + time.Millisecond)
+				// Cross the old deadline and give the new path time to probe packet sizes.
+				time.Sleep(max(time.Second, deadline.Sub(monotime.Now())+time.Millisecond))
 				synctest.Wait()
 				require.False(t, c.mtuFallback.active)
 				require.Nil(t, c.mtuFallback.probe)
