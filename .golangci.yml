@@ -28,7 +28,7 @@ linters:
         quicvarint:
           list-mode: strict
           files:
-            - '**/github.com/GridCastIO/quicquic-go/quicvarint/*'
+            - '${base-path}/quicvarint/*.go'
             - '!$test'
           allow:
             - $gostd
