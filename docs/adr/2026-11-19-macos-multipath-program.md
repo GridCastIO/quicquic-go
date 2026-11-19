@@ -10,12 +10,12 @@ Package the owner-approved macOS profile from [planning issue #1396](https://git
 
 | Track | Plan | Parent issue | Size | Current frontier | State |
 | --- | --- | --- | --- | --- | --- |
-| MP-MAC — Native macOS multipath | [Implementation plan](2026-11-19-macos-multipath-implementation-plan.md) | pending | 11 slices / intended PRs | E2, E3, P2, C2, C4 | Readiness in progress |
+| MP-MAC — Native macOS multipath | [Implementation plan](2026-11-19-macos-multipath-implementation-plan.md) | pending | 11 slices / intended PRs | E3, P2, C2, C4 | Readiness in progress |
 
 | Slice | Blocked by | State |
 | --- | --- | --- |
 | E1 — Granted scalar fixture | None | COMPLETE ([PR #1498](https://github.com/GridCastIO/quicquic-go/pull/1498)) |
-| E2 — Blocked-writer lifecycle fixture | E1 | FRONTIER |
+| E2 — Blocked-writer lifecycle fixture | E1 | COMPLETE ([PR #1533](https://github.com/GridCastIO/quicquic-go/pull/1533)) |
 | E3 — Contention/pressure fixture | E1 | FRONTIER |
 | P1 — Native pinned peer and ordinary control | None | COMPLETE ([PR #1499](https://github.com/GridCastIO/quicquic-go/pull/1499)) |
 | P2 — Fresh aggregate ingress witness | None | FRONTIER |
