@@ -1197,6 +1197,7 @@ class PowermetricsTests(unittest.TestCase):
         self.assertIn("a password is required", activity["reason"])
         self.assertEqual(activity["exit"], 1)
         self.assertTrue(activity["joined"])
+        self.assertConfirmedRecord(activity, Path(temporary))
 
     def test_sampler_output_is_preserved_and_parsed(self):
         with tempfile.TemporaryDirectory() as temporary:
@@ -1214,6 +1215,14 @@ class PowermetricsTests(unittest.TestCase):
             self.assertEqual((root / "host.plist").read_bytes(), FIXTURE.read_bytes())
             self.assertEqual(activity["raw_sha256"], hashlib.sha256(FIXTURE.read_bytes()).hexdigest())
             self.assertTrue(activity["joined"])
+            self.assertConfirmedRecord(activity, root)
+
+    def assertConfirmedRecord(self, activity, root):
+        """A confirmed stop keeps its digest on host.plist and writes no snapshot."""
+        self.assertEqual(activity["raw_path"], str(root / "host.plist"))
+        self.assertNotIn("live_raw_path", activity)
+        self.assertNotIn("live_raw_note", activity)
+        self.assertFalse((root / "host.snapshot.plist").exists())
 
     def test_missing_sampler_is_unavailable(self):
         with tempfile.TemporaryDirectory() as temporary:
@@ -1331,6 +1340,55 @@ class PowermetricsTests(unittest.TestCase):
             self.assertEqual(activity["status"], "unavailable")
             self.assertIn("not confirmed stopped", activity["reason"])
             self.assertFalse(activity["joined"])
+            self.assertIsNone(sampler.process.poll(), "the sampler was left running")
+            self.assertFalse((root / "signals.txt").exists(), "the driver sent the sampler no signal")
+
+    def test_unconfirmed_stop_retains_a_snapshot_its_digest_describes(self):
+        """A sampler still writing after the bounded wait keeps host.plist as its stdout, so
+        the record's digest describes a snapshot of the bytes read, and the live file is
+        named apart, never replaced."""
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            script = textwrap.dedent(f"""
+                import signal, sys, time
+                from pathlib import Path
+                def note(number, frame):
+                    with (Path({str(root)!r}) / "signals.txt").open("a") as file:
+                        file.write(str(number) + "\\n")
+                for number in (signal.SIGTERM, signal.SIGINT, signal.SIGHUP):
+                    signal.signal(number, note)
+                for _ in range(600):  # never reads standard input; keeps appending
+                    sys.stdout.buffer.write(b"chunk"); sys.stdout.flush()
+                    time.sleep(0.1)
+            """)
+            with mock.patch.object(driver, "SAMPLER_STOP_S", 0.3):
+                sampler = driver.HostSampler([sys.executable, "-c", script], root)
+                sampler.start()
+                self.addCleanup(lambda: sampler.process.poll() is None and (sampler.process.kill(), sampler.process.wait()))
+                live = root / "host.plist"
+                inode = live.stat().st_ino
+                launched = sampler.started
+                time.sleep(0.5)
+                activity = sampler.finish(launched + 0.1, launched + 0.2)
+            snapshot = root / "host.snapshot.plist"
+            self.assertEqual(activity["status"], "unavailable")
+            self.assertIn("not confirmed stopped", activity["reason"])
+            self.assertFalse(activity["joined"])
+            self.assertEqual(activity["raw_path"], str(snapshot))
+            self.assertEqual(activity["live_raw_path"], str(live))
+            self.assertIn("may still", activity["live_raw_note"])
+            retained = snapshot.read_bytes()
+            self.assertGreater(len(retained), 0)
+            self.assertEqual(activity["raw_bytes"], len(retained))
+            self.assertEqual(activity["raw_sha256"], hashlib.sha256(retained).hexdigest())
+            deadline = time.monotonic() + 10
+            while live.stat().st_size <= len(retained):
+                self.assertLess(time.monotonic(), deadline, "the live file never grew past the snapshot")
+                time.sleep(0.05)
+            self.assertEqual(snapshot.read_bytes(), retained, "the snapshot is not rewritten")
+            self.assertEqual(activity["raw_sha256"], hashlib.sha256(snapshot.read_bytes()).hexdigest())
+            self.assertTrue(live.read_bytes().startswith(retained), "the snapshot holds the bytes read from the live file")
+            self.assertEqual(live.stat().st_ino, inode, "the live file was not replaced or renamed")
             self.assertIsNone(sampler.process.poll(), "the sampler was left running")
             self.assertFalse((root / "signals.txt").exists(), "the driver sent the sampler no signal")
 
