@@ -528,7 +528,7 @@ func (o nativeDarwinObservation) requireSettled(t *testing.T) {
 	require.Zero(t, o.owned, "producer-owned buffers outstanding")
 	require.Equal(t, [2]int{}, o.endpointCap, "records and bytes still charged after the join")
 	require.Len(t, o.producers, o.load.participants)
-	writes := 0
+	writes, admitted := 0, 0
 	for _, producer := range o.producers {
 		for i, lane := range producer.lanes {
 			name := nativeDarwinLaneNames[i]
@@ -536,9 +536,13 @@ func (o nativeDarwinObservation) requireSettled(t *testing.T) {
 			require.Equal(t, lane.admitted, lane.results+lane.withdrawn, name)
 			require.Equal(t, lane.results*o.load.members, lane.accepted+lane.uncertain+lane.unsubmitted, name)
 			writes += lane.accepted + lane.uncertain
+			admitted += lane.admitted
 		}
 	}
 	require.GreaterOrEqual(t, o.writer.writes, writes, "every accepted or uncertain datagram had a native write")
+	// The producer's members are scalar datagrams with no write state, so neither a
+	// first-send retry nor segmentation applies: at most one write per admitted member.
+	require.LessOrEqual(t, o.writer.writes, admitted*o.load.members, "more native writes than admitted members")
 }
 
 // nativeDarwinGatedIO is the synthetic native side: each write waits for a permit

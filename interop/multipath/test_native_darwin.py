@@ -2,6 +2,7 @@ import importlib.util
 import json
 import os
 from pathlib import Path
+import re
 import subprocess
 import sys
 import tempfile
@@ -35,7 +36,12 @@ def family_facts(name):
     }
 
 
-def contention_facts(participants=2, requests=3, members=2):
+# D7's approved pressure load, which socket-pressure readback pins.
+PARTICIPANTS, REQUESTS, MEMBERS = 16, 64, 32
+WRITES = PARTICIPANTS * len(runner.LANES) * REQUESTS * MEMBERS
+
+
+def contention_facts(participants=PARTICIPANTS, requests=REQUESTS, members=MEMBERS):
     """A complete observation, as the Go fixture records one, with no pressure wait."""
     lanes = []
     for participant in range(participants):
@@ -47,7 +53,7 @@ def contention_facts(participants=2, requests=3, members=2):
             })
     return {
         "status": "complete", "pressure_wait": "not-observed", "fault": "none", "unfinished_participants": 0, "diagnostics_dropped": 0,
-        "load": {"participants": participants, "requests": requests, "members": members, "payload": 1200, "budget_ms": 1000, "window_ms": 10000},
+        "load": {"participants": participants, "requests": requests, "members": members, "payload": 1200, "budget_ms": 1000, "window_ms": 20000},
         "writer": {
             "writes": participants * 3 * requests * members, "max_write_ns": 60000, "long_writes": 0, "deadline_waits": 0,
             "errors": {name: 0 for name in runner.ERROR_CLASSES},
@@ -146,7 +152,7 @@ class ContentionTests(unittest.TestCase):
                 self.check(contention_facts(), name)
 
     def test_lane_accounting_must_add_up(self):
-        for key, value in (("offers", 4), ("refused", 3), ("withdrawn", 1), ("accepted", 5), ("failed", 4), ("admitted", 4), ("occupancy_max", 4), ("occupancy_max", 0)):
+        for key, value in (("offers", 4), ("refused", 3), ("withdrawn", 1), ("accepted", 5), ("failed", REQUESTS + 1), ("admitted", 4), ("occupancy_max", REQUESTS + 1), ("occupancy_max", 0)):
             facts = contention_facts()
             facts["lanes"][1][key] = value
             with self.subTest(key=key), self.assertRaisesRegex(ValueError, "lane 1"):
@@ -170,7 +176,7 @@ class ContentionTests(unittest.TestCase):
                 self.check(facts, "socket-pressure")
 
     def test_writer_observations_must_agree(self):
-        for key, value in (("writes", 1), ("deadline_waits", 1), ("long_writes", 100)):
+        for key, value in (("writes", 1), ("deadline_waits", 1), ("long_writes", WRITES + 1)):
             facts = contention_facts()
             facts["writer"][key] = value
             with self.subTest(key=key), self.assertRaisesRegex(ValueError, "writ"):
@@ -180,12 +186,12 @@ class ContentionTests(unittest.TestCase):
         # An observed wait stands in any status.
         observed = contention_facts()
         observed["writer"]["errors"]["deadline"] = observed["writer"]["deadline_waits"] = 1
-        observed["lanes"][0].update(accepted=5, uncertain=1, failed=1)
+        observed["lanes"][0].update(accepted=REQUESTS * MEMBERS - 1, uncertain=1, failed=1)
         observed["pressure_wait"] = "observed"
         self.check(observed, "socket-pressure")
         # A wait whose timeout shows in no failed result contradicts the outcomes.
         hidden = {**observed, "lanes": [dict(lane) for lane in observed["lanes"]]}
-        hidden["lanes"][0].update(accepted=6, uncertain=0, failed=0)
+        hidden["lanes"][0].update(accepted=REQUESTS * MEMBERS, uncertain=0, failed=0)
         with self.assertRaisesRegex(ValueError, "pressure wait"):
             self.check(hidden, "socket-pressure")
         # A load that didn't finish in its window, or whose endpoint faulted, is
@@ -196,7 +202,7 @@ class ContentionTests(unittest.TestCase):
                 self.check(late, "socket-pressure")
             self.check({**late, "status": "interrupted", "pressure_wait": "unknown"}, "socket-pressure")
         with self.assertRaisesRegex(ValueError, "unfinished"):
-            self.check({**contention_facts(), "unfinished_participants": 3, "status": "interrupted", "pressure_wait": "unknown"}, "socket-pressure")
+            self.check({**contention_facts(), "unfinished_participants": PARTICIPANTS + 1, "status": "interrupted", "pressure_wait": "unknown"}, "socket-pressure")
         # A dropped diagnostic or a lagging sink is missing coverage: no negative claim.
         dropped = contention_facts()
         dropped.update(diagnostics_dropped=3, status="incomplete-coverage", pressure_wait="unknown")
@@ -207,7 +213,7 @@ class ContentionTests(unittest.TestCase):
         self.check(lagging, "socket-pressure")
         # An interrupted load withdrew or never offered some requests.
         interrupted = contention_facts()
-        interrupted["lanes"][3].update(results=2, withdrawn=1, accepted=4, diagnostics=2)
+        interrupted["lanes"][3].update(results=REQUESTS - 1, withdrawn=1, accepted=(REQUESTS - 1) * MEMBERS, diagnostics=REQUESTS - 1)
         interrupted.update(status="interrupted", pressure_wait="unknown", unfinished_participants=1)
         self.check(interrupted, "socket-pressure")
         for facts, status, pressure in ((dropped, "incomplete-coverage", "not-observed"), (interrupted, "complete", "unknown"), (observed, "complete", "not-observed")):
@@ -217,15 +223,100 @@ class ContentionTests(unittest.TestCase):
 
     def test_development_case_needs_complete_progress(self):
         interrupted = contention_facts()
-        interrupted["lanes"][3].update(results=2, withdrawn=1, accepted=4, diagnostics=2)
+        interrupted["lanes"][3].update(results=REQUESTS - 1, withdrawn=1, accepted=(REQUESTS - 1) * MEMBERS, diagnostics=REQUESTS - 1)
         interrupted.update(status="interrupted", pressure_wait="unknown")
         faulted = {**contention_facts(), "fault": "overdue", "status": "interrupted", "pressure_wait": "unknown"}
         stalled = contention_facts()
-        stalled["lanes"][2].update(accepted=0, unsubmitted=6, failed=3)
+        stalled["lanes"][2].update(accepted=0, unsubmitted=REQUESTS * MEMBERS, failed=REQUESTS)
         for name, facts in (("interrupted", interrupted), ("faulted", faulted), ("stalled", stalled)):
             self.check(facts, "socket-pressure")
             with self.subTest(name=name), self.assertRaisesRegex(ValueError, "development case"):
                 self.check(facts)
+
+
+class PressureLoadTests(unittest.TestCase):
+    """MP-MAC #1564: socket-pressure readback pins D7's load and every contention
+    record bounds the writer's native calls by its admitted members."""
+
+    def deviations(self):
+        for field in runner.LOAD_FIELDS:
+            facts = contention_facts()
+            facts["load"][field] += 1
+            yield field, facts
+
+    def test_only_the_d7_load_is_a_pressure_record(self):
+        runner.check_record("socket-pressure", IDENTITY, record_for("socket-pressure"), PRESSURE)
+        for field, facts in self.deviations():
+            with self.subTest(field=field), self.assertRaisesRegex(ValueError, "not the D7 load"):
+                runner.check_record("socket-pressure", IDENTITY, record_for("socket-pressure", facts=facts), PRESSURE)
+        # The scalar development case keeps its own load, which the pin never reads.
+        scalar = contention_facts(participants=3, requests=8, members=2)
+        scalar["load"]["window_ms"] = 10000
+        runner.check_record("scalar-contention", IDENTITY, record_for("scalar-contention", facts=scalar))
+        with self.assertRaisesRegex(ValueError, "not the D7 load"):
+            runner.check_record("socket-pressure", IDENTITY, record_for("socket-pressure", facts=scalar), PRESSURE)
+
+    def test_readback_pins_the_d7_load(self):
+        approved = ResultsTests.results(self, PRESSURE)
+        runner.validate_results(approved, "pressure")
+        for field, facts in self.deviations():
+            results = ResultsTests.results(self, PRESSURE)
+            results["instances"][0]["record"] = record_for("socket-pressure", facts=facts)
+            with self.subTest(field=field), self.assertRaisesRegex(ValueError, "not the D7 load"):
+                runner.validate_results(results, "pressure")
+
+    def test_a_run_refuses_another_load(self):
+        output = f"=== RUN   {PRESSURE.test}/socket-pressure\n--- PASS: {PRESSURE.test} (20.00s)\n    --- PASS: {PRESSURE.test}/socket-pressure (20.00s)\nPASS\n"
+        records = [("approved", record_for("socket-pressure"))]
+        records += [(field, record_for("socket-pressure", facts=facts)) for field, facts in self.deviations()]
+        for field, record in records:
+            with self.subTest(field=field):
+                directory = tempfile.TemporaryDirectory()
+                self.addCleanup(directory.cleanup)
+                body = f"json.dump({record!r}, open(os.environ['{runner.RECORD_ENV}'], 'w'))\nprint({output!r})"
+                binary = fake_binary(directory.name, body)
+                instance, failure = runner.run_case(binary, "socket-pressure", Path(directory.name) / "out", IDENTITY, 10, PRESSURE)
+                if field == "approved":
+                    self.assertIsNone(failure)
+                    self.assertEqual(record, instance["record"])
+                else:
+                    self.assertRegex(failure, "not the D7 load")
+
+    def test_writes_are_bounded_by_admitted_members(self):
+        for name in runner.CONTENTION_CASES:
+            profile = PRESSURE if name == "socket-pressure" else runner.SCALAR
+            at = contention_facts()
+            self.assertEqual(WRITES, at["writer"]["writes"])
+            runner.check_record(name, IDENTITY, record_for(name, facts=at), profile)
+            above = contention_facts()
+            above["writer"]["writes"] = WRITES + 1
+            with self.subTest(name=name), self.assertRaisesRegex(ValueError, f"{WRITES + 1} native writes exceed the {WRITES} admitted members"):
+                runner.check_record(name, IDENTITY, record_for(name, facts=above), profile)
+        # An interrupted load that admitted one request fewer has a smaller bound.
+        short = contention_facts()
+        short["lanes"][3].update(offers=REQUESTS + 1, admitted=REQUESTS - 1, results=REQUESTS - 1, accepted=(REQUESTS - 1) * MEMBERS, diagnostics=REQUESTS - 1)
+        short.update(status="interrupted", pressure_wait="unknown")
+        short["writer"]["writes"] = WRITES - MEMBERS
+        runner.check_record("socket-pressure", IDENTITY, record_for("socket-pressure", facts=short), PRESSURE)
+        short["writer"]["writes"] = WRITES - MEMBERS + 1
+        with self.assertRaisesRegex(ValueError, "exceed"):
+            runner.check_record("socket-pressure", IDENTITY, record_for("socket-pressure", facts=short), PRESSURE)
+
+    def test_the_pin_is_the_go_fixtures_load(self):
+        root = Path(__file__).resolve().parents[2]
+        source = (root / "native_darwin_pressure_test.go").read_text()
+        match = re.search(
+            r"var nativeDarwinPressureLoad = nativeDarwinLoad\{\s*participants: (\d+), requests: (\d+), members: endpointBatch, payload: (\d+), budget: time\.Second, window: (\d+) \* time\.Second,\s*\}",
+            source,
+        )
+        self.assertIsNotNone(match, "nativeDarwinPressureLoad changed shape; re-derive the D7 pin")
+        batch = re.search(r"^\s*endpointBatch\s*=\s*(\d+)$", (root / "native_endpoint.go").read_text(), re.MULTILINE)
+        self.assertIsNotNone(batch)
+        participants, requests, payload, window = map(int, match.groups())
+        go = {"participants": participants, "requests": requests, "members": int(batch.group(1)), "payload": payload, "budget_ms": 1000, "window_ms": window * 1000}
+        self.assertEqual(go, runner.PRESSURE_LOAD)
+        self.assertEqual(WRITES, runner.PRESSURE_LOAD["participants"] * len(runner.LANES) * runner.PRESSURE_LOAD["requests"] * runner.PRESSURE_LOAD["members"])
+        self.assertEqual(98304, WRITES, "D7: at most 98,304 writes")
 
 
 class AccountingTests(unittest.TestCase):
@@ -539,6 +630,7 @@ class ResultsTests(unittest.TestCase):
 
 
 BLOCKED = runner.PROFILES["blocked-writer"]
+EXPIRED = "expired-before-dispatch-successor"
 TRIGGER = {
     "evidence": "native-traversal", "send_buffer": 4096, "control_bytes": 12, "payload_bytes": 4096, "positive_control": "ECT(0)", "poller_witness": True,
     "injected": 0, "traced": False, "result": "deadline-exceeded", "uncertain": 1, "native_return_after_deadline_ms": 0.41,
@@ -557,6 +649,13 @@ BLOCKED_FACTS = {
     "scalar-emsgsize": {
         "evidence": "native-size-feedback", "send_buffer": 4096, "payload_bytes": 4097, "errno": "EMSGSIZE", "unsubmitted": 1,
         "backpressure": False, "injected": 0, "successor_delivered": True, "faulted": False,
+    },
+    "expired-before-dispatch-successor": {
+        "evidence": "expired-claim-unsubmitted", "positive_control": "ECT(0)", "expired_claim": 1, "expired_registration": 2,
+        "expired_during": "deadline-setup", "expired_native_calls": 0, "expired_deadline_preserved": True, "expired_deadline_reset": True,
+        "expired_result": "deadline-exceeded", "expired_accepted": 0, "expired_uncertain": 0, "expired_unsubmitted": 1,
+        "successor_claim": 2, "successor_registration": 3, "successor_native_calls": 1, "successor_deadline_preserved": True,
+        "successor_accepted": 1, "successor_delivered": True, "injected": 0, "traced": False, "faulted": False,
     },
     "eagain-to-deadline": {**CLAIM, "publication_ms": 0.02, "successor_deadline_preserved": True, "successor_delivered": True, "faulted": False},
     "queued-expiry": {
@@ -594,6 +693,11 @@ class BlockedWriterProfileTests(unittest.TestCase):
 
     def test_each_case_once_per_profile(self):
         runner.check_accounting(list(BLOCKED.cases), BLOCKED)
+        self.assertEqual(7, len(BLOCKED.cases), "D15 A: X2 expects seven cases")
+        with self.assertRaisesRegex(ValueError, "missing.*expired-before-dispatch-successor"):
+            runner.check_accounting([name for name in BLOCKED.cases if name != EXPIRED], BLOCKED)
+        with self.assertRaisesRegex(ValueError, "duplicate.*expired-before-dispatch-successor"):
+            runner.check_accounting([*BLOCKED.cases, EXPIRED], BLOCKED)
         with self.assertRaisesRegex(ValueError, "missing.*active-close-join"):
             runner.check_accounting(list(BLOCKED.cases[:-1]), BLOCKED)
         with self.assertRaisesRegex(ValueError, "unknown.*ipv4"):
@@ -619,7 +723,9 @@ class BlockedWriterClassificationTests(unittest.TestCase):
                 self.refused(name, "poller_witness", poller_witness=False)
 
     def test_expiry_before_dispatch_is_not_a_blocked_native_call(self):
-        self.refused("eagain-to-deadline", "expired-before-dispatch is not native traversal", evidence="expired-before-dispatch")
+        for name in runner.TRAVERSAL_CASES:
+            with self.subTest(name=name):
+                self.refused(name, "expired-before-dispatch is not native traversal", evidence="expired-before-dispatch")
         self.refused("queued-expiry", "native_calls", native_calls=0)
 
     def test_a_missing_native_return_is_refused(self):
@@ -675,6 +781,53 @@ class BlockedWriterClassificationTests(unittest.TestCase):
                     runner.check_record("queued-expiry", IDENTITY, record, BLOCKED)
 
 
+class BlockedWriterExpiredClaimTests(unittest.TestCase):
+    """MP-MAC #1571 (D15 A): the expired claim and its successor."""
+
+    def refused(self, pattern, **changes):
+        with self.assertRaisesRegex(ValueError, pattern):
+            runner.check_record(EXPIRED, IDENTITY, blocked_record(EXPIRED, **changes), BLOCKED)
+
+    def test_the_expired_claim_made_no_native_call(self):
+        self.refused("expired_native_calls", expired_native_calls=1)
+
+    def test_nothing_was_injected_or_traced(self):
+        self.refused("injected", injected=1)
+        self.refused("traced", traced=True)
+
+    def test_the_expired_claim_submitted_nothing(self):
+        self.refused("expired_accepted", expired_accepted=1)
+        self.refused("expired_uncertain", expired_uncertain=1)
+        self.refused("expired_unsubmitted", expired_unsubmitted=0)
+        self.refused("expired_result", expired_result="accepted")
+
+    def test_the_successor_was_delivered_natively(self):
+        self.refused("successor_delivered", successor_delivered=False)
+        self.refused("successor_native_calls", successor_native_calls=0)
+        self.refused("successor_accepted", successor_accepted=0)
+        record = blocked_record(EXPIRED)
+        del record["facts"]["successor_delivered"]
+        with self.assertRaisesRegex(ValueError, f"{EXPIRED}: facts"):
+            runner.check_record(EXPIRED, IDENTITY, record, BLOCKED)
+
+    def test_the_failure_class_is_refused(self):
+        self.refused("'expired-before-dispatch' is not the expired claim's own class", evidence="expired-before-dispatch")
+        self.refused("'native-traversal' is not the expired claim's own class", evidence="native-traversal")
+        self.refused("not a class name", evidence=None)
+
+    def test_both_claims_are_identified(self):
+        self.refused("expired_claim", expired_claim=2)
+        self.refused("successor_claim", successor_claim=1)
+        self.refused("expired_registration", expired_registration=3)
+        self.refused("expired_during", expired_during="claim")
+        self.refused("expired_deadline_reset", expired_deadline_reset=False)
+
+    def test_no_poller_fields(self):
+        for fact, value in (("poller_witness", True), ("native_return_after_deadline_ms", 0.4)):
+            with self.subTest(fact=fact):
+                self.refused(f"{EXPIRED}: facts", **{fact: value})
+
+
 class BlockedWriterRunCaseTests(unittest.TestCase):
     def test_interrupted_observation_is_killed_and_claims_nothing(self):
         directory = tempfile.TemporaryDirectory()
@@ -712,8 +865,13 @@ class BlockedWriterResultsTests(unittest.TestCase):
         results["status"]["cases"] = len(BLOCKED.cases)
         return results
 
+    def instance(self, results, name):
+        return next(instance for instance in results["instances"] if instance["case"] == name)
+
     def test_readback_accepts_a_complete_run(self):
-        runner.validate_results(self.results())
+        results = self.results()
+        self.assertEqual(7, len(results["instances"]))
+        runner.validate_results(results)
 
     def test_readback_binds_the_profile(self):
         untagged = self.results()
@@ -725,9 +883,9 @@ class BlockedWriterResultsTests(unittest.TestCase):
         unstated = self.results()
         del unstated["profile"]
         unwitnessed = self.results()
-        unwitnessed["instances"][3]["record"]["facts"]["evidence"] = "no-witness"
+        self.instance(unwitnessed, "eagain-to-deadline")["record"]["facts"]["evidence"] = "no-witness"
         other_selector = self.results()
-        other_selector["instances"][4]["command"] = runner.command_for("native-darwin.test", "active-close-join", BLOCKED)
+        self.instance(other_selector, "queued-expiry")["command"] = runner.command_for("native-darwin.test", "active-close-join", BLOCKED)
         no_command = self.results()
         no_command["instances"][0]["command"] = []
         cases = (("untagged", untagged), ("scalar", scalar), ("unknown", unknown), ("unstated", unstated), ("unwitnessed", unwitnessed), ("other selector", other_selector), ("no command", no_command))

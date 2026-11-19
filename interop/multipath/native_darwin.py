@@ -75,6 +75,12 @@ def is_send_buffer(value):
 # their evidence class names what was native. Each traversal case reuses one current
 # write that waited in the Go poller, and its record must say so consistently.
 BLOCKED_TEST = "TestNativeDarwinBlockedWriter"
+# The protocol's D15 A case (#1571): a claim whose deadline passed in its deadline
+# setup, before any native call, and a natively delivered successor claim. The
+# expired claim has its own success class; expired-before-dispatch stays the
+# traversal cases' failure class.
+EXPIRED_CASE = "expired-before-dispatch-successor"
+EXPIRED_CLASS = "expired-claim-unsubmitted"
 # The observation classes the fixture can record; only native-traversal is evidence.
 TRAVERSAL_CLASSES = {"expired-before-dispatch", "stale-deadline", "missing-native-return", "reset-failure", "simulated", "no-witness", "native-traversal"}
 TRIGGER_FACTS = {
@@ -100,6 +106,13 @@ BLOCKED_FACTS = {
     "scalar-emsgsize": {
         "evidence": "native-size-feedback", "send_buffer": is_send_buffer, "payload_bytes": is_count, "errno": "EMSGSIZE",
         "unsubmitted": 1, "backpressure": False, "injected": 0, "successor_delivered": True, "faulted": False,
+    },
+    EXPIRED_CASE: {
+        "evidence": EXPIRED_CLASS, "positive_control": "ECT(0)", "expired_claim": 1, "expired_registration": 2,
+        "expired_during": "deadline-setup", "expired_native_calls": 0, "expired_deadline_preserved": True, "expired_deadline_reset": True,
+        "expired_result": "deadline-exceeded", "expired_accepted": 0, "expired_uncertain": 0, "expired_unsubmitted": 1,
+        "successor_claim": 2, "successor_registration": 3, "successor_native_calls": 1, "successor_deadline_preserved": True,
+        "successor_accepted": 1, "successor_delivered": True, "injected": 0, "traced": False, "faulted": False,
     },
     "eagain-to-deadline": {
         **RECORDED_CLAIM_FACTS, "publication_ms": is_ms, "successor_deadline_preserved": True,
@@ -209,6 +222,8 @@ def check_blocked_facts(name, facts):
     if name in TRAVERSAL_CASES and evidence != "native-traversal":
         kind = evidence if evidence in TRAVERSAL_CLASSES else f"unknown class {evidence!r}"
         raise ValueError(f"{name}: {kind} is not native traversal evidence")
+    if name == EXPIRED_CASE and evidence != EXPIRED_CLASS:
+        raise ValueError(f"{name}: {evidence!r} is not the expired claim's own class {EXPIRED_CLASS!r}")
     for key, expected in BLOCKED_FACTS[name].items():
         value = facts[key]
         if callable(expected):
@@ -227,6 +242,9 @@ def check_blocked_facts(name, facts):
 
 CONTENTION_FACTS = {"status", "pressure_wait", "fault", "unfinished_participants", "diagnostics_dropped", "load", "writer", "lanes", "participant_occupancy_max"}
 LOAD_FIELDS = ("participants", "requests", "members", "payload", "budget_ms", "window_ms")
+# The protocol's D7 load (#1564): the merged nativeDarwinPressureLoad, at most 98,304
+# native writes. A socket-pressure record must carry exactly this load.
+PRESSURE_LOAD = {"participants": 16, "requests": 64, "members": 32, "payload": 1200, "budget_ms": 1000, "window_ms": 20000}
 ERROR_CLASSES = ("enobufs", "eagain", "emsgsize", "deadline", "other")
 WRITER_FIELDS = ("writes", "max_write_ns", "long_writes", "deadline_waits")
 LANES = ("path0", "path1", "control")
@@ -268,6 +286,8 @@ def check_contention_facts(name, facts):
     check_counts(name, "load", load, LOAD_FIELDS)
     if min(load["participants"], load["requests"], load["members"], load["payload"]) == 0:
         raise ValueError(f"{name}: load {load!r} offers nothing")
+    if name == "socket-pressure" and load != PRESSURE_LOAD:
+        raise ValueError(f"{name}: load {load!r} is not the D7 load {PRESSURE_LOAD!r}")
     check_counts(name, "writer", writer, WRITER_FIELDS, ("errors",))
     check_counts(name, "writer errors", writer["errors"], ERROR_CLASSES)
     for key in ("diagnostics_dropped", "unfinished_participants"):
@@ -297,6 +317,11 @@ def check_contention_facts(name, facts):
         raise ValueError(f"{name}: participant_occupancy_max is not one count per participant")
     if writer["writes"] < sum(lane["accepted"] + lane["uncertain"] for lane in lanes):
         raise ValueError(f"{name}: fewer native writes than accepted or uncertain datagrams")
+    # Each producer member is one scalar datagram with no write state, so the writer
+    # makes at most one native call per admitted member: no first-send retry, no segments.
+    admitted = sum(lane["admitted"] for lane in lanes) * load["members"]
+    if writer["writes"] > admitted:
+        raise ValueError(f"{name}: {writer['writes']} native writes exceed the {admitted} admitted members")
     if sum(writer["errors"].values()) > writer["writes"] or writer["long_writes"] > writer["writes"] or writer["deadline_waits"] > writer["errors"]["deadline"]:
         raise ValueError(f"{name}: writer observations contradict each other: {writer!r}")
     # A pressure wait is a native timeout, which the endpoint reports as an uncertain
