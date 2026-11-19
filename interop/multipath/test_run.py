@@ -343,6 +343,10 @@ class NativeProfileTests(unittest.TestCase):
                 (root / receipt / "result.json").write_text(json.dumps(data | {"identity": data["identity"] | {"candidate": "x", "tree": 1}}))
             with self.assertRaisesRegex(ValueError, "malformed"):
                 runner.check_native(root)
+            for receipt, data in (("ordinary-control", control), ("matrix-discovery", discovery)):
+                (root / receipt / "result.json").write_text(json.dumps(data | {"identity": data["identity"] | {"go": "go version go darwin/arm64"}}))
+            with self.assertRaisesRegex(ValueError, "malformed"):
+                runner.check_native(root)
             (root / "matrix-discovery" / "result.json").unlink()
             with self.assertRaisesRegex(ValueError, "missing"):
                 runner.check_native(root)

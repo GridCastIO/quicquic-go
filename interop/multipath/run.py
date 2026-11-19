@@ -8,6 +8,7 @@ import json
 import os
 from pathlib import Path
 import platform
+import re
 import shutil
 import signal
 import subprocess
@@ -150,6 +151,7 @@ def read_record(path, schema, where):
 
 
 SHA256 = hex_text(64)
+GO_RELEASE = re.compile(r"go version go\d+\.\d+(?:\.\d+)?(?:(?:rc|beta)\d+)?(?: X:\S+)? darwin/arm64")
 BUILD_IDENTITY_SCHEMA = {
     "version": exactly(1), "profile": exactly(NATIVE_PROFILE),
     "platform": {"system": text, "machine": text, "release": text, "macos": text},
@@ -163,7 +165,7 @@ BUILD_IDENTITY_SCHEMA = {
 }
 NATIVE_IDENTITY_SCHEMA = {
     "candidate": hex_text(40), "tree": hex_text(40),
-    "go": lambda value: text(value) and value.startswith("go version go") and value.endswith(" darwin/arm64"),
+    "go": lambda value: text(value) and GO_RELEASE.fullmatch(value) is not None,
     "kernel": {"system": exactly("Darwin"), "release": text, "version": text, "machine": exactly("arm64")},
     "build_identity_sha256": SHA256, "runner_sha256": SHA256, "peer_driver_sha256": SHA256, "test_binary_sha256": SHA256,
 }
