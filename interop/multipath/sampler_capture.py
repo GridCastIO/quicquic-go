@@ -25,14 +25,15 @@ KEPT_KEYS = ("hw_model", "kern_osversion")  # identity the recorded fixture alre
 
 
 def record_ends(raw, count):
-    """The byte offset at which each of the first count records was complete, chunked as
-    parse_powermetrics chunks them: just past its NUL terminator, or, for a final record
-    with none, just past its last non-whitespace byte."""
+    """The byte offset just past each of the first count records' own last byte, chunked
+    as parse_powermetrics chunks them. A record's own last byte is its last non-whitespace
+    byte, the last byte plistlib parses. A NUL is a separator that belongs to no record,
+    wherever it falls: the real stream writes one before every record after the first and
+    none after the last, so a NUL arrives with the next record, never with its own."""
     ends, start = [], 0
-    chunks = raw.split(b"\0")
-    for index, chunk in enumerate(chunks):
+    for chunk in raw.split(b"\0"):
         if chunk.strip():
-            ends.append(start + len(chunk) + 1 if index < len(chunks) - 1 else start + len(chunk.rstrip()))
+            ends.append(start + len(chunk.rstrip()))
         start += len(chunk) + 1
     return ends[:count]
 
