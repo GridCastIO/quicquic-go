@@ -113,9 +113,10 @@ def run_role(binary, env, spec, log_path, timeout_s, launched):
             if process.returncode is None:
                 process.kill()
                 process.wait()
-    if process.returncode != 0:
-        raise ValueError(f"{spec['role']} exit {process.returncode}:\n{log_path.read_text()[-2000:]}")
-    check_role_log(spec["role"], log_path.read_text())
+        # Inside the deferral, so a cancellation queued after the wait keeps this as its cause.
+        if process.returncode != 0:
+            raise ValueError(f"{spec['role']} exit {process.returncode}:\n{log_path.read_text()[-2000:]}")
+        check_role_log(spec["role"], log_path.read_text())
 
 
 def free_port():
@@ -405,7 +406,7 @@ def main(argv=None):
     previous_sigterm = signal.signal(signal.SIGTERM, interrupt_on_sigterm)
     summary = {"version": VERSION, "passed": False, "judged": False, "judgment": NOT_JUDGED, "mode": args.mode,
                "platform_profile": args.platform_profile, "evidence_class": EVIDENCE_CLASS[args.platform_profile],
-               "topology": args.topology, "observations": []}
+               "topology": args.topology, "controller": args.controller, "seed": args.seed, "observations": []}
     try:
         for arm in args.arm:
             # The attempt is identifiable before setup, so any failure leaves a terminal row.

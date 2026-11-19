@@ -202,6 +202,7 @@ class ExecutionTests(unittest.TestCase):
                 self.assertEqual(records[0][key], value, "an early failure is still identifiable")
             self.assertEqual(summary["observations"][0]["arm"], "single-a")
             self.assertEqual(summary["observations"][0]["topology"], "disjoint")
+            self.assertEqual((summary["controller"], summary["seed"]), ("bbrv3", driver.BASE_SEED))
             self.assertFalse(any(alive(pid) for pid in fixture.launched()))
 
     def test_silent_competitor_keeps_the_measurements_and_fails_the_run(self):
@@ -244,6 +245,28 @@ class ExecutionTests(unittest.TestCase):
                 os.kill(os.getpid(), signal.SIGINT)  # outside a wait: recorded, not raised
                 raise ValueError("role failed")
         self.assertIsInstance(raised.exception.__cause__, ValueError, "the failure stays the cause")
+
+    def test_cancellation_after_a_failed_role_keeps_its_exit_as_cause(self):
+        self.addCleanup(signal.signal, signal.SIGINT, signal.signal(signal.SIGINT, signal.default_int_handler))
+        with tempfile.TemporaryDirectory() as temporary:
+            fixture = Fixture(Path(temporary), c1.DARWIN)
+            real_read = Path.read_text
+            queued = []
+
+            def read_then_cancel(path, *args, **kwargs):
+                # The role has been reaped and the wait disarmed; this read builds its exit error.
+                if not queued:
+                    queued.append(True)
+                    os.kill(os.getpid(), signal.SIGINT)
+                return real_read(path, *args, **kwargs)
+            environment = {"FAKE_PIDS": str(fixture.pids), "FAKE_ROLE": "relay-config:exit"}
+            with mock.patch.dict(os.environ, environment), \
+                    mock.patch.object(Path, "read_text", read_then_cancel), self.assertRaises(KeyboardInterrupt) as raised:
+                driver.run_role(fixture.test, dict(os.environ), {"role": "relay-config", "output": str(fixture.root / "c.json")},
+                                fixture.root / "c.log", 10, {})
+            self.assertTrue(queued)
+            self.assertIsInstance(raised.exception.__cause__, ValueError)
+            self.assertIn("relay-config exit 1", str(raised.exception.__cause__))
 
     def test_cancelled_arm_leaves_a_terminal_row_and_stops_the_run(self):
         def cancelled(*args):
