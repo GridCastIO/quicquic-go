@@ -12,6 +12,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/socket.h>
+#include <sys/uio.h>
 #include <unistd.h>
 
 #define COMMAND_LIMIT 65536
@@ -51,6 +52,7 @@ typedef struct {
     size_t datagram_length;
     uint64_t datagram_path;
     int is_client, gate_armed, gate_released, gate_release_pending;
+    struct in_addr replacement;
     struct sockaddr_in gate_from;
     size_t gate_count;
     uint64_t gate_stream;
@@ -95,7 +97,7 @@ static int command(driver_t *d, uint64_t stream_id, const unsigned char *bytes, 
         d->gate_from.sin_family = AF_INET;
         memcpy(&d->gate_from.sin_addr.s_addr, bytes + 2, 4);
         memcpy(&d->gate_from.sin_port, bytes + 6, 2);
-        if (d->gate_from.sin_addr.s_addr != htonl(0x7f000003u) || d->gate_from.sin_port == 0) return gate_failed(d, "invalid replacement tuple");
+        if (d->gate_from.sin_addr.s_addr != d->replacement.s_addr || d->gate_from.sin_port == 0) return gate_failed(d, "invalid replacement tuple");
         d->gate_armed = 1;
         fprintf(stdout, "tuple gate armed replacement port %u capacity %d\n", ntohs(d->gate_from.sin_port), TUPLE_GATE_LIMIT);
         break;
@@ -264,6 +266,97 @@ static int callback(picoquic_cnx_t *cnx, uint64_t stream_id, uint8_t *bytes, siz
     return 0;
 }
 
+/* Receive one datagram. MSG_TRUNC in msg_flags is the portable truncation
+ * signal; Linux's recvfrom(MSG_TRUNC) real-length return is not available on
+ * Darwin, which returns only the copied length. */
+static ssize_t receive_datagram(int fd, uint8_t *buffer, size_t size, struct sockaddr_storage *from, int *truncated)
+{
+    struct iovec iov = {.iov_base = buffer, .iov_len = size};
+    struct msghdr message = {0};
+    message.msg_name = from;
+    message.msg_namelen = sizeof(*from);
+    message.msg_iov = &iov;
+    message.msg_iovlen = 1;
+    ssize_t length = recvmsg(fd, &message, 0);
+    *truncated = length >= 0 && (message.msg_flags & MSG_TRUNC) != 0;
+    return length;
+}
+
+/* Bind the three adapter sockets to IPv4 tuples. A zero port takes an
+ * ephemeral port; a requested port must be the one bound. */
+static int bind_sockets(int sockets[3], struct sockaddr_in addresses[3], const struct in_addr ips[3], const uint16_t ports[3])
+{
+    for (int i = 0; i < 3; i++) {
+        sockets[i] = socket(AF_INET, SOCK_DGRAM, 0);
+        memset(&addresses[i], 0, sizeof(addresses[i]));
+        addresses[i].sin_family = AF_INET;
+        addresses[i].sin_port = htons(ports[i]);
+        addresses[i].sin_addr = ips[i];
+        if (sockets[i] < 0 || bind(sockets[i], (struct sockaddr *)&addresses[i], sizeof(struct sockaddr_in)) != 0) return -1;
+        socklen_t length = sizeof(struct sockaddr_in);
+        if (getsockname(sockets[i], (struct sockaddr *)&addresses[i], &length) != 0) return -1;
+        if (addresses[i].sin_addr.s_addr != ips[i].s_addr || (ports[i] != 0 && ntohs(addresses[i].sin_port) != ports[i])) return -1;
+        char text[INET_ADDRSTRLEN];
+        fprintf(stdout, "bound socket %d %s:%u\n", i, inet_ntop(AF_INET, &addresses[i].sin_addr, text, sizeof(text)),
+                ntohs(addresses[i].sin_port));
+    }
+    return 0;
+}
+
+static int parse_ip(const char *text, struct in_addr *ip)
+{
+    return inet_pton(AF_INET, text, ip) == 1 ? 0 : -1;
+}
+
+/* An explicit tuple is IPv4[:port]; a missing port means ephemeral. */
+static int parse_tuple(const char *text, struct in_addr *ip, uint16_t *port)
+{
+    char address[INET_ADDRSTRLEN];
+    const char *colon = strchr(text, ':');
+    size_t length = colon ? (size_t)(colon - text) : strlen(text);
+    if (length >= sizeof(address)) return -1;
+    memcpy(address, text, length);
+    address[length] = 0;
+    *port = 0;
+    if (colon) {
+        char *end = NULL;
+        errno = 0;
+        unsigned long value = strtoul(colon + 1, &end, 10);
+        if (errno != 0 || end == colon + 1 || *end != 0 || value == 0 || value > 65535) return -1;
+        *port = (uint16_t)value;
+    }
+    return parse_ip(address, ip);
+}
+
+/* Fixed adapter check: explicit tuples bind, a fitting datagram is received
+ * whole and an oversized one is reported as truncated. */
+static int self_test(char **tuple_args)
+{
+    struct in_addr ips[3];
+    uint16_t ports[3];
+    int sockets[3];
+    struct sockaddr_in addresses[3];
+    for (int i = 0; i < 3; i++) if (parse_tuple(tuple_args[i], &ips[i], &ports[i]) != 0) return 2;
+    if (bind_sockets(sockets, addresses, ips, ports) != 0) return 1;
+    static uint8_t sent[2048], buffer[PICOQUIC_MAX_PACKET_SIZE];
+    const size_t sizes[2] = {1200, sizeof(sent)};
+    memset(sent, 'T', sizeof(sent));
+    for (int i = 0; i < 2; i++) {
+        if (sendto(sockets[1], sent, sizes[i], 0, (struct sockaddr *)&addresses[0], sizeof(struct sockaddr_in)) != (ssize_t)sizes[i]) return 1;
+        struct pollfd fd = {.fd = sockets[0], .events = POLLIN};
+        if (poll(&fd, 1, 5000) != 1) return 1;
+        struct sockaddr_storage from = {0};
+        int truncated = 0;
+        ssize_t length = receive_datagram(sockets[0], buffer, sizeof(buffer), &from, &truncated);
+        if (length < 0 || !same_address(&from, &addresses[1])) return 1;
+        if (truncated != (sizes[i] > sizeof(buffer)) || (!truncated && (size_t)length != sizes[i])) return 1;
+        fprintf(stdout, "self-test datagram %zu bytes received %zd truncated %d\n", sizes[i], length, truncated);
+    }
+    for (int i = 0; i < 3; i++) close(sockets[i]);
+    fprintf(stdout, "self-test pass\n");
+    return 0;
+}
+
 static int run(driver_t *d)
 {
     uint64_t deadline = picoquic_get_quic_time(d->quic) + 30000000;
@@ -321,10 +414,10 @@ static int run(driver_t *d)
         for (int i = 0; i < 3; i++) {
             if (!(fds[i].revents & POLLIN)) continue;
             struct sockaddr_storage from = {0};
-            socklen_t from_length = sizeof(from);
-            ssize_t length = recvfrom(d->sockets[i], buffer, sizeof(buffer), d->gate_armed ? MSG_TRUNC : 0, (struct sockaddr *)&from, &from_length);
+            int truncated = 0;
+            ssize_t length = receive_datagram(d->sockets[i], buffer, sizeof(buffer), &from, &truncated);
             if (length < 0) return -1;
-            if (d->gate_armed && (size_t)length > sizeof(buffer)) return gate_failed(d, "oversized or truncated datagram");
+            if (d->gate_armed && truncated) return gate_failed(d, "oversized or truncated datagram");
             int virtual_socket = d->rebind && i == 2 ? 1 : i;
             struct sockaddr_storage local = {0};
             memcpy(&local, &d->addresses[virtual_socket], sizeof(struct sockaddr_in));
@@ -351,22 +444,28 @@ static int run(driver_t *d)
 
 int main(int argc, char **argv)
 {
-    /* role, local port, remote port, certificate, key, CA, multipath(0/1) */
-    if (argc != 8) return 2;
     setbuf(stdout, NULL);
+    /* self-test, socket tuples IPv4[:port] 0..2 */
+    if (argc == 5 && strcmp(argv[1], "self-test") == 0) return self_test(argv + 2);
+    /* role, local port, remote port, certificate, key, CA, multipath(0/1),
+     * then optionally explicit socket tuples IPv4[:port] 0..2 and the
+     * replacement tuple address. Socket zero's tuple port must equal the
+     * local port. Without them, Linux keeps 127.0.0.1-3 with socket zero on
+     * the local port, ephemeral others, and replacement 127.0.0.3. */
+    if (argc != 8 && argc != 12) return 2;
     driver_t *d = calloc(1, sizeof(*d));
     if (d == NULL) return 2;
     int client = strcmp(argv[1], "client") == 0;
     d->is_client = client;
-    for (int i = 0; i < 3; i++) {
-        d->sockets[i] = socket(AF_INET, SOCK_DGRAM, 0);
-        d->addresses[i].sin_family = AF_INET;
-        d->addresses[i].sin_port = htons(i == 0 ? (uint16_t)atoi(argv[2]) : 0);
-        d->addresses[i].sin_addr.s_addr = htonl(0x7f000001u + (unsigned)i);
-        if (d->sockets[i] < 0 || bind(d->sockets[i], (struct sockaddr *)&d->addresses[i], sizeof(struct sockaddr_in)) != 0) return 2;
-        socklen_t length = sizeof(struct sockaddr_in);
-        if (getsockname(d->sockets[i], (struct sockaddr *)&d->addresses[i], &length) != 0) return 2;
+    struct in_addr ips[3];
+    uint16_t ports[3] = {(uint16_t)atoi(argv[2]), 0, 0};
+    for (int i = 0; i < 3; i++) ips[i].s_addr = htonl(0x7f000001u + (unsigned)i);
+    d->replacement.s_addr = htonl(0x7f000003u);
+    if (argc == 12) {
+        for (int i = 0; i < 3; i++) if (parse_tuple(argv[8 + i], &ips[i], &ports[i]) != 0) return 2;
+        if (ports[0] != (uint16_t)atoi(argv[2]) || parse_ip(argv[11], &d->replacement) != 0) return 2;
     }
+    if (bind_sockets(d->sockets, d->addresses, ips, ports) != 0) return 2;
     d->quic = picoquic_create(1, client ? NULL : argv[4], client ? NULL : argv[5], argv[6], ALPN,
                               callback, d, NULL, NULL, NULL, picoquic_current_time(), NULL, NULL, NULL, 0);
     if (d->quic == NULL) return 2;
