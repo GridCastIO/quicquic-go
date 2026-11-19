@@ -228,28 +228,37 @@ func TestLinkOverflowBypassesQueue(t *testing.T) {
 	require.Equal(t, Direction{Received: 2, ReceivedBytes: 1944, Overflow: 1}, l.reverseStats)
 }
 
-// openLink returns a link only when its sockets realize the requested front; a platform
-// that binds a requested address as something else is refused with its sockets
-// released. Darwin binds a multicast front as the wildcard; Linux binds it as asked.
-func TestOpenLinkRealizesRequestedFront(t *testing.T) {
-	server := addrPort(t, listenLoopback(t).LocalAddr())
-	front := netip.MustParseAddrPort("239.1.2.3:0")
-	l, err := openLink(routePlan{name: RouteA}, front, server)
-	if err != nil {
-		require.ErrorContains(t, err, "was bound as")
-		return
+// One endpoint rule decides both readiness and readback: fronts realize their request,
+// backs are explicit, and no two sockets or the server share a tuple.
+func TestValidateEndpoints(t *testing.T) {
+	cfg := testConfig(KindDisjoint)
+	cfg.Routes[1].Front = netip.MustParseAddrPort("127.0.0.1:5001")
+	valid := func() []RouteRecord {
+		return []RouteRecord{
+			{Name: RouteA, Front: netip.MustParseAddrPort("127.0.0.1:5000"), Back: netip.MustParseAddrPort("127.0.0.1:6000")},
+			{Name: RouteB, Front: netip.MustParseAddrPort("127.0.0.1:5001"), Back: netip.MustParseAddrPort("127.0.0.1:6001")},
+		}
 	}
-	defer l.closeSockets()
-	require.Equal(t, front.Addr(), l.frontAddr.Addr())
-}
-
-func TestRealizedEndpoints(t *testing.T) {
-	front := netip.MustParseAddrPort("127.0.0.1:0")
-	server := netip.MustParseAddrPort("127.0.0.1:4433")
-	back := netip.MustParseAddrPort("127.0.0.1:6000")
-	require.NoError(t, realized(front, server, netip.MustParseAddrPort("127.0.0.1:5000"), back))
-	require.ErrorContains(t, realized(front, server, netip.MustParseAddrPort("0.0.0.0:5000"), back), "was bound as")
-	require.ErrorContains(t, realized(netip.MustParseAddrPort("127.0.0.1:5000"), server, netip.MustParseAddrPort("127.0.0.1:5001"), back), "was bound as")
-	require.ErrorContains(t, realized(front, server, server, back), "server address")
-	require.ErrorContains(t, realized(front, server, netip.MustParseAddrPort("127.0.0.1:5000"), netip.MustParseAddrPort("0.0.0.0:6000")), "back socket")
+	require.NoError(t, validateEndpoints(cfg, valid()))
+	for _, tc := range []struct {
+		name   string
+		mutate func([]RouteRecord)
+		want   string
+	}{
+		{"unbound front", func(r []RouteRecord) { r[0].Front = netip.MustParseAddrPort("127.0.0.1:0") }, "was bound as"},
+		{"front rebound as wildcard", func(r []RouteRecord) { r[0].Front = netip.MustParseAddrPort("0.0.0.0:5000") }, "was bound as"},
+		{"front on another port", func(r []RouteRecord) { r[1].Front = netip.MustParseAddrPort("127.0.0.1:5002") }, "was bound as"},
+		{"front at the server", func(r []RouteRecord) { r[0].Front = testServer }, "is also the server"},
+		{"back at the server", func(r []RouteRecord) { r[1].Back = testServer }, "is also the server"},
+		{"wildcard back", func(r []RouteRecord) { r[0].Back = netip.MustParseAddrPort("0.0.0.0:6000") }, "back socket"},
+		{"unbound back", func(r []RouteRecord) { r[0].Back = netip.MustParseAddrPort("127.0.0.1:0") }, "back socket"},
+		{"shared back", func(r []RouteRecord) { r[1].Back = r[0].Back }, "is also route a's back"},
+		{"front reused as a back", func(r []RouteRecord) { r[1].Back = r[0].Front }, "is also route a's front"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			routes := valid()
+			tc.mutate(routes)
+			require.ErrorContains(t, validateEndpoints(cfg, routes), tc.want)
+		})
+	}
 }

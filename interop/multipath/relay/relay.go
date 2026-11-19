@@ -31,6 +31,8 @@ const (
 	backlogPackets = 1 << 16
 	socketBuffer   = 2 << 20
 	maxDatagram    = 1<<16 - 1
+	// maxIPv4UDPPayload is the largest payload an IPv4 UDP datagram carries.
+	maxIPv4UDPPayload = maxDatagram - ipv4UDPOverhead
 )
 
 type packet struct {
@@ -95,27 +97,7 @@ func openLink(plan routePlan, front, server netip.AddrPort) (*link, error) {
 	}
 	l.frontAddr = unmapped(l.front.LocalAddr().(*net.UDPAddr).AddrPort())
 	l.backAddr = unmapped(l.back.LocalAddr().(*net.UDPAddr).AddrPort())
-	if err := realized(front, server, l.frontAddr, l.backAddr); err != nil {
-		l.closeSockets()
-		return nil, err
-	}
 	return l, nil
-}
-
-// realized reports whether the bound sockets are the explicit endpoints the
-// configuration asked for. A platform may bind some requested addresses differently,
-// and a port-zero front can land on the server's port while the server is unbound.
-func realized(front, server, boundFront, boundBack netip.AddrPort) error {
-	if boundFront.Addr() != front.Addr() || (front.Port() != 0 && boundFront.Port() != front.Port()) {
-		return fmt.Errorf("front %s was bound as %s", front, boundFront)
-	}
-	if boundFront == server {
-		return fmt.Errorf("front was bound at the server address %s", server)
-	}
-	if !explicitUnicast4(boundBack.Addr()) {
-		return fmt.Errorf("back socket was bound as %s", boundBack)
-	}
-	return nil
 }
 
 func (l *link) closeSockets() {
@@ -142,6 +124,14 @@ func Start(cfg Config) (*Relay, error) {
 			return nil, fmt.Errorf("route %s: %w", route.Name, err)
 		}
 		r.links = append(r.links, l)
+	}
+	// The record's endpoint rule decides before readiness, so a route the record
+	// would refuse never starts.
+	if err := validateEndpoints(r.cfg, r.Snapshot()); err != nil {
+		for _, l := range r.links {
+			l.closeSockets()
+		}
+		return nil, err
 	}
 	for _, l := range r.links {
 		r.readers.Add(2)

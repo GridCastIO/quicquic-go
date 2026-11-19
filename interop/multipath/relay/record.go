@@ -64,7 +64,7 @@ type Record struct {
 
 // fitsDatagrams reports whether bytes can be the payload total of n datagrams.
 func fitsDatagrams(bytes, n uint64) bool {
-	hi, lo := bits.Mul64(n, maxDatagram)
+	hi, lo := bits.Mul64(n, maxIPv4UDPPayload)
 	return hi != 0 || bytes <= lo
 }
 
@@ -114,28 +114,16 @@ func (rec Record) Validate() error {
 	if len(rec.Routes) != len(rec.Config.Routes) {
 		return fmt.Errorf("record has %d routes, config has %d", len(rec.Routes), len(rec.Config.Routes))
 	}
-	// Every route's front and back are distinct bound sockets, none at the server.
-	endpoints := map[netip.AddrPort]bool{rec.Config.Server: true}
 	for i, r := range rec.Routes {
 		want := rec.Config.Routes[i]
 		if r.Name != want.Name || r.Queue != want.Queue || r.DelayNS != want.DelayNS {
 			return fmt.Errorf("record route %d (%s) does not match its configuration", i, r.Name)
 		}
-		if r.Front.Port() == 0 {
-			return fmt.Errorf("route %s front %s was not bound", r.Name, r.Front)
-		}
-		if err := realized(want.Front, rec.Config.Server, r.Front, r.Back); err != nil {
-			return fmt.Errorf("route %s: %w", r.Name, err)
-		}
-		if r.Back.Port() == 0 {
-			return fmt.Errorf("route %s back %s was not bound", r.Name, r.Back)
-		}
-		for _, e := range []netip.AddrPort{r.Front, r.Back} {
-			if endpoints[e] {
-				return fmt.Errorf("route %s reuses endpoint %s", r.Name, e)
-			}
-			endpoints[e] = true
-		}
+	}
+	if err := validateEndpoints(rec.Config, rec.Routes); err != nil {
+		return err
+	}
+	for _, r := range rec.Routes {
 		if err := r.Forward.validate(true); err != nil {
 			return fmt.Errorf("route %s forward: %w", r.Name, err)
 		}
@@ -146,6 +134,35 @@ func (rec Record) Validate() error {
 		// one, the reply is a send error.
 		if r.Reverse.Delivered > 0 && r.Forward.Received == 0 {
 			return fmt.Errorf("route %s delivered replies without a client", r.Name)
+		}
+	}
+	return nil
+}
+
+// validateEndpoints is the one rule for realized socket identities, applied by Start
+// before readiness and by Record.Validate. Each route's front is bound exactly as cfg
+// requested, each back is an explicit IPv4 unicast endpoint, and all fronts, backs and
+// the server are distinct tuples. A platform can bind some requested addresses
+// differently, and a port-zero socket can land on the server's port while the server
+// is unbound. routes must name cfg's routes in order.
+func validateEndpoints(cfg Config, routes []RouteRecord) error {
+	seen := map[netip.AddrPort]string{cfg.Server: "the server"}
+	for i, r := range routes {
+		want := cfg.Routes[i].Front
+		if r.Front.Port() == 0 || r.Front.Addr() != want.Addr() || (want.Port() != 0 && r.Front.Port() != want.Port()) {
+			return fmt.Errorf("route %s front %s was bound as %s", r.Name, want, r.Front)
+		}
+		if !explicitUnicast4(r.Back.Addr()) || r.Back.Port() == 0 {
+			return fmt.Errorf("route %s back socket was bound as %s", r.Name, r.Back)
+		}
+		for _, e := range []struct {
+			name string
+			addr netip.AddrPort
+		}{{"front", r.Front}, {"back", r.Back}} {
+			if other, ok := seen[e.addr]; ok {
+				return fmt.Errorf("route %s %s %s is also %s", r.Name, e.name, e.addr, other)
+			}
+			seen[e.addr] = fmt.Sprintf("route %s's %s", r.Name, e.name)
 		}
 	}
 	return nil

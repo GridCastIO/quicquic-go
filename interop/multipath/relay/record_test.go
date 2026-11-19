@@ -78,7 +78,8 @@ func TestRecordReadback(t *testing.T) {
 		{"all delivered with fewer bytes", encode(func() Record { r := testRecord(); r.Routes[0].Reverse.DeliveredBytes = 399; return r }()), "do not fit"},
 		{"bytes beyond the datagram size", encode(func() Record {
 			r := testRecord()
-			r.Routes[0].Reverse = Direction{Received: 1, ReceivedBytes: 1 << 16, Delivered: 1, DeliveredBytes: 1 << 16}
+			// 65,507 bytes is the largest IPv4 UDP payload.
+			r.Routes[0].Reverse = Direction{Received: 1, ReceivedBytes: 65_508, Delivered: 1, DeliveredBytes: 65_508}
 			return r
 		}()), "do not fit"},
 		{"lateness without a send", encode(func() Record {
@@ -92,10 +93,7 @@ func TestRecordReadback(t *testing.T) {
 			return r
 		}()), "lateness"},
 		{"late count without a late maximum", encode(func() Record { r := testRecord(); r.Routes[0].Reverse.LateOver1ms = 1; return r }()), "lateness"},
-		{"duplicate fronts", encode(func() Record { r := testRecord(); r.Routes[1].Front = r.Routes[0].Front; return r }()), "reuses"},
-		{"front reused as a back", encode(func() Record { r := testRecord(); r.Routes[1].Back = r.Routes[0].Front; return r }()), "reuses"},
-		{"wildcard back", encode(func() Record { r := testRecord(); r.Routes[0].Back = netip.MustParseAddrPort("0.0.0.0:6000"); return r }()), "back socket"},
-		{"front at the server", encode(func() Record { r := testRecord(); r.Routes[0].Front = r.Config.Server; return r }()), "server"},
+		{"duplicate fronts", encode(func() Record { r := testRecord(); r.Routes[1].Front = r.Routes[0].Front; return r }()), "is also"},
 		{"replies without a client", encode(func() Record {
 			r := testRecord()
 			r.Routes[0].Forward = Direction{}
