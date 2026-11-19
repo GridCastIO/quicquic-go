@@ -58,6 +58,31 @@ NATIVE_MIXED_OPTED_IN = "negotiated mixed-bulk needs public Darwin multipath adm
 # A newly matched BBR workload reports its ratios as observations, not as a verdict.
 BBR_NOT_JUDGED = ("BBR smoke/diagnostic ratios are observations; the accepted thresholds are Reno's, "
                   "and only the historical stateless-pressure BBR diagnostic keeps their verdict")
+# MP-MAC C2's negotiated lifecycle-memory record: three phase samples of one connection,
+# in order, from public interfaces only. The retired sample's path state is exactly the
+# qualifying state the run names, retained or closed; Q1 binds one for both sides of a
+# comparison. Backup and retirement compare with this connection's negotiated idle.
+LIFECYCLE = "lifecycle-memory"
+LIFECYCLE_PHASES = ("negotiated-idle", "validated-backup", "retired")
+LIFECYCLE_RETIRED = ("retained", "closed")
+LIFECYCLE_TIMEOUT_S = 30
+LIFECYCLE_BOUNDARIES = {
+    "go_heap_live": "Go heap marked live by a forced runtime.GC() in the client role at the phase; not resident memory",
+    "peak_rss": "the client role's lifetime peak RSS when the phase was sampled; never memory held at that phase",
+    "transport_detachment": "Conn.WaitTransportDetachedV1 for the retired path's transport; not a grant join",
+    "grant_joins": "Transport.WaitMultipathIOStoppedV1 after Transport.Close, per transport; not a detachment",
+}
+# The method and interface labels the Go roles record. The forced-GC heap method must be
+# the same on every sample, so that both sides of a comparison read one quantity.
+LIFECYCLE_BOUNDARY_SOURCES = {
+    "go_heap_live": "runtime/metrics /gc/heap/live:bytes after a forced runtime.GC()",
+    "transport_detachment": "Conn.WaitTransportDetachedV1",
+    "grant_joins": "Transport.WaitMultipathIOStoppedV1 after Transport.Close",
+}
+LIFECYCLE_NOT_JUDGED = ("lifecycle memory records are readiness observations; Q1 binds any comparison, "
+                        "its qualifying retirement state and its thresholds")
+NATIVE_LIFECYCLE_REFUSED = ("negotiated lifecycle memory needs public Darwin multipath admission (Q2); "
+                            "no ordinary or privately granted connection replaces it")
 POWERMETRICS_INTERVAL_MS = 1000
 SAMPLER_STOP_S = 5
 # Allowance for the driver's own launch/stop timing around the sampler's elapsed sum.
@@ -137,6 +162,17 @@ def check_metric(name, metric, unit):
     return value
 
 
+def check_rss(name, metric, platform_profile):
+    """A peak-RSS reading in the platform producer's unit, with its normalized bytes."""
+    unit = PROFILES[platform_profile]["rss_unit"]
+    if not isinstance(metric, dict) or metric.get("unit") != unit:
+        raise ValueError(f"{name}: RSS unit must be {unit} on {platform_profile}")
+    value = check_metric(name, metric, unit)
+    if value is None or metric.get("bytes") != value * RSS_SCALE[unit]:
+        raise ValueError(f"{name}: RSS bytes do not normalize the raw {unit} reading")
+    return value
+
+
 def check_identity(record, platform_profile):
     goos, goarch = PROFILES[platform_profile]["identity"]
     expected = {"profile": platform_profile, "goos": goos, "goarch": goarch}
@@ -157,14 +193,8 @@ def check_metrics(record, platform_profile, controller):
         # One reading, two representations: Go's Duration.Seconds() of the same nanoseconds.
         if type(seconds) not in (int, float) or not math.isclose(seconds, cpu / 1e9, rel_tol=1e-12, abs_tol=1e-9):
             raise ValueError("self_cpu metric does not match window_cpu_s")
-    unit = PROFILES[platform_profile]["rss_unit"]
     for field in ("peak_rss_at_sample", "peak_rss_end"):
-        peak = server.get(field)
-        if not isinstance(peak, dict) or peak.get("unit") != unit:
-            raise ValueError(f"{field}: RSS unit must be {unit} on {platform_profile}")
-        value = check_metric(field, peak, unit)
-        if value is None or peak.get("bytes") != value * RSS_SCALE[unit]:
-            raise ValueError(f"{field}: RSS bytes do not normalize the raw {unit} reading")
+        check_rss(field, server.get(field), platform_profile)
     if platform_profile == LINUX:
         for legacy, field in (("rss_kb_at_20s", "peak_rss_at_sample"), ("rss_kb_end", "peak_rss_end")):
             if server.get(legacy) != server[field]["value"]:
@@ -272,6 +302,105 @@ def check_mixed(record):
         return
     if len(background) != 1 or not background[0].get("multipath_negotiated") or background[0].get("paths") != ["live", "live"]:
         raise ValueError("mixed-bulk opted-in needs one negotiated two-path connection")
+
+
+def lifecycle_phase_admits(phase, path_id, state, retired):
+    """The sampled path's observed state is the phase; mirrors ordinaryCostPhaseAdmits."""
+    if not isinstance(state, dict) or state.get("wire_id") != path_id:
+        raise ValueError(f"{phase}: the observation is not of the sampled path {path_id}")
+    lifecycle = state.get("lifecycle")
+    if phase == "negotiated-idle":
+        if (path_id != 0 or lifecycle != "live" or state.get("validated") is not True
+                or state.get("primary") is not True or state.get("local_use") != "active"):
+            raise ValueError(f"{phase} needs live, validated, primary path zero, not {state}")
+    elif phase == "validated-backup":
+        if (path_id == 0 or lifecycle != "live" or state.get("validated") is not True
+                or state.get("primary") is not False or state.get("local_use") != "backup"):
+            raise ValueError(f"{phase} needs a live, validated backup path besides path zero, not {state}")
+    elif phase == "retired":
+        # A live path is not retired, even after a same-ID migration detached its old
+        # transport, and a requested abandonment is not observed retirement.
+        if path_id == 0 or lifecycle != retired:
+            raise ValueError(f"{phase} needs the backup path {retired}, not path {path_id} {lifecycle}")
+    else:
+        raise ValueError(f"unknown lifecycle phase {phase}")
+
+
+def check_lifecycle(record):
+    """One negotiated lifecycle-memory record from the two public-admission roles."""
+    platform_profile = record.get("platform_profile")
+    if platform_profile not in PROFILES:
+        raise ValueError(f"unknown platform profile {platform_profile}")
+    if not PROFILES[platform_profile]["negotiated_multipath"]:
+        raise ValueError(NATIVE_LIFECYCLE_REFUSED)
+    if record.get("workload") != LIFECYCLE:
+        raise ValueError("not a lifecycle-memory record")
+    controller, retired = record.get("controller"), record.get("retired_lifecycle")
+    if controller not in ("reno", "bbrv3"):
+        raise ValueError(f"unknown lifecycle controller {controller}")
+    if retired not in LIFECYCLE_RETIRED:
+        raise ValueError(f"the qualifying retirement state is retained or closed, not {retired}")
+    check_identity(record, platform_profile)
+    server, client = record["server"], record["client"]
+    for role, result in (("server", server), ("client", client)):
+        if result.get("role") != role or result.get("controller") != controller or result.get("go") != GO_VERSION:
+            raise ValueError(f"{role}: role, controller or toolchain does not match the run")
+        if result.get("multipath_negotiated") is not True:
+            raise ValueError(f"{role}: an unnegotiated connection is no lifecycle or backup control")
+        if result.get("grant_join_source") != LIFECYCLE_BOUNDARY_SOURCES["grant_joins"]:
+            raise ValueError(f"{role}: grant joins come from WaitMultipathIOStoppedV1")
+    if server.get("grant_joins") != {"origin": True}:
+        raise ValueError("server: its grant did not join")
+    if server.get("peer_closed") is not True:
+        raise ValueError(f"server: the connection ended without the client's close: {server.get('close_cause')}")
+    if client.get("retired_lifecycle") != retired:
+        raise ValueError("client: its qualifying retirement state is not the run's")
+    if client.get("grant_joins") != {"origin": True, "backup": True}:
+        raise ValueError("client: every grant must join, separately from detachment")
+    if client.get("transport_detachment") != {"transport": "backup", "detached": True,
+                                               "source": LIFECYCLE_BOUNDARY_SOURCES["transport_detachment"]}:
+        raise ValueError("client: the retired path's transport did not detach")
+    samples = client.get("samples")
+    if not isinstance(samples, list) or tuple(sample.get("phase") for sample in samples) != LIFECYCLE_PHASES:
+        raise ValueError(f"samples must be exactly {LIFECYCLE_PHASES} in order")
+    for sample in samples:
+        phase = sample["phase"]
+        if sample.get("role") != "client":
+            raise ValueError(f"{phase}: sampled by {sample.get('role')}, not the client role")
+        if sample.get("multipath_negotiated") is not True:
+            raise ValueError(f"{phase}: an unnegotiated connection is no lifecycle or backup control")
+        expected = None if phase == "negotiated-idle" else "negotiated-idle"
+        if sample.get("baseline", "missing") != expected:
+            raise ValueError(f"{phase}: its matched comparison is {expected}, not {sample.get('baseline', 'missing')}")
+        path_id = sample.get("path_id")
+        if type(path_id) is not int:
+            raise ValueError(f"{phase}: no sampled path ID")
+        if sample.get("state_before") != sample.get("state_after"):
+            raise ValueError(f"{phase}: stale sample; the path left the phase during the reading")
+        lifecycle_phase_admits(phase, path_id, sample.get("state_before"), retired)
+        heap = check_metric(f"{phase} go_heap_live", sample.get("go_heap_live"), "bytes")
+        if heap is None or sample["go_heap_live"]["source"] != LIFECYCLE_BOUNDARY_SOURCES["go_heap_live"]:
+            raise ValueError(f"{phase}: no live Go-heap reading")
+        check_rss(f"{phase} peak_rss", sample.get("peak_rss"), platform_profile)
+    if samples[1]["path_id"] != samples[2]["path_id"]:
+        raise ValueError("retirement must sample the backup's path ID")
+
+
+def match_lifecycle(first, second):
+    """Two lifecycle records that one comparison may pair: the same phases, roles, paths and
+    platform, and one qualifying retirement state on both sides. Returns per-phase heap pairs."""
+    for record in (first, second):
+        check_lifecycle(record)
+    if first["platform_profile"] != second["platform_profile"]:
+        raise ValueError("a comparison pairs records of one platform profile")
+    if first["retired_lifecycle"] != second["retired_lifecycle"]:
+        raise ValueError(f"one side retired to {first['retired_lifecycle']}, the other to {second['retired_lifecycle']}")
+    pairs = {}
+    for a, b in zip(first["client"]["samples"], second["client"]["samples"]):
+        if (a["phase"], a["role"], a["path_id"]) != (b["phase"], b["role"], b["path_id"]):
+            raise ValueError(f"{a['phase']}: the two sides sampled different roles or paths")
+        pairs[a["phase"]] = (a["go_heap_live"]["value"], b["go_heap_live"]["value"])
+    return pairs
 
 
 def check_accounting(records, cells=None):
@@ -728,15 +857,15 @@ class HostSampler:
         return result
 
 
-def role_command(binary, cpu_profile=None):
-    command = [binary, "-test.run=^TestOrdinaryCostRole$", "-test.count=1", "-test.v", f"-test.timeout={SETUP_S + WARMUP_S + WINDOW_S + 60}s"]
+def role_command(binary, cpu_profile=None, test="TestOrdinaryCostRole", timeout_s=SETUP_S + WARMUP_S + WINDOW_S + 60):
+    command = [binary, f"-test.run=^{test}$", "-test.count=1", "-test.v", f"-test.timeout={timeout_s}s"]
     if cpu_profile is not None:
         command.append(f"-test.cpuprofile={cpu_profile}")
     return command
 
 
-def check_role_log(role, output):
-    if output.count("--- PASS: TestOrdinaryCostRole") != 1:
+def check_role_log(role, output, test="TestOrdinaryCostRole"):
+    if output.count(f"--- PASS: {test} ") != 1:
         raise ValueError(f"{role} must pass exactly once:\n{output[-2000:]}")
 
 
@@ -840,6 +969,59 @@ def run_observation(binary, directory, cell, round_, profile, seed, warmup_s=WAR
     return record
 
 
+def run_lifecycle(binary, directory, controller, retired, timeout_s, record, platform_profile=LINUX):
+    """One negotiated lifecycle-memory observation: an unsampled server role and the
+    sampled client role, each its own process. Every launched role is reaped, even after a
+    partial launch, before either record is read."""
+    if not PROFILES[platform_profile]["negotiated_multipath"]:
+        raise ValueError(NATIVE_LIFECYCLE_REFUSED)
+    directory.mkdir(parents=True, exist_ok=False)
+    test = "TestOrdinaryCostLifecycleRole"
+    # The roles stop on their own before the driver's deadline would kill them.
+    spec = {"controller": controller, "address": SERVER_ADDRESS, "retired_lifecycle": retired,
+            "timeout_ns": int(max(1, timeout_s - 10) * 10**9)}
+    env = {key: value for key, value in os.environ.items() if not key.startswith("QUIC_GO_")}
+    env["GOMAXPROCS"] = "4"
+    processes = {}
+    begun = time.monotonic()
+    deadline = begun + timeout_s
+    with DeferredInterrupts() as interrupts:
+        try:
+            # The client's handshake retransmits until the server listens, so no readiness
+            # message is needed; the server goes first all the same.
+            for role, cpus in (("server", SERVER_CPUS), ("client", CLIENT_CPUS)):
+                role_spec = dict(spec, role=role, output=str(directory / f"{role}.json"))
+                command = role_command(binary, test=test, timeout_s=int(timeout_s))
+                with (directory / f"{role}.log").open("w") as log:
+                    processes[role] = subprocess.Popen(
+                        ["taskset", "-c", cpus, *command] if platform_profile == LINUX else command,
+                        env=dict(env, ORDINARY_COST_LIFECYCLE_SPEC=json.dumps(role_spec)),
+                        stdout=log, stderr=subprocess.STDOUT,
+                    )
+            for role in ("client", "server"):
+                with interrupts.interruptible():
+                    processes[role].wait(timeout=max(0, deadline - time.monotonic()))
+                if processes[role].returncode != 0:
+                    raise ValueError(f"lifecycle {role} exit {processes[role].returncode}")
+        finally:
+            for process in processes.values():
+                if process.returncode is None:
+                    process.kill()
+            for process in processes.values():
+                if process.returncode is None:
+                    process.wait()
+            record.update(workload=LIFECYCLE, controller=controller, platform_profile=platform_profile,
+                          retired_lifecycle=retired, occupied_s=time.monotonic() - begun,
+                          exit={role: process.returncode for role, process in processes.items()})
+    for role in processes:
+        check_role_log(role, (directory / f"{role}.log").read_text(), test)
+        def reject_nonfinite(value):
+            raise ValueError(f"{role}: nonfinite JSON number {value}")
+        record[role] = json.loads((directory / f"{role}.json").read_text(), parse_constant=reject_nonfinite)
+    check_lifecycle(record)
+    return record
+
+
 class AttemptLedger:
     """The single owner of supplied capacity and durable, pre-launch attempt charges."""
 
@@ -878,18 +1060,28 @@ class AttemptLedger:
     def observe(self, binary, directory, cell, round_, profile, seed, candidate, mode,
                 attempt=0, warmup_s=WARMUP_S, controller="reno", cpu_profile=False,
                 platform_profile=LINUX, host_sampler=False):
-        self.require_capacity()
         record = dict(cell=cell, round=round_, profile=profile, seed=seed, candidate=candidate,
-                      mode=mode, attempt=attempt, status="started", occupied_s=0,
-                      started_at_unix_ns=time.time_ns())
+                      mode=mode, attempt=attempt)
+        return self.charge(record, lambda: run_observation(
+            binary, directory, cell, round_, profile, seed, warmup_s=warmup_s, timeout_s=self.timeout_s,
+            record=record, controller=controller, cpu_profile=cpu_profile,
+            platform_profile=platform_profile, host_sampler=host_sampler))
+
+    def lifecycle(self, binary, directory, candidate, controller, retired, platform_profile=LINUX):
+        record = dict(candidate=candidate, mode=LIFECYCLE, attempt=0)
+        return self.charge(record, lambda: run_lifecycle(
+            binary, directory, controller, retired, self.timeout_s, record, platform_profile))
+
+    def charge(self, record, run):
+        """Charges one attempt durably before run launches anything, and keeps the charge
+        whatever run does."""
+        self.require_capacity()
+        record.update(status="started", occupied_s=0, started_at_unix_ns=time.time_ns())
         self.attempts.append(record)
         self.save()  # A charge exists before either role can start.
         begun = time.monotonic()
         try:
-            run_observation(binary, directory, cell, round_, profile, seed,
-                            warmup_s=warmup_s, timeout_s=self.timeout_s, record=record,
-                            controller=controller, cpu_profile=cpu_profile,
-                            platform_profile=platform_profile, host_sampler=host_sampler)
+            run()
             record["status"] = "succeeded"
             return record
         except BaseException as error:
@@ -981,7 +1173,18 @@ def main(argv=None):
     every_cell = sorted(set(CELLS) | set(NATIVE_CELLS))
     modes.add_argument("--smoke-cell", choices=every_cell, help="one short diagnostic pair; never counted campaign evidence")
     modes.add_argument("--diagnostic-cell", choices=every_cell, help="one 10s/60s diagnostic pair; never counted campaign evidence")
+    modes.add_argument("--lifecycle-memory", action="store_true",
+                       help="one negotiated idle/backup/retired memory observation through public admission; readiness only")
+    parser.add_argument("--retired-lifecycle", choices=LIFECYCLE_RETIRED,
+                        help="--lifecycle-memory only: the one qualifying retirement state to sample")
     args = parser.parse_args(argv)
+    if args.lifecycle_memory != bool(args.retired_lifecycle):
+        parser.error("--lifecycle-memory and --retired-lifecycle go together")
+    if args.lifecycle_memory:
+        if not PROFILES[args.platform_profile]["negotiated_multipath"]:
+            parser.error(NATIVE_LIFECYCLE_REFUSED)
+        if args.cpu_profile or args.revalidate_cell or args.host_sampler != "none":
+            parser.error("--lifecycle-memory takes no CPU profile, revalidation or host sampler")
     native = args.platform_profile == DARWIN
     cell_choice = args.smoke_cell or args.diagnostic_cell
     if cell_choice and cell_choice not in PROFILES[args.platform_profile]["cells"]:
@@ -993,7 +1196,7 @@ def main(argv=None):
     check_prerequisites(platform.system(), platform.machine(), shutil.which, args.platform_profile)
     if len(args.candidate) != 40 or any(c not in "0123456789abcdef" for c in args.candidate):
         parser.error("--candidate must be a full lowercase commit SHA")
-    if args.controller == "bbrv3" and not cell_choice:
+    if args.controller == "bbrv3" and not cell_choice and not args.lifecycle_memory:
         parser.error("BBR runs smoke or diagnostic cells; the campaign inventory stays Reno")
     if args.cpu_profile and not cell_choice:
         parser.error("CPU profiling requires diagnostic or smoke mode")
@@ -1003,7 +1206,8 @@ def main(argv=None):
         parser.error("--revalidate-cell and --cause go together")
     binary = binary_identity(args.binary)
     args.output.mkdir(parents=True, exist_ok=False)
-    mode = "smoke" if args.smoke_cell else "diagnostic" if args.diagnostic_cell else "campaign"
+    mode = ("smoke" if args.smoke_cell else "diagnostic" if args.diagnostic_cell
+            else LIFECYCLE if args.lifecycle_memory else "campaign")
     warmup = 2 if mode == "smoke" else WARMUP_S
     identity = {
         "candidate": args.candidate, "binary": binary, "controller": args.controller,
@@ -1016,6 +1220,12 @@ def main(argv=None):
         "remaining_instances": args.remaining_instances, "remaining_host_seconds": args.remaining_host_seconds,
         "per_invocation_timeout_s": args.timeout_seconds, "metric_boundaries": METRIC_BOUNDARIES,
     }
+    if args.lifecycle_memory:
+        # No window, seed or ordinary comparator: the record's own phases carry its baseline.
+        for key in ("comparator", "warmup_s", "window_s", "base_seed"):
+            del identity[key]
+        identity.update(cells=[], workload=LIFECYCLE, retired_lifecycle=args.retired_lifecycle,
+                        lifecycle_phases=LIFECYCLE_PHASES, lifecycle_boundaries=LIFECYCLE_BOUNDARIES)
     if native:
         identity.update(macos=platform.mac_ver()[0], pinning="none: Darwin offers no CPU affinity",
                         host_sampler=args.host_sampler)
@@ -1040,9 +1250,22 @@ def main(argv=None):
                "platform_profile": args.platform_profile}
     try:
         ledger = AttemptLedger(args.output, args.remaining_instances, args.remaining_host_seconds, args.timeout_seconds)
-        if args.timeout_seconds < SETUP_S + warmup + WINDOW_S + 10:
+        if mode == LIFECYCLE:
+            if args.timeout_seconds < LIFECYCLE_TIMEOUT_S:
+                raise ValueError(f"a lifecycle observation needs at least {LIFECYCLE_TIMEOUT_S} s")
+        elif args.timeout_seconds < SETUP_S + warmup + WINDOW_S + 10:
             raise ValueError("timeout does not cover setup, warmup, window and fixture cleanup")
-        if mode == "campaign":
+        if mode == LIFECYCLE:
+            # One attempt, no rerun: a failed observation fails the run.
+            record = ledger.lifecycle(binary["path"], args.output / LIFECYCLE, args.candidate,
+                                      args.controller, args.retired_lifecycle, args.platform_profile)
+            with (args.output / f"{LIFECYCLE}.jsonl").open("a") as file:
+                file.write(json.dumps(record) + "\n")
+            summary.update(passed=True, judged=False, judgment=LIFECYCLE_NOT_JUDGED,
+                           retired_lifecycle=args.retired_lifecycle,
+                           go_heap_live={sample["phase"]: sample["go_heap_live"]["value"]
+                                         for sample in record["client"]["samples"]})
+        elif mode == "campaign":
             records, reruns = run_campaign(binary["path"], args.output, args.candidate, log, ledger,
                                            args.revalidate_cell)
             summary.update(summarize(records, args.revalidate_cell), reruns=reruns,
