@@ -418,20 +418,31 @@ def main(argv=None):
                     record["cause"] = f"{type(error.__cause__).__name__}: {error.__cause__}"
                 summary["observations"].append({"topology": args.topology, "arm": arm, "status": "failed",
                                                 "error": record["error"], **({"cause": record["cause"]} if "cause" in record else {})})
-            try:
-                run_observation(binaries["test"]["path"], binaries["relay"]["path"], args.output / args.topology / arm, args.topology, arm,
-                                args.controller, args.seed, args.platform_profile, warmup, window, args.timeout_seconds, record)
-                record["status"] = "succeeded"
-                summary["observations"].append(dict(summarize(record), status=record["status"]))
-            except Exception as error:
-                failed(error)
-            except KeyboardInterrupt as error:
-                failed(error)
-                raise  # cancellation stops the run: no later arm launches
-            finally:
-                # Publication completes before a cancellation that arrives during it stops the run.
-                with c1.DeferredInterrupts(), (args.output / "observations.jsonl").open("a") as file:
+            # Only the observation itself is interruptible: its outcome, summary row and ledger
+            # row are published together before a cancellation stops the run.
+            with c1.DeferredInterrupts() as interrupts:
+                outcome = None
+                try:
+                    with interrupts.interruptible():
+                        run_observation(binaries["test"]["path"], binaries["relay"]["path"], args.output / args.topology / arm,
+                                        args.topology, arm, args.controller, args.seed, args.platform_profile, warmup, window,
+                                        args.timeout_seconds, record)
+                except BaseException as error:
+                    outcome = error
+                if outcome is None:
+                    try:
+                        row = dict(summarize(record), status="succeeded")
+                    except Exception as error:
+                        outcome = error
+                    else:
+                        record["status"] = "succeeded"
+                        summary["observations"].append(row)
+                if outcome is not None:
+                    failed(outcome)
+                with (args.output / "observations.jsonl").open("a") as file:
                     file.write(json.dumps(record) + "\n")
+                if not isinstance(outcome, (type(None), Exception)):
+                    raise outcome  # cancellation stops the run: no later arm launches
         summary["passed"] = (len(summary["observations"]) == len(args.arm)
                              and all("error" not in o and not o["workload_failures"] for o in summary["observations"]))
     except KeyboardInterrupt as error:

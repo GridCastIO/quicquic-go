@@ -237,6 +237,8 @@ class ExecutionTests(unittest.TestCase):
             self.assertIn("SIGTERM", summary["error"])
 
     def test_cancellation_during_failed_cleanup_still_cancels(self):
+        # The runner may inherit an ignored SIGINT, which DeferredInterrupts preserves.
+        self.addCleanup(signal.signal, signal.SIGINT, signal.signal(signal.SIGINT, signal.default_int_handler))
         with self.assertRaises(KeyboardInterrupt) as raised:
             with driver.deferred_interrupts():
                 os.kill(os.getpid(), signal.SIGINT)  # outside a wait: recorded, not raised
