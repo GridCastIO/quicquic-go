@@ -32,8 +32,10 @@ import (
 // This control deliberately uses ordinary public constructors and never enables
 // picoquic's -M option. Multipath cases are added by their owning slices.
 func TestPicoquicOrdinaryControl(t *testing.T) {
-	require.Equal(t, "linux", runtime.GOOS, "required peer control cannot skip prerequisites")
-	require.Equal(t, "amd64", runtime.GOARCH)
+	// The Linux Docker profile and the explicit darwin-native profile are the
+	// only execution identities; anything else fails rather than skipping.
+	require.Contains(t, []string{"linux/amd64", "darwin/arm64"}, runtime.GOOS+"/"+runtime.GOARCH,
+		"required peer control cannot skip prerequisites")
 	require.Equal(t, quic.Version1, version)
 	binary := os.Getenv("PICOQUIC_BINARY")
 	require.NotEmpty(t, binary, "PICOQUIC_BINARY must name the pinned peer")
@@ -93,15 +95,24 @@ func testOrdinaryPicoquicServer(t *testing.T, ctx context.Context, binary, dir s
 	port := socket.LocalAddr().(*net.UDPAddr).Port
 	require.NoError(t, socket.Close())
 	peer := startOrdinaryPeer(t, ctx, binary, dir, "-p", strconv.Itoa(port), "-c", filepath.Join(dir, "cert.pem"), "-k", filepath.Join(dir, "key.pem"), "-w", dir, "-a", http09.NextProto, "-1")
-	select {
-	case <-peer.ready:
-	case <-peer.done:
-		t.Fatal("peer exited before listening; see peer.log")
-	case <-ctx.Done():
-		t.Fatal(ctx.Err())
+	if runtime.GOOS == "linux" {
+		select {
+		case <-peer.ready:
+		case <-peer.done:
+			t.Fatal("peer exited before listening; see peer.log")
+		case <-ctx.Done():
+			t.Fatal(ctx.Err())
+		}
 	}
-	conn, err := quic.DialAddr(ctx, addr, tlsConf, conf)
-	require.NoError(t, err)
+	// Without stdbuf the demo's readiness line stays buffered, so on Darwin a
+	// successful Dial within the role context is the readiness signal. An
+	// early peer exit cancels it instead of waiting for the deadline.
+	dialCtx, cancelDial := context.WithCancel(ctx)
+	defer cancelDial()
+	stop := context.AfterFunc(peerExited(peer), cancelDial)
+	conn, err := quic.DialAddr(dialCtx, addr, tlsConf, conf)
+	stop() // The dial context governs only the handshake.
+	require.NoError(t, err, "dial failed or the peer exited first; see peer.log")
 	defer conn.CloseWithError(0, "")
 	require.Equal(t, http09.NextProto, conn.ConnectionState().TLS.NegotiatedProtocol)
 	stream, err := conn.OpenStreamSync(ctx)
@@ -153,7 +164,12 @@ type ordinaryPeer struct {
 func startOrdinaryPeer(t *testing.T, ctx context.Context, binary, dir string, args ...string) *ordinaryPeer {
 	t.Helper()
 	ctx, cancel := context.WithCancel(ctx)
-	cmd := exec.CommandContext(ctx, "stdbuf", append([]string{"-oL", "-eL", binary}, args...)...)
+	// Linux keeps the line-buffered stdbuf launch; Darwin has no GNU stdbuf.
+	name, argv := "stdbuf", append([]string{"-oL", "-eL", binary}, args...)
+	if runtime.GOOS != "linux" {
+		name, argv = binary, args
+	}
+	cmd := exec.CommandContext(ctx, name, argv...)
 	cmd.Dir = dir
 	output, err := cmd.StdoutPipe()
 	require.NoError(t, err)
@@ -185,6 +201,16 @@ func startOrdinaryPeer(t *testing.T, ctx context.Context, binary, dir string, ar
 		<-peer.done
 	})
 	return peer
+}
+
+// peerExited is a context canceled when the peer process has been joined.
+func peerExited(p *ordinaryPeer) context.Context {
+	ctx, cancel := context.WithCancel(context.Background())
+	go func() {
+		<-p.done
+		cancel()
+	}()
+	return ctx
 }
 
 func (p *ordinaryPeer) wait(t *testing.T) {
