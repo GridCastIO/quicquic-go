@@ -815,11 +815,11 @@ def stop_sampler(process, timeout):
 class DeferredInterrupts:
     """SIGINT and SIGTERM during one observation. They raise only inside an interruptible
     wait; anywhere else (child launch and registration, teardown, sampler stop and
-    attribution) they are recorded and honored once every owned child is reaped. The
-    handler disarms before raising, so a second signal cannot interrupt the cleanup the
-    first began. Children keep the caller's delivery: nothing is masked, exec resets the
-    handler to the default, and an inherited ignore stays installed, so children inherit
-    it too."""
+    attribution) they are recorded and honored once teardown ends: every role reaped and
+    the sampler reaped or left unconfirmed after its bounded stop. The handler disarms
+    before raising, so a second signal cannot interrupt the cleanup the first began.
+    Children keep the caller's delivery: nothing is masked, exec resets the handler to the
+    default, and an inherited ignore stays installed, so children inherit it too."""
 
     SIGNALS = (signal.SIGINT, signal.SIGTERM)
 
@@ -884,11 +884,14 @@ def window_bounds(start_at_unix_ns, warmup_s, window_s, monotonic=time.monotonic
 
 class HostSampler:
     """One optional host sampler bracketing an observation. It is stopped by closing its
-    standard input and joined within a bound, and its raw output is kept as host.plist."""
+    standard input and joined within a bound, and its raw output is kept as host.plist. A
+    sampler not joined within the bound may still be writing host.plist, so its record
+    describes a snapshot of the bytes read, kept beside the live file."""
 
     def __init__(self, command, directory):
         self.command, self.directory = command, directory
         self.raw_path, self.log_path = directory / "host.plist", directory / "host.log"
+        self.snapshot_path = directory / "host.snapshot.plist"
         self.process, self.started, self.launch_error = None, None, None
         self.halted, self.reaped = None, None
 
@@ -905,9 +908,9 @@ class HostSampler:
     def stop(self):
         """Close standard input and wait for the sampler, bounded by SAMPLER_STOP_S; returns
         whether it exited before being stopped. SIGINT and SIGTERM stay blocked for this
-        bounded section, so an operator interrupt is delivered after the sampler is reaped
-        rather than between its steps. Standard input closes first, so even a failed wait
-        leaves the sampler stopping on its own."""
+        bounded section, so an operator interrupt is delivered after the bounded wait ends,
+        whether or not it reaped the sampler, rather than between its steps. Standard input
+        closes first, so even a failed wait leaves the sampler stopping on its own."""
         if self.process is None:
             return False
         interrupts = {signal.SIGINT, signal.SIGTERM}
@@ -920,11 +923,13 @@ class HostSampler:
         return early
 
     def halt(self):
-        """Stop and reap the sampler once, recording the stop request and reap times."""
+        """Stop the sampler once, within the bound, recording the stop request time and the
+        time the wait ended."""
         if self.halted is None:
             requested = time.monotonic()
             early = self.stop()
-            self.halted = (requested, early, time.monotonic())  # reaped: no sample postdates it
+            # Read after the wait: only when it reaped the sampler does no sample postdate it.
+            self.halted = (requested, early, time.monotonic())
         return self.halted
 
     def finish(self, window_start, window_end):
@@ -932,10 +937,22 @@ class HostSampler:
         conservative monotonic window bounds (the earliest start and the latest end)."""
         requested, early, stopped_at = self.halt()
         raw = self.raw_path.read_bytes() if self.raw_path.exists() else b""
+        unconfirmed = self.process is not None and not self.reaped
+        retained = self.raw_path
+        if unconfirmed:
+            # The sampler may still hold host.plist as its stdout, so the digest describes a
+            # snapshot of exactly these bytes. The live file is never replaced or renamed.
+            retained = self.snapshot_path
+            with retained.open("xb") as snapshot:
+                snapshot.write(raw)
         result = {"command": self.command, "exit": self.process.returncode if self.process else None,
                   "joined": self.process is not None and self.process.returncode is not None,
-                  "raw_path": str(self.raw_path), "raw_bytes": len(raw),
+                  "raw_path": str(retained), "raw_bytes": len(raw),
                   "raw_sha256": hashlib.sha256(raw).hexdigest()}
+        if unconfirmed:
+            result.update(live_raw_path=str(self.raw_path),
+                          live_raw_note="the unconfirmed sampler may still hold this file as its stdout "
+                                        "and append to it, so it may still grow past the snapshot")
         try:
             if self.process is None:
                 raise HostObservationError("unavailable", f"sampler never launched: {self.launch_error}")
@@ -975,8 +992,9 @@ def check_role_log(role, output, test="TestOrdinaryCostRole"):
 def run_observation(binary, directory, cell, round_, profile, seed, warmup_s=WARMUP_S,
                     window_s=WINDOW_S, timeout_s=135, record=None, controller="reno", cpu_profile=False,
                     platform_profile=LINUX, host_sampler=False):
-    """One instance; every launched child, including a host sampler, is reaped, even after
-    a partial launch. Linux pins the roles and attributes foreign CPU; the native profile
+    """One instance; every launched role is reaped, even after a partial launch, and a host
+    sampler is reaped or, if its bounded stop is not confirmed, left running unsignaled and
+    recorded unavailable. Linux pins the roles and attributes foreign CPU; the native profile
     reports optional host activity instead, and never judges the host quiet."""
     record = record if record is not None else {}
     linux = platform_profile == LINUX
@@ -1029,7 +1047,8 @@ def run_observation(binary, directory, cell, round_, profile, seed, warmup_s=WAR
                     raise ValueError(f"{cell}/{profile} {role} exit {process.returncode}")
         finally:
             # Not interruptible: terminate both roles before waiting on either, keep their
-            # facts, then stop the sampler. No failed launch or interrupt leaves a child alive.
+            # facts, then stop the sampler. No failed launch or interrupt leaves a role alive;
+            # only a sampler not confirmed stopped is left running, unsignaled.
             try:
                 for process in processes.values():
                     if process.returncode is None:
@@ -1048,7 +1067,8 @@ def run_observation(binary, directory, cell, round_, profile, seed, warmup_s=WAR
                 finally:
                     occupied = time.monotonic() - begun
                     record["occupied_s"] = occupied
-    # Every owned child is reaped: parsing the capture is ordinary, cancellable work.
+    # Every role is reaped and the sampler is reaped or recorded unconfirmed: parsing the
+    # capture is ordinary, cancellable work.
     if sampler:
         host = sampler.finish(*window)
     if linux:
