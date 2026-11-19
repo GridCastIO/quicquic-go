@@ -118,14 +118,14 @@ def parse_tuple(name, key, facts):
     return address, number
 
 
-CONTENTION_FACTS = {"status", "pressure_wait", "fault", "diagnostics_dropped", "load", "writer", "lanes", "participant_occupancy_max"}
+CONTENTION_FACTS = {"status", "pressure_wait", "fault", "unfinished_participants", "diagnostics_dropped", "load", "writer", "lanes", "participant_occupancy_max"}
 LOAD_FIELDS = ("participants", "requests", "members", "payload", "budget_ms", "window_ms")
 ERROR_CLASSES = ("enobufs", "eagain", "emsgsize", "deadline", "other")
 WRITER_FIELDS = ("writes", "max_write_ns", "long_writes", "deadline_waits")
 LANES = ("path0", "path1", "control")
 LANE_COUNTS = (
     "offers", "admitted", "refused", "closed", "results", "withdrawn",
-    "accepted", "uncertain", "unsubmitted", "failed", "diagnostics", "occupancy_max", "publication_lag_max_ns",
+    "accepted", "uncertain", "unsubmitted", "failed", "diagnostics", "occupancy_max", "native_return_to_take_max_ns",
 )
 FAULTS = {"none", "overdue", "late-return", "native"}
 
@@ -140,10 +140,12 @@ def check_counts(name, section, value, fields, extra=()):
 
 
 def contention_status(facts):
-    """The status and pressure-wait result the recorded counts imply. Only a complete
-    observation can report that no pressure wait occurred."""
+    """The status and pressure-wait result the recorded facts imply. Only a load that
+    every producer finished inside its window, on an endpoint that never faulted,
+    fully taken and fully observed, is complete; only a complete observation can
+    report that no pressure wait occurred."""
     lanes, requests = facts["lanes"], facts["load"]["requests"]
-    if any(lane["admitted"] != requests or lane["withdrawn"] != 0 for lane in lanes):
+    if facts["unfinished_participants"] != 0 or facts["fault"] != "none" or any(lane["admitted"] != requests or lane["withdrawn"] != 0 for lane in lanes):
         status = "interrupted"
     elif facts["diagnostics_dropped"] != 0 or any(lane["diagnostics"] != lane["results"] for lane in lanes):
         status = "incomplete-coverage"
@@ -161,8 +163,11 @@ def check_contention_facts(name, facts):
         raise ValueError(f"{name}: load {load!r} offers nothing")
     check_counts(name, "writer", writer, WRITER_FIELDS, ("errors",))
     check_counts(name, "writer errors", writer["errors"], ERROR_CLASSES)
-    if type(facts["diagnostics_dropped"]) is not int or facts["diagnostics_dropped"] < 0:
-        raise ValueError(f"{name}: fact diagnostics_dropped is {facts['diagnostics_dropped']!r}")
+    for key in ("diagnostics_dropped", "unfinished_participants"):
+        if type(facts[key]) is not int or facts[key] < 0:
+            raise ValueError(f"{name}: fact {key} is {facts[key]!r}")
+    if facts["unfinished_participants"] > load["participants"]:
+        raise ValueError(f"{name}: more unfinished participants than participants")
     if facts["fault"] not in FAULTS:
         raise ValueError(f"{name}: fact fault is {facts['fault']!r}, not one of {sorted(FAULTS)}")
     participants = load["participants"]
@@ -187,6 +192,10 @@ def check_contention_facts(name, facts):
         raise ValueError(f"{name}: fewer native writes than accepted or uncertain datagrams")
     if sum(writer["errors"].values()) > writer["writes"] or writer["long_writes"] > writer["writes"] or writer["deadline_waits"] > writer["errors"]["deadline"]:
         raise ValueError(f"{name}: writer observations contradict each other: {writer!r}")
+    # A pressure wait is a native timeout, which the endpoint reports as an uncertain
+    # member of a failed result; only a withdrawn result can hide it.
+    if writer["deadline_waits"] > 0 and not any(lane["withdrawn"] for lane in lanes) and not any(lane["uncertain"] and lane["failed"] for lane in lanes):
+        raise ValueError(f"{name}: an observed pressure wait has no uncertain member in a failed result")
     status, pressure = contention_status(facts)
     if (facts["status"], facts["pressure_wait"]) != (status, pressure):
         raise ValueError(f"{name}: status {facts['status']!r} and pressure_wait {facts['pressure_wait']!r}, the counts imply {status!r} and {pressure!r}")

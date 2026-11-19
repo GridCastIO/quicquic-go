@@ -124,8 +124,10 @@ type nativeDarwinLane struct {
 	diagnostics int
 	// Admitted requests not yet taken, and their peak.
 	occupancy, maxOccupancy int
-	// The longest time from a member's native return to the producer taking it.
-	publicationLag time.Duration
+	// The longest time from a natively attempted member's return to the producer
+	// taking its result: an upper bound on the time to publication. Members that
+	// ended locally, such as queued expiry or an untouched suffix, add no sample.
+	nativeReturnToTake time.Duration
 }
 
 func (l *nativeDarwinLane) facts(participant int, name string) map[string]any {
@@ -134,7 +136,7 @@ func (l *nativeDarwinLane) facts(participant int, name string) map[string]any {
 		"offers": l.offers, "admitted": l.admitted, "refused": l.refused, "closed": l.closed,
 		"results": l.results, "withdrawn": l.withdrawn,
 		"accepted": l.accepted, "uncertain": l.uncertain, "unsubmitted": l.unsubmitted, "failed": l.failed,
-		"diagnostics": l.diagnostics, "occupancy_max": l.maxOccupancy, "publication_lag_max_ns": l.publicationLag.Nanoseconds(),
+		"diagnostics": l.diagnostics, "occupancy_max": l.maxOccupancy, "native_return_to_take_max_ns": l.nativeReturnToTake.Nanoseconds(),
 	}
 }
 
@@ -151,7 +153,9 @@ type nativeDarwinProducer struct {
 	occupancy    int
 	maxOccupancy int
 	// owned counts payload buffers this producer holds outside the endpoint.
-	owned      int
+	owned int
+	// finished is set only when the whole load was taken inside the live window.
+	finished   bool
 	unexpected error
 }
 
@@ -182,19 +186,24 @@ func (p *nativeDarwinProducer) collect() bool {
 			return took
 		}
 		took = true
-		now := monotime.Now()
-		lane := &p.lanes[result.identity.path]
-		lane.results++
-		lane.occupancy--
 		p.occupancy--
-		if result.failure() != nil {
-			lane.failed++
-		}
-		for _, member := range result.members {
-			lane.accepted += member.accepted
-			lane.uncertain += member.uncertain
-			lane.unsubmitted += member.unsubmitted
-			lane.publicationLag = max(lane.publicationLag, now.Sub(member.returnedAt))
+		p.lanes[result.identity.path].take(result, monotime.Now())
+	}
+}
+
+// take counts one result the producer took at now.
+func (l *nativeDarwinLane) take(result endpointResult, now monotime.Time) {
+	l.results++
+	l.occupancy--
+	if result.failure() != nil {
+		l.failed++
+	}
+	for _, member := range result.members {
+		l.accepted += member.accepted
+		l.uncertain += member.uncertain
+		l.unsubmitted += member.unsubmitted
+		if member.accepted+member.uncertain > 0 {
+			l.nativeReturnToTake = max(l.nativeReturnToTake, now.Sub(member.returnedAt))
 		}
 	}
 }
@@ -233,7 +242,7 @@ func (p *nativeDarwinProducer) offer() (admitted, closed bool) {
 	return admitted, false
 }
 
-func (p *nativeDarwinProducer) finished() bool {
+func (p *nativeDarwinProducer) done() bool {
 	for i := range p.lanes {
 		if p.lanes[i].admitted != p.load.requests {
 			return false
@@ -250,7 +259,8 @@ func (p *nativeDarwinProducer) run(ctx context.Context) {
 	defer fallback.Stop()
 	for ctx.Err() == nil {
 		took := p.collect()
-		if p.finished() {
+		if p.done() {
+			p.finished = true
 			break
 		}
 		admitted, closed := p.offer()
@@ -390,16 +400,31 @@ func observeNativeDarwinContention(ctx context.Context, native endpointNativeIO,
 		time.Sleep(time.Millisecond)
 	}
 	observation.dropped = e.dropped.Load()
-	loadComplete, coverageComplete := observation.unexpected == nil, observation.dropped == 0
 	for _, producer := range observation.producers {
 		observation.owned += producer.owned
 		if producer.unexpected != nil && observation.unexpected == nil {
 			observation.unexpected = producer.unexpected
 		}
 		for i := range producer.lanes {
-			lane := &producer.lanes[i]
-			lane.diagnostics = diagnostics.count(producer.participant, i)
-			if lane.admitted != load.requests || lane.withdrawn != 0 {
+			producer.lanes[i].diagnostics = diagnostics.count(producer.participant, i)
+		}
+	}
+	observation.derive()
+	return observation
+}
+
+// derive is the one status and pressure-wait decision. Only a load that every
+// producer finished inside its window, on an endpoint that never faulted, with
+// every request taken and every publication observed, is complete; only a
+// complete observation can report that no pressure wait occurred.
+func (o *nativeDarwinObservation) derive() {
+	loadComplete, coverageComplete := o.unexpected == nil && o.fault == "none", o.dropped == 0
+	for _, producer := range o.producers {
+		if !producer.finished {
+			loadComplete = false
+		}
+		for _, lane := range producer.lanes {
+			if lane.admitted != o.load.requests || lane.withdrawn != 0 {
 				loadComplete = false
 			}
 			if lane.diagnostics != lane.results {
@@ -409,21 +434,30 @@ func observeNativeDarwinContention(ctx context.Context, native endpointNativeIO,
 	}
 	switch {
 	case !loadComplete:
-		observation.status = nativeDarwinInterrupted
+		o.status = nativeDarwinInterrupted
 	case !coverageComplete:
-		observation.status = nativeDarwinIncompleteCoverage
+		o.status = nativeDarwinIncompleteCoverage
 	default:
-		observation.status = nativeDarwinComplete
+		o.status = nativeDarwinComplete
 	}
 	switch {
-	case writer.deadlineWaits > 0:
-		observation.pressure = "observed"
-	case observation.status == nativeDarwinComplete:
-		observation.pressure = "not-observed"
+	case o.writer.deadlineWaits > 0:
+		o.pressure = "observed"
+	case o.status == nativeDarwinComplete:
+		o.pressure = "not-observed"
 	default:
-		observation.pressure = "unknown"
+		o.pressure = "unknown"
 	}
-	return observation
+}
+
+func (o nativeDarwinObservation) unfinished() int {
+	n := 0
+	for _, producer := range o.producers {
+		if !producer.finished {
+			n++
+		}
+	}
+	return n
 }
 
 func (o nativeDarwinObservation) facts(facts map[string]any) {
@@ -438,6 +472,7 @@ func (o nativeDarwinObservation) facts(facts map[string]any) {
 	facts["status"] = o.status
 	facts["pressure_wait"] = o.pressure
 	facts["fault"] = o.fault
+	facts["unfinished_participants"] = o.unfinished()
 	facts["diagnostics_dropped"] = int(o.dropped)
 	facts["load"] = o.load.facts()
 	facts["writer"] = o.writer.facts()
@@ -641,6 +676,77 @@ func TestNativeDarwinContentionObservations(t *testing.T) {
 			}
 			require.Positive(t, withdrawn, "queued work was withdrawn")
 		})
+	})
+
+	t.Run("endpoint fault", func(t *testing.T) {
+		synctest.Test(t, func(t *testing.T) {
+			// The first write returns well after its deadline: the endpoint faults and
+			// publishes the queued work as local failures. Every request is admitted and
+			// taken, yet the load did not complete.
+			one := nativeDarwinLoad{participants: 1, requests: 1, members: 1, payload: 1200, budget: time.Second, window: time.Minute}
+			late := true
+			native := &nativeDarwinGatedIO{}
+			native.fail = func() error {
+				if late {
+					late = false
+					time.Sleep(time.Until(native.deadline.Add(endpointTolerance + 30*time.Millisecond)))
+				}
+				return nil
+			}
+			observation := observeNativeDarwinContention(t.Context(), native, nativeDarwinSyntheticDestination, one, nil)
+			observation.requireSettled(t)
+			require.NotEqual(t, "none", observation.fault)
+			attempted := 0
+			for _, lane := range observation.producers[0].lanes {
+				require.Equal(t, 1, lane.results, "every request was taken")
+				if lane.accepted+lane.uncertain == 0 {
+					require.Zero(t, lane.nativeReturnToTake, "work that ended locally adds no native-return sample")
+				} else {
+					attempted++
+				}
+			}
+			require.Equal(t, 1, attempted, "only the late write reached the socket")
+			require.Equal(t, nativeDarwinInterrupted, observation.status)
+			require.Equal(t, "unknown", observation.pressure)
+		})
+	})
+
+	t.Run("native return timing", func(t *testing.T) {
+		// Only natively attempted members sample the return-to-take interval; work
+		// that ended locally carries a local decision time, not a native return.
+		now := monotime.Now()
+		var lane nativeDarwinLane
+		lane.take(endpointResult{members: []endpointMemberResult{
+			{accepted: 1, returnedAt: now.Add(-3 * time.Millisecond)},
+			{unsubmitted: 1, err: os.ErrDeadlineExceeded, returnedAt: now.Add(-9 * time.Millisecond)},
+		}}, now)
+		require.Equal(t, 3*time.Millisecond, lane.nativeReturnToTake)
+		lane.take(endpointResult{members: []endpointMemberResult{
+			{uncertain: 1, err: syscall.ENOBUFS, returnedAt: now.Add(-5 * time.Millisecond)},
+		}}, now)
+		require.Equal(t, 5*time.Millisecond, lane.nativeReturnToTake)
+		require.Equal(t, [4]int{2, 1, 1, 1}, [4]int{lane.results, lane.accepted, lane.uncertain, lane.unsubmitted})
+	})
+
+	t.Run("finished outside the window", func(t *testing.T) {
+		// The status decision alone: a producer whose last result was drained during
+		// cleanup, after its window ended, has full counts but did not finish in time.
+		lanes := [3]nativeDarwinLane{}
+		for i := range lanes {
+			lanes[i] = nativeDarwinLane{admitted: 1, results: 1, diagnostics: 1}
+		}
+		observation := nativeDarwinObservation{
+			load: nativeDarwinLoad{participants: 1, requests: 1, members: 1}, writer: &nativeDarwinWriterObserver{}, fault: "none",
+			producers: []*nativeDarwinProducer{{lanes: lanes}},
+		}
+		observation.derive()
+		require.Equal(t, nativeDarwinInterrupted, observation.status)
+		require.Equal(t, "unknown", observation.pressure)
+		require.Equal(t, 1, observation.unfinished())
+		observation.producers[0].finished = true
+		observation.derive()
+		require.Equal(t, nativeDarwinComplete, observation.status)
+		require.Equal(t, "not-observed", observation.pressure)
 	})
 }
 

@@ -41,10 +41,10 @@ def contention_facts(participants=2, requests=3, members=2):
             lanes.append({
                 "participant": participant, "lane": lane, "offers": requests + 2, "admitted": requests, "refused": 2, "closed": 0,
                 "results": requests, "withdrawn": 0, "accepted": requests * members, "uncertain": 0, "unsubmitted": 0, "failed": 0,
-                "diagnostics": requests, "occupancy_max": 2, "publication_lag_max_ns": 25000,
+                "diagnostics": requests, "occupancy_max": 2, "native_return_to_take_max_ns": 25000,
             })
     return {
-        "status": "complete", "pressure_wait": "not-observed", "fault": "none", "diagnostics_dropped": 0,
+        "status": "complete", "pressure_wait": "not-observed", "fault": "none", "unfinished_participants": 0, "diagnostics_dropped": 0,
         "load": {"participants": participants, "requests": requests, "members": members, "payload": 1200, "budget_ms": 1000, "window_ms": 10000},
         "writer": {
             "writes": participants * 3 * requests * members, "max_write_ns": 60000, "long_writes": 0, "deadline_waits": 0,
@@ -177,9 +177,23 @@ class ContentionTests(unittest.TestCase):
         # An observed wait stands in any status.
         observed = contention_facts()
         observed["writer"]["errors"]["deadline"] = observed["writer"]["deadline_waits"] = 1
-        observed["lanes"][0].update(accepted=5, uncertain=1)
+        observed["lanes"][0].update(accepted=5, uncertain=1, failed=1)
         observed["pressure_wait"] = "observed"
         self.check(observed, "socket-pressure")
+        # A wait whose timeout shows in no failed result contradicts the outcomes.
+        hidden = {**observed, "lanes": [dict(lane) for lane in observed["lanes"]]}
+        hidden["lanes"][0].update(accepted=6, uncertain=0, failed=0)
+        with self.assertRaisesRegex(ValueError, "pressure wait"):
+            self.check(hidden, "socket-pressure")
+        # A load that didn't finish in its window, or whose endpoint faulted, is
+        # interrupted even when every count is full.
+        for change in ({"unfinished_participants": 1}, {"fault": "overdue"}):
+            late = {**contention_facts(), **change}
+            with self.subTest(change=change), self.assertRaisesRegex(ValueError, "imply"):
+                self.check(late, "socket-pressure")
+            self.check({**late, "status": "interrupted", "pressure_wait": "unknown"}, "socket-pressure")
+        with self.assertRaisesRegex(ValueError, "unfinished"):
+            self.check({**contention_facts(), "unfinished_participants": 3, "status": "interrupted", "pressure_wait": "unknown"}, "socket-pressure")
         # A dropped diagnostic or a lagging sink is missing coverage: no negative claim.
         dropped = contention_facts()
         dropped.update(diagnostics_dropped=3, status="incomplete-coverage", pressure_wait="unknown")
@@ -191,7 +205,7 @@ class ContentionTests(unittest.TestCase):
         # An interrupted load withdrew or never offered some requests.
         interrupted = contention_facts()
         interrupted["lanes"][3].update(results=2, withdrawn=1, accepted=4, diagnostics=2)
-        interrupted.update(status="interrupted", pressure_wait="unknown")
+        interrupted.update(status="interrupted", pressure_wait="unknown", unfinished_participants=1)
         self.check(interrupted, "socket-pressure")
         for facts, status, pressure in ((dropped, "incomplete-coverage", "not-observed"), (interrupted, "complete", "unknown"), (observed, "complete", "not-observed")):
             changed = {**facts, "status": status, "pressure_wait": pressure}
@@ -202,7 +216,7 @@ class ContentionTests(unittest.TestCase):
         interrupted = contention_facts()
         interrupted["lanes"][3].update(results=2, withdrawn=1, accepted=4, diagnostics=2)
         interrupted.update(status="interrupted", pressure_wait="unknown")
-        faulted = {**contention_facts(), "fault": "overdue"}
+        faulted = {**contention_facts(), "fault": "overdue", "status": "interrupted", "pressure_wait": "unknown"}
         stalled = contention_facts()
         stalled["lanes"][2].update(accepted=0, unsubmitted=6, failed=3)
         for name, facts in (("interrupted", interrupted), ("faulted", faulted), ("stalled", stalled)):
