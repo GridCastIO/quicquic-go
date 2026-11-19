@@ -167,8 +167,57 @@ def source_identity(source):
     return {"commit": capture("git", "rev-parse", "HEAD", cwd=source), "tree": tree, "head_tree": head_tree, "clean": tree == head_tree}
 
 
+# Every file list `go help list` declares as a package build input.
+GO_LIST_FILE_FIELDS = (
+    "GoFiles", "CgoFiles", "CFiles", "CXXFiles", "MFiles", "HFiles", "FFiles", "SFiles", "SwigFiles", "SwigCXXFiles",
+    "SysoFiles", "TestGoFiles", "XTestGoFiles", "EmbedFiles", "TestEmbedFiles", "XTestEmbedFiles",
+)
+
+
+def build_env(toolchain):
+    return os.environ | BUILD | {"GOTOOLCHAIN": toolchain}
+
+
+def parse_go_list(text):
+    """The main module's build inputs from a `go list -json` stream, which the json
+    module parses; other modules are identified by go.sum and the toolchain."""
+    decoder, index, files = json.JSONDecoder(), 0, set()
+    while True:
+        while index < len(text) and text[index].isspace():
+            index += 1
+        if index == len(text):
+            return files
+        package, index = decoder.raw_decode(text, index)
+        module = package.get("Module") or {}
+        if package.get("Standard") or not module.get("Main"):
+            continue
+        directory = Path(package["Dir"])
+        for field in GO_LIST_FILE_FIELDS:
+            files.update(directory / name for name in package.get(field) or ())
+        go_mod = Path(module["GoMod"])
+        files.update(path for path in (go_mod, go_mod.with_name("go.sum")) if path.exists())
+
+
+def selected_sources(source, toolchain):
+    """The files the test build of the source directory reads from the main module."""
+    return parse_go_list(capture("go", "list", "-deps", "-test", "-json", ".", env=build_env(toolchain), cwd=source))
+
+
+def ignored_paths(source):
+    top = Path(capture("git", "rev-parse", "--show-toplevel", cwd=source))
+    listed = subprocess.run(["git", "ls-files", "--others", "--ignored", "--exclude-standard", "-z"], cwd=top, check=True, capture_output=True).stdout
+    return {(top / name).resolve() for name in os.fsdecode(listed).split("\0") if name}
+
+
+def check_build_sources(selected, ignored):
+    """The recorded tree omits Git-ignored files, so the build may select none of them."""
+    hidden = sorted(str(path) for path in {path.resolve() for path in selected} & ignored)
+    if hidden:
+        raise ValueError(f"the build selects Git-ignored source that the recorded tree omits: {hidden}")
+
+
 def build(source, toolchain, output):
-    env = os.environ | BUILD | {"GOTOOLCHAIN": toolchain}
+    env = build_env(toolchain)
     reported = capture("go", "env", "GOVERSION", env=env, cwd=source)
     if toolchain != "local" and reported != toolchain:
         raise ValueError(f"requested {toolchain}, got {reported}")
@@ -248,6 +297,10 @@ RESULTS_SHAPE = {
     "source": {"commit": is_hex(40), "tree": is_hex(40), "head_tree": is_hex(40), "clean": lambda value: type(value) is bool},
     "build": {"go": is_text, "toolchain": is_text, "mode": lambda value: value == BUILD, "binary_sha256": is_hex(64)},
     "identity": {key: is_text for key in ("system", "machine", "proc_translated", *NATIVE_FIELDS, "go", "goos", "goarch")},
+    "status": {
+        "cases": lambda value: is_integer(value) and value == len(CASES), "status": lambda value: value == "pass",
+        "support_receipt": lambda value: value is False,
+    },
     "instance": {
         "case": is_text, "command": lambda value: isinstance(value, list) and all(map(is_text, value)),
         "exit": lambda value: is_integer(value) and value == 0, "seconds": lambda value: type(value) in (int, float) and value >= 0,
@@ -291,8 +344,7 @@ def validate_results(results):
     check_accounting([instance["case"] for instance in instances])
     for instance in instances:
         check_record(instance["case"], identity, instance["record"])
-    if results["status"] != status():
-        raise ValueError(f"results status {results['status']!r} is not {status()!r}")
+    check_shape("status", results["status"], RESULTS_SHAPE["status"])
 
 
 def run(source, output, toolchain, case_timeout):
@@ -301,8 +353,10 @@ def run(source, output, toolchain, case_timeout):
     check_native(identity)
     if shutil.which("go") is None:
         raise SystemExit("missing prerequisite: go")
-    # Snapshot the source before creating output, which may lie inside the tree.
+    # Snapshot the source before creating output, which may lie inside the tree, and
+    # refuse a build that would read source the snapshot leaves out.
     source_snapshot = source_identity(source)
+    check_build_sources(selected_sources(source, toolchain), ignored_paths(source))
     output.mkdir(parents=True, exist_ok=False)
     binary, build_identity = build(source, toolchain, output)
     identity |= {"go": build_identity["go"], "goos": BUILD["GOOS"], "goarch": BUILD["GOARCH"]}

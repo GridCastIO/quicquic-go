@@ -247,6 +247,41 @@ class SourceTests(unittest.TestCase):
         self.assertEqual("?? b.go", runner.capture("git", "status", "--porcelain", cwd=source), "the real index is untouched")
 
 
+class BuildSourceTests(unittest.TestCase):
+    def test_go_list_stream_yields_main_module_inputs(self):
+        directory = tempfile.TemporaryDirectory()
+        self.addCleanup(directory.cleanup)
+        root = Path(directory.name)
+        (root / "go.mod").write_text("module example\n")
+        (root / "go.sum").write_text("")
+        main = {"Path": "example", "Dir": str(root), "GoMod": str(root / "go.mod")}
+        packages = [
+            {"Dir": "/goroot/src/fmt", "Standard": True, "GoFiles": ["print.go"]},
+            {"Dir": "/cache/dep", "Module": {"Path": "dep", "Main": False}, "GoFiles": ["dep.go"]},
+            {"Dir": str(root), "Module": {**main, "Main": True}, "GoFiles": ["a.go"], "TestGoFiles": ["a_test.go"], "EmbedFiles": ["data.txt"], "IgnoredGoFiles": ["other.go"]},
+            {"Dir": str(root), "Module": {**main, "Main": True}, "XTestGoFiles": ["b_test.go"], "SFiles": ["asm.s"]},
+        ]
+        stream = "\n".join(json.dumps(package, indent=2) for package in packages) + "\n"
+        expected = {root / name for name in ("a.go", "a_test.go", "data.txt", "b_test.go", "asm.s", "go.mod", "go.sum")}
+        self.assertEqual(expected, runner.parse_go_list(stream))
+        with self.assertRaises(ValueError):
+            runner.parse_go_list(stream + "{")
+
+    def test_selected_ignored_source_is_refused(self):
+        directory = tempfile.TemporaryDirectory()
+        self.addCleanup(directory.cleanup)
+        source = Path(directory.name)
+        runner.capture("git", "init", "-q", cwd=source)
+        (source / ".gitignore").write_text("mockgen_tmp.go\n*.txt\n")
+        (source / "a.go").write_text("package a\n")
+        (source / "mockgen_tmp.go").write_text("package a\n")
+        (source / "notes.txt").write_text("")
+        ignored = runner.ignored_paths(source)
+        runner.check_build_sources({source / "a.go"}, ignored)
+        with self.assertRaisesRegex(ValueError, "mockgen_tmp.go"):
+            runner.check_build_sources({source / "a.go", source / "mockgen_tmp.go"}, ignored)
+
+
 class RunTests(unittest.TestCase):
     def test_source_is_snapshot_before_in_tree_output(self):
         directory = tempfile.TemporaryDirectory()
@@ -272,6 +307,9 @@ class RunTests(unittest.TestCase):
         self.addCleanup(setattr, runner, "native_identity", originals[0])
         self.addCleanup(setattr, runner, "build", originals[1])
         self.addCleanup(setattr, runner, "run_case", originals[2])
+        selected = runner.selected_sources
+        runner.selected_sources = lambda source, toolchain: {source / "a.go"}
+        self.addCleanup(setattr, runner, "selected_sources", selected)
         which = runner.shutil.which
         runner.shutil.which = lambda tool: f"/usr/bin/{tool}"
         self.addCleanup(setattr, runner.shutil, "which", which)
@@ -328,9 +366,13 @@ class ResultsTests(unittest.TestCase):
             instance["record"]["goos"] = "linux"
         boolean_exit = self.results()
         boolean_exit["instances"][2]["exit"] = False
+        numeric_support = self.results()
+        numeric_support["status"]["support_receipt"] = 0
+        float_cases = self.results()
+        float_cases["status"]["cases"] = float(len(runner.CASES))
         unknown_field = self.results()
         unknown_field["build"]["extra"] = 1
-        cases = (("selector", selector), ("linux", linux), ("boolean exit", boolean_exit), ("unknown field", unknown_field), ("misstated clean", misstated), ("unidentified", unidentified), ("missing", missing), ("failed", failed), ("unstated", unstated), ("translated", translated), ("wrong record", wrong_record), ("unsourced", unsourced), ("other build", other_build))
+        cases = (("selector", selector), ("linux", linux), ("boolean exit", boolean_exit), ("unknown field", unknown_field), ("numeric support", numeric_support), ("float cases", float_cases), ("misstated clean", misstated), ("unidentified", unidentified), ("missing", missing), ("failed", failed), ("unstated", unstated), ("translated", translated), ("wrong record", wrong_record), ("unsourced", unsourced), ("other build", other_build))
         for name, results in cases:
             with self.subTest(name=name), self.assertRaises(ValueError):
                 runner.validate_results(results)
