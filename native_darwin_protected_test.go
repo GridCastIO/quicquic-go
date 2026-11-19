@@ -114,21 +114,17 @@ func (p *nativeDarwinProtected) member(t *testing.T, size int, ecn protocol.ECN,
 	return m
 }
 
-// opens reports whether data is the member's ciphertext: the peer's opener
-// authenticates it and its plaintext carries the member's DATAGRAM payload. Bytes
-// that fail to parse or authenticate are not, so the lifetime still names its class.
+// opens reports whether data is the member's ciphertext: the peer's receive path
+// accepts it under the peer's opener, with its own header, key phase and packet
+// number checks, and its plaintext carries the member's DATAGRAM payload. Bytes the
+// peer refuses are not, so the lifetime still names its class. The opener is
+// stateful, so the control is opened before the trigger.
 func (p *nativeDarwinProtected) opens(m nativeDarwinProtectedMember, data []byte) bool {
 	if p.opener == nil || m.plan == nil || len(data) != int(m.recipe.end) {
 		return false
 	}
-	raw := bytes.Clone(data)
-	pnOffset := int(m.recipe.payloadOffset) - int(m.recipe.pnLen)
-	p.opener.DecryptHeader(raw[pnOffset+4:pnOffset+20], &raw[0], raw[pnOffset:m.recipe.payloadOffset])
-	_, pn, _, _, err := wire.ParseShortHeader(raw, p.conn.connIDManager.Get().Len())
-	if err != nil {
-		return false
-	}
-	plain, err := p.opener.Open(nil, raw[m.recipe.payloadOffset:], monotime.Now(), pn, protocol.KeyPhaseZero, raw[:m.recipe.payloadOffset])
+	peer := newPacketUnpacker(nil, p.conn.connIDManager.Get().Len())
+	_, _, _, plain, err := peer.unpackShortHeaderPacket(p.opener, monotime.Now(), bytes.Clone(data))
 	return err == nil && bytes.Contains(plain, bytes.Repeat([]byte{m.fill}, 64))
 }
 
@@ -164,13 +160,31 @@ func (b nativeDarwinBorrow) borrowed() bool { return b.sampled && b.held && b.bu
 // pass the deadline's tolerance makes the endpoint fault the borrow as overdue, which
 // keeps it borrowed and fails the case on its fault check.
 func nativeDarwinProtectedSample(e *nativeEndpoint, m nativeDarwinProtectedMember) (b nativeDarwinBorrow) {
+	e.do(func(s *endpointState) { b = nativeDarwinProtectedBorrow(s, m) })
+	return b
+}
+
+// nativeDarwinProtectedJoinSample is nativeDarwinProtectedSample with the join's
+// state read under the same endpoint lock, so the two are one observation.
+func nativeDarwinProtectedJoinSample(e *nativeEndpoint, m nativeDarwinProtectedMember, retired <-chan struct{}) (b nativeDarwinBorrow, joinOpen bool) {
 	e.do(func(s *endpointState) {
-		token := s.current
-		b.sampled = true
-		b.held = token != nil && len(token.request.members) == 1 && m.match(token.request.members[0]) && token.completion.Load() == nil
-		b.buffer = m.buffer.refCount == 1
-		b.plan = m.plan != nil && m.plan.buffer == m.buffer
+		b = nativeDarwinProtectedBorrow(s, m)
+		select {
+		case <-retired:
+		default:
+			joinOpen = true
+		}
 	})
+	return b, joinOpen
+}
+
+// nativeDarwinProtectedBorrow is m's borrow under the endpoint lock.
+func nativeDarwinProtectedBorrow(s *endpointState, m nativeDarwinProtectedMember) (b nativeDarwinBorrow) {
+	token := s.current
+	b.sampled = true
+	b.held = token != nil && len(token.request.members) == 1 && m.match(token.request.members[0]) && token.completion.Load() == nil
+	b.buffer = m.buffer.refCount == 1
+	b.plan = m.plan != nil && m.plan.buffer == m.buffer
 	return b
 }
 
@@ -349,18 +363,14 @@ func nativeDarwinBBRProtectedCloseJoin(t *testing.T, facts map[string]any) {
 
 	closing := time.Now()
 	p.sender.Close()
-	closed := nativeDarwinProtectedSample(w.e, trigger)
+	closed, joinOpenAtClose := nativeDarwinProtectedJoinSample(w.e, trigger, retired)
 	require.True(t, closed.borrowed(), "the close returns while the native call holds the member")
+	require.True(t, joinOpenAtClose, "the join is still open when the close returns")
 	// The same native call is still in the Go poller once the close has returned.
 	before := nativeDarwinHeldMember(w.e, trigger.match)
 	waiting := nativeDarwinWriterWaiting()
 	after := nativeDarwinHeldMember(w.e, trigger.match)
 	require.True(t, before == token && waiting && after == token, "the trigger's native call is still waiting after the close returns")
-	select {
-	case <-retired:
-		require.FailNow(t, "the join preceded the native return")
-	default:
-	}
 	joined := nativeDarwinAwaitJoin(t, retired)
 	released := nativeDarwinProtectedReleased(trigger)
 	require.True(t, released, "the join follows the member's release")
