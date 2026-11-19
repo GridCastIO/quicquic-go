@@ -628,6 +628,21 @@ class ResultsTests(unittest.TestCase):
             with self.subTest(name=name), self.assertRaises(ValueError):
                 runner.validate_results(results)
 
+    def test_readback_refuses_a_non_finite_or_boolean_seconds(self):
+        for seconds in (float("inf"), float("-inf"), float("nan"), True):
+            with self.subTest(seconds=seconds):
+                results = self.results()
+                results["instances"][1]["seconds"] = seconds
+                with self.assertRaisesRegex(ValueError, r"results instance has invalid \['seconds'\]"):
+                    runner.validate_results(results)
+
+    def test_readback_accepts_a_finite_seconds(self):
+        for seconds in (0, 0.0, 10**400):
+            with self.subTest(seconds=seconds):
+                results = self.results()
+                results["instances"][1]["seconds"] = seconds
+                runner.validate_results(results)
+
 
 BLOCKED = runner.PROFILES["blocked-writer"]
 EXPIRED = "expired-before-dispatch-successor"
@@ -680,6 +695,28 @@ BLOCKED_FACTS = {
 
 def blocked_record(name, **changes):
     return {"schema": runner.SCHEMA, "case": name, "go": "go1.27.4", "goos": "darwin", "goarch": "arm64", "facts": {**BLOCKED_FACTS[name], **changes}}
+
+
+# Every recorded duration in the blocked-writer records, by case.
+DURATION_ROWS = (
+    ("eagain-to-deadline", "native_return_after_deadline_ms"), ("eagain-to-deadline", "publication_ms"),
+    ("queued-expiry", "native_return_after_deadline_ms"), ("queued-expiry", "queued_expiry_ms"), ("queued-expiry", "queued_publication_ms"),
+    ("active-close-join", "native_return_after_deadline_ms"), ("active-close-join", "close_to_join_ms"),
+    (PROTECTED, "native_return_after_deadline_ms"), (PROTECTED, "close_to_join_ms"),
+)
+
+
+def with_json_number(value, path, number):
+    """The JSON text of value with the field at path (a tuple of keys and indexes)
+    written as the given number literal, as a producer could have written it."""
+    marker = "\0number\0"
+    copy = json.loads(json.dumps(value))
+    *parents, last = path
+    target = copy
+    for key in parents:
+        target = target[key]
+    target[last] = marker
+    return json.dumps(copy).replace(json.dumps(marker), number)
 
 
 class BlockedWriterProfileTests(unittest.TestCase):
@@ -791,6 +828,20 @@ class BlockedWriterClassificationTests(unittest.TestCase):
                 del record["facts"][fact]
                 with self.assertRaisesRegex(ValueError, "queued-expiry: facts"):
                     runner.check_record("queued-expiry", IDENTITY, record, BLOCKED)
+
+    def test_an_infinite_duration_is_refused(self):
+        # json reads 1e999 as infinity; every recorded duration must be finite.
+        for name, fact in DURATION_ROWS:
+            with self.subTest(name=name, fact=fact):
+                record = runner.parse_record(with_json_number(blocked_record(name), ("facts", fact), "1e999"))
+                with self.assertRaisesRegex(ValueError, f"^{re.escape(name)}: fact {fact} is inf"):
+                    runner.check_record(name, IDENTITY, record, BLOCKED)
+
+    def test_a_finite_duration_is_accepted(self):
+        # A JSON integer of any size is finite.
+        for value in (0, 0.0, 10**400):
+            with self.subTest(value=value):
+                runner.check_record("eagain-to-deadline", IDENTITY, blocked_record("eagain-to-deadline", publication_ms=value), BLOCKED)
 
 
 class BlockedWriterExpiredClaimTests(unittest.TestCase):
@@ -939,6 +990,25 @@ class BlockedWriterRunCaseTests(unittest.TestCase):
         else:
             self.fail("the case's observer survived the timeout")
 
+    def test_an_infinite_recorded_duration_fails_the_case(self):
+        directory = tempfile.TemporaryDirectory()
+        self.addCleanup(directory.cleanup)
+        output = f"--- PASS: {runner.BLOCKED_TEST} (0.20s)\n    --- PASS: {runner.BLOCKED_TEST}/queued-expiry (0.20s)\nPASS\n"
+        # The case passes and writes its record, but Python's json.dump writes the
+        # infinite duration as Infinity.
+        body = (
+            f"record = {blocked_record('queued-expiry')!r}\n"
+            "record['facts']['queued_publication_ms'] = float('inf')\n"
+            f"json.dump(record, open(os.environ['{runner.RECORD_ENV}'], 'w'))\n"
+            f"print({output!r})"
+        )
+        binary = fake_binary(directory.name, body)
+        instance, failure = runner.run_case(binary, "queued-expiry", Path(directory.name) / "out", IDENTITY, 10, BLOCKED)
+        self.assertIn("Infinity", (Path(directory.name) / "out" / "queued-expiry" / "record.json").read_text())
+        self.assertEqual(0, instance["exit"])
+        self.assertIsNotNone(failure, "a case record with an infinite duration passed")
+        self.assertRegex(failure, "^queued-expiry: fact queued_publication_ms is inf")
+
 
 class BlockedWriterResultsTests(unittest.TestCase):
     def results(self):
@@ -983,6 +1053,17 @@ class BlockedWriterResultsTests(unittest.TestCase):
         for name, results in cases:
             with self.subTest(name=name), self.assertRaises(ValueError):
                 runner.validate_results(results)
+
+    def test_readback_refuses_an_infinite_duration(self):
+        # --validate reads the file with json.loads, which reads 1e999 as infinity.
+        results = self.results()
+        index = BLOCKED.cases.index("active-close-join")
+        fact = json.loads(with_json_number(results, ("instances", index, "record", "facts", "close_to_join_ms"), "1e999"))
+        with self.assertRaisesRegex(ValueError, "^active-close-join: fact close_to_join_ms is inf"):
+            runner.validate_results(fact)
+        seconds = json.loads(with_json_number(results, ("instances", index, "seconds"), "1e999"))
+        with self.assertRaisesRegex(ValueError, r"results instance has invalid \['seconds'\]"):
+            runner.validate_results(seconds)
 
     def test_a_requested_profile_must_be_the_recorded_one(self):
         runner.validate_results(self.results(), "blocked-writer")

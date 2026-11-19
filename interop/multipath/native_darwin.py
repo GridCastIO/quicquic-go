@@ -13,6 +13,7 @@ import argparse
 import hashlib
 import ipaddress
 import json
+import math
 import os
 from pathlib import Path
 import platform
@@ -63,8 +64,11 @@ def is_count(value):
 
 
 def is_ms(value):
-    """A recorded duration in milliseconds. It is recorded, never judged here."""
-    return type(value) in (int, float) and value >= 0
+    """A recorded duration: a finite, non-negative int or float, never a bool. Case
+    facts record milliseconds and the results' instance seconds reuse it. It is
+    recorded, never judged here. json reads 1e999 and Infinity as an infinite float.
+    An int of any size is finite, and math.isfinite would overflow on a large one."""
+    return type(value) in (int, float) and value >= 0 and (type(value) is int or math.isfinite(value))
 
 
 def is_send_buffer(value):
@@ -590,7 +594,7 @@ RESULTS_SHAPE = {
     },
     "instance": {
         "case": is_text, "command": lambda value: isinstance(value, list) and all(map(is_text, value)),
-        "exit": lambda value: is_integer(value) and value == 0, "seconds": lambda value: type(value) in (int, float) and value >= 0,
+        "exit": lambda value: is_integer(value) and value == 0, "seconds": is_ms,
         "record": lambda value: isinstance(value, dict), "failure": lambda value: value is None,
     },
 }
