@@ -62,8 +62,8 @@ C2 observes live/retained memory at matched negotiated-connection lifecycle stat
 | C2 | Complete ([PR #1554](https://github.com/GridCastIO/quicquic-go/pull/1554)) | Negotiated lifecycle-memory observation | C1 | None |
 | C3 | Complete ([PR #1497](https://github.com/GridCastIO/quicquic-go/pull/1497)) | Scoped UDP queue/topology relay | None | None |
 | C4 | Complete ([PR #1557](https://github.com/GridCastIO/quicquic-go/pull/1557)) | Topology/control comparison workload | C1, C3 | None |
-| Q1 | New; blocked | Concrete approved execution/venue protocol | E2, E3, P1, P2, C2, C4 | None |
-| Q2 | New; blocked | Qualified public activation, continuing coverage and support | Q1 | None |
+| Q1 | Complete ([PR #1567](https://github.com/GridCastIO/quicquic-go/pull/1567); [execution protocol](2026-11-19-macos-multipath-execution-protocol.md)) | Concrete approved execution/venue protocol | E2, E3, P1, P2, C2, C4 | None |
+| Q2 | New; frontier | Qualified public activation, continuing coverage and support | Q1 | None |
 
 E1, P1, P2, C1 and C3 are parallel-safe in separate worktrees. E2/E3 follow E1 independently; C2 follows C1, while C4 requires both C1 and C3. P1/P2 may touch the same peer files but neither needs the other's behavior; coordinate ordinary merges without adding a convenience dependency. Q1 requires the six leaf readiness outputs, with their prerequisites transitively satisfied, because it must bind executable commands and known limitations. Q2 requires Q1's accepted protocol and owner decision. Shared-host measurement coordination is an operational condition, not a convenience blocking edge. No separate ordering is imposed by file proximity.
 
