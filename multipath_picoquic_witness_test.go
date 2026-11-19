@@ -8,6 +8,19 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// matrixPathsLiveActive reports whether every observed path is live with local
+// use active. Otherwise it also returns the first path that is not. The live
+// matrix's aggregate phase decides eligibility with it; it lives here so the
+// fixture cases build wherever the picoquic tag does.
+func matrixPathsLiveActive(states []MultipathPathStateV1) (MultipathPathStateV1, bool) {
+	for _, state := range states {
+		if state.Lifecycle != "live" || state.LocalUse != "active" {
+			return state, false
+		}
+	}
+	return MultipathPathStateV1{}, true
+}
+
 // These fixture-semantic cases exercise the aggregate DATAGRAM ingress
 // witness's accounting with recorded peer receipts. They make no live
 // scheduling or platform claim.
@@ -47,14 +60,53 @@ func TestPicoquicMatrixIngressWitness(t *testing.T) {
 		_, err := w.accept([]string{record(0, offered[0]), record(1, offered[1]), record(0, stale[0]), record(1, stale[1]), echo}, both)
 		require.ErrorContains(t, err, "no fresh receipt on path 0")
 
-		for name, eligible := range map[string][]bool{
-			"path inactive in an offer round": {true, false, true},
-			"path inactive at phase end":      {true, true, false},
+		// Eligibility comes from the live session's decision over observed path
+		// states: two offer rounds, then the phase end.
+		state := func(id uint32, lifecycle, use string) MultipathPathStateV1 {
+			return MultipathPathStateV1{WireID: id, Lifecycle: lifecycle, LocalUse: use}
+		}
+		active := []MultipathPathStateV1{state(0, "live", "active"), state(1, "live", "active")}
+		for _, test := range []struct {
+			name         string
+			observations [3][]MultipathPathStateV1
+			ineligible   []uint32 // the path reported at each ineligible observation
+			err          string
+		}{
+			{
+				name:         "both paths live and active throughout",
+				observations: [3][]MultipathPathStateV1{active, active, active},
+			},
+			{
+				name:         "path 0 backup in an offer round",
+				observations: [3][]MultipathPathStateV1{active, {state(0, "live", "backup"), state(1, "live", "active")}, active},
+				ineligible:   []uint32{0},
+				err:          "offer round 1 lacked two live/active paths",
+			},
+			{
+				name:         "path 1 not live at phase end",
+				observations: [3][]MultipathPathStateV1{active, active, {state(0, "live", "active"), state(1, "retiring", "active")}},
+				ineligible:   []uint32{1},
+				err:          "phase end lacked two live/active paths",
+			},
 		} {
-			t.Run(name, func(t *testing.T) {
+			t.Run(test.name, func(t *testing.T) {
+				var eligible []bool
+				var ineligible []uint32
+				for _, states := range test.observations {
+					first, ok := matrixPathsLiveActive(states)
+					if !ok {
+						ineligible = append(ineligible, first.WireID)
+					}
+					eligible = append(eligible, ok)
+				}
+				require.Equal(t, test.ineligible, ineligible)
 				w, offered := phase(0, eligible...)
 				_, err := w.accept([]string{record(0, offered[0]), record(1, offered[1]), record(0, offered[2]), record(1, offered[3])}, both)
-				require.ErrorContains(t, err, "live/active")
+				if test.err == "" {
+					require.NoError(t, err)
+					return
+				}
+				require.EqualError(t, err, test.err)
 			})
 		}
 	})
