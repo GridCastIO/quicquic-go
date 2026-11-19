@@ -149,9 +149,12 @@ def check_metrics(record, platform_profile, controller):
     for role in (server, client):
         cpu = check_metric("self_cpu", role.get("self_cpu"), "ns")
         seconds = role.get("window_cpu_s")
+        # The producer marks only a negative CPU interval unavailable, and window_cpu_s is a
+        # required reading of that same interval, so the window has no CPU evidence.
+        if cpu is None:
+            raise ValueError(f"self_cpu is unavailable ({role['self_cpu']['reason']}); the window has no CPU evidence")
         # One reading, two representations: Go's Duration.Seconds() of the same nanoseconds.
-        if cpu is not None and (type(seconds) not in (int, float)
-                                or not math.isclose(seconds, cpu / 1e9, rel_tol=1e-12, abs_tol=1e-9)):
+        if type(seconds) not in (int, float) or not math.isclose(seconds, cpu / 1e9, rel_tol=1e-12, abs_tol=1e-9):
             raise ValueError("self_cpu metric does not match window_cpu_s")
     unit = PROFILES[platform_profile]["rss_unit"]
     for field in ("peak_rss_at_sample", "peak_rss_end"):
@@ -262,6 +265,9 @@ def check_observation(record):
 
 def check_mixed(record):
     background = flows(record, "background")
+    # Comparative fair progress is judged only for Reno; delivery itself is a workload fact.
+    if any(flow["useful_bytes"] <= 0 for flow in background):
+        raise ValueError("mixed-bulk: no background delivery on an expected background flow")
     if record["profile"] == CONTROL:
         if len(background) != 2:
             raise ValueError("mixed-bulk control needs two independent connections")
@@ -506,12 +512,13 @@ def cluster_activity(records, coverage):
     """Elapsed-weighted active residency (1 - idle_ratio - down_ratio) of each CPU cluster,
     labeled by the producer's E/P cluster name, averaged over the sampler's lifetime.
 
-    coverage holds the driver's monotonic times: sampler launch and stop, and the window.
-    Delta samples are contiguous from some unknown start delay after launch, and they
-    finish before the stop, so they certainly cover the window only when their total
-    elapsed time reaches the window's end from launch and reaches back to its start from
-    the stop. Timestamps are not used. Unsupported fields or uncertain coverage are
-    inconclusive."""
+    coverage holds the driver's monotonic times: the window, a launch read before the
+    sampler could exist, and a stop read after it was reaped. Delta samples are contiguous
+    (each covers the time since the previous one) from some unknown start delay after
+    launch, and they finish before the stop, so they certainly cover the window only when
+    their total elapsed time reaches the window's end from launch and reaches back to its
+    start from the stop. Second-resolution timestamps are not used. Unsupported fields or
+    uncertain coverage are inconclusive."""
     if not records:
         raise HostObservationError("inconclusive", "no complete powermetrics record")
     names, active, elapsed_total = None, {}, 0
@@ -570,13 +577,14 @@ class HostSampler:
         self.process, self.started, self.launch_error = None, None, None
 
     def start(self):
-        """A sampler that cannot launch leaves the observation running, unattributed."""
+        """A sampler that cannot launch leaves the observation running, unattributed. The
+        launch is read first, so no sample can predate it."""
+        self.started = time.monotonic()
         try:
             with self.raw_path.open("wb") as raw, self.log_path.open("wb") as log:
                 self.process = subprocess.Popen(self.command, stdout=raw, stderr=log)
         except OSError as error:
             self.launch_error = f"{type(error).__name__}: {error}"
-        self.started = time.monotonic()
 
     def stop(self):
         """Terminate, wait, then kill; returns whether it exited before being stopped.
@@ -604,8 +612,9 @@ class HostSampler:
 
     def finish(self, window_start, window_end):
         """Stop the sampler and attribute what it recorded; monotonic window bounds."""
-        stopped_at = time.monotonic()
+        requested = time.monotonic()
         early = self.stop()
+        stopped_at = time.monotonic()  # after the reap, so no sample can postdate it
         raw = self.raw_path.read_bytes() if self.raw_path.exists() else b""
         result = {"command": self.command, "exit": self.process.returncode if self.process else None,
                   "joined": self.process is not None and self.process.returncode is not None,
@@ -619,7 +628,7 @@ class HostSampler:
                 raise HostObservationError("unavailable", f"sampler exited {self.process.returncode}: {log}")
             if self.started > window_start:
                 raise HostObservationError("inconclusive", "sampler started after the window began")
-            if early or stopped_at < window_end:
+            if early or requested < window_end:
                 raise HostObservationError("inconclusive", "sampler ended before the window ended")
             records, tail = parse_powermetrics(raw)
             coverage = {"launched": self.started, "stopped": stopped_at,

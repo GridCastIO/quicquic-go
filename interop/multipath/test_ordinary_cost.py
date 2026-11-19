@@ -227,6 +227,18 @@ class AccountingTests(unittest.TestCase):
             with self.subTest(paths=paths), self.assertRaisesRegex(ValueError, "two-path"):
                 driver.check_observation(record)
 
+    def test_every_background_flow_must_deliver(self):
+        for profile, index in (("opted-in", 1), ("unregistered", 2)):
+            for controller in ("reno", "bbrv3"):
+                record = observation("mixed-bulk", profile, controller=controller)
+                background = record["client"]["flows"][index]
+                background["series"] = [0] * driver.WINDOW_S
+                background["useful_bytes"] = 0
+                resync_useful(record)
+                with self.subTest(profile=profile, controller=controller), \
+                        self.assertRaisesRegex(ValueError, "no background delivery"):
+                    driver.check_observation(record)
+
     def test_stateless_cell_must_apply_pressure(self):
         record = observation("stateless-pressure")
         record["client"]["flood"]["sent"] = 0
@@ -687,6 +699,21 @@ class ExecutionTests(unittest.TestCase):
                 self.assertFalse(summary["judged"])
                 self.assertTrue(summary["workload_failures"])
 
+    def test_unjudged_bbr_mixed_bulk_fails_on_an_idle_background_flow(self):
+        def idle(record):
+            if record["profile"] == driver.OPTED_IN:
+                background = record["client"]["flows"][1]
+                background["series"] = [0] * driver.WINDOW_S
+                background["useful_bytes"] = 0
+                resync_useful(record)
+
+        with tempfile.TemporaryDirectory() as temporary:
+            code, summary, _ = self.invoke(Path(temporary), ("--smoke-cell", "mixed-bulk", "--controller", "bbrv3"),
+                                           edit=idle)
+        self.assertEqual(code, 1, summary)
+        self.assertFalse(summary.get("passed"))
+        self.assertIn("no background delivery", summary.get("error", ""))
+
     def test_unsupported_bbr_or_profiling_campaign_launches_nothing(self):
         for extra in (("--controller", "bbrv3"),
                       ("--cpu-profile",),
@@ -795,6 +822,19 @@ class MetricRecordTests(unittest.TestCase):
         record["server"]["self_cpu"]["value"] = 123_456_789_123
         record["server"]["window_cpu_s"] = 123_456_789_123 / 1e9
         driver.check_observation(record)
+
+    def test_unavailable_cpu_is_not_window_evidence(self):
+        """The producer marks only a negative CPU interval unavailable; window_cpu_s is a
+        required positive reading of that same interval, so no record can carry both."""
+        for platform in ("linux-amd64", "darwin-arm64"):
+            for role in ("server", "client"):
+                for seconds in (60.0, -0.5):
+                    record = observation("stream" if platform == "darwin-arm64" else "stream-gso-on", platform=platform)
+                    record[role]["self_cpu"] = unavailable("ns", "negative CPU interval")
+                    record[role]["window_cpu_s"] = seconds
+                    with self.subTest(platform=platform, role=role, seconds=seconds), \
+                            self.assertRaisesRegex(ValueError, "self_cpu is unavailable"):
+                        driver.check_observation(record)
 
     def test_useful_bytes_metric_matches_the_flows(self):
         record = observation("mixed-bulk")
@@ -1056,6 +1096,45 @@ class PowermetricsTests(unittest.TestCase):
             self.assertEqual(process.returncode, -signal.SIGKILL)
             with self.assertRaises(ProcessLookupError):
                 os.kill(process.pid, 0)
+
+    def test_coverage_bounds_bracket_the_sampler_process(self):
+        """Launch is read before the child can exist, and stop after it is reaped, so
+        neither bound can fall inside the child's lifetime."""
+        marks, real_popen = {}, subprocess.Popen
+
+        class Process(real_popen):
+            def __init__(self, *args, **kwargs):
+                marks["entered"] = time.monotonic()
+                super().__init__(*args, **kwargs)
+                time.sleep(0.2)  # the parent is descheduled while the child samples
+
+            def wait(self, timeout=None):
+                code = super().wait(timeout)
+                marks["reaped"] = time.monotonic()
+                return code
+
+        seen = {}
+
+        def capture(records, coverage):
+            seen.update(coverage)
+            return {"status": "observed"}
+
+        script = textwrap.dedent(f"""
+            import signal, sys, time
+            sys.stdout.buffer.write(open({str(FIXTURE)!r}, 'rb').read()); sys.stdout.flush()
+            signal.signal(signal.SIGTERM, lambda *_: (time.sleep(0.2), sys.exit(0)))
+            time.sleep(60)
+        """)
+        with tempfile.TemporaryDirectory() as temporary, \
+                mock.patch.object(driver.subprocess, "Popen", Process), \
+                mock.patch.object(driver, "cluster_activity", side_effect=capture):
+            sampler = driver.HostSampler([sys.executable, "-c", script], Path(temporary))
+            sampler.start()
+            self.assertLessEqual(sampler.started, marks["entered"])
+            time.sleep(0.3)
+            activity = sampler.finish(sampler.started, sampler.started + 0.1)
+        self.assertEqual(activity["status"], "observed", activity)
+        self.assertGreaterEqual(seen["stopped"], marks["reaped"])
 
     def test_unresponsive_sampler_is_killed_and_joined(self):
         with tempfile.TemporaryDirectory() as temporary:
