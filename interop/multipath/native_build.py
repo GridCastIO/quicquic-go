@@ -68,8 +68,9 @@ def check_self_test(output):
 def run_step(command, log, cwd, timeout=1200):
     """Run one build step in its own process group, appending its command line and output to the open build log.
 
-    `run.run_group` kills and joins the whole group (CMake plus its make and compiler workers)
-    on timeout, interrupt or SIGTERM, and a nonzero exit fails like `check=True`.
+    On timeout, interrupt or SIGTERM, `run.run_group` sends SIGKILL to the whole group (CMake
+    plus its make and compiler workers) and reaps the direct child; a nonzero exit fails like
+    `check=True`.
     """
     log.write(f"$ {' '.join(map(str, command))}\n")
     log.flush()

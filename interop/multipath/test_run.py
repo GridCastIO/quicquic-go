@@ -326,8 +326,10 @@ class NativeProfileTests(unittest.TestCase):
                      "subprocess.Popen([sys.executable, '-c', %r]); "
                      "[time.sleep(0.05) for _ in iter(lambda: not pathlib.Path(%r).exists(), False)]; time.sleep(60)"
                      ) % (str(child_pid), grandchild, str(ready))
-            # A separate supervising process, so the test can deliver SIGTERM to the runner alone.
-            supervisor = ("import importlib.util, os, sys; sys.dont_write_bytecode = True; "
+            # A separate supervising process, so the test can deliver SIGTERM to the runner alone. It starts
+            # from the default disposition: the runner deliberately keeps an inherited ignore.
+            supervisor = ("import importlib.util, os, signal, sys; sys.dont_write_bytecode = True; "
+                          "signal.signal(signal.SIGTERM, signal.SIG_DFL); "
                           "spec = importlib.util.spec_from_file_location('peer_run', %r); "
                           "runner = importlib.util.module_from_spec(spec); spec.loader.exec_module(runner); "
                           "print('returned', runner.run_bounded([sys.executable, '-c', %r], os.environ, %r, 30))"
