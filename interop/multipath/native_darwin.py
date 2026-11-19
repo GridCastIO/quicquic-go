@@ -167,21 +167,22 @@ def source_identity(source):
     return {"commit": capture("git", "rev-parse", "HEAD", cwd=source), "tree": tree, "head_tree": head_tree, "clean": tree == head_tree}
 
 
-# Every file list `go help list` declares as a package build input.
-GO_LIST_FILE_FIELDS = (
-    "GoFiles", "CgoFiles", "CFiles", "CXXFiles", "MFiles", "HFiles", "FFiles", "SFiles", "SwigFiles", "SwigCXXFiles",
-    "SysoFiles", "TestGoFiles", "XTestGoFiles", "EmbedFiles", "TestEmbedFiles", "XTestEmbedFiles",
-)
+# The file lists `go help list` declares as package build inputs. Only the package
+# under test contributes its test lists to the test binary.
+GO_LIST_FILE_FIELDS = ("GoFiles", "CgoFiles", "CFiles", "CXXFiles", "MFiles", "HFiles", "FFiles", "SFiles", "SwigFiles", "SwigCXXFiles", "SysoFiles", "EmbedFiles")
+GO_LIST_TEST_FIELDS = ("TestGoFiles", "XTestGoFiles", "TestEmbedFiles", "XTestEmbedFiles")
 
 
 def build_env(toolchain):
     return os.environ | BUILD | {"GOTOOLCHAIN": toolchain}
 
 
-def parse_go_list(text):
-    """The main module's build inputs from a `go list -json` stream, which the json
-    module parses; other modules are identified by go.sum and the toolchain."""
-    decoder, index, files = json.JSONDecoder(), 0, set()
+def parse_go_list(text, directory):
+    """The main module's files that the test build of the package in directory reads,
+    from a `go list -deps -test -json` stream the json module parses. Generated files
+    outside the module, such as the test main, and other modules' packages, which
+    go.sum and the toolchain identify, are not source."""
+    decoder, index, files, tested = json.JSONDecoder(), 0, set(), Path(directory).resolve()
     while True:
         while index < len(text) and text[index].isspace():
             index += 1
@@ -191,29 +192,29 @@ def parse_go_list(text):
         module = package.get("Module") or {}
         if package.get("Standard") or not module.get("Main"):
             continue
-        directory = Path(package["Dir"])
-        for field in GO_LIST_FILE_FIELDS:
-            files.update(directory / name for name in package.get(field) or ())
-        go_mod = Path(module["GoMod"])
-        files.update(path for path in (go_mod, go_mod.with_name("go.sum")) if path.exists())
+        root, package_directory = Path(module["GoMod"]).resolve().parent, Path(package["Dir"]).resolve()
+        fields = GO_LIST_FILE_FIELDS + (GO_LIST_TEST_FIELDS if package_directory == tested else ())
+        for field in fields:
+            files.update(path for path in (package_directory / name for name in package.get(field) or ()) if path.is_relative_to(root))
+        files.update(path for path in (root / "go.mod", root / "go.sum") if path.exists())
 
 
 def selected_sources(source, toolchain):
-    """The files the test build of the source directory reads from the main module."""
-    return parse_go_list(capture("go", "list", "-deps", "-test", "-json", ".", env=build_env(toolchain), cwd=source))
+    """The main-module files the test build of the source directory reads."""
+    return parse_go_list(capture("go", "list", "-deps", "-test", "-json", ".", env=build_env(toolchain), cwd=source), source)
 
 
-def ignored_paths(source):
+def tree_paths(source, tree):
     top = Path(capture("git", "rev-parse", "--show-toplevel", cwd=source))
-    listed = subprocess.run(["git", "ls-files", "--others", "--ignored", "--exclude-standard", "-z"], cwd=top, check=True, capture_output=True).stdout
+    listed = subprocess.run(["git", "ls-tree", "-r", "-z", "--name-only", tree], cwd=top, check=True, capture_output=True).stdout
     return {(top / name).resolve() for name in os.fsdecode(listed).split("\0") if name}
 
 
-def check_build_sources(selected, ignored):
-    """The recorded tree omits Git-ignored files, so the build may select none of them."""
-    hidden = sorted(str(path) for path in {path.resolve() for path in selected} & ignored)
-    if hidden:
-        raise ValueError(f"the build selects Git-ignored source that the recorded tree omits: {hidden}")
+def check_build_sources(selected, recorded):
+    """Every file the build reads from the main module must be in the recorded tree."""
+    missing = sorted(str(path) for path in {path.resolve() for path in selected} - recorded)
+    if missing:
+        raise ValueError(f"the build reads source that the recorded tree omits: {missing}")
 
 
 def build(source, toolchain, output):
@@ -356,7 +357,7 @@ def run(source, output, toolchain, case_timeout):
     # Snapshot the source before creating output, which may lie inside the tree, and
     # refuse a build that would read source the snapshot leaves out.
     source_snapshot = source_identity(source)
-    check_build_sources(selected_sources(source, toolchain), ignored_paths(source))
+    check_build_sources(selected_sources(source, toolchain), tree_paths(source, source_snapshot["tree"]))
     output.mkdir(parents=True, exist_ok=False)
     binary, build_identity = build(source, toolchain, output)
     identity |= {"go": build_identity["go"], "goos": BUILD["GOOS"], "goarch": BUILD["GOARCH"]}

@@ -248,38 +248,47 @@ class SourceTests(unittest.TestCase):
 
 
 class BuildSourceTests(unittest.TestCase):
-    def test_go_list_stream_yields_main_module_inputs(self):
+    def test_go_list_stream_yields_the_test_builds_module_inputs(self):
         directory = tempfile.TemporaryDirectory()
         self.addCleanup(directory.cleanup)
         root = Path(directory.name)
         (root / "go.mod").write_text("module example\n")
         (root / "go.sum").write_text("")
-        main = {"Path": "example", "Dir": str(root), "GoMod": str(root / "go.mod")}
+        (root / "dep").mkdir()
+        module = {"Path": "example", "Main": True, "GoMod": str(root / "go.mod")}
         packages = [
             {"Dir": "/goroot/src/fmt", "Standard": True, "GoFiles": ["print.go"]},
-            {"Dir": "/cache/dep", "Module": {"Path": "dep", "Main": False}, "GoFiles": ["dep.go"]},
-            {"Dir": str(root), "Module": {**main, "Main": True}, "GoFiles": ["a.go"], "TestGoFiles": ["a_test.go"], "EmbedFiles": ["data.txt"], "IgnoredGoFiles": ["other.go"]},
-            {"Dir": str(root), "Module": {**main, "Main": True}, "XTestGoFiles": ["b_test.go"], "SFiles": ["asm.s"]},
+            {"Dir": "/cache/other", "Module": {"Path": "other", "Main": False}, "GoFiles": ["other.go"]},
+            {"Dir": str(root / "dep"), "Module": module, "GoFiles": ["dep.go"], "TestGoFiles": ["dep_test.go"], "XTestGoFiles": ["x_test.go"]},
+            {"Dir": str(root), "Module": module, "GoFiles": ["a.go"], "TestGoFiles": ["a_test.go"], "EmbedFiles": ["data.txt"], "IgnoredGoFiles": ["other.go"]},
+            {"Dir": str(root), "Module": module, "XTestGoFiles": ["b_test.go"], "SFiles": ["asm.s"]},
+            {"Dir": "/cache/b0", "Module": module, "GoFiles": ["testmain.go"]},
         ]
         stream = "\n".join(json.dumps(package, indent=2) for package in packages) + "\n"
-        expected = {root / name for name in ("a.go", "a_test.go", "data.txt", "b_test.go", "asm.s", "go.mod", "go.sum")}
-        self.assertEqual(expected, runner.parse_go_list(stream))
+        expected = {root / name for name in ("dep/dep.go", "a.go", "a_test.go", "data.txt", "b_test.go", "asm.s", "go.mod", "go.sum")}
+        self.assertEqual({path.resolve() for path in expected}, runner.parse_go_list(stream, root))
         with self.assertRaises(ValueError):
-            runner.parse_go_list(stream + "{")
+            runner.parse_go_list(stream + "{", root)
 
-    def test_selected_ignored_source_is_refused(self):
+    def test_build_reading_unrecorded_source_is_refused(self):
         directory = tempfile.TemporaryDirectory()
         self.addCleanup(directory.cleanup)
         source = Path(directory.name)
-        runner.capture("git", "init", "-q", cwd=source)
-        (source / ".gitignore").write_text("mockgen_tmp.go\n*.txt\n")
+        git = ("git", "-c", "user.name=t", "-c", "user.email=t@example.invalid")
+        runner.capture(*git, "init", "-q", cwd=source)
+        (source / ".gitignore").write_text("mockgen_tmp.go\nstaged_tmp.go\n")
         (source / "a.go").write_text("package a\n")
+        runner.capture(*git, "add", ".gitignore", "a.go", cwd=source)
+        runner.capture(*git, "commit", "-q", "-m", "a", cwd=source)
+        (source / "new.go").write_text("package a\n")
         (source / "mockgen_tmp.go").write_text("package a\n")
-        (source / "notes.txt").write_text("")
-        ignored = runner.ignored_paths(source)
-        runner.check_build_sources({source / "a.go"}, ignored)
-        with self.assertRaisesRegex(ValueError, "mockgen_tmp.go"):
-            runner.check_build_sources({source / "a.go", source / "mockgen_tmp.go"}, ignored)
+        (source / "staged_tmp.go").write_text("package a\n")
+        runner.capture(*git, "add", "-f", "staged_tmp.go", cwd=source)
+        recorded = runner.tree_paths(source, runner.source_identity(source)["tree"])
+        runner.check_build_sources({source / "a.go", source / "new.go"}, recorded)
+        for name in ("mockgen_tmp.go", "staged_tmp.go"):
+            with self.subTest(name=name), self.assertRaisesRegex(ValueError, name):
+                runner.check_build_sources({source / "a.go", source / name}, recorded)
 
 
 class RunTests(unittest.TestCase):
