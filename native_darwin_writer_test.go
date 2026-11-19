@@ -1088,63 +1088,24 @@ func TestNativeDarwinWriterMethod(t *testing.T) {
 
 	t.Run("a protected BBR member stays borrowed through the native return and the final fence", func(t *testing.T) {
 		nativeOrdinaryTest(t, func(t *testing.T) {
-			release := make(chan struct{})
-			var once sync.Once
-			unblock := func() { once.Do(func() { close(release) }) }
-			observer := &nativeDarwinProtectedObserver{}
-			record := &nativeDarwinIO{native: endpointTestNative{send: func([]byte) (int, error) {
-				<-release
-				return 0, os.ErrDeadlineExceeded
-			}}, observe: observer.observe}
-			e := startNativeEndpoint(record, nativeDarwinBudget, nil)
-			defer func() { unblock(); <-e.stop() }()
-			p := newNativeDarwinProtected(t, "bbrv3", e, netip.MustParseAddrPort("127.0.0.1:1234"), true)
-			m := p.member(t, nativeDarwinProtectedSendBuffer, protocol.ECT0, 0x54)
-			require.NotNil(t, m.plan)
-			require.True(t, m.deferred)
-			require.True(t, m.credit)
-			retired := p.sender.participant.retired
-			observer.arm(0, e, m, retired)
-			p.sender.finish()
-			synctest.Wait()
-			call := nativeDarwinProtectedSample(e, m)
-			require.True(t, call.borrowed(), "the simulated call holds the member")
-			p.sender.Close()
-			require.True(t, nativeDarwinProtectedSample(e, m).borrowed(), "the close returns while the member is borrowed")
-			synctest.Wait()
-			select {
-			case <-retired:
-				require.FailNow(t, "the join preceded the native return")
-			default:
-			}
-			_, _, returned, fenced, _ := observer.snapshot()
-			require.False(t, returned.sampled, "nothing has returned yet")
-			require.False(t, fenced.sampled)
-
-			unblock()
-			synctest.Wait()
-			select {
-			case <-retired:
-			default:
-				require.FailNow(t, "the native return and fence did not release the join")
-			}
-			released := nativeDarwinProtectedReleased(m)
-			sent, applied, returned, fenced, joinOpen := observer.snapshot()
-			require.True(t, applied, "the writer applied the plan before the native call")
-			require.True(t, returned.borrowed(), "borrowed at the native return")
-			require.True(t, fenced.borrowed(), "borrowed after the final deadline reset")
-			require.True(t, joinOpen, "the join waits for the fence")
-			require.True(t, released, "released by the join")
-			lifetime := nativeDarwinProtectedLifetime{
-				planned: m.deferred, bbr: m.credit, ciphertext: applied && p.opens(t, m, sent),
-				call: call, returned: returned, fenced: fenced, released: released,
-			}
+			lifetime, closed, seen, class := nativeDarwinSimulatedProtected(t, "bbrv3", true, protocol.ECT0)
+			require.True(t, lifetime.planned, "a frozen plan the writer had yet to apply")
+			require.True(t, lifetime.bbr, "bbrv3 with its reservation credit")
+			require.True(t, seen.applied, "the writer applied the plan before the native call")
+			require.True(t, lifetime.ciphertext, "the native call carried the peer-opened ciphertext")
+			require.True(t, lifetime.call.borrowed(), "the simulated call holds the member")
+			require.True(t, closed.borrowed(), "the close returns while the member is borrowed")
+			require.True(t, seen.returned.borrowed(), "borrowed at the native return")
+			require.True(t, seen.fenced.borrowed(), "borrowed after the final deadline reset")
+			require.True(t, seen.joinOpenAtFence, "the join waits for the fence")
+			require.True(t, lifetime.released, "released by the join")
 			require.Equal(t, "borrowed-through-fence", lifetime.class())
-			require.Equal(t, "simulated", record.claim(0).class(m.deadline, true), "a simulated writer is never native traversal")
+			require.Equal(t, "simulated", class, "a simulated writer is never native traversal")
 		})
 	})
 
 	t.Run("a member without a plan or BBR credit is not the protected case's evidence", func(t *testing.T) {
+		// Reno's local completions carry no ECN mark, and the mark is not under test.
 		for _, tc := range []struct {
 			controller string
 			deferred   bool
@@ -1152,18 +1113,7 @@ func TestNativeDarwinWriterMethod(t *testing.T) {
 		}{{"bbrv3", false, "unprotected"}, {"reno", true, "not-bbr"}} {
 			t.Run(tc.class, func(t *testing.T) {
 				nativeOrdinaryTest(t, func(t *testing.T) {
-					e := startNativeEndpoint(endpointTestNative{}, nativeDarwinBudget, nil)
-					defer func() { <-e.stop() }()
-					p := newNativeDarwinProtected(t, tc.controller, e, netip.MustParseAddrPort("127.0.0.1:1234"), tc.deferred)
-					// Reno's local completions carry no ECN mark, and the mark is not under test.
-					m := p.member(t, nativeDarwinProtectedSendBuffer, protocol.ECNNon, 0x54)
-					require.Equal(t, tc.deferred, m.plan != nil, "a plan only from the deferred capability")
-					require.Equal(t, tc.controller == "bbrv3", m.credit, "BBR reservation credit only on bbrv3")
-					borrowed := nativeDarwinBorrow{sampled: true, held: true, buffer: true, plan: true}
-					lifetime := nativeDarwinProtectedLifetime{
-						planned: m.plan != nil && m.deferred, bbr: p.controller == "bbrv3" && m.credit, ciphertext: true,
-						call: borrowed, returned: borrowed, fenced: borrowed, released: true,
-					}
+					lifetime, _, _, _ := nativeDarwinSimulatedProtected(t, tc.controller, tc.deferred, protocol.ECNNon)
 					require.Equal(t, tc.class, lifetime.class())
 				})
 			})

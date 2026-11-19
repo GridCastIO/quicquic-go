@@ -87,6 +87,8 @@ EXPIRED_CLASS = "expired-claim-unsubmitted"
 # deadline reset, and the join follows its release. The fixture labels that lifetime
 # borrowed-through-fence, or the first failure it saw.
 PROTECTED_CASE = "bbr-protected-close-join"
+# Its socket requests one standard-size packet's send buffer, so B is that packet.
+PROTECTED_SEND_BUFFER = 1200
 LIFETIME_CLASS = "borrowed-through-fence"
 LIFETIME_CLASSES = {
     "unprotected", "not-bbr", "plaintext-at-native-call", "released-during-call", "released-at-return",
@@ -140,7 +142,7 @@ BLOCKED_FACTS = {
         "joined_after_return": True, "transport_write_after_join": "closed", "caller_write_delivered": True, "close_to_join_ms": is_ms,
     },
     PROTECTED_CASE: {
-        **RECORDED_CLAIM_FACTS, "controller": "bbrv3", "bbr_credit": True, "protection_plan": True, "protected_by_writer": True,
+        **RECORDED_CLAIM_FACTS, "send_buffer": PROTECTED_SEND_BUFFER, "controller": "bbrv3", "bbr_credit": True, "protection_plan": True, "protected_by_writer": True,
         "native_ciphertext_opened": True, "control_opened": True, "borrowed_in_call": True, "close_returned_while_borrowed": True,
         "borrowed_at_native_return": True, "borrowed_at_fence": True, "lifetime": LIFETIME_CLASS, "released_at_join": True,
         "joined_after_return": True, "successor_delivered": True, "faulted": False, "close_to_join_ms": is_ms,

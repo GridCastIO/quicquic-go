@@ -701,7 +701,7 @@ class BlockedWriterProfileTests(unittest.TestCase):
 
     def test_each_case_once_per_profile(self):
         runner.check_accounting(list(BLOCKED.cases), BLOCKED)
-        self.assertEqual(8, len(BLOCKED.cases), "D15 A and D13 A: X2 expects eight cases")
+        self.assertEqual(8, len(BLOCKED.cases), "D15 A and D13 A: the profile has eight cases; X2's amended row awaits the owner's reapproval")
         with self.assertRaisesRegex(ValueError, "missing.*expired-before-dispatch-successor"):
             runner.check_accounting([name for name in BLOCKED.cases if name != EXPIRED], BLOCKED)
         with self.assertRaisesRegex(ValueError, "duplicate.*expired-before-dispatch-successor"):
@@ -889,6 +889,8 @@ class BlockedWriterProtectedMemberTests(unittest.TestCase):
 
     def test_the_trigger_is_exactly_the_send_buffer(self):
         self.refused("payload_bytes", payload_bytes=1201)
+        # The archived 4096-byte trigger is not this case's: B is one standard-size packet.
+        self.refused("send_buffer", send_buffer=4096, payload_bytes=4096)
         self.refused("control_bytes", control_bytes=1200)
         self.refused("successor_delivered", successor_delivered=False)
         self.refused("faulted", faulted=True)
