@@ -419,24 +419,25 @@ def read_run(key, directory):
                                    ("version", identity.get("version"), VERSION), ("mode", identity.get("mode"), "diagnostic"),
                                    ("controller", identity.get("controller"), controller),
                                    ("topology", identity.get("topology"), topology), ("arm", identity.get("arms"), [arm]),
-                                   ("seed", identity.get("seed"), seed)):
+                                   ("seed", identity.get("seed"), seed),
+                                   ("timeline", [identity.get("warmup_s"), identity.get("window_s")], list(MODES["diagnostic"]))):
         if actual != expected:
             raise ValueError(f"{where}: identity {name} {actual!r} is not {expected!r}"
                              + (" (the verdict reads darwin-arm64 diagnostic runs only)" if name in ("platform profile", "mode") else ""))
-    binaries, source = identity.get("binaries") or {}, identity.get("source") or {}
-    if (any(not isinstance(binaries.get(name), dict) or not isinstance(binaries[name].get("binding"), dict)
-            or binaries[name]["binding"].get("sha256") != binaries[name].get("sha256") for name in ("test", "relay"))
-            or source.get("commit") != identity.get("candidate")):
-        raise ValueError(f"{where}: identity lacks a #1528 binding of its test and relay binaries to the candidate")
-    for name, actual, expected in (("version", summary.get("version"), VERSION),
+    binaries, source = identity.get("binaries"), identity.get("source")
+    if (not isinstance(binaries, dict) or any(c1.bound_digest(binaries.get(name)) is None for name in ("test", "relay"))
+            or not isinstance(source, dict) or source.get("commit") != identity.get("candidate")):
+        raise ValueError(f"{where}: identity.json lacks a #1528 binding of its test and relay binaries to the candidate")
+    for name, actual, expected in (("version", summary.get("version"), VERSION), ("mode", summary.get("mode"), "diagnostic"),
                                    ("platform profile", summary.get("platform_profile"), c1.DARWIN),
                                    ("controller", summary.get("controller"), controller),
                                    ("topology", summary.get("topology"), topology), ("seed", summary.get("seed"), seed)):
         if actual != expected:
             raise ValueError(f"{where}: summary {name} {actual!r} is not {expected!r}")
     rows = summary.get("observations")
-    if not isinstance(rows, list) or len(rows) != 1 or len(lines) != 1 or rows[0].get("arm") != arm:
-        raise ValueError(f"{where}: the run must hold exactly its one {arm} observation")
+    if (not isinstance(rows, list) or len(rows) != 1 or not isinstance(rows[0], dict) or rows[0].get("arm") != arm
+            or len(lines) != 1):
+        raise ValueError(f"{where}: summary.json and observations.jsonl must hold exactly its one {arm} observation")
     row, record = rows[0], c1.read_json_line(lines[0], f"{where} observations.jsonl")
     if record.get("status") != "succeeded" or row.get("status") != "succeeded":
         reason = row.get("error") or record.get("error") or "the run did not succeed"
@@ -454,6 +455,9 @@ def read_run(key, directory):
         raise ValueError(f"{where}: unverified: malformed observation record: {error!r}") from error
     if verified != row:
         raise ValueError(f"{where}: unverified: summary.json is not the driver's summary of its observation record")
+    timeline = [observation["identity"].get("warmup_ns"), observation["identity"].get("window_ns")]
+    if timeline != [seconds * 10**9 for seconds in MODES["diagnostic"]]:
+        raise ValueError(f"{where}: observation timeline {timeline} ns is not the diagnostic mode's")
     if row["workload_failures"] or summary.get("passed") is not True:
         return identity, row, f"{key_text(key)} failed: {'; '.join(row['workload_failures']) or 'the run did not pass'}"
     return identity, row, None

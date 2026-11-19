@@ -1270,13 +1270,38 @@ DARWIN_BBR_NOT_JUDGED = ("BBR ordinary-cost ratios are reported with judged fals
                          "primary/backup and aggregate cost on the exact results")
 
 
-def read_json(path, where):
+HEX_DIGEST = re.compile(r"[0-9a-f]{64}")
+
+
+def read_json_line(text, where):
+    """One verdict input: a finite JSON object, or a refusal naming where it was read."""
     def reject_nonfinite(value):
         raise ValueError(f"{where}: nonfinite JSON number {value}")
     try:
-        return json.loads(Path(path).read_text(), parse_constant=reject_nonfinite)
-    except (OSError, json.JSONDecodeError) as error:
+        value = json.loads(text, parse_constant=reject_nonfinite)
+    except json.JSONDecodeError as error:
         raise ValueError(f"unreadable {where}: {error}") from error
+    if not isinstance(value, dict):
+        raise ValueError(f"{where} is not a JSON object")
+    return value
+
+
+def read_json(path, where):
+    try:
+        text = Path(path).read_text()
+    except OSError as error:
+        raise ValueError(f"unreadable {where}: {error}") from error
+    return read_json_line(text, where)
+
+
+def bound_digest(binary):
+    """The binary's digest when its #1528 binding names that same, well-formed digest."""
+    if not isinstance(binary, dict) or not isinstance(binary.get("binding"), dict):
+        return None
+    digest = binary.get("sha256")
+    if not isinstance(digest, str) or not HEX_DIGEST.fullmatch(digest) or binary["binding"].get("sha256") != digest:
+        return None
+    return digest
 
 
 def file_input(path):
@@ -1300,10 +1325,9 @@ def read_cost_attempt(n, directory):
         raise ValueError(f"{where}: not a one-cell diagnostic attempt")
     if identity.get("cpu_profile") is not False:
         raise ValueError(f"{where}: CPU profiling makes timings attribution-only")
-    binary, source = identity.get("binary") or {}, identity.get("source") or {}
-    if (not isinstance(binary.get("binding"), dict) or binary["binding"].get("sha256") != binary.get("sha256")
-            or source.get("commit") != identity.get("candidate")):
-        raise ValueError(f"{where}: identity lacks a #1528 binding of its binary to the candidate")
+    source = identity.get("source")
+    if bound_digest(identity.get("binary")) is None or not isinstance(source, dict) or source.get("commit") != identity.get("candidate"):
+        raise ValueError(f"{where}: identity.json lacks a #1528 binding of its binary to the candidate")
     pair = {}
     for record in records:
         for key, expected in (("platform_profile", DARWIN), ("mode", "diagnostic"), ("candidate", identity.get("candidate")),
@@ -1313,25 +1337,24 @@ def read_cost_attempt(n, directory):
                 raise ValueError(f"{where}: {record.get('profile')} record {key} {record.get(key)!r} is not {expected!r}")
         try:
             check_observation(record)
-        except (KeyError, TypeError) as error:
-            raise ValueError(f"{where}: malformed {record.get('profile')} record: {error!r}") from error
+        except (KeyError, TypeError, AttributeError) as error:
+            raise ValueError(f"{where}: malformed {record.get('profile')} record in diagnostic.jsonl: {error!r}") from error
         pair[record["profile"]] = record
     return identity, (pair[CONTROL], pair[OPTED_IN])
-
-
-def read_json_line(line, where):
-    def reject_nonfinite(value):
-        raise ValueError(f"{where}: nonfinite JSON number {value}")
-    try:
-        return json.loads(line, parse_constant=reject_nonfinite)
-    except json.JSONDecodeError as error:
-        raise ValueError(f"unreadable {where}: {error}") from error
 
 
 def cost_verdict(attempts):
     """The X11 verdict record for one controller and cell, from {N: attempt directory}."""
     if sorted(attempts) != list(VERDICT_ROUNDS):
         raise ValueError(f"the verdict needs the accepted attempt of rounds 1, 2 and 3 exactly, not {sorted(attempts)}")
+    # Every diagnostic invocation records internal round 0, so only the directory tells
+    # one round's attempt from another's.
+    seen = {}
+    for n in VERDICT_ROUNDS:
+        resolved = Path(attempts[n]).resolve()
+        if resolved in seen:
+            raise ValueError(f"round {n} attempt {attempts[n]} is round {seen[resolved]}'s attempt; each round needs its own")
+        seen[resolved] = n
     identities, rounds, inputs = {}, [], []
     for n in VERDICT_ROUNDS:
         directory = Path(attempts[n])

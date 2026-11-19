@@ -494,7 +494,8 @@ def run_record(topology, arm, controller, seed, useful, competitor=300):
         flows["competitor"] = {"stream_useful_bytes": competitor, "datagram_useful_bytes": 0, "max_receive_gap_ns": 9,
                                "datagram_latency": dict(latency, count=0), "object_completion": latency}
     observation = {
-        "version": 1, "identity": {"topology": topology, "arm": arm, "controller": controller, "seed": seed, "server": "127.0.0.1:9"},
+        "version": 1, "identity": {"topology": topology, "arm": arm, "controller": controller, "seed": seed, "server": "127.0.0.1:9",
+                                   "start_at_unix_ns": 1, "warmup_ns": 10 * 10**9, "window_ns": 60 * 10**9},
         "platform": {"profile": c1.DARWIN, "goos": "darwin", "goarch": "arm64"},
         "relay": {"config": {"kind": topology}, "routes": [
             {"name": route, "forward": {"dropped": 0, "overflow": 0}, "reverse": {"overflow": 0}} for route in routes]},
@@ -533,6 +534,7 @@ class DarwinVerdictTests(unittest.TestCase):
                    "seed": VERDICT_SEEDS[n], "observations": [row]}
         identity = {"version": 1, "candidate": VERDICT_CANDIDATE, "platform_profile": c1.DARWIN, "topology": topology,
                     "arms": [arm], "controller": controller, "mode": "diagnostic", "seed": VERDICT_SEEDS[n],
+                    "warmup_s": 10, "window_s": 60,
                     "binaries": {name: {"path": f"/bin/{name}", "sha256": digit * 64,
                                         "binding": {"method": "rebuild-from-candidate/v1", "sha256": digit * 64}}
                                  for name, digit in (("test", "9"), ("relay", "8"))},
@@ -562,6 +564,10 @@ class DarwinVerdictTests(unittest.TestCase):
         for key in extra:
             attempts[key] = self.run_directory(key, **changes.get(key, {}))
         return attempts
+
+    @staticmethod
+    def inventory_keys():
+        return [f"{topology}/{arm}/{n}" for topology in ("disjoint", "shared") for arm in driver.ARMS for n in (1, 2, 3)]
 
     def verdict(self, attempts, profile=c1.DARWIN):
         output = self.root / "verdict"
@@ -660,6 +666,37 @@ class DarwinVerdictTests(unittest.TestCase):
                 shutil.rmtree(self.root, ignore_errors=True)
                 self.root.mkdir()
                 self.refused(pattern, self.inventory(changes={key: change}))
+
+    def test_a_missing_digest_is_not_a_binding(self):
+        def unbound(identity):
+            for binary in identity["binaries"].values():
+                binary.update(sha256=None, binding={})
+
+        attempts = self.inventory(changes={key: {"identity_edit": unbound} for key in self.inventory_keys()})
+        self.refused("binding", attempts)
+
+    def test_every_run_is_measured_on_the_diagnostic_timeline(self):
+        def smoke_observation(record):
+            record["observation"]["identity"].update(warmup_ns=10**9, window_ns=5 * 10**9)
+
+        for change, pattern in (({"summary_edit": lambda summary: summary.update(mode="smoke")}, "summary mode"),
+                                ({"identity_edit": lambda identity: identity.update(warmup_s=1, window_s=5)}, "timeline"),
+                                ({"edit": smoke_observation}, "timeline")):
+            with self.subTest(pattern=pattern, change=sorted(change)):
+                shutil.rmtree(self.root, ignore_errors=True)
+                self.root.mkdir()
+                self.refused(pattern, self.inventory(changes={"shared/pair/2": change}))
+
+    def test_malformed_input_shapes_name_their_file(self):
+        for name, malform in (("summary.json", lambda text: json.dumps(json.loads(text) | {"observations": ["row"]})),
+                              ("identity.json", lambda text: "[]"), ("observations.jsonl", lambda text: "[]\n")):
+            with self.subTest(name=name):
+                shutil.rmtree(self.root, ignore_errors=True)
+                self.root.mkdir()
+                attempts = self.inventory()
+                path = attempts["disjoint/single-b/3"] / name
+                path.write_text(malform(path.read_text()))
+                self.refused(f"disjoint/single-b/3 .*{name}", attempts)
 
     def test_input_set_is_exact(self):
         attempts = self.inventory({("disjoint", "aggregate"): (1300, 1300, 1300)}, unequal=True, reno=True)

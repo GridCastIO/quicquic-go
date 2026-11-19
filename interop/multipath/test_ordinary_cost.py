@@ -2139,6 +2139,31 @@ class DarwinVerdictTests(unittest.TestCase):
                 self.root.mkdir()
                 self.refused(pattern, self.rounds(**attempt))
 
+    def test_a_missing_digest_is_not_a_binding(self):
+        def unbound(record):
+            record["binary"] = {"path": "/bin/ordinary-cost-T27.test", "sha256": None, "binding": {}}
+
+        self.refused("binding", self.rounds(identity_edit=unbound))
+        shutil.rmtree(self.root)
+        self.root.mkdir()
+        self.refused("binding", self.rounds(identity_edit=lambda record: record["binary"].update(sha256="9" * 63)))
+
+    def test_one_attempt_cannot_stand_for_two_rounds(self):
+        attempts = self.rounds()
+        self.refused("round 2.* is round 1's attempt", attempts | {2: attempts[1]})
+        self.refused("round 3.* is round 1's attempt", attempts | {3: attempts[1].parent / "." / "a1"})
+
+    def test_malformed_input_shapes_name_their_file(self):
+        for n, name, malform in ((2, "identity.json", lambda text: "[]"), (3, "diagnostic.jsonl", lambda text: "[]\n[]\n"),
+                                 (1, "identity.json", lambda text: json.dumps(json.loads(text) | {"binary": []}))):
+            with self.subTest(n=n, name=name):
+                shutil.rmtree(self.root, ignore_errors=True)
+                self.root.mkdir()
+                attempts = self.rounds()
+                path = attempts[n] / name
+                path.write_text(malform(path.read_text()))
+                self.refused(f"round {n} attempt .*{name}", attempts)
+
     def test_malformed_input_sets_are_refused(self):
         attempts = self.rounds()
         self.refused("rounds 1, 2 and 3", {1: attempts[1], 2: attempts[2]})
