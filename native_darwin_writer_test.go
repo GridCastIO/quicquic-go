@@ -3,6 +3,7 @@
 package quic
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -43,6 +44,8 @@ type nativeDarwinClaim struct {
 	returnedAt      time.Time
 	reset           bool
 	resetErr        error
+	// control is the length of the control data the claim's last native call forwarded.
+	control int
 }
 
 // returned reports whether every native call the claim made has returned.
@@ -96,11 +99,16 @@ func (c *nativeDarwinClaim) expiredClass(deadline time.Time) string {
 // (from 1) instead of forwarding it; an injected call never reaches the socket. hold,
 // if set, runs on the writer after each claim's deadline is installed, with the
 // claim's number (from 0); it delays the writer and changes no native result.
+// observe, if set, runs on the writer with the claim's number at three points: at
+// "native-call" with the bytes about to be forwarded, at "native-return" after the
+// call returns, and at "fence" after the final deadline reset returns. It changes no
+// native result.
 type nativeDarwinIO struct {
-	native endpointNativeIO
-	socket bool
-	inject func(call int) error
-	hold   func(claim int, deadline time.Time)
+	native  endpointNativeIO
+	socket  bool
+	inject  func(call int) error
+	hold    func(claim int, deadline time.Time)
+	observe func(claim int, point string, data []byte)
 
 	mutex  sync.Mutex
 	writes int
@@ -127,10 +135,14 @@ func (n *nativeDarwinIO) SetWriteDeadline(deadline time.Time) error {
 	}
 	err := n.native.SetWriteDeadline(deadline)
 	n.mutex.Lock()
-	defer n.mutex.Unlock()
-	if len(n.claims) != 0 {
-		claim := n.claims[len(n.claims)-1]
+	number := len(n.claims) - 1
+	if number >= 0 {
+		claim := n.claims[number]
 		claim.reset, claim.resetErr = true, err
+	}
+	n.mutex.Unlock()
+	if n.observe != nil && number >= 0 {
+		n.observe(number, "fence", nil)
 	}
 	return err
 }
@@ -143,11 +155,16 @@ func (n *nativeDarwinIO) WriteMsgUDPAddrPort(b, oob []byte, destination netip.Ad
 		// A write outside an installed deadline is a stale-deadline observation.
 		n.claims = append(n.claims, &nativeDarwinClaim{socket: n.socket})
 	}
-	claim := n.claims[len(n.claims)-1]
+	number := len(n.claims) - 1
+	claim := n.claims[number]
 	claim.calls++
 	claim.pending++
+	claim.control = len(oob)
 	n.mutex.Unlock()
 
+	if n.observe != nil {
+		n.observe(number, "native-call", b)
+	}
 	var err error
 	if n.inject != nil {
 		err = n.inject(call)
@@ -157,11 +174,16 @@ func (n *nativeDarwinIO) WriteMsgUDPAddrPort(b, oob []byte, destination netip.Ad
 	if !injected {
 		written, oobn, err = n.native.WriteMsgUDPAddrPort(b, oob, destination)
 	}
+	// The return is timed before any observer work, so it is the native call's own.
+	returned := time.Now()
+	if n.observe != nil {
+		n.observe(number, "native-return", nil)
+	}
 
 	n.mutex.Lock()
 	defer n.mutex.Unlock()
 	claim.pending--
-	claim.returnedAt = time.Now()
+	claim.returnedAt = returned
 	if injected {
 		claim.injected++
 	}
@@ -219,10 +241,17 @@ func nativeDarwinWriterWaiting() bool {
 
 // nativeDarwinHeld returns the writer's current token if it is datagram's request and
 // its borrow has not been published. It samples under the endpoint lock.
-func nativeDarwinHeld(e *nativeEndpoint, datagram *endpointDatagram) (held *endpointToken) {
+func nativeDarwinHeld(e *nativeEndpoint, datagram *endpointDatagram) *endpointToken {
+	return nativeDarwinHeldMember(e, func(member endpointMember) bool { return member.datagram == datagram })
+}
+
+// nativeDarwinHeldMember returns the writer's current token if its request is one
+// member that match accepts and its borrow has not been published. It samples under
+// the endpoint lock.
+func nativeDarwinHeldMember(e *nativeEndpoint, match func(endpointMember) bool) (held *endpointToken) {
 	e.do(func(s *endpointState) {
 		token := s.current
-		if token != nil && len(token.request.members) == 1 && token.request.members[0].datagram == datagram && token.completion.Load() == nil {
+		if token != nil && len(token.request.members) == 1 && match(token.request.members[0]) && token.completion.Load() == nil {
 			held = token
 		}
 	})
@@ -233,8 +262,13 @@ func nativeDarwinHeld(e *nativeEndpoint, datagram *endpointDatagram) (held *endp
 // in the Go poller, checking the borrow on both sides of the stack sample. A nil
 // token means the witness was not observed before the request's deadline.
 func nativeDarwinAwaitWait(e *nativeEndpoint, datagram *endpointDatagram, deadline time.Time) *endpointToken {
+	return nativeDarwinAwaitMember(e, func(member endpointMember) bool { return member.datagram == datagram }, deadline)
+}
+
+// nativeDarwinAwaitMember is nativeDarwinAwaitWait for the member that match accepts.
+func nativeDarwinAwaitMember(e *nativeEndpoint, match func(endpointMember) bool, deadline time.Time) *endpointToken {
 	for time.Now().Before(deadline) {
-		if token := nativeDarwinHeld(e, datagram); token != nil && nativeDarwinWriterWaiting() && nativeDarwinHeld(e, datagram) == token {
+		if token := nativeDarwinHeldMember(e, match); token != nil && nativeDarwinWriterWaiting() && nativeDarwinHeldMember(e, match) == token {
 			return token
 		}
 		time.Sleep(time.Millisecond)
@@ -254,7 +288,14 @@ type nativeDarwinTrigger struct {
 
 func newNativeDarwinTrigger(t *testing.T, socket *net.UDPConn, destination netip.AddrPort) nativeDarwinTrigger {
 	t.Helper()
-	require.NoError(t, socket.SetWriteBuffer(nativeDarwinSendBuffer))
+	return newNativeDarwinSizedTrigger(t, socket, destination, nativeDarwinSendBuffer)
+}
+
+// newNativeDarwinSizedTrigger is newNativeDarwinTrigger on a socket that requests a
+// send buffer of request bytes.
+func newNativeDarwinSizedTrigger(t *testing.T, socket *net.UDPConn, destination netip.AddrPort, request int) nativeDarwinTrigger {
+	t.Helper()
+	require.NoError(t, socket.SetWriteBuffer(request))
 	raw, err := socket.SyscallConn()
 	require.NoError(t, err)
 	var capacity int
@@ -301,18 +342,27 @@ func newNativeDarwinWriter(t *testing.T, inject func(int) error) *nativeDarwinWr
 // newNativeDarwinHeldWriter is newNativeDarwinWriter with the recorder's hold.
 func newNativeDarwinHeldWriter(t *testing.T, inject func(int) error, hold func(int, time.Time)) *nativeDarwinWriter {
 	t.Helper()
+	return newNativeDarwinRecordedWriter(t, &nativeDarwinIO{inject: inject, hold: hold}, nativeDarwinSendBuffer, 1)
+}
+
+// newNativeDarwinRecordedWriter starts the writer over record, which forwards to a new
+// real loopback socket that requests a send buffer of sendBuffer bytes, and attaches
+// the fixture's data participant with the given ID.
+func newNativeDarwinRecordedWriter(t *testing.T, record *nativeDarwinIO, sendBuffer int, participant uint64) *nativeDarwinWriter {
+	t.Helper()
 	socket := nativeDarwinListen("udp4", net.IPv4(127, 0, 0, 1))(t)
 	peerSocket := nativeDarwinListen("udp4", net.IPv4(127, 0, 0, 1))(t)
 	destination := peerSocket.LocalAddr().(*net.UDPAddr).AddrPort()
+	record.native, record.socket = socket, true
 	w := &nativeDarwinWriter{
-		io:          &nativeDarwinIO{native: socket, socket: true, inject: inject, hold: hold},
+		io:          record,
 		peer:        newNativeDarwinReader(t, peerSocket),
 		destination: destination,
-		trigger:     newNativeDarwinTrigger(t, socket, destination),
+		trigger:     newNativeDarwinSizedTrigger(t, socket, destination, sendBuffer),
 	}
 	w.e = startNativeEndpoint(w.io, nativeDarwinBudget, nil)
 	t.Cleanup(func() { <-w.e.stop() })
-	p, err := w.e.attach(1)
+	p, err := w.e.attach(participant)
 	require.NoError(t, err)
 	w.p = p
 	return w
@@ -321,7 +371,7 @@ func newNativeDarwinHeldWriter(t *testing.T, inject func(int) error, hold func(i
 // request is a scalar data request with ECT(0) control.
 func (w *nativeDarwinWriter) request(registration uint64, payload string, deadline time.Time) endpointRequest {
 	return endpointRequest{
-		identity:    endpointIdentity{connection: 1, registration: registration},
+		identity:    endpointIdentity{connection: w.p.id, registration: registration},
 		destination: w.destination,
 		members:     []endpointMember{{buffer: endpointTestBuffer(payload), oob: w.trigger.control}},
 		deadline:    deadline,
@@ -792,8 +842,9 @@ func nativeDarwinActiveCloseJoin(t *testing.T, facts map[string]any) {
 // the nativequal tag, which only that profile selects. The protocol's expired claim
 // and successor keeps its own class; its expiry is positioned against the endpoint
 // tolerance, so ordinary runs never register it. The forced-traversal cases reuse one
-// current write that waits in the Go poller for queued expiry and active close and
-// join. Their execution is separately authorized native work; a case never skips.
+// current write that waits in the Go poller for queued expiry, active close and join,
+// and the protocol's D13 A BBR protected-member lifetime through an active close.
+// Their execution is separately authorized native work; a case never skips.
 func TestNativeDarwinBlockedWriter(t *testing.T) {
 	nativeDarwinCase(t, "first-send-eperm", nativeDarwinFirstSendEPERM)
 	nativeDarwinCase(t, "constructed-segmentation-prefix", nativeDarwinConstructedSegmentation)
@@ -805,6 +856,7 @@ func TestNativeDarwinBlockedWriter(t *testing.T) {
 	nativeDarwinCase(t, "eagain-to-deadline", nativeDarwinEAGAINToDeadline)
 	nativeDarwinCase(t, "queued-expiry", nativeDarwinQueuedExpiry)
 	nativeDarwinCase(t, "active-close-join", nativeDarwinActiveCloseJoin)
+	nativeDarwinCase(t, "bbr-protected-close-join", nativeDarwinBBRProtectedCloseJoin)
 }
 
 // TestNativeDarwinWriterMethod checks the blocked-writer method's own observations
@@ -1038,5 +1090,88 @@ func TestNativeDarwinWriterMethod(t *testing.T) {
 			require.ErrorIs(t, record.claim(0).resetErr, resetErr)
 			require.Equal(t, "reset-failure", record.claim(0).class(deadline, true))
 		})
+	})
+
+	t.Run("a protected BBR member stays borrowed through the native return and the final fence", func(t *testing.T) {
+		nativeOrdinaryTest(t, func(t *testing.T) {
+			run := nativeDarwinSimulatedProtected(t, "bbrv3", true, protocol.ECT0)
+			// The recorder saw the call before the native write began.
+			require.Len(t, run.entry.sent, nativeDarwinProtectedSendBuffer, "the whole packet at the native write's entry")
+			require.True(t, run.entry.applied, "the plan was applied before the native write")
+			// The return was sampled after the native write and before the reset.
+			require.True(t, run.fencing.returned.borrowed(), "borrowed at the native return")
+			require.False(t, run.fencing.fenced.sampled, "nothing fences while the reset is held")
+			require.True(t, run.joinOpenAtReset, "the join waits for the reset")
+			lifetime, seen := run.lifetime, run.seen
+			require.True(t, lifetime.planned, "a frozen plan the writer had yet to apply")
+			require.True(t, lifetime.bbr, "bbrv3 with its reservation credit")
+			require.True(t, seen.applied, "the writer applied the plan before the native call")
+			require.True(t, lifetime.ciphertext, "the native call carried the peer-opened ciphertext")
+			require.True(t, lifetime.call.borrowed(), "the simulated call holds the member")
+			require.True(t, run.closed.borrowed(), "the close returns while the member is borrowed")
+			require.True(t, seen.returned.borrowed(), "borrowed at the native return")
+			require.True(t, seen.fenced.borrowed(), "borrowed after the final deadline reset")
+			require.True(t, seen.joinOpenAtFence, "the join waits for the fence")
+			require.True(t, lifetime.released, "released by the join")
+			require.Equal(t, "borrowed-through-fence", lifetime.class())
+			require.Equal(t, "simulated", run.class, "a simulated writer is never native traversal")
+		})
+	})
+
+	t.Run("a native call the peer cannot open is plaintext at the native call", func(t *testing.T) {
+		nativeOrdinaryTest(t, func(t *testing.T) {
+			run := nativeDarwinSimulatedProtected(t, "bbrv3", true, protocol.ECT0)
+			for name, corrupt := range map[string]func([]byte) []byte{
+				"authentication": func(b []byte) []byte { b[len(b)-1] ^= 1; return b },
+				"short header":   func(b []byte) []byte { b[0] &^= 0x40; return b },
+				"length":         func(b []byte) []byte { return b[:len(b)-1] },
+			} {
+				seen := run.seen
+				seen.sent = corrupt(bytes.Clone(run.seen.sent))
+				lifetime := run.protected.lifetime(run.member, run.call, seen, run.released)
+				require.Equal(t, "plaintext-at-native-call", lifetime.class(), name)
+			}
+		})
+	})
+
+	t.Run("a member without a plan or BBR credit is not the protected case's evidence", func(t *testing.T) {
+		// Reno's local completions carry no ECN mark, and the mark is not under test.
+		for _, tc := range []struct {
+			controller string
+			deferred   bool
+			class      string
+		}{{"bbrv3", false, "unprotected"}, {"reno", true, "not-bbr"}} {
+			t.Run(tc.class, func(t *testing.T) {
+				nativeOrdinaryTest(t, func(t *testing.T) {
+					run := nativeDarwinSimulatedProtected(t, tc.controller, tc.deferred, protocol.ECNNon)
+					require.Equal(t, tc.class, run.lifetime.class())
+				})
+			})
+		}
+	})
+
+	t.Run("each protected lifetime failure is its own class, first failure first", func(t *testing.T) {
+		borrowed := nativeDarwinBorrow{sampled: true, held: true, buffer: true, plan: true}
+		complete := nativeDarwinProtectedLifetime{planned: true, bbr: true, ciphertext: true, call: borrowed, returned: borrowed, fenced: borrowed, released: true}
+		require.Equal(t, "borrowed-through-fence", complete.class())
+		for _, tc := range []struct {
+			class  string
+			mutate func(*nativeDarwinProtectedLifetime)
+		}{
+			{"unprotected", func(l *nativeDarwinProtectedLifetime) { l.planned, l.bbr = false, false }},
+			{"not-bbr", func(l *nativeDarwinProtectedLifetime) { l.bbr, l.ciphertext = false, false }},
+			{"plaintext-at-native-call", func(l *nativeDarwinProtectedLifetime) { l.ciphertext, l.call.held = false, false }},
+			{"released-during-call", func(l *nativeDarwinProtectedLifetime) { l.call.buffer, l.returned.plan = false, false }},
+			{"released-during-call", func(l *nativeDarwinProtectedLifetime) { l.call.sampled = false }},
+			{"released-at-return", func(l *nativeDarwinProtectedLifetime) { l.returned.plan, l.fenced.held = false, false }},
+			{"released-at-return", func(l *nativeDarwinProtectedLifetime) { l.returned.sampled = false }},
+			{"released-before-fence", func(l *nativeDarwinProtectedLifetime) { l.fenced.held, l.released = false, false }},
+			{"released-before-fence", func(l *nativeDarwinProtectedLifetime) { l.fenced.buffer = false }},
+			{"not-released", func(l *nativeDarwinProtectedLifetime) { l.released = false }},
+		} {
+			lifetime := complete
+			tc.mutate(&lifetime)
+			require.Equal(t, tc.class, lifetime.class())
+		}
 	})
 }

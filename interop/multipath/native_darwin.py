@@ -81,6 +81,24 @@ BLOCKED_TEST = "TestNativeDarwinBlockedWriter"
 # traversal cases' failure class.
 EXPIRED_CASE = "expired-before-dispatch-successor"
 EXPIRED_CLASS = "expired-claim-unsubmitted"
+# The protocol's D13 A case (#1570), the BBR analogue of active-close-join: a bbrv3
+# connection's protected member, held in the Go poller on a real socket while its
+# sender closes, stays borrowed in the call, at the native return and after the final
+# deadline reset, and the join follows its release. The fixture labels that lifetime
+# borrowed-through-fence, or the first failure it saw.
+PROTECTED_CASE = "bbr-protected-close-join"
+# Its socket requests one standard-size packet's send buffer, so B is that packet.
+PROTECTED_SEND_BUFFER = 1200
+# The trigger's one native call carries the IPv4 IP_TOS control message alone: a
+# 12-byte header and a 4-byte value. The positive control used the writer's first
+# send, so the trigger's claim has no retry of its own.
+PROTECTED_CONTROL_BYTES = 16
+PROTECTED_NATIVE_CALLS = 1
+LIFETIME_CLASS = "borrowed-through-fence"
+LIFETIME_CLASSES = {
+    "unprotected", "not-bbr", "plaintext-at-native-call", "released-during-call", "released-at-return",
+    "released-before-fence", "not-released", LIFETIME_CLASS,
+}
 # The observation classes the fixture can record; only native-traversal is evidence.
 TRAVERSAL_CLASSES = {"expired-before-dispatch", "stale-deadline", "missing-native-return", "reset-failure", "simulated", "no-witness", "native-traversal"}
 TRIGGER_FACTS = {
@@ -90,6 +108,7 @@ TRIGGER_FACTS = {
 }
 # The recorder's view of the claim. The active-close case's production endpoint has
 # no recorder, so it records the held request's deadline and the reset its caller saw.
+# The protected-member case is a recorder case.
 RECORDED_CLAIM_FACTS = {
     **TRIGGER_FACTS, "native_calls": is_count, "deadline_preserved": True,
     "deadline_reset": True, "native_returned": True,
@@ -127,8 +146,15 @@ BLOCKED_FACTS = {
         **TRIGGER_FACTS, "request_deadline_preserved": True, "reset_observed_by_caller_write": True, "close_returned_while_borrowed": True, "canceled_wait": "canceled", "returned_after_close_began": True,
         "joined_after_return": True, "transport_write_after_join": "closed", "caller_write_delivered": True, "close_to_join_ms": is_ms,
     },
+    PROTECTED_CASE: {
+        **RECORDED_CLAIM_FACTS, "send_buffer": PROTECTED_SEND_BUFFER, "control_bytes": PROTECTED_CONTROL_BYTES,
+        "native_calls": PROTECTED_NATIVE_CALLS, "controller": "bbrv3", "bbr_credit": True, "protection_plan": True, "protected_by_writer": True,
+        "native_ciphertext_opened": True, "control_opened": True, "borrowed_in_call": True, "close_returned_while_borrowed": True,
+        "borrowed_at_native_return": True, "borrowed_at_fence": True, "lifetime": LIFETIME_CLASS, "released_at_join": True,
+        "joined_after_return": True, "successor_delivered": True, "faulted": False, "close_to_join_ms": is_ms,
+    },
 }
-TRAVERSAL_CASES = ("eagain-to-deadline", "queued-expiry", "active-close-join")
+TRAVERSAL_CASES = ("eagain-to-deadline", "queued-expiry", "active-close-join", PROTECTED_CASE)
 # The existing endpoint tests for native return before deadline reset, queued
 # expiry, the borrow and shutdown that E2 selects for focused race runs. Q1 binds
 # the command and Q2 runs it on its exact candidate; this runner never runs it.
@@ -225,6 +251,13 @@ def check_blocked_facts(name, facts):
     if name == EXPIRED_CASE and evidence != EXPIRED_CLASS:
         kind = "the traversal failure class" if evidence == "expired-before-dispatch" else "another class"
         raise ValueError(f"{name}: {evidence!r} is {kind}; the expired claim's own class is {EXPIRED_CLASS!r}")
+    if name == PROTECTED_CASE:
+        lifetime = facts["lifetime"]
+        if not isinstance(lifetime, str):
+            raise ValueError(f"{name}: lifetime {lifetime!r} is not a class name")
+        if lifetime != LIFETIME_CLASS:
+            kind = lifetime if lifetime in LIFETIME_CLASSES else f"unknown lifetime {lifetime!r}"
+            raise ValueError(f"{name}: lifetime {kind} is not {LIFETIME_CLASS}: the protected member was not borrowed through the native return and final fence")
     for key, expected in BLOCKED_FACTS[name].items():
         value = facts[key]
         if callable(expected):

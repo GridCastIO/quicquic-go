@@ -631,6 +631,7 @@ class ResultsTests(unittest.TestCase):
 
 BLOCKED = runner.PROFILES["blocked-writer"]
 EXPIRED = "expired-before-dispatch-successor"
+PROTECTED = "bbr-protected-close-join"
 TRIGGER = {
     "evidence": "native-traversal", "send_buffer": 4096, "control_bytes": 12, "payload_bytes": 4096, "positive_control": "ECT(0)", "poller_witness": True,
     "injected": 0, "traced": False, "result": "deadline-exceeded", "uncertain": 1, "native_return_after_deadline_ms": 0.41,
@@ -667,6 +668,13 @@ BLOCKED_FACTS = {
         **TRIGGER, "request_deadline_preserved": True, "reset_observed_by_caller_write": True, "close_returned_while_borrowed": True, "canceled_wait": "canceled", "returned_after_close_began": True,
         "joined_after_return": True, "transport_write_after_join": "closed", "caller_write_delivered": True, "close_to_join_ms": 180.5,
     },
+    "bbr-protected-close-join": {
+        **CLAIM, "send_buffer": 1200, "control_bytes": 16, "payload_bytes": 1200, "native_calls": 1,
+        "controller": "bbrv3", "bbr_credit": True, "protection_plan": True, "protected_by_writer": True,
+        "native_ciphertext_opened": True, "control_opened": True, "borrowed_in_call": True, "close_returned_while_borrowed": True,
+        "borrowed_at_native_return": True, "borrowed_at_fence": True, "lifetime": "borrowed-through-fence", "released_at_join": True,
+        "joined_after_return": True, "successor_delivered": True, "faulted": False, "close_to_join_ms": 199.6,
+    },
 }
 
 
@@ -693,13 +701,17 @@ class BlockedWriterProfileTests(unittest.TestCase):
 
     def test_each_case_once_per_profile(self):
         runner.check_accounting(list(BLOCKED.cases), BLOCKED)
-        self.assertEqual(7, len(BLOCKED.cases), "D15 A: X2 expects seven cases")
+        self.assertEqual(8, len(BLOCKED.cases), "D15 A and D13 A: the profile has eight cases; X2's amended row awaits the owner's reapproval")
         with self.assertRaisesRegex(ValueError, "missing.*expired-before-dispatch-successor"):
             runner.check_accounting([name for name in BLOCKED.cases if name != EXPIRED], BLOCKED)
         with self.assertRaisesRegex(ValueError, "duplicate.*expired-before-dispatch-successor"):
             runner.check_accounting([*BLOCKED.cases, EXPIRED], BLOCKED)
         with self.assertRaisesRegex(ValueError, "missing.*active-close-join"):
-            runner.check_accounting(list(BLOCKED.cases[:-1]), BLOCKED)
+            runner.check_accounting([name for name in BLOCKED.cases if name != "active-close-join"], BLOCKED)
+        with self.assertRaisesRegex(ValueError, "missing.*bbr-protected-close-join"):
+            runner.check_accounting([name for name in BLOCKED.cases if name != PROTECTED], BLOCKED)
+        with self.assertRaisesRegex(ValueError, "duplicate.*bbr-protected-close-join"):
+            runner.check_accounting([*BLOCKED.cases, PROTECTED], BLOCKED)
         with self.assertRaisesRegex(ValueError, "unknown.*ipv4"):
             runner.check_accounting([*BLOCKED.cases, "ipv4"], BLOCKED)
         with self.assertRaisesRegex(ValueError, "not a blocked-writer case"):
@@ -828,6 +840,78 @@ class BlockedWriterExpiredClaimTests(unittest.TestCase):
                 self.refused(f"{EXPIRED}: facts", **{fact: value})
 
 
+class BlockedWriterProtectedMemberTests(unittest.TestCase):
+    """MP-MAC #1570 (D13 A, B8): a BBR protected member's storage stays borrowed
+    through the native return and the final fence, across an active close."""
+
+    def refused(self, pattern, **changes):
+        with self.assertRaisesRegex(ValueError, pattern):
+            runner.check_record(PROTECTED, IDENTITY, blocked_record(PROTECTED, **changes), BLOCKED)
+
+    def test_it_is_a_traversal_case(self):
+        self.assertIn(PROTECTED, runner.TRAVERSAL_CASES)
+        for evidence in ("simulated", "no-witness", "expired-before-dispatch", "missing-native-return", "reset-failure", "stale-deadline"):
+            with self.subTest(evidence=evidence):
+                self.refused(f"{evidence} is not native traversal", evidence=evidence)
+        self.refused("unknown class", evidence="native")
+        self.refused("poller_witness", poller_witness=False)
+
+    def test_nothing_was_injected_or_traced(self):
+        self.refused("injected", injected=1)
+        self.refused("traced", traced=True)
+
+    def test_the_recorder_saw_the_claim(self):
+        self.refused("native_calls", native_calls=0)
+        # The trigger's claim makes exactly one native call; a retry is not this case.
+        self.refused("fact native_calls is 2, expected 1", native_calls=2)
+        self.refused("fact native_calls is True, expected 1", native_calls=True)
+        self.refused("deadline_preserved", deadline_preserved=False)
+        self.refused("deadline_reset", deadline_reset=False)
+        self.refused("native_returned", native_returned=False)
+
+    def test_each_borrow_sample_is_required(self):
+        for fact in ("borrowed_in_call", "close_returned_while_borrowed", "borrowed_at_native_return", "borrowed_at_fence", "released_at_join", "joined_after_return"):
+            with self.subTest(fact=fact):
+                self.refused(fact, **{fact: False})
+
+    def test_every_other_lifetime_is_refused_by_name(self):
+        for lifetime in ("unprotected", "not-bbr", "plaintext-at-native-call", "released-during-call", "released-at-return", "released-before-fence", "not-released"):
+            with self.subTest(lifetime=lifetime):
+                self.refused(f"{PROTECTED}: lifetime {lifetime} is not borrowed-through-fence", lifetime=lifetime)
+        self.refused("unknown lifetime 'borrowed'", lifetime="borrowed")
+        self.refused("lifetime .* is not a class name", lifetime=None)
+        self.refused("lifetime .* is not a class name", lifetime=["borrowed-through-fence"])
+
+    def test_the_member_was_a_protected_bbr_member(self):
+        self.refused("protection_plan", protection_plan=False)
+        self.refused("protected_by_writer", protected_by_writer=False)
+        self.refused("native_ciphertext_opened", native_ciphertext_opened=False)
+        self.refused("control_opened", control_opened=False)
+        self.refused("controller", controller="reno")
+        self.refused("bbr_credit", bbr_credit=False)
+
+    def test_the_trigger_is_exactly_the_send_buffer(self):
+        self.refused("payload_bytes", payload_bytes=1201)
+        # The archived 4096-byte trigger is not this case's: B is one standard-size packet.
+        self.refused("send_buffer", send_buffer=4096, payload_bytes=4096)
+        self.refused("control_bytes", control_bytes=1200)
+        # The trigger carries the IPv4 IP_TOS message alone.
+        self.refused("fact control_bytes is 1, expected 16", control_bytes=1)
+        self.refused("fact control_bytes is 32, expected 16", control_bytes=32)
+        self.refused("successor_delivered", successor_delivered=False)
+        self.refused("faulted", faulted=True)
+        self.refused("close_to_join_ms", close_to_join_ms=True)
+
+    def test_a_missing_or_extra_fact_is_refused(self):
+        for fact in ("borrowed_at_fence", "lifetime", "close_to_join_ms"):
+            with self.subTest(fact=fact):
+                record = blocked_record(PROTECTED)
+                del record["facts"][fact]
+                with self.assertRaisesRegex(ValueError, f"{PROTECTED}: facts"):
+                    runner.check_record(PROTECTED, IDENTITY, record, BLOCKED)
+        self.refused(f"{PROTECTED}: facts", canceled_wait="canceled")
+
+
 class BlockedWriterRunCaseTests(unittest.TestCase):
     def test_interrupted_observation_is_killed_and_claims_nothing(self):
         directory = tempfile.TemporaryDirectory()
@@ -870,8 +954,15 @@ class BlockedWriterResultsTests(unittest.TestCase):
 
     def test_readback_accepts_a_complete_run(self):
         results = self.results()
-        self.assertEqual(7, len(results["instances"]))
+        self.assertEqual(8, len(results["instances"]))
         runner.validate_results(results)
+
+    def test_readback_refuses_a_seven_case_run(self):
+        results = self.results()
+        results["instances"] = [instance for instance in results["instances"] if instance["case"] != PROTECTED]
+        results["status"]["cases"] = 7
+        with self.assertRaisesRegex(ValueError, "missing.*bbr-protected-close-join"):
+            runner.validate_results(results)
 
     def test_readback_binds_the_profile(self):
         untagged = self.results()
