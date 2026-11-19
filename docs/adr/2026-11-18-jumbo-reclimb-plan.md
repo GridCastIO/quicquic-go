@@ -1,6 +1,6 @@
 # Jumbo recovery after fallback
 
-**Date:** 2026-11-18. **Identity:** `JR-1231`. **Status:** approved direction and retry policy; implementation pending. **Design issue:** [Jumbo packets: design re-climbing after a fallback (#1231)](https://github.com/GridCastIO/quicquic-go/issues/1231). **Related program:** [Jumbo packets (#1215)](https://github.com/GridCastIO/quicquic-go/issues/1215). Source checked at `3bb45d0372ea1bf4e76705c79010821cce70e049`. The owner approved this design-PR scope and policy in the originating chat on November 18. Review history belongs in the merging PR, not in this normative contract.
+**Date:** 2026-11-18. **Identity:** `JR-1231`. **Status:** approved direction and retry policy; JR1 implementation accompanies this contract. **Design issue:** [Jumbo packets: design re-climbing after a fallback (#1231)](https://github.com/GridCastIO/quicquic-go/issues/1231). **Related program:** [Jumbo packets (#1215)](https://github.com/GridCastIO/quicquic-go/issues/1215). Source checked at `3bb45d0372ea1bf4e76705c79010821cce70e049`. The owner approved this design-PR scope and policy in the originating chat on November 18. Review history belongs in the merging PR, not in this normative contract.
 
 ## Outcome and boundary
 
@@ -12,7 +12,7 @@ No new configuration, exported method, dependency, worker, lock, channel, socket
 
 ## Current enforcement and ownership
 
-The connection run loop owns fallback and packet size. `applyPacketSizeFallback` and `watchingPacketSize` currently use `mtuFallback.started` as a permanent disable. `discoveryPacketCeiling` caps future paths after that first fallback. `startPacketSizeFallback` closes the public channel unconditionally and assumes there can be only one episode. The finder rejects stale probe callbacks with an 8-bit generation; repeated searches invalidate the original assumption that reset counts stay small. `Reset` clears stage-one observations, so it is unsuitable as an unqualified same-path retry operation.
+At the design source revision above, the connection run loop owns fallback and packet size. `applyPacketSizeFallback` and `watchingPacketSize` currently use `mtuFallback.started` as a permanent disable. `discoveryPacketCeiling` caps future paths after that first fallback. `startPacketSizeFallback` closes the public channel unconditionally and assumes there can be only one episode. The finder rejects stale probe callbacks with an 8-bit generation; repeated searches invalidate the original assumption that reset counts stay small. `Reset` clears stage-one observations, so it is unsuitable as an unqualified same-path retry operation.
 
 The run loop already has recovery and discovery deadlines and emission preparation for Reno and BBR. Keep policy there. The finder owns search bounds and current-search probe receipts; emission owns real packet construction, registration and output handoff. Workers continue to report immutable local-refusal facts through the existing path-generation channel. Existing delivery behaviors include coalesced feedback and late worker completion: path generation and current state must reject irrelevant facts, and the stopped loop makes late shutdown facts inert.
 
@@ -53,7 +53,7 @@ Use the existing connection timer. An expired deadline transitions once even if 
 
 ## JR1 — Restore jumbo with repeatable fallback
 
-**Status:** implementation pending; no code is changed by this design PR. Deliver as one implementation PR. The implementation issue will point here; it must not close design issue #1231 again. This slice is self-contained and does not require a new architecture program.
+**Status:** implementation in [JR1 (#1476)](https://github.com/GridCastIO/quicquic-go/issues/1476). Deliver as one implementation PR; it must not close design issue #1231 again. This slice is self-contained and does not require a new architecture program.
 
 **Changes:**
 

@@ -163,6 +163,7 @@ type Conn struct {
 	handshakeSendFeedback handshakeSendFeedback
 	packetSizeFeedback    packetSizeFeedback
 	mtuFallback           mtuFallback
+	mtuRetry              packetSizeRetry
 	mtuWatch              packetSizeWatch
 	pathGeneration        uint64
 
@@ -799,6 +800,7 @@ runLoop:
 		}
 		c.applyPacketSizeFallback(now)
 		c.advancePacketSizeRecovery(now)
+		c.advancePacketSizeRetry(now)
 		c.advancePacketSizeWatch(now)
 		if h, ok := c.sentPacketHandler.(deliveryLifecycle); ok {
 			h.ExpireDelivery(now)
@@ -1116,6 +1118,9 @@ func (c *Conn) idleTimeoutStartTime() monotime.Time {
 func (c *Conn) switchToNewPath(tr *Transport, now monotime.Time) {
 	c.pathGeneration++
 	c.emission.resetLocalPath(c.pathGeneration, now)
+	if c.mtuFallback.started != 0 {
+		c.mtuRetry.pathCeiling = tr.packetCeiling.size()
+	}
 	c.resetPathPacketSize(now)
 	conn := newSendConn(tr.conn, c.conn.RemoteAddr(), packetInfo{}, utils.DefaultLogger) // TODO: find a better way
 	var queue sender
@@ -1139,10 +1144,14 @@ func (c *Conn) switchToNewPath(tr *Transport, now monotime.Time) {
 // The caller starts discovery once the new path is in place.
 func (c *Conn) resetPathPacketSize(now monotime.Time) {
 	size := c.effectiveInitialPacketSize
+	c.mtuRetry.running = false
+	if c.mtuFallback.started != 0 {
+		c.schedulePacketSizeRetry(now)
+	}
 	c.mtuFallback.active, c.mtuFallback.probe = false, nil
 	c.mtuWatch = packetSizeWatch{}
-	c.sentPacketHandler.MigratedPath(now, size)
 	c.mtuDiscoverer.Reset(size, c.discoveryPacketCeiling())
+	c.sentPacketHandler.MigratedPath(now, size)
 	c.maxPayloadSizeEstimate.Store(uint32(estimateMaxPayloadSize(size)))
 	// The first path's search is over. Settle after the reset, so the limit read
 	// afterwards is the initial size. MigratedPath can declare an in-flight probe
@@ -1157,9 +1166,9 @@ func (c *Conn) peerMaxPacketSize() protocol.ByteCount {
 }
 
 // discoveryPacketCeiling preserves the negotiated observation while a fallback
-// permanently disables jumbo discovery, including on later paths.
+// defers jumbo discovery until the retained cooldown permits a retry.
 func (c *Conn) discoveryPacketCeiling() protocol.ByteCount {
-	ceiling := c.effectivePacketCeiling()
+	ceiling := c.currentPathPacketCeiling()
 	if c.mtuFallback.started != 0 {
 		return min(ceiling, protocol.MaxPacketBufferSize)
 	}
@@ -3062,6 +3071,7 @@ func (c *Conn) triggerSending(now monotime.Time) emissionResult {
 
 // The connection produces path and control intent; emission selects packet shapes.
 func (c *Conn) prepareEmission(now monotime.Time) emissionIntent {
+	c.advancePacketSizeRetry(now)
 	if c.perspective == protocol.PerspectiveClient && c.handshakeConfirmed {
 		if pm := c.pathManagerOutgoing.Load(); pm != nil {
 			connID, frame, tr, ok := pm.NextPathToProbe()

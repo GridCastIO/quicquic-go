@@ -3,7 +3,9 @@ package quic
 import (
 	"fmt"
 	"math/rand/v2"
+	"sync/atomic"
 	"testing"
+
 	"time"
 
 	"github.com/GridCastIO/quicquic-go/internal/ackhandler"
@@ -449,4 +451,73 @@ func TestMTUDiscovererTwoStages(t *testing.T) {
 			require.False(t, f.ShouldSendProbe(now.Add(time.Hour)))
 		})
 	}
+}
+
+func TestMTUDiscovererStaleAfterRepeatedSearches(t *testing.T) {
+	for _, ack := range []bool{false, true} {
+		t.Run(fmt.Sprint(ack), func(t *testing.T) {
+			d := newMTUDiscoverer(utils.NewRTTStats(), 1200, 1452, nil)
+			now := monotime.Now()
+			old, _ := d.GetPing(now)
+			for range 512 {
+				d.Reset(1200, 1452)
+			}
+			live, size := d.GetPing(now)
+			if ack {
+				old.Handler.OnAcked(old.Frame)
+			} else {
+				old.Handler.OnLost(old.Frame)
+			}
+			require.Equal(t, protocol.ByteCount(1200), d.CurrentSize())
+			require.Equal(t, size, d.inFlight)
+			live.Handler.OnAcked(live.Frame)
+			require.Equal(t, size, d.CurrentSize())
+		})
+	}
+}
+
+func TestMTUDiscovererRetryJumboThreshold(t *testing.T) {
+	d := newTwoStageMTUDiscoverer(utils.NewRTTStats(), 1449, 1468, nil)
+	d.Restart(1449, 1468)
+	now := monotime.Now()
+	require.False(t, d.done())
+	ping, size := d.GetPing(now)
+	require.Equal(t, protocol.ByteCount(1453), size)
+	ping.Handler.OnAcked(ping.Frame)
+	require.Equal(t, size, d.CurrentSize())
+	require.True(t, d.done())
+	d.Restart(1449, 1453)
+	for range 3 {
+		require.False(t, d.done())
+		ping, size = d.GetPing(now)
+		require.Equal(t, protocol.ByteCount(1453), size)
+		ping.Handler.OnLost(ping.Frame)
+	}
+	require.True(t, d.done())
+	require.Equal(t, protocol.ByteCount(1449), d.CurrentSize())
+	d.Restart(1449, 1453)
+	require.False(t, d.done())
+}
+
+func TestMTUDiscovererRetryRetainsFallback(t *testing.T) {
+	d := newTwoStageMTUDiscoverer(utils.NewRTTStats(), 1232, 8972, nil)
+	report := &atomic.Uint32{}
+	d.stageOneReport = report
+	now := monotime.Now()
+	for !d.done() {
+		ping, _ := d.GetPing(now)
+		ping.Handler.OnAcked(ping.Frame)
+	}
+	require.EqualValues(t, 1438, report.Load())
+	d.Restart(1232, 8972)
+	require.EqualValues(t, 1438, report.Load())
+	require.EqualValues(t, 1438, d.StageOneSize())
+	for !d.stageOneDone {
+		ping, _ := d.GetPing(now)
+		ping.Handler.OnLost(ping.Frame)
+	}
+	require.EqualValues(t, 1232, report.Load())
+	require.EqualValues(t, 1232, d.StageOneSize())
+	d.Reset(1232, 1452)
+	require.Zero(t, report.Load())
 }

@@ -5,6 +5,7 @@ package quic
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"io"
 	"net"
 	"sync/atomic"
@@ -869,4 +870,132 @@ func TestJumboFallbackPreservesPendingPTOCredits(t *testing.T) {
 	require.Len(t, control, 2, "the control retains both ordinary PTO dispatches")
 	require.ElementsMatch(t, []int{control[0], control[1], 1438}, emitted["padded"])
 	require.ElementsMatch(t, []int{control[0], control[1], 64}, emitted["follow-up"])
+}
+
+func TestJumboRetryRepeatedFallback(t *testing.T) {
+	for _, controller := range []string{"reno", "bbrv3"} {
+		for _, remote := range []bool{false, true} {
+			t.Run(fmt.Sprintf("%s/remote=%v", controller, remote), func(t *testing.T) {
+				synctest.Test(t, func(t *testing.T) {
+					c, s, socket, _ := newJumboRefusalPair(t, controller, "ordinary")
+					signal := c.PathMTUFallbackV1()
+					for episode := range 2 {
+						if remote {
+							socket.dropAtOrAbove.Store(1501)
+						} else {
+							socket.limit.Store(1500)
+						}
+						ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
+						data := bytes.Repeat([]byte("repeatable recovery"), 32768)
+						done := make(chan error, 1)
+						go func() {
+							stream, err := c.OpenUniStreamSync(ctx)
+							if err == nil {
+								_, err = stream.Write(data)
+								if err == nil {
+									err = stream.Close()
+								}
+							}
+							done <- err
+						}()
+						stream, err := s.AcceptUniStream(ctx)
+						require.NoError(t, err)
+						got, err := io.ReadAll(stream)
+						require.NoError(t, err)
+						require.Equal(t, data, got)
+						require.NoError(t, <-done)
+						cancel()
+						synctest.Wait()
+						require.True(t, c.mtuFallback.confirmed)
+						require.Equal(t, signal, c.PathMTUFallbackV1())
+						select {
+						case <-signal:
+						default:
+							t.Fatal("fallback signal open")
+						}
+						require.LessOrEqual(t, c.maxPacketSize(), protocol.ByteCount(1452))
+						deadline := c.mtuRetry.deadline
+						require.NotZero(t, deadline)
+						socket.limit.Store(0)
+						socket.dropAtOrAbove.Store(0)
+						time.Sleep(deadline.Sub(monotime.Now()) - time.Nanosecond)
+						synctest.Wait()
+						require.LessOrEqual(t, c.maxPacketSize(), protocol.ByteCount(1452))
+						time.Sleep(time.Second)
+						synctest.Wait()
+						require.Greater(t, c.maxPacketSize(), protocol.ByteCount(8800), "episode %d", episode)
+						ctx, cancel = context.WithTimeout(t.Context(), time.Second)
+						payload := bytes.Repeat([]byte{'d'}, 1000)
+						require.NoError(t, c.SendDatagram(payload))
+						got, err = s.ReceiveDatagram(ctx)
+						require.NoError(t, err)
+						require.Equal(t, payload, got)
+						cancel()
+					}
+					require.NoError(t, c.CloseWithError(0, "done"))
+				})
+			})
+		}
+	}
+}
+
+func TestJumboRetryMigrationDestinationCeiling(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		c, _, socket, migration := newJumboRefusalPair(t, "reno", "ordinary")
+		synctest.Wait()
+		// Migration has not initialized this Transport. Its sealed default is 1452.
+		migration.packetCeiling = 0
+		socket.limit.Store(1500)
+		require.NoError(t, c.SendDatagram(bytes.Repeat([]byte{'x'}, 8000)))
+		time.Sleep(time.Second)
+		synctest.Wait()
+		require.True(t, c.mtuFallback.confirmed)
+		deadline := c.mtuRetry.deadline
+		ctx, cancel := context.WithTimeout(t.Context(), time.Second)
+		defer cancel()
+		path, err := c.AddPath(migration)
+		require.NoError(t, err)
+		require.NoError(t, path.Probe(ctx))
+		require.NoError(t, path.Switch())
+		c.scheduleSending()
+		synctest.Wait()
+		time.Sleep(61 * time.Second)
+		synctest.Wait()
+		require.EqualValues(t, 1452, c.currentPathPacketCeiling())
+		require.LessOrEqual(t, c.maxPacketSize(), protocol.ByteCount(1452))
+		ceiling, _ := c.PathMTUInfoV1()
+		require.EqualValues(t, 8972, ceiling)
+		require.Equal(t, deadline, c.mtuRetry.deadline)
+		require.NoError(t, c.CloseWithError(0, "done"))
+	})
+}
+
+func TestJumboRetryOrdinaryIdleRefresh(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		c, s, socket, _ := newJumboRefusalPair(t, "reno", "ordinary")
+		synctest.Wait()
+		c.config.KeepAlivePeriod, s.config.KeepAlivePeriod = 0, 0
+		c.idleTimeout, s.idleTimeout = 3*time.Minute, 3*time.Minute
+		socket.limit.Store(1500)
+		require.NoError(t, c.SendDatagram(bytes.Repeat([]byte{'x'}, 8000)))
+		time.Sleep(time.Second)
+		synctest.Wait()
+		require.True(t, c.mtuFallback.confirmed)
+		before := c.idleTimeoutStartTime()
+		deadline := c.mtuRetry.deadline
+		require.True(t, before.Add(c.idleTimeout).After(deadline))
+		socket.limit.Store(0)
+		time.Sleep(deadline.Sub(monotime.Now()) + time.Second)
+		synctest.Wait()
+		require.Greater(t, c.maxPacketSize(), protocol.ByteCount(8800))
+		require.True(t, c.idleTimeoutStartTime().After(before), "ordinary probe/ACK activity refreshes idle accounting")
+		require.Zero(t, c.mtuRetry.deadline)
+		time.Sleep(4 * time.Minute)
+		synctest.Wait()
+		select {
+		case <-c.Context().Done():
+		default:
+			t.Fatal("idle connection did not expire after probe traffic stopped")
+		}
+	})
 }

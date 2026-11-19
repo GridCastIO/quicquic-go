@@ -19,7 +19,7 @@ type packetSizeWatch struct {
 }
 
 func (c *Conn) watchingPacketSize() bool {
-	return c.packetCeiling.size() > protocol.MaxPacketBufferSize && c.handshakeConfirmed && c.mtuFallback.started == 0 && c.effectivePacketCeiling() > protocol.MaxPacketBufferSize && c.mtuDiscoverer != nil && c.mtuDiscoverer.CurrentSize() > protocol.MaxPacketBufferSize
+	return c.packetCeiling.size() > protocol.MaxPacketBufferSize && c.handshakeConfirmed && !c.mtuFallback.active && c.effectivePacketCeiling() > protocol.MaxPacketBufferSize && c.mtuDiscoverer != nil && c.mtuDiscoverer.CurrentSize() > protocol.MaxPacketBufferSize
 }
 
 func (c *Conn) notePacketSizeLoss(context ackhandler.PacketContext, _ protocol.ByteCount, now monotime.Time) {

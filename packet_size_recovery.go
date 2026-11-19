@@ -27,14 +27,17 @@ type packetSizeRecoveryIntent struct {
 }
 
 func (c *Conn) packetSizeRecoveryTime() monotime.Time {
-	if t := c.packetSizeWatchTime(); t != 0 {
-		return t
+	t := c.packetSizeRetryTime()
+	if w := c.packetSizeWatchTime(); w != 0 && (t == 0 || w.Before(t)) {
+		t = w
 	}
 	f := &c.mtuFallback
-	if !f.active || f.generation != c.pathGeneration || f.probe == nil || f.probe.expired {
-		return 0
+	if f.active && f.generation == c.pathGeneration && f.probe != nil && !f.probe.expired {
+		if p := f.probe.deadline; p != 0 && (t == 0 || p.Before(t)) {
+			t = p
+		}
 	}
-	return f.probe.deadline
+	return t
 }
 
 func (c *Conn) advancePacketSizeRecovery(now monotime.Time) {

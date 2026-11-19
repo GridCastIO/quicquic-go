@@ -89,20 +89,22 @@ type mtuFinder struct {
 
 	// Two-stage discovery preserves the standard search before trying jumbo.
 	// Single-stage finders are also used for independent multipath searches.
-	twoStage       bool
-	ceiling        protocol.ByteCount
-	stageOneMax    protocol.ByteCount
-	stageOneSize   protocol.ByteCount
-	stageOneReport *atomic.Uint32
+	twoStage        bool
+	stageOneDone    bool
+	retry           bool
+	jumboAdmitted   bool
+	candidateLosses int
+	ceiling         protocol.ByteCount
+	stageOneMax     protocol.ByteCount
+	stageOneSize    protocol.ByteCount
+	stageOneReport  *atomic.Uint32
 
 	// on initialization, we treat the maximum size as the first "lost" packet
 	lost             [maxLostMTUProbes]protocol.ByteCount
 	lastProbeWasLost bool
 
-	// The generation is used to ignore ACKs / losses for probe packets sent before a reset.
-	// Resets happen when the connection is migrated to a new path.
-	// We're therefore not concerned about overflows of this counter.
-	generation uint8
+	// Each search has a distinct non-zero-sized identity retained by its callbacks.
+	generation *struct{ marker byte }
 
 	// settled is the connection's PathMTUSettledV1 signal, or nil. The finder settles
 	// a search that concludes on a lost probe: a loss never changes the size, so the
@@ -141,6 +143,11 @@ func newTwoStageMTUDiscoverer(rttStats *utils.RTTStats, start, max protocol.Byte
 }
 
 func (f *mtuFinder) init(start, max protocol.ByteCount) {
+	if f.generation == nil {
+		f.generation = &struct{ marker byte }{}
+	}
+	f.stageOneDone, f.jumboAdmitted = false, false
+	f.candidateLosses = 0
 	f.ceiling = max
 	f.stageOneMax = max
 	if f.twoStage {
@@ -166,19 +173,48 @@ func (f *mtuFinder) initSearch(start, max protocol.ByteCount) {
 }
 
 func (f *mtuFinder) done() bool {
-	return f.max()-f.min <= maxMTUDiff+1
+	return f.searchDone() && !f.needsJumboCandidate()
+}
+
+func (f *mtuFinder) searchDone() bool { return f.max()-f.min <= maxMTUDiff+1 }
+
+func (f *mtuFinder) needsJumboCandidate() bool {
+	return f.retry && f.jumboAdmitted && f.min <= protocol.MaxPacketBufferSize && f.ceiling > protocol.MaxPacketBufferSize && f.candidateLosses < maxLostMTUProbes
+}
+
+// Restart reopens a same-path search while retaining its tested fallback report.
+func (f *mtuFinder) Restart(start, ceiling protocol.ByteCount) {
+	fallback := f.stageOneSize
+	var report uint32
+	if f.stageOneReport != nil {
+		report = f.stageOneReport.Load()
+	}
+	f.Reset(start, ceiling)
+	f.retry = true
+	if fallback != 0 {
+		f.stageOneSize = fallback
+	}
+	if f.stageOneReport != nil && report != 0 {
+		f.stageOneReport.Store(report)
+	}
+	if start > protocol.MaxPacketBufferSize {
+		f.stageOneDone, f.jumboAdmitted = true, true
+		f.initSearch(start, ceiling)
+	}
 }
 
 // finishStageOne records its tested fallback before opening the jumbo interval.
 func (f *mtuFinder) finishStageOne() {
-	if f.stageOneSize != 0 || !f.done() {
+	if f.stageOneDone || !f.searchDone() {
 		return
 	}
+	f.stageOneDone = true
 	f.stageOneSize = f.min
 	if f.stageOneReport != nil {
 		f.stageOneReport.Store(uint32(f.stageOneSize))
 	}
 	if f.ceiling > f.stageOneMax && f.max() == f.stageOneMax {
+		f.jumboAdmitted = true
 		f.initSearch(f.min, f.ceiling)
 		f.lastProbeWasLost = false
 	}
@@ -213,6 +249,9 @@ func (f *mtuFinder) ShouldSendProbe(now monotime.Time) bool {
 }
 
 func (f *mtuFinder) probeSize() protocol.ByteCount {
+	if f.searchDone() && f.needsJumboCandidate() {
+		return min(f.ceiling, max(protocol.MaxPacketBufferSize+1, f.min+1))
+	}
 	var size protocol.ByteCount
 	if f.lastProbeWasLost {
 		size = (f.min + f.lost[0]) / 2
@@ -238,8 +277,9 @@ func (f *mtuFinder) CurrentSize() protocol.ByteCount {
 
 // Reset starts a new path generation. Probing stays stopped until Start.
 func (f *mtuFinder) Reset(start, max protocol.ByteCount) {
-	f.generation++
+	f.generation = &struct{ marker byte }{}
 	f.lastProbeTime = 0
+	f.retry = false
 	f.lastProbeWasLost = false
 	f.inFlight = protocol.InvalidByteCount
 	f.init(start, max)
@@ -247,7 +287,7 @@ func (f *mtuFinder) Reset(start, max protocol.ByteCount) {
 
 type mtuFinderAckHandler struct {
 	*mtuFinder
-	generation uint8
+	generation *struct{ marker byte }
 	// The private endpoint route reports local results through these. Each probe
 	// has its own state, so a late result can't touch a newer probe's in-flight size.
 	resolved, disposed, uncertain bool
@@ -324,6 +364,9 @@ func (h *mtuFinderAckHandler) OnLost(wire.Frame) {
 	if h.uncertain {
 		h.inFlight = protocol.InvalidByteCount
 		return
+	}
+	if h.searchDone() && h.needsJumboCandidate() {
+		h.candidateLosses++
 	}
 	h.lastProbeWasLost = true
 	h.inFlight = protocol.InvalidByteCount
