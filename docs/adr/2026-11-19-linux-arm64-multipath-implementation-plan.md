@@ -1,6 +1,6 @@
 # Linux ARM64 multipath implementation plan
 
-**Date:** 2026-11-19. **Identity:** MP-ARM, track 1 of 1 in MP-ARM-20261119. **Status:** Accepted handoff; not implemented. **Depends on:** No other platform program. **Normative scope:** Current outcomes, invariants, boundaries, acceptance evidence, blockers and stop conditions. **Audit history:** [Source and slice audit](../audits/2026-11-19-linux-arm64-handoff/README.md). **Program:** [Index](2026-11-19-linux-arm64-multipath-program.md).
+**Date:** 2026-11-19. **Identity:** MP-ARM, track 1 of 1 in MP-ARM-20261119. **Status:** Accepted handoff; not implemented. **Depends on:** Selected shared tooling children from the macOS program, listed below; no macOS activation or support decision dependency. **Normative scope:** Current outcomes, invariants, boundaries, acceptance evidence, blockers and stop conditions. **Audit history:** [Source and slice audit](../audits/2026-11-19-linux-arm64-handoff/README.md). **Program:** [Index](2026-11-19-linux-arm64-multipath-program.md).
 
 ## Goal and settled profile
 
@@ -37,32 +37,43 @@ The proposed guest has 12 vCPUs and 80 GiB; installed Go 1.27.0 is neither pin a
 
 **Owner's design:** Retain endpoint-owned deadlines/borrowing, connection-owned path/protocol consequences, peer-owned ingress facts and collector-owned measurements. Parameterize existing Linux fixtures at real architecture/placement seams; do not build an ARM64 runtime adapter beside the owner. The contained test adapters add identity and cleanup obligations only. Moving observations into production would expand the runtime interface without an accepted need; do not do this. **Revisit:** a separately accepted production observability requirement.
 
-**Rejected alternatives — do not do these:** A separate ARM64 endpoint duplicates lifetime policy without evidence; revisit only if native evidence proves the current owner cannot express a platform requirement. Early Reno-only support violates full parity; revisit only on an explicit evidence-backed product decision. A production admission bypass or fake OS identity invalidates qualification; none: rejected on merit. Reusing retired B11 collectors as maintained dependencies violates frozen-evidence ownership; use only scoped source mechanics in C3/C4. Emulated runs and historical amd64 exceptions cannot establish ARM64 support or tolerances; none: rejected on merit. A blanket A0-before-all ordering has no code necessity for P1/P2/C3; none: rejected on merit. Do not copy or rebaseline the separate macOS program; if its shared tooling merges first, adapt/reuse the actual merged interface within the current child's contract instead of creating a second collector. A topology/owner change beyond that contract requires scoped re-audit.
+**Rejected alternatives — do not do these:** A separate ARM64 endpoint duplicates lifetime policy without evidence; revisit only if native evidence proves the current owner cannot express a platform requirement. Early Reno-only support violates full parity; revisit only on an explicit evidence-backed product decision. A production admission bypass or fake OS identity invalidates qualification; none: rejected on merit. Reusing retired B11 collectors as maintained dependencies violates frozen-evidence ownership; consume the separately scoped shared relay/comparison owners. Revisit: none: rejected on merit. Emulated runs and historical amd64 exceptions cannot establish ARM64 support or tolerances; none: rejected on merit. A blanket A0-before-peer-build ordering has no code necessity: P1 consumes its shared builder interface and own native container inputs; none: rejected on merit. Do not copy or rebaseline the separate macOS program. Revisit only on an explicit scoped request to change that program. Consume its selected shared owners after their accepted contracts merge; an open PR is not an established baseline. A topology/owner change beyond this contract requires scoped re-audit.
 
 **Non-goals:** New runtime APIs, protocol/schema changes, controller/scheduler tuning, higher path counts, hardware-NIC performance claims, arbitrary ARM kernels/CPUs, physical-host reservations, new peer pins, full BBR qualification, blanket recurring CI or statistical campaign allowances. Untraced effects are actual native trigger/offload capability, shared-host scheduling attribution and measured costs; they remain explicit later evidence obligations, never silently accepted runtime changes.
 
-## Slice graph
+## Shared owners and slice graph
 
-| Slice | State/disposition | End-to-end outcome | Blocked by | Temporary seam removed |
+The shared contracts are already published at default-branch plan commit `24cd8a12dbf63bdd8bfbffdcfc07ca987739e465`. Their implementation outputs are prerequisites, not established baselines. Consume only the actual merged interface after its owner has completed review/certification/CI and the accepted contract is verified. A closed issue or a draft PR's completion row alone is insufficient. This scoped handoff changes no macOS issue, label, plan or task, and creates no duplicate implementation or no-op adoption child.
+
+| Shared outcome | Existing sole child/owner | ARM use |
+| --- | --- | --- |
+| Peer execution profiles and native identity | [MP-MAC-P1 (#1488)](https://github.com/GridCastIO/quicquic-go/issues/1488), [accepted P1 contract](https://github.com/GridCastIO/quicquic-go/blob/24cd8a12dbf63bdd8bfbffdcfc07ca987739e465/docs/adr/2026-11-19-macos-multipath-implementation-plan.md#p1--native-pinned-peer-build-and-ordinary-control) | ARM P1 extends this one dispatcher/identity/helper interface with linux/arm64; it preserves existing linux/amd64 and darwin/arm64 behavior. |
+| Fresh both-active ingress witness | [MP-MAC-P2 (#1489)](https://github.com/GridCastIO/quicquic-go/issues/1489), [accepted P2 contract](https://github.com/GridCastIO/quicquic-go/blob/24cd8a12dbf63bdd8bfbffdcfc07ca987739e465/docs/adr/2026-11-19-macos-multipath-implementation-plan.md#p2--fresh-aggregate-datagram-ingress-witness) | Q1 binds its actual peer-callback ingress semantics for native ARM64 execution; no ARM P2 implementation is created. |
+| Shared workloads and metric representation | [MP-MAC-C1 (#1490)](https://github.com/GridCastIO/quicquic-go/issues/1490), [accepted C1 contract](https://github.com/GridCastIO/quicquic-go/blob/24cd8a12dbf63bdd8bfbffdcfc07ca987739e465/docs/adr/2026-11-19-macos-multipath-implementation-plan.md#c1--matched-ordinary-workloads-and-native-metric-records) | ARM C1 adds Linux ARM64 applicability/CPU placement to these records and workload owners instead of rebuilding them. |
+| Negotiated lifecycle memory | [MP-MAC-C2 (#1491)](https://github.com/GridCastIO/quicquic-go/issues/1491), [accepted C2 contract](https://github.com/GridCastIO/quicquic-go/blob/24cd8a12dbf63bdd8bfbffdcfc07ca987739e465/docs/adr/2026-11-19-macos-multipath-implementation-plan.md#c2--negotiated-lifecycle-memory-observation) | Q1 binds the same three observed public phases to ARM64; no second collector or ARM C2 child. |
+| Portable UDP topology relay | [MP-MAC-C3 (#1492)](https://github.com/GridCastIO/quicquic-go/issues/1492), [accepted C3 contract](https://github.com/GridCastIO/quicquic-go/blob/24cd8a12dbf63bdd8bfbffdcfc07ca987739e465/docs/adr/2026-11-19-macos-multipath-implementation-plan.md#c3--scoped-udp-queue-and-topology-relay) | Shared C4 consumes it; this is a transitive prerequisite, not another ARM relay/task or direct convenience edge. |
+| Matched topology comparison | [MP-MAC-C4 (#1493)](https://github.com/GridCastIO/quicquic-go/issues/1493), [accepted C4 contract](https://github.com/GridCastIO/quicquic-go/blob/24cd8a12dbf63bdd8bfbffdcfc07ca987739e465/docs/adr/2026-11-19-macos-multipath-implementation-plan.md#c4--topology-comparison-workload-and-controls) | Q1 consumes its supported Linux public workload and shared metrics/relay, selecting ARM's accepted A/B/C/E arms and shared-bottleneck competitor. A richer tool does not add primary/backup collection to ARM's inventory. |
+
+| ARM slice | State/disposition | End-to-end outcome | Blocked by | Temporary seam removed |
 | --- | --- | --- | --- | --- |
 | A0 | New; frontier | Prepared native venue/toolchain identities and prerequisite receipt | None | None |
 | E1 | New; blocked | Native ARM64 endpoint fixture and exact build/case accounting | A0 | None |
-| P1 | New; frontier | Pinned native ARM64 peer build and ordinary controls | None | None |
-| P2 | New; frontier | Fresh both-active DATAGRAM ingress witness | None | None |
-| C1 | New; blocked | Matched ordinary workloads, ARM64 metrics and CPU placement | A0 | None |
-| C2 | New; blocked | Negotiated lifecycle-memory observation | C1 | None |
-| C3 | New; frontier | Scoped real-UDP topology relay | None | None |
-| C4 | New; blocked | Matched topology comparison consumer | C1, C3 | None |
-| Q1 | New; blocked | Concrete approved execution protocol | E1, P1, P2, C2, C4 | None |
-| Q2 | New; blocked | Native qualification and complete public activation | Q1 | None |
+| P1 | New ARM delta; blocked | Native Linux ARM64 peer image/profile and ordinary controls | Shared P1 #1488 | None |
+| C1 | New ARM delta; blocked | Linux ARM64 ordinary applicability, metrics and CPU placement | A0, shared C1 #1490 | None |
+| Q1 | New; blocked | Concrete approved ARM64 execution protocol | E1, P1, C1, shared P2 #1489, C2 #1491, C4 #1493 | None |
+| Q2 | New; blocked | Native qualification and complete support decision | Q1 | None |
 
-A0, P1, P2 and C3 are parallel-safe in separate worktrees. E1/C1 consume A0's prepared compiler/venue/CPU facts; P1's isolated native container build supplies its own build toolchain and needs neither tracing privileges nor multipath admission. P2 can use existing supported Linux fixture semantics. C2 consumes C1's identity/metric interface; C4 consumes C1 and C3. Q1 binds all leaf methods and actual limitations before Q2. File overlap with another platform program requires merge coordination, not speculative cross-program blockers. No integration branch is needed.
+A0 is the ARM-owned frontier. After A0, E1 can run while shared tooling proceeds. ARM P1 becomes independent of E1/C1 once shared P1 merges; ARM C1 follows A0 and the shared metric owner. Q1 consumes the three ARM readiness outputs plus the three shared leaf contracts, with the relay transitively covered by shared C4. These are consumed interfaces/authority, not file-order dependencies. None waits for macOS public activation. No integration branch is needed.
+
+For shared ingress, the independent peer receive callback must bind each fresh offer nonce/sequence to its actual ingress path in both roles, with both paths live/active during the bounded phase. A Go receive trace is supporting counter evidence only: echoes returning over two paths cannot turn one-path offer ingress into a pass. The existing one-path negative covers that distinction. Five shared fixture cases and role wiring remain readiness evidence; the first planned live ARM aggregate observation belongs to Q2, an explicit untraced live-integration effect until then.
+
+For shared lifecycle memory, negotiated idle records live path zero and absence of the later backup in PathsV1. Validated-backup and post-retirement samples identify the same subsequently opened backup ID and exact StateV1.Lifecycle; reject retiring and distinguish retained/closed, selecting one consistent comparable third state in Q1. No absent backup handle is invented. For shared comparison, require paired arithmetic and honest valid-negative versus invalid-comparator dispositions; missing controls or candidate failure cannot be filtered into a pass. Inspect these existing owners' actual merged outputs in Q1; an unfulfilled contract or material ARM applicability gap remains a concrete blocker/re-audit, never presumed successful or duplicated speculatively.
 
 ## Common contract for every slice
 
-Every slice below includes this common contract, the settled profile and the specific fields beneath its heading. One slice is one intended PR and one fresh agent context. Existing-work disposition is new work on the merged baseline; [PR #1295](https://github.com/GridCastIO/quicquic-go/pull/1295) is excluded as unselected historical work, with the source/diff/closure assessment in the audit. Do not cherry-pick its scalar adapter, reopen its spent allowance or make it a dependency.
+Every slice below includes this common contract, the settled profile and the specific fields beneath its heading. One slice is one intended PR and one fresh agent context. Existing-work disposition is new ARM-specific work on the merged baseline plus explicitly selected, still-unmerged shared dependencies; [PR #1295](https://github.com/GridCastIO/quicquic-go/pull/1295) is excluded as unselected historical work, with the source/diff/closure assessment in the audit. Do not cherry-pick its scalar adapter, reopen its spent allowance or make it a dependency.
 
-Readiness tools are verification aids; plans, preparation receipts and qualification reports are process/traceability metadata. Existing runtime behavior and required safety enforcement stay unchanged until Q2. The narrowly scoped aids have transport test/interop maintainership, payoff in reproducible named native regression observations, and domain limited to these platforms/toolchains/scenarios. Ordinary maintained fixture extensions retire with equivalent replacement or support removal; the finite C3/C4 comparison successor retires after the ARM64 support decision, archiving its raw evidence, unless the owner explicitly selects continued maintenance in Q1. Q1 must record explicit maintained-blocker approval, payoff, domain, owner and retirement for selected new continuing CI aids. Unapproved ancillary aids cannot block shipped behavior by reviewer demand.
+Readiness tools are verification aids; plans, preparation receipts and qualification reports are process/traceability metadata. Existing runtime behavior and required safety enforcement stay unchanged until Q2. The narrowly scoped aids have transport test/interop maintainership, payoff in reproducible named native regression observations, and domain limited to these platforms/toolchains/scenarios. Ordinary maintained fixture extensions retire with equivalent replacement or support removal; any ARM-specific finite measurement entrypoints retire after the definitive ARM64 support decision, archiving raw evidence, unless the owner explicitly selects continued maintenance in Q1. Shared tools remain maintained as long as their owning support contract requires, even after its implementation program completes; ARM64 has no authority to retire them. Q1 must record explicit maintained-blocker approval, payoff, domain, owner and retirement for selected new continuing CI aids. Unapproved ancillary aids cannot block shipped behavior by reviewer demand.
 
 Representation owners are typed Go configurations/requests/results, existing wire parsers, standard JSON parsers, exact emitted diagnostic records and the named fixture's semantic validator. Receipt accounting guarantees a canonical subset of explicit case/identity/status fields; native execution is example-level evidence. No handwritten parser claims universal external-language or platform coverage. Unknown identity, missing/duplicate/skipped required cases and malformed owned records cannot count as a pass. No receipt becomes runtime authority, and no new persisted product fact or restart format is introduced.
 
@@ -110,7 +121,7 @@ The accepted endpoint borrow/lifetime invariant has material authority/storage c
 
 **Transitional-seam budget:** None; the common zero-temporary-runtime-seam rule applies. No successor is asked to remove a knowingly incoherent intermediate state.
 
-**Blast radius:** Preparation metadata and isolated tool distribution only; no shared VM replacement, global PATH/package changes, workload execution, host affinity, process termination or CI registration. Verify native Docker builder identity separately from the qualification guest; neither substitutes for the other.
+**Blast radius:** Preparation metadata and isolated tool distribution only; no shared VM replacement, global PATH/package changes, workload execution, host affinity, process termination or CI registration. Keep guest and Docker builder identities distinct; required builder verification and availability belong solely to P1 and cannot block A0 completion.
 
 **Artifact classification:** Process/traceability metadata and task-local tool preparation; no runtime behavior or new maintained verification framework.
 
@@ -124,7 +135,7 @@ The accepted endpoint borrow/lifetime invariant has material authority/storage c
 
 **Dispatch context budget:** This/common contract; target plan venue table; native_qualification.py prerequisite/build interface; exact local Lima configuration and tool distributions. No native fixture or historical campaign internals.
 
-**Slice decision audit:** No blockers: preparation is independently useful. Splitting toolchains from their actual venue identity leaves no reproducible native build input; merging E1 mixes infrastructure identity with fixture semantics. Both rejected; none: rejected on merit. A0 does not gate P1’s self-contained native container build or platform-independent P2/C3.
+**Slice decision audit:** No blockers: preparation is independently useful. Splitting toolchains from their actual venue identity leaves no reproducible native build input; merging E1 mixes infrastructure identity with fixture semantics. Both rejected; none: rejected on merit. A0 does not gate P1’s self-contained native container build or external shared implementation owners.
 
 **Stop conditions:** No access or required identity, missing install/privilege authority, non-native execution or need for shared infrastructure mutation keeps A0 open for the concrete owner decision. Do not reserve a different host or relabel Docker Desktop as this guest.
 
@@ -162,11 +173,11 @@ The accepted endpoint borrow/lifetime invariant has material authority/storage c
 
 ### P1 — Build the pinned native ARM64 peer and ordinary controls
 
-**What it delivers:** Add explicit ARM64 image/Go archive/checksum and runner identities to the existing peer build; compile/discover the tagged root matrix and execute both ordinary QUIC roles natively. Adapt root matrix tags and the integration ordinary-control architecture assertion while preserving amd64. Record native host/image/binary/toolchain identities and package pins for the ordinary-control receipt as well as matrix modes; current run.py only binds detailed identity for matrix/zero modes. No public multipath campaign runs here.
+**What it delivers:** Consume the merged shared P1 profile/identity and common Go peer-helper interface, then add explicit Linux ARM64 image/Go archive/checksum and runner identities; compile/discover the tagged root matrix and execute both ordinary QUIC roles natively. Adapt root matrix tags and the integration ordinary-control architecture assertion while preserving amd64. Record native host/image/binary/toolchain identities and package pins for the ordinary-control receipt as well as matrix modes; current run.py only binds detailed identity for matrix/zero modes. No public multipath campaign runs here.
 
 **Existing-work disposition:** New slice on the merged baseline; retain the existing runtime owners. The common prior-work exclusion and cross-program reuse rule apply.
 
-**Blocked by:** None
+**Blocked by:** Shared MP-MAC-P1 (#1488)
 
 **Single owner after merge:** Go fixture owns sockets/child lifetime; pinned peer owns protocol behavior; Docker build owns binary inputs; run.py owns selected execution identity/case accounting. Host, image and binary architecture must agree without binfmt/QEMU substitution.
 
@@ -174,7 +185,7 @@ The accepted endpoint borrow/lifetime invariant has material authority/storage c
 
 **Transitional-seam budget:** None; the common zero-temporary-runtime-seam rule applies. No successor is asked to remove a knowingly incoherent intermediate state.
 
-**Blast radius:** interop/multipath/Dockerfile, run.py/test_run.py, README, root peer test build constraints and integrationtests/self/picoquic_control_test.go. Preserve protocol dependency pins, distro snapshot and amd64 behavior. Verify an architecture-specific image digest; do not assume the existing amd64 digest supports ARM64.
+**Blast radius:** interop/multipath/Dockerfile, run.py/test_run.py, README, root peer test build constraints and integrationtests/self/picoquic_control_test.go. Preserve protocol dependency pins, distro snapshot, amd64 and merged Darwin profile behavior. Extend the selected dispatcher rather than creating a parallel profile owner. Verify an architecture-specific image digest; do not assume the existing amd64 digest supports ARM64.
 
 **Artifact classification:** Verification aids plus process/traceability metadata, with the common payoff/domain/owner/retirement policy; existing shipped behavior and safety enforcement remain unchanged.
 
@@ -186,51 +197,19 @@ The accepted endpoint borrow/lifetime invariant has material authority/storage c
 
 **TDD and preservation evidence:** First test wrong/missing architecture, absent/duplicate/skipped case, failed child/timeout cleanup and image/compiler mismatch. Require TestPicoquicMultipathMatrix in the root binary discovery separately from the successful integration ordinary client/server controls. Pin both peer commits unchanged and keep observed socket tuples/role arguments explicit.
 
-**Dispatch context budget:** This/common contract; Dockerfile, run.py/test_run.py, peer build/launch helpers, root matrix build/role interface, ordinary control and pinned build inputs. Exclude P2 phase semantics and historical peer campaigns.
+**Dispatch context budget:** This/common contract; Dockerfile, run.py/test_run.py, peer build/launch helpers, root matrix build/role interface, ordinary control and pinned build inputs. Include the bounded governing diff of PR #1499 and its actual merged interface; exclude shared P2 phase semantics and historical peer campaigns.
 
-**Slice decision audit:** No A0 edge: the native container builder supplies its own exact Go/build inputs and ordinary handshake needs no tracing, grant or public multipath gate. Its kernel identity is reported honestly; Q1 later selects the qualification venue. Build-only/launcher-only splitting leaves no end-to-end usable peer; P2 merging couples independent witness semantics. Both rejected; none: rejected on merit.
+**Slice decision audit:** Shared P1 #1488 is necessary because this delta consumes its execution-profile, binary-settings, ordinary/discovery receipt and common Go tuple/launch interfaces. An independent dispatcher would add duplicate identity ownership; rejected on merit. No A0 edge: the native container builder supplies its own exact Go/build inputs and ordinary handshake needs no tracing, grant or public multipath gate. Its kernel identity is reported honestly; Q1 later selects the qualification venue. Build-only/launcher-only splitting leaves no end-to-end usable peer; shared P2 witness work is owned externally and must not be duplicated. Both rejected; none: rejected on merit.
 
 **Stop conditions:** Stop on unavailable native builder, incompatible pinned peer, needed pin change, emulation, undefined image identity or production admission bypass. An unavailable builder is a concrete blocker, not permission to claim a cross-build as readiness.
 
-### P2 — Add a fresh both-active DATAGRAM ingress witness
-
-**What it delivers:** Extend useful-transfer with a fresh nonce/sequence after both paths are activated, snapshot per-path counters then, and require matching useful receipt on both actual ingress paths in each role. Both paths must remain StateV1 live and LocalUse active on every bounded offer round and at phase end. Ship peer receipt production and matrix validation together; preserve the STREAM witness.
-
-**Existing-work disposition:** New slice on the merged baseline; retain the existing runtime owners. The common prior-work exclusion and cross-program reuse rule apply.
-
-**Blocked by:** None
-
-**Single owner after merge:** Peer callback owns actual ingress; Go matrix owns phase/payload membership and finite acceptance; production scheduler owns selection. Payload-requested reply path and sender deltas never substitute for actual useful ingress.
-
-**Authority completeness:** No new persisted product authority or restart format. The common constructor/validation/cleanup/readback contract applies. Receipts cannot open public admission.
-
-**Transitional-seam budget:** None; the common zero-temporary-runtime-seam rule applies. No successor is asked to remove a knowingly incoherent intermediate state.
-
-**Blast radius:** matrixUsefulTransfer/datagram phase, peer.c callback emitted records and associated fixture tests. Finite explicit record shape/standard parser, no generic log scanner, runtime receiver API, wire extension or scheduler tuning. Preserve bounded offered work and existing scenario inventory.
-
-**Artifact classification:** Verification aids plus process/traceability metadata, with the common payoff/domain/owner/retirement policy; existing shipped behavior and safety enforcement remain unchanged.
-
-**Representation contract:** Canonical explicitly emitted nonce/sequence/path/phase record; actual callback or existing received-packet trace owns ingress identity. Example-level useful delivery, not statistical fairness or a claim about every packet.
-
-**Contract closure:** Not independently triggered: no changed product authority or runtime invariant. This slice provides finite evidence interfaces to the common coverage argument, without recursively proving the aid.
-
-**Evidence budget:** Five semantic fixture cases: fresh both-path matching pass; stale/wrong phase or lost live-active eligibility fails; duplicate receipt does not add progress; one-path-only fails; sender-only progress fails. Characterize both roles. No extra live aggregate campaign is implied by default Reno hosted CI. The common review and non-recursion limits apply.
-
-**TDD and preservation evidence:** Write the five discriminating cases first and exercise callback producer/validator wiring with both-role characterization. Keep the existing supported Linux fixture as development control. Q1 binds the first planned live both-role aggregate observation to Q2; if it fails, distinguish fixture attribution from platform behavior before reruns. No qualification claim arises from synthetic receipts.
-
-**Dispatch context budget:** This/common contract; matrixSession/matrixUsefulTransfer/datagram/trace interfaces, peer.c DATAGRAM/path callbacks and pinned callback contract. No P1 output or ARM64 venue is required.
-
-**Slice decision audit:** No blocker: current amd64 fixture supplies the interface. Splitting producer from validator or splitting roles creates half a witness; merging P1 adds unrelated build ownership. Revisit: none: rejected on merit. This slice is shared semantic work; reuse an equivalent merged macOS P2 implementation if it lands first, with the same accepted contract and no duplicate witness.
-
-**Stop conditions:** Stop if actual ingress cannot be observed through the existing peer/trace seam, if receipt freshness requires a runtime API or if bounded offered work cannot express the witness. Do not silently equate requested path with ingress.
-
 ### C1 — Adapt matched ordinary workloads and ARM64 metrics
 
-**What it delivers:** Extend the maintained Linux ordinary-cost apparatus to explicit ARM64, controller-matched Reno/BBRv3 STREAM/DATAGRAM/mixed/response-pressure workloads and truthful CPU/RSS/useful-byte/latency records. Use validated role CPU sets from A0 available CPUs and corresponding scheduler counters, not historical 8–15/24–31 indices. Supply record value/source/availability and exact source/compiler/venue identity. Readiness smoke supplies no comparative cost conclusion.
+**What it delivers:** Consume the merged shared C1 controller-matched workload and metric interfaces, then add explicit Linux ARM64 applicability, prepared-toolchain attribution and valid CPU placement. Retain its Reno/BBRv3 STREAM/DATAGRAM/mixed/response-pressure and truthful CPU/RSS/useful-byte/latency records without rebuilding the shared collector. Use validated role CPU sets from A0 available CPUs and corresponding scheduler counters, not historical 8–15/24–31 indices. Supply record value/source/availability and exact source/compiler/venue identity. Readiness smoke supplies no comparative cost conclusion.
 
 **Existing-work disposition:** New slice on the merged baseline; retain the existing runtime owners. The common prior-work exclusion and cross-program reuse rule apply.
 
-**Blocked by:** A0
+**Blocked by:** A0, shared MP-MAC-C1 (#1490)
 
 **Single owner after merge:** Fixture owns demand/useful delivery; Linux collectors own CPU/RSS facts; driver owns windows, role placement and child joins. The host owns P/E-core facts, which guest CPU IDs do not invent. No collector chooses controller policy or turns unavailable BBR counters into zero.
 
@@ -238,7 +217,7 @@ The accepted endpoint borrow/lifetime invariant has material authority/storage c
 
 **Transitional-seam budget:** None; the common zero-temporary-runtime-seam rule applies. No successor is asked to remove a knowingly incoherent intermediate state.
 
-**Blast radius:** ordinary_cost_test.go, ordinary_cost.py/test_ordinary_cost.py and narrowly shared metric/placement functions. Retain existing amd64 selectors/thresholds. Root-test-only private grant may exercise unnegotiated ordinary traffic before ARM64 activation; negotiated mixed bulk uses supported amd64 for readiness and Q2 for ARM64. No new production telemetry or generic benchmark framework.
+**Blast radius:** ordinary_cost_test.go, ordinary_cost.py/test_ordinary_cost.py and narrowly shared metric/placement functions. Retain existing amd64 selectors/thresholds. A separately selected root-test-only private grant smoke may exercise unnegotiated ordinary traffic before ARM64 activation; it never replaces the public measurement entrypoint or satisfies support evidence. Q1/Q2 granted-ordinary measurements must call public ConfigureMultipathIOV1 on the actual activation candidate; negotiated mixed bulk uses supported amd64 for readiness and Q2 for ARM64. No new production telemetry or generic benchmark framework.
 
 **Artifact classification:** Verification aids plus process/traceability metadata, with the common payoff/domain/owner/retirement policy; existing shipped behavior and safety enforcement remain unchanged.
 
@@ -250,107 +229,11 @@ The accepted endpoint borrow/lifetime invariant has material authority/storage c
 
 **TDD and preservation evidence:** First discriminate controller selection, CPU interval/CPU-set mapping, RSS byte/kB conversion, useful delivery versus offered bytes, missing counters and canceled roles. Verify GSO capability is required for cells without disable override, including mixed and pressure; A0 flags alone are not engagement evidence. Preserve genuine negotiated two-live-path mixed bulk and record limitation until Q2. Use exact prepared toolchains and native ordinary/private-grant smoke after A0.
 
-**Dispatch context budget:** This/common contract; A0 venue/CPU/compiler receipt; ordinary_cost_test.go workload/configuration/metrics sections and driver identity/placement/judge interfaces. C2/C4 consume resulting records only; no frozen campaign loops or endpoint implementation.
+**Dispatch context budget:** This/common contract; A0 venue/CPU/compiler receipt; ordinary_cost_test.go workload/configuration/metrics sections and driver identity/placement/judge interfaces. Consume the shared C1 result interface and bounded PR #1501 governing diff; preserve shared C2/C4 consumers. No frozen campaign loops or endpoint implementation.
 
-**Slice decision audit:** A0 is a real blocker for this selected-guest native metrics/placement contract. Splitting metric units from their actual workload consumer leaves window/accounting semantics unexercised; rejected on merit. C2 introduces negotiated lifecycle sampling and C4 topology arms, so keep them separate; none: rejected on merit.
+**Slice decision audit:** A0 supplies the selected guest facts; shared C1 #1490 supplies the one workload/metric representation consumed by the ARM profile. Both are real blockers. Do not independently recreate its metric layer. Splitting metric units from their actual workload consumer leaves window/accounting semantics unexercised; rejected on merit. Shared C2/C4 already own lifecycle/comparison consumers; creating duplicate ARM contracts is rejected on merit. Material missing ARM applicability in their final outputs requires a concrete scoped re-audit, not speculative extra slices.
 
 **Stop conditions:** Stop on unobservable required metric/CPU mapping, unavailable required GSO cell, need to bypass negotiated ARM64 admission, a new tolerance, host reservation/privileged sampler or production repair. Report limitations instead of synthesizing valid measurements.
-
-### C2 — Observe negotiated lifecycle memory
-
-**What it delivers:** Use C1 records to observe negotiated idle, validated backup and post-retirement memory for a named path ID through public APIs. Record exact StateV1.Lifecycle at each sample; third phase rejects retiring and distinguishes retained from closed. Q1 selects the same qualifying state for both sides of a comparison. Keep live/retained Go heap separate from peak RSS, and transport detachment separate from path retirement and grant join.
-
-**Existing-work disposition:** New slice on the merged baseline; retain the existing runtime owners. The common prior-work exclusion and cross-program reuse rule apply.
-
-**Blocked by:** C1
-
-**Single owner after merge:** Existing connection/path lifecycle owns the states; fixture observes StateV1 and owns consistently labelled samples. A requested transition or old-transport detachment cannot stand in for observed retirement.
-
-**Authority completeness:** No new persisted product authority or restart format. The common constructor/validation/cleanup/readback contract applies. Receipts cannot open public admission.
-
-**Transitional-seam budget:** None; the common zero-temporary-runtime-seam rule applies. No successor is asked to remove a knowingly incoherent intermediate state.
-
-**Blast radius:** Narrow lifecycle workload and C1 metric consumer only. Public configure/open/state/abandon/detachment/join interfaces; no new path state, memory counter or private negotiated-admission override. Label forced GC consistently if selected; Go heap is not resident memory.
-
-**Artifact classification:** Verification aids plus process/traceability metadata, with the common payoff/domain/owner/retirement policy; existing shipped behavior and safety enforcement remain unchanged.
-
-**Representation contract:** Typed public path ID/Lifecycle and canonical C1 records. Third sample is explicitly retained or closed, never retiring; example-level memory observation, not a leak proof.
-
-**Contract closure:** Not independently triggered: no changed product authority or runtime invariant. This slice provides finite evidence interfaces to the common coverage argument, without recursively proving the aid.
-
-**Evidence budget:** Three observed lifecycle phases, one representative rejection each for unnegotiated control, stale/requested-only state and mismatched sampled path/phase; one supported amd64 public lifecycle smoke and failure cleanup. Native ARM64 samples remain Q2. The common review and non-recursion limits apply.
-
-**TDD and preservation evidence:** First fail ordinary/unnegotiated backup controls, detach-with-live-same-ID substitution and unobserved retirement. Exercise observed idle/backup/retained-or-closed states, role/phase matching, metric unit distinctions and joined failure teardown. ARM64 compile/refusal does not count as memory evidence.
-
-**Dispatch context budget:** This/common contract; C1 result/collector interface; public path StateV1/AbandonV1 and relevant lifecycle helper tests. Exclude endpoint internals and historical memory campaigns.
-
-**Slice decision audit:** C1 supplies the single metric/identity seam, avoiding a second collector. Splitting the phases destroys the within-fixture comparison; merging ordinary bulk with negotiated retention mixes owners. Revisit: none: rejected on merit.
-
-**Stop conditions:** Stop if no accepted lifecycle state is observable, private negotiation is needed, a production memory interface is required or metrics cannot compare the same phase. Do not add an extra phase or relax the accepted state by inference.
-
-### C3 — Build a scoped real-UDP topology relay
-
-**What it delivers:** Create a finite comparison relay from reviewed frozen B11 mechanics, with explicit balanced-disjoint, unequal-delay/rate and shared-bottleneck queue identities, bounded backlog/drop behavior, realized UDP delivery and joined cleanup. It is independently usable without QUIC admission, cost metrics or a performance campaign.
-
-**Existing-work disposition:** New slice on the merged baseline; retain the existing runtime owners. The common prior-work exclusion and cross-program reuse rule apply.
-
-**Blocked by:** None
-
-**Single owner after merge:** One synchronized relay queue owner decides admission/drop/scheduling. Reader/delivery workers supply facts and join before final records; transport/controller policy remains outside the relay.
-
-**Authority completeness:** No new persisted product authority or restart format. The common constructor/validation/cleanup/readback contract applies. Receipts cannot open public admission.
-
-**Transitional-seam budget:** None; the common zero-temporary-runtime-seam rule applies. No successor is asked to remove a knowingly incoherent intermediate state.
-
-**Blast radius:** New opt-in comparison fixture/test source only; frozen aggregation_test.go at 8c34fbac874adf55f096b6c67d51244160169422 stays unchanged. Closed topology enum/configuration, not a general graph language. No host nftables/tc rule, privileged route mutation or production worker.
-
-**Artifact classification:** Verification aids plus process/traceability metadata, with the common payoff/domain/owner/retirement policy; existing shipped behavior and safety enforcement remain unchanged.
-
-**Representation contract:** Typed tuple/topology/rate/delay/backlog input and standard parsed result records, canonical subset of the three named topologies. Native queue timing under load remains example-level. Payload relay is not ECN/ancillary metadata evidence.
-
-**Contract closure:** Not independently triggered: no changed product authority or runtime invariant. This slice provides finite evidence interfaces to the common coverage argument, without recursively proving the aid.
-
-**Evidence budget:** Representative valid topology/queue arithmetic, rejected invalid configuration, distinct/shared queue identity, local UDP route delivery and pending-worker/reader-failure cleanup. No load fidelity/performance campaign or statistical timing repetition. The common review and non-recursion limits apply.
-
-**TDD and preservation evidence:** First test bounded queue admission/drop, unequal rates/delays, shared versus separate bottleneck identity and invalid tuple/configuration; then real UDP round trip and cleanup while work remains. Record delivered bytes/drops independently of configured intent. Do not import retired experimentScheduler or campaign loop.
-
-**Dispatch context budget:** This/common contract; frozen B11 aggregation_test.go queue/UDP/lifetime/tests only, with exact source anchors in audit; new relay interface and tests. No complete BBR program or Python campaign script.
-
-**Slice decision audit:** No blocker: the real UDP interface is independently green. Queue-only prefactoring leaves lifetime untested; merging C4 combines independent concurrency and workload accounting. Both rejected; none: rejected on merit. Reuse a suitable merged macOS relay rather than a parallel copy, retaining this finite retirement contract.
-
-**Stop conditions:** Stop if the relay requires privileged/global network state, unbounded topology syntax, an ECN claim, production scheduler changes or a second queue owner.
-
-### C4 — Bind the matched topology comparison workload
-
-**What it delivers:** Bind C3 topology to current public QUIC and C1 metrics for ordinary BBR path A, ordinary BBR path B, two independent BBR connections and the current two-path aggregate, with the shared-bottleneck ordinary Reno competitor required by the existing criterion. Preserve useful-byte, demand, latency/gap, relay-drop/CPU and realized topology identity. Deliver functional apparatus, not a native performance conclusion.
-
-**Existing-work disposition:** New slice on the merged baseline; retain the existing runtime owners. The common prior-work exclusion and cross-program reuse rule apply.
-
-**Blocked by:** C1, C3
-
-**Single owner after merge:** C3 owns queues; public transport owns paths/controller policy; comparison fixture owns matched arm/demand/phase accounting; C1 owns metrics. Configured intent or sender bytes cannot replace realized useful delivery.
-
-**Authority completeness:** No new persisted product authority or restart format. The common constructor/validation/cleanup/readback contract applies. Receipts cannot open public admission.
-
-**Transitional-seam budget:** None; the common zero-temporary-runtime-seam rule applies. No successor is asked to remove a knowingly incoherent intermediate state.
-
-**Blast radius:** New finite opt-in comparison workload/driver and immediate record/relay integration. Use the public multipath configuration with policy "aggregate" and explicit active paths; never restore retired conf.multipath.experimentScheduler. Preserve uncoupled/no-general-fairness limits and frozen source. No optimizer or imported historical attempt schedule.
-
-**Artifact classification:** Verification aids plus process/traceability metadata, with the common payoff/domain/owner/retirement policy; existing shipped behavior and safety enforcement remain unchanged.
-
-**Representation contract:** Closed arm/topology/controller set, typed public path/configuration and C1/C3 records. Canonical identity/accounting; example-level performance. Relay observations do not qualify packet-info/ECN.
-
-**Contract closure:** Not independently triggered: no changed product authority or runtime invariant. This slice provides finite evidence interfaces to the common coverage argument, without recursively proving the aid.
-
-**Evidence budget:** Representative arm/controller/topology selection, invalid or missing arm/metric/identity, matched demand, useful receiver accounting, paired comparison arithmetic, valid negative candidate verdict versus invalid baseline/comparator, and child/relay failure cleanup; one supported amd64 functional comparison smoke. No gain, fairness or confidence claim follows. The common review and non-recursion limits apply.
-
-**TDD and preservation evidence:** First fail missing control/metric/topology, unequal unlabelled demand and sender-only useful-byte substitution. Check paired arithmetic and ensure a valid negative candidate result stays negative while an invalid baseline/comparator is reported as invalid, never filtered into a passing verdict. Exercise real public supported Linux construction/activation and joined teardown. ARM64 build/refusal stays separate until Q2. Preserve B11 applicable benefit/cost criteria; no new threshold or transferred exception.
-
-**Dispatch context budget:** This/common contract; C1 record interface, C3 relay interface, current public controller/path APIs and frozen B11 metric/control definitions. Exclude retired campaign execution loop and other platform internals.
-
-**Slice decision audit:** C1/C3 are real consumed interfaces. Splitting individual arms leaves no matched comparison; merging the independently usable relay adds unnecessary context. Revisit: none: rejected on merit. P1/P2/C2 are not direct blockers.
-
-**Stop conditions:** Stop on required new topology/metric/threshold, public bypass, peer-pin change, production algorithm repair or inability to fit the comparison consumer in one context.
 
 ### Q1 — Approve the concrete native execution protocol
 
@@ -358,7 +241,7 @@ The accepted endpoint borrow/lifetime invariant has material authority/storage c
 
 **Existing-work disposition:** New slice on the merged baseline; retain the existing runtime owners. The common prior-work exclusion and cross-program reuse rule apply.
 
-**Blocked by:** E1, P1, P2, C2, C4
+**Blocked by:** E1, P1, C1, shared MP-MAC-P2 (#1489), MP-MAC-C2 (#1491), MP-MAC-C4 (#1493)
 
 **Single owner after merge:** Protocol owns finite command/case/identity mapping; maintainer owns venue/privilege/operational allowance, new continuing CI and any explicit cost exception. Tools report facts; ready labels do not authorize collection.
 
@@ -376,17 +259,17 @@ The accepted endpoint borrow/lifetime invariant has material authority/storage c
 
 **Evidence budget:** One source/method-to-command audit and concrete owner decision. Zero native qualification/performance attempts. Select meaningful platform/toolchain distinctions and exact repetitions only when required by an accepted question; do not inherit old six-by-two/36-observation/three-round/quiet-retry budgets automatically. The common review and non-recursion limits apply.
 
-**TDD and preservation evidence:** No code TDD. Bind every row of the safety table to command, expected identity/output and missing-evidence disposition. Include both Go pins, all three policies, independent peer roles, negotiated zero separately, native address-family/packet-info/ECN/offload applicability, E1 current poller/group-yield/timing/pressure distinctions, focused race and BBR protection/recovery, public migration/survivor, C1 mixed/pressure GSO requirements, C2 exact third phase and C4 controls. Put first actual ARM64 poller traversal early in Q2. Preserve 1.10 CPU ratio/10% RSS limits and applicable B11 criteria; amd64 exceptions do not transfer. Bind skip-sensitive continuing native unit/public/focused race and explicitly decide peer matrix/cadence without assuming twice the current campaign.
+**TDD and preservation evidence:** No code TDD. Bind every row of the safety table to command, expected identity/output and missing-evidence disposition. Include both Go pins, all three policies, independent peer roles, negotiated zero separately, native address-family/packet-info/ECN/offload applicability, E1 current poller/group-yield/timing/pressure distinctions, focused race and BBR protection/recovery, public migration/survivor, C1 mixed/pressure GSO requirements, the shared lifecycle idle path-zero/backup-absent baseline and later same-backup third phase, shared peer-callback ingress (not reverse echo path), and comparison controls/negative-verdict arithmetic. Put first actual ARM64 poller traversal early in Q2; a method failure routes to E1 scoped re-audit and protocol reapproval before any further attempt. Keeping this first observation in Q2 avoids allocating an unapproved injected readiness run; do not move it earlier without explicit operational approval. Bind granted-ordinary support measurements to public ConfigureMultipathIOV1, not the isolated private readiness smoke. Preserve 1.10 CPU ratio/10% RSS limits and applicable B11 criteria; amd64 exceptions do not transfer. Bind skip-sensitive continuing native unit/public/focused race and explicitly decide peer matrix/cadence without assuming twice the current campaign.
 
-**Dispatch context budget:** This/common contract and safety/profile tables; leaf readiness interface/limitation receipts and A0 identities transitively; current CI and cost criterion sections. No fixture reimplementation or complete historical campaign. Missing authority is presented as the concrete package, not an abstract permission request.
+**Dispatch context budget:** This/common contract and safety/profile tables; the three ARM readiness interfaces plus the merged shared P2/C2/C4 interfaces/limitations and A0 identities transitively; current CI and cost criterion sections. No fixture reimplementation or complete historical campaign. Missing authority is presented as the concrete package, not an abstract permission request.
 
-**Slice decision audit:** Each leaf provides a real executable method or limit required by the protocol. A speculative protocol before those interfaces invites re-derivation; merging Q2 mixes undecided execution authority with activation. Separating inventory from its approval leaves an incomplete contract. Revisit: none: rejected on merit.
+**Slice decision audit:** The three ARM outputs and three shared leaves supply real executable methods/limits. Shared C3 #1492 is transitively required by shared C4; no redundant direct relay edge or duplicate ARM adoption PR is added. A speculative protocol before those interfaces invites re-derivation; merging Q2 mixes undecided execution authority with activation. Separating inventory from its approval leaves an incomplete contract. Revisit: none: rejected on merit.
 
 **Stop conditions:** Keep Q1 open and Q2 blocked until the concrete venue/privilege/finite inventory/continuing-aid decisions are recorded. If full parity requires a changed product outcome, owner or one-PR boundary, return to handoff/owner decision rather than waive a row.
 
 ### Q2 — Qualify and activate the complete Linux ARM64 profile
 
-**What it delivers:** On one unmerged feature candidate, extend the common capability gate to Linux ARM64, update independent root/HTTP3 acceptance/refusal expectations, run Q1’s exact native protocol, and merge the gate, acceptance tests, approved continuing native CI, support receipt, README/usage and new release entry together. All three accepted controller/policy combinations must qualify. Missing, invalid or unacceptable evidence leaves activation unmerged. After retaining the accepted raw evidence, this same PR retires the finite C3/C4 execution apparatus unless Q1 records explicit continued-maintenance approval; preserve reused tooling still owned by another active accepted program, and retire only the ARM64-specific finite entrypoints in that case.
+**What it delivers:** On one unmerged feature candidate, extend the common capability gate to Linux ARM64, update independent root/HTTP3 acceptance/refusal expectations, run Q1’s exact native protocol, and merge the gate, acceptance tests, approved continuing native CI, support receipt, README/usage and new release entry together. All three accepted controller/policy combinations must qualify. Missing, invalid or unacceptable evidence leaves activation unmerged. After retaining raw evidence, this same child retires only ARM-specific finite entrypoints unless Q1 records continued-maintenance approval. Preserve shared tools while their owning support contract requires them, regardless of program completion. On a definitive owner decision not to activate, Q2 instead publishes the negative support disposition/evidence and safe ARM-only retirement in one PR with admission closed; a failure still under investigation keeps the child open. No-go is an explicit owner decision, not an automatic response to one failed observation.
 
 **Existing-work disposition:** New slice on the merged baseline; retain the existing runtime owners. The common prior-work exclusion and cross-program reuse rule apply.
 
@@ -398,7 +281,7 @@ The accepted endpoint borrow/lifetime invariant has material authority/storage c
 
 **Transitional-seam budget:** None; the common zero-temporary-runtime-seam rule applies. No successor is asked to remove a knowingly incoherent intermediate state.
 
-**Blast radius:** Platform predicate/helper, support comments/errors, root/HTTP3 test applicability, approved CI, support metadata and the declared finite comparison-aid retirement. Review the bounded post-collection diff for unchanged qualified production/build inputs, retaining the actual evidence source identity. Preserve then-current accepted macOS/other-platform behavior if it has merged, with no cross-program prerequisite. No endpoint timing/algorithm/backend redesign, performance optimization or peer update fits this slice.
+**Blast radius:** Platform predicate/helper, support comments/errors, root/HTTP3 test applicability, approved CI, support metadata and the declared finite comparison-aid retirement. Review the bounded post-collection diff for unchanged qualified production/build inputs, retaining the actual evidence source identity. Preserve then-current accepted macOS/other-platform behavior if it has merged, with no cross-program prerequisite. No shared-aid deletion or endpoint timing/algorithm/backend redesign, performance optimization or peer update fits this slice.
 
 **Artifact classification:** Shipped behavior and required support enforcement for admission; verification aids for tests/approved CI; process metadata for receipts and publication.
 
@@ -408,11 +291,11 @@ The accepted endpoint borrow/lifetime invariant has material authority/storage c
 
 **Evidence budget:** Exactly Q1’s approved native operational inventory, local platform/configuration regression cases against the recorded exact qualification candidate, with only Q1-approved source-inert retirement/metadata changes afterward; final local certification and existing applicable hosted jobs use the exact final head. One initial review and at most one replacement. No extra attempts, broader platform evidence or repeated collection without the governing decision. The common review and non-recursion limits apply.
 
-**TDD and preservation evidence:** First write independent expected-platform/entrypoint tests failing for ARM64 admission while preserving Linux amd64 and other established outcomes; test explicit/owned grants, constructor/server-selected configuration, setter orders/clones, v2/Reno aggregate refusals and ordinary v2/default-off/HTTP3 preservation. Execute Q1 endpoint/poller/borrow/race/BBR/public lifecycle/peer/cost/memory/topology cases, separating attribution from untraced deadline timing and pressure. Missing required cases/skips fail readiness. Require fresh both-role aggregate ingress, selected compiler/image/socket identities and current native software-yield evidence. Document limitations honestly.
+**TDD and preservation evidence:** First write independent expected-platform/entrypoint tests failing for ARM64 admission while preserving Linux amd64 and other established outcomes; test explicit/owned grants, constructor/server-selected configuration, setter orders/clones, v2/Reno aggregate refusals and ordinary v2/default-off/HTTP3 preservation. Use public ConfigureMultipathIOV1 for granted-ordinary measurement, keeping private smoke records nonqualifying. Execute Q1 endpoint/poller/borrow/race/BBR/public lifecycle/peer/cost/memory/topology cases, separating attribution from untraced deadline timing and pressure. Missing required cases/skips fail readiness. Require fresh both-role aggregate ingress, selected compiler/image/socket identities and current native software-yield evidence. Document limitations honestly.
 
 **Dispatch context budget:** This/common contract; Q1 approved exact protocol and readiness interfaces; current common capability/grant/admission sections, public/root/HTTP3 tests, selected CI and support docs. Exclude fixture internals and campaign history unless diagnosing a concrete accepted failure. A runtime repair invalidates this small activation-context claim.
 
-**Slice decision audit:** Q1 is the actual authority/evidence dependency and transitively covers tooling. Splitting activation from tests/evidence/CI/support leaves an unsupported public interval; none: rejected on merit. Splitting by controller violates full parity; revisit only on explicit owner decision. A separate helper-only prefactor has no necessary independently delivered behavior.
+**Slice decision audit:** Q1 is the actual authority/evidence dependency and transitively covers tooling. Splitting activation from tests/evidence/CI/support leaves an unsupported public interval; none: rejected on merit. Splitting by controller violates full parity; revisit only on explicit owner decision. A separate helper-only prefactor has no necessary independently delivered behavior; revisit: none: rejected on merit.
 
 **Stop conditions:** Stop on failed/missing native traversal, required family/offload evidence, unaccepted cost, changed venue without applicability, expired authority, widened runtime ownership/representation or inability to preserve one PR. Diagnose before reruns. Do not relax tolerance, silently narrow support or treat historical exceptions as ARM64 approval.
 
@@ -421,10 +304,10 @@ The accepted endpoint borrow/lifetime invariant has material authority/storage c
 - Each readiness child delivers its stated usable interface and named terminating evidence; missing prerequisites or skipped cases do not complete it.
 - Public Linux ARM64 admission remains closed until Q2, which preserves the accepted full-parity profile and then-current supported platforms.
 - Q1 records a concrete approved protocol before Q2 is ready; no campaign, operational allowance or new continuing CI is inferred from this handoff.
-- Q2 merges admission, independent acceptance tests, approved continuing native coverage and support publication together after exact-candidate evidence is accepted.
-- Every declared slice maps once to a plan contract, child issue, intended PR and OmniFocus task; administrative readiness remains distinct from code-head certification.
+- On accepted qualification Q2 merges admission, independent acceptance tests, approved continuing native coverage and support publication together; on an explicit definitive no-go it records the negative disposition and ARM-only retirement with admission closed.
+- Every ARM-owned slice maps once to a plan contract, child issue, intended PR and OmniFocus task; administrative readiness remains distinct from code-head certification.
 
-Universal words in these criteria range over the ten declared slices and finite typed semantic partitions above, with their named owners and terminating evidence. Native/platform/performance observations remain example-level. This documentation publication terminates at source correspondence, all slice fields/edges, relative links and no unauthorized runtime change, using the shared review allowance.
+Universal words in these criteria range over the six ARM-owned slices and finite typed semantic partitions above, with their named owners and terminating evidence. Native/platform/performance observations remain example-level. This documentation publication terminates at source correspondence, all slice fields/edges, relative links and no unauthorized runtime change, using the shared review allowance.
 
 For Go changes run affected-package tests, go vet on those packages and go mod tidy -diff when applicable; use the specifically selected race/native gates. For Python/C adapters run the named finite accounting/compile/smoke checks and preserved amd64 controls. Derive exact commands in each child's preflight from its accepted named tests/current interfaces. Never invoke an entire historical campaign merely because its filename resembles the slice.
 
