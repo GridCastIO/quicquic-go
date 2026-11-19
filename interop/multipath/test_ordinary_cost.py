@@ -1368,7 +1368,10 @@ class PowermetricsTests(unittest.TestCase):
                 live = root / "host.plist"
                 inode = live.stat().st_ino
                 launched = sampler.started
-                time.sleep(0.5)
+                deadline = time.monotonic() + 10
+                while live.stat().st_size == 0:  # its handlers are installed before it first writes
+                    self.assertLess(time.monotonic(), deadline, "the sampler never wrote")
+                    time.sleep(0.05)
                 activity = sampler.finish(launched + 0.1, launched + 0.2)
             snapshot = root / "host.snapshot.plist"
             self.assertEqual(activity["status"], "unavailable")
