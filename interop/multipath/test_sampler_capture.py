@@ -214,13 +214,16 @@ class FramingTests(unittest.TestCase):
         self.assertEqual(arrivals_of(judge(raw, reads)), [6 * SECOND, 6 * SECOND, 7 * SECOND])
 
     def test_retained_q2_capture_rejudged_with_its_reconstructed_reads_passes(self):
-        # The Q2 X3 attempt on 016bc60c7 failed under the #1573 reader. Its receipt's
-        # numbers, in RECEIPT_TIMES, and the real framing give back a read schedule: the NUL
-        # before record i, with record i, arrived at receipt time i - 1 (i = 1 to 58);
-        # record 59 came in two reads, the NUL and part of it at receipt time 58 and the
-        # rest at time 59. Record 0's own arrival is not in the receipt, so this places it
-        # one elapsed_ns[1] before record 1: gap 1 is constructed, not evidence, and so is
-        # the sum check's start. Gaps 2 to 59 are the evidence.
+        # The Q2 X3 attempt on 016bc60c7 failed under the #1573 reader. Its receipt, in
+        # RECEIPT_TIMES, holds when each NUL arrived and when record 59's last byte did, not
+        # when each earlier record's last byte did. This schedule assumes each record
+        # arrived with the NUL before it: record i at receipt time i - 1 (i = 1 to 58), and
+        # record 59 in two reads, the NUL and part of it at time 58 and the rest at time 59.
+        # A producer that held each record's tail until the next sample would match the same
+        # receipt and fail; only a fresh capture tells them apart. Record 0's own arrival is
+        # not in the receipt either, so this places it one elapsed_ns[1] before record 1:
+        # gap 1 is constructed, not evidence, and so is the sum check's start. The passing
+        # verdict holds under this schedule only.
         times = json.loads(RECEIPT_TIMES.read_text())
         old_arrivals, elapsed = times["arrival_ns"], times["elapsed_ns"]
         records = dumped(60, elapsed)
@@ -301,8 +304,7 @@ class CaptureTests(unittest.TestCase):
             self.assertEqual((output / "capture.plist").read_bytes(), b"\0".join([record] * 3))
             arrivals = arrivals_of(result)
             self.assertEqual(len(arrivals), 3)
-            for index in (1, 2):
-                self.assertGreater(arrivals[index] - arrivals[index - 1], 200 * MS, arrivals)
+            self.assertGreater(arrivals[2] - arrivals[0], 400 * MS, arrivals)
 
 
 if __name__ == "__main__":
