@@ -16,6 +16,7 @@ import os
 from pathlib import Path
 import platform
 import re
+import shlex
 import signal
 import shutil
 import subprocess
@@ -195,6 +196,8 @@ def parse_tuple(name, key, facts):
 
 def check_blocked_facts(name, facts):
     evidence = facts["evidence"]
+    if not isinstance(evidence, str):
+        raise ValueError(f"{name}: fact evidence is {evidence!r}, not a class name")
     if name in TRAVERSAL_CASES and evidence != "native-traversal":
         kind = evidence if evidence in TRAVERSAL_CLASSES else f"unknown class {evidence!r}"
         raise ValueError(f"{name}: {kind} is not native traversal evidence")
@@ -441,14 +444,17 @@ def check_shape(section, value, shape):
         raise ValueError(f"results {section} has invalid {invalid}")
 
 
-def validate_results(results):
-    """Read-back validation of a results file: a complete passing run, or an error."""
+def validate_results(results, profile_name=None):
+    """Read-back validation of a results file: a complete passing run, or an error.
+    A named profile must be the one the results record."""
     if not isinstance(results, dict) or set(results) != RESULTS_FIELDS:
         raise ValueError(f"results fields {sorted(results) if isinstance(results, dict) else results!r} are not {sorted(RESULTS_FIELDS)}")
     if results["schema"] != RESULTS_SCHEMA:
         raise ValueError(f"results schema {results['schema']!r} is not {RESULTS_SCHEMA}")
     if not isinstance(results["profile"], str) or results["profile"] not in PROFILES:
         raise ValueError(f"results profile {results['profile']!r} is not one of {sorted(PROFILES)}")
+    if profile_name is not None and results["profile"] != profile_name:
+        raise ValueError(f"results profile {results['profile']!r} is not the requested {profile_name!r}")
     profile = PROFILES[results["profile"]]
     shape = results_shape(profile)
     source, build_identity, identity = results["source"], results["build"], results["identity"]
@@ -468,6 +474,8 @@ def validate_results(results):
         raise ValueError("results instances are not a list")
     for instance in instances:
         check_shape("instance", instance, shape["instance"])
+        if not instance["command"] or command_for(instance["command"][0], instance["case"], profile) != instance["command"]:
+            raise ValueError(f"results instance {instance['case']!r} command {instance['command']!r} is not its {profile.name} selector")
     check_accounting([instance["case"] for instance in instances], profile)
     for instance in instances:
         check_record(instance["case"], identity, instance["record"], profile)
@@ -507,7 +515,7 @@ def run(source, output, toolchain, case_timeout, profile=SCALAR):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path, help="a new directory for this run")
-    parser.add_argument("--profile", choices=sorted(PROFILES), default="scalar", help="the case set: scalar (E1) or blocked-writer (E2, separately authorized)")
+    parser.add_argument("--profile", choices=sorted(PROFILES), help="the case set: scalar (E1, the default) or blocked-writer (E2, separately authorized); with --validate, the profile the results must record")
     parser.add_argument("--print-race-command", action="store_true", help="print the selected focused race command and exit")
     parser.add_argument("--toolchain", default="local", help="GOTOOLCHAIN for the build, such as go1.27.4")
     parser.add_argument("--source", type=Path, default=Path("."), help="the module root to build")
@@ -515,15 +523,15 @@ def main():
     parser.add_argument("--validate", type=Path, help="validate an existing results.json and exit")
     args = parser.parse_args()
     if args.print_race_command:
-        print(" ".join(race_command()))
+        print(shlex.join(race_command()))
         return
     if args.validate:
-        validate_results(json.loads(args.validate.read_text()))
+        validate_results(json.loads(args.validate.read_text()), args.profile)
         print("valid")
         return
     if args.output is None:
         parser.error("--output is required")
-    results, failure = run(args.source, args.output, args.toolchain, args.case_timeout, PROFILES[args.profile])
+    results, failure = run(args.source, args.output, args.toolchain, args.case_timeout, PROFILES[args.profile or "scalar"])
     if failure is not None:
         raise SystemExit(f"stopped: {failure}")
     validate_results(json.loads((args.output / "results.json").read_text()))

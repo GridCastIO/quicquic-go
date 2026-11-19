@@ -526,6 +526,7 @@ func nativeDarwinQueuedExpiry(t *testing.T, facts map[string]any) {
 	queuedDeadline := start.Add(nativeDarwinBudget / 2)
 	require.True(t, time.Now().Before(queuedDeadline), "the witness arrived after the queued deadline")
 	w.offer(t, w.request(2, "queued", queuedDeadline))
+	require.True(t, time.Now().Before(queuedDeadline), "the queued request was admitted after its deadline")
 
 	queued, seen := w.take(t)
 	require.EqualValues(t, 2, queued.identity.registration)
@@ -561,10 +562,13 @@ func nativeDarwinActiveCloseJoin(t *testing.T, facts map[string]any) {
 	peerSocket := nativeDarwinListen("udp4", net.IPv4(127, 0, 0, 1))(t)
 	peer := newNativeDarwinReader(t, peerSocket)
 	destination := peerSocket.LocalAddr().(*net.UDPAddr).AddrPort()
-	trigger := newNativeDarwinTrigger(t, socket, destination)
 	tr := &Transport{Conn: socket}
 	require.NoError(t, tr.configureNativeIO(nativeDarwinBudget))
 	t.Cleanup(func() { tr.Close() })
+	// Initialization sizes the socket's buffers, so it precedes the trigger's capacity
+	// read-back; Close would otherwise initialize, and grow B, during the blocked write.
+	require.NoError(t, tr.init(false))
+	trigger := newNativeDarwinTrigger(t, socket, destination)
 	e := nativeTransportEndpoint(tr)
 	require.NotNil(t, e)
 	control := nativeDarwinSend(t, tr, destination, packetInfo{}, protocol.ECT0, "positive control")
@@ -579,8 +583,12 @@ func nativeDarwinActiveCloseJoin(t *testing.T, facts map[string]any) {
 	token := nativeDarwinAwaitWait(e, datagram, deadline)
 	require.NotNil(t, token, "the writer never waited in the Go poller")
 	var installed time.Time
-	e.do(func(*endpointState) { installed = token.request.deadline })
-	require.True(t, installed.Equal(deadline), "the held request keeps its absolute deadline")
+	e.do(func(s *endpointState) {
+		if s.current == token && token.completion.Load() == nil {
+			installed = token.request.deadline
+		}
+	})
+	require.True(t, installed.Equal(deadline), "the still-held request keeps its absolute deadline")
 
 	closing := time.Now()
 	require.NoError(t, tr.Close())
@@ -600,9 +608,11 @@ func nativeDarwinActiveCloseJoin(t *testing.T, facts map[string]any) {
 	require.False(t, fact.fault)
 	require.ErrorIs(t, fact.result.failure(), os.ErrDeadlineExceeded)
 	require.Equal(t, [3]int{0, 1, 0}, nativeDarwinCounts(fact.result.members[0]))
-	require.True(t, fact.returnedAt.After(closing), "close began while the trigger was in the native call")
-	require.False(t, joined.Before(fact.returnedAt), "the join never precedes the native return")
-	require.False(t, fact.returnedAt.Before(deadline), "the poller returned at the deadline")
+	// The member's time is the native return; fact.returnedAt also covers the reset.
+	nativeReturn := fact.result.members[0].returnedAt.ToTime()
+	require.True(t, nativeReturn.After(closing), "close began while the trigger was in the native call")
+	require.False(t, nativeReturn.Before(deadline), "the poller returned at the deadline")
+	require.False(t, joined.Before(fact.returnedAt), "the join never precedes the whole borrow's return")
 
 	// The join returned write authority with the writer's deadline reset: an
 	// untouched caller write is not refused by the expired request deadline.
@@ -614,7 +624,7 @@ func nativeDarwinActiveCloseJoin(t *testing.T, facts map[string]any) {
 	require.Equal(t, "caller", payload, "the trigger was not delivered")
 
 	// The production endpoint writes only to the real socket, so nothing is injected.
-	nativeDarwinTriggerFacts(facts, trigger, "native-traversal", 0, fact.returnedAt.Sub(deadline))
+	nativeDarwinTriggerFacts(facts, trigger, "native-traversal", 0, nativeReturn.Sub(deadline))
 	facts["request_deadline_preserved"] = true
 	facts["reset_observed_by_caller_write"] = true
 	facts["close_returned_while_borrowed"] = true

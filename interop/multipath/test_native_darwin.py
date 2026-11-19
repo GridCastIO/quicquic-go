@@ -2,6 +2,7 @@ import importlib.util
 import json
 import os
 from pathlib import Path
+import subprocess
 import sys
 import tempfile
 import time
@@ -308,7 +309,7 @@ class RunTests(unittest.TestCase):
             return binary, {"go": "go1.27.4", "toolchain": toolchain, "mode": dict(runner.BUILD), "binary_sha256": "c" * 64}
 
         def run_case(_, name, output, identity, timeout, profile):
-            return {"case": name, "command": ["native-darwin.test"], "exit": 0, "seconds": 0.01, "record": record_for(name)}, None
+            return {"case": name, "command": runner.command_for("native-darwin.test", name), "exit": 0, "seconds": 0.01, "record": record_for(name)}, None
 
         native = {"system": "Darwin", "machine": "arm64", "proc_translated": "0", "product_version": "27.2.1", "build_version": "26B131", "kernel": "k", "cpu": "c"}
         originals = runner.native_identity, runner.build, runner.run_case
@@ -339,7 +340,7 @@ class ResultsTests(unittest.TestCase):
                 **IDENTITY, "system": "Darwin", "machine": "arm64", "proc_translated": "0",
                 "product_version": "27.2.1", "build_version": "26B131", "kernel": "Darwin 27.2.0 arm64", "cpu": "Apple M4 Max",
             },
-            "instances": [{"case": name, "command": ["native-darwin.test"], "exit": 0, "seconds": 0.01, "failure": None, "record": record_for(name)} for name in runner.CASES],
+            "instances": [{"case": name, "command": runner.command_for("native-darwin.test", name), "exit": 0, "seconds": 0.01, "failure": None, "record": record_for(name)} for name in runner.CASES],
             "status": {"cases": len(runner.CASES), "status": "pass", "support_receipt": False},
         }
 
@@ -502,6 +503,11 @@ class BlockedWriterClassificationTests(unittest.TestCase):
         self.refused("active-close-join", "reset_observed_by_caller_write", reset_observed_by_caller_write=False)
         self.refused("active-close-join", "positive_control", positive_control="CE")
 
+    def test_a_malformed_class_is_a_case_failure(self):
+        for evidence in (["native-traversal"], {"class": "native-traversal"}, None):
+            with self.subTest(evidence=evidence):
+                self.refused("queued-expiry", "not a class name", evidence=evidence)
+
     def test_bool_is_not_a_count_or_duration(self):
         self.refused("eagain-to-deadline", "send_buffer", send_buffer=True)
         self.refused("eagain-to-deadline", "publication_ms", publication_ms=True)
@@ -541,7 +547,7 @@ class BlockedWriterResultsTests(unittest.TestCase):
         results = ResultsTests.results(self)
         results["profile"] = "blocked-writer"
         results["build"]["mode"] = dict(BLOCKED.build)
-        results["instances"] = [{"case": name, "command": ["native-darwin.test"], "exit": 0, "seconds": 0.2, "failure": None, "record": blocked_record(name)} for name in BLOCKED.cases]
+        results["instances"] = [{"case": name, "command": runner.command_for("native-darwin.test", name, BLOCKED), "exit": 0, "seconds": 0.2, "failure": None, "record": blocked_record(name)} for name in BLOCKED.cases]
         results["status"]["cases"] = len(BLOCKED.cases)
         return results
 
@@ -559,9 +565,21 @@ class BlockedWriterResultsTests(unittest.TestCase):
         del unstated["profile"]
         unwitnessed = self.results()
         unwitnessed["instances"][3]["record"]["facts"]["evidence"] = "no-witness"
-        for name, results in (("untagged", untagged), ("scalar", scalar), ("unknown", unknown), ("unstated", unstated), ("unwitnessed", unwitnessed)):
+        other_selector = self.results()
+        other_selector["instances"][4]["command"] = runner.command_for("native-darwin.test", "active-close-join", BLOCKED)
+        no_command = self.results()
+        no_command["instances"][0]["command"] = []
+        cases = (("untagged", untagged), ("scalar", scalar), ("unknown", unknown), ("unstated", unstated), ("unwitnessed", unwitnessed), ("other selector", other_selector), ("no command", no_command))
+        for name, results in cases:
             with self.subTest(name=name), self.assertRaises(ValueError):
                 runner.validate_results(results)
+
+    def test_a_requested_profile_must_be_the_recorded_one(self):
+        runner.validate_results(self.results(), "blocked-writer")
+        with self.assertRaisesRegex(ValueError, "requested 'scalar'"):
+            runner.validate_results(self.results(), "scalar")
+        with self.assertRaisesRegex(ValueError, "requested 'blocked-writer'"):
+            runner.validate_results(ResultsTests.results(self), "blocked-writer")
 
 
 class RaceSelectionTests(unittest.TestCase):
@@ -574,6 +592,13 @@ class RaceSelectionTests(unittest.TestCase):
         command = runner.race_command()
         self.assertEqual(["go", "test", "-race", "-count=1"], command[:4])
         self.assertEqual(f"-run=^({'|'.join(runner.RACE_TESTS)})$", command[4])
+
+    def test_the_printed_race_command_is_one_shell_command(self):
+        printed = subprocess.run([sys.executable, "-B", str(Path(__file__).with_name("native_darwin.py")), "--print-race-command"], check=True, capture_output=True, text=True).stdout
+        subprocess.run(["/bin/sh", "-n"], input=printed, check=True, text=True)
+        # The shell's own word splitting of the printed line yields the argument vector.
+        words = subprocess.run(["/bin/sh", "-c", f"set -- {printed.strip()}; for word; do printf '%s\\0' \"$word\"; done"], check=True, capture_output=True, text=True).stdout
+        self.assertEqual(runner.race_command(), words.split("\0")[:-1])
 
 
 if __name__ == "__main__":
