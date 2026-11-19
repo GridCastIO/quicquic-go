@@ -32,9 +32,11 @@ const (
 )
 
 // nativeDarwinClaim is what the recorder saw of one claimed request: the deadline the
-// writer installed, its native calls, and the final reset. Copies are snapshots.
+// writer installed and when that installation succeeded, its native calls, and the
+// final reset. Copies are snapshots.
 type nativeDarwinClaim struct {
 	installed       time.Time
+	installedAt     time.Time
 	socket          bool
 	calls, injected int
 	pending         int
@@ -68,13 +70,37 @@ func (c *nativeDarwinClaim) class(deadline time.Time, witnessed bool) string {
 	return "native-traversal"
 }
 
+// expiredClass labels a claim that expired before dispatch: claimed under the
+// request's own deadline, which passed before the writer's first native call, so the
+// writer refused the submission and reset the deadline. Only such a claim on the real
+// socket with nothing injected is expired-claim-unsubmitted, its own success class.
+// class still labels it expired-before-dispatch, a traversal failure.
+func (c *nativeDarwinClaim) expiredClass(deadline time.Time) string {
+	switch {
+	case c == nil:
+		return "unclaimed"
+	case c.calls != 0:
+		return "dispatched"
+	case !c.installed.Equal(deadline):
+		return "stale-deadline"
+	case !c.reset || c.resetErr != nil:
+		return "reset-failure"
+	case c.injected != 0 || !c.socket:
+		return "simulated"
+	}
+	return "expired-claim-unsubmitted"
+}
+
 // nativeDarwinIO forwards the sole writer's calls to the endpoint's native I/O and
 // records each claim. inject, if set, returns a simulated error for a numbered write
-// (from 1) instead of forwarding it; an injected call never reaches the socket.
+// (from 1) instead of forwarding it; an injected call never reaches the socket. hold,
+// if set, runs on the writer after each claim's deadline is installed, with the
+// claim's number (from 0); it delays the writer and changes no native result.
 type nativeDarwinIO struct {
 	native endpointNativeIO
 	socket bool
 	inject func(call int) error
+	hold   func(claim int, deadline time.Time)
 
 	mutex  sync.Mutex
 	writes int
@@ -84,9 +110,20 @@ type nativeDarwinIO struct {
 func (n *nativeDarwinIO) SetWriteDeadline(deadline time.Time) error {
 	if !deadline.IsZero() {
 		n.mutex.Lock()
-		n.claims = append(n.claims, &nativeDarwinClaim{installed: deadline, socket: n.socket})
+		number := len(n.claims)
+		claim := &nativeDarwinClaim{installed: deadline, socket: n.socket}
+		n.claims = append(n.claims, claim)
 		n.mutex.Unlock()
-		return n.native.SetWriteDeadline(deadline)
+		err := n.native.SetWriteDeadline(deadline)
+		if err == nil {
+			n.mutex.Lock()
+			claim.installedAt = time.Now()
+			n.mutex.Unlock()
+		}
+		if n.hold != nil {
+			n.hold(number, deadline)
+		}
+		return err
 	}
 	err := n.native.SetWriteDeadline(deadline)
 	n.mutex.Lock()
@@ -146,6 +183,19 @@ func (n *nativeDarwinIO) claimCount() int {
 	n.mutex.Lock()
 	defer n.mutex.Unlock()
 	return len(n.claims)
+}
+
+// nativeDarwinHoldUntilDeadline holds the writer in the numbered claim's deadline
+// setup until that claim's deadline has passed.
+func nativeDarwinHoldUntilDeadline(number int) func(int, time.Time) {
+	return func(claim int, deadline time.Time) {
+		if claim != number {
+			return
+		}
+		for wait := time.Until(deadline); wait > 0; wait = time.Until(deadline) {
+			time.Sleep(wait)
+		}
+	}
 }
 
 var nativeDarwinStacks = struct {
@@ -245,11 +295,17 @@ type nativeDarwinWriter struct {
 
 func newNativeDarwinWriter(t *testing.T, inject func(int) error) *nativeDarwinWriter {
 	t.Helper()
+	return newNativeDarwinHeldWriter(t, inject, nil)
+}
+
+// newNativeDarwinHeldWriter is newNativeDarwinWriter with the recorder's hold.
+func newNativeDarwinHeldWriter(t *testing.T, inject func(int) error, hold func(int, time.Time)) *nativeDarwinWriter {
+	t.Helper()
 	socket := nativeDarwinListen("udp4", net.IPv4(127, 0, 0, 1))(t)
 	peerSocket := nativeDarwinListen("udp4", net.IPv4(127, 0, 0, 1))(t)
 	destination := peerSocket.LocalAddr().(*net.UDPAddr).AddrPort()
 	w := &nativeDarwinWriter{
-		io:          &nativeDarwinIO{native: socket, socket: true, inject: inject},
+		io:          &nativeDarwinIO{native: socket, socket: true, inject: inject, hold: hold},
 		peer:        newNativeDarwinReader(t, peerSocket),
 		destination: destination,
 		trigger:     newNativeDarwinTrigger(t, socket, destination),
@@ -482,6 +538,74 @@ func nativeDarwinScalarEMSGSIZE(t *testing.T, facts map[string]any) {
 	facts["faulted"] = false
 }
 
+// nativeDarwinExpiredBeforeDispatchSuccessor is the protocol's D15 A case: native
+// expiry before dispatch with successor progress. A request already expired at the
+// claim boundary is never claimed (that is queued expiry), so the recorder holds the
+// writer in the claim's deadline setup until its deadline passes. The production
+// writer then refuses the submission itself, with no native call, and resets the
+// real socket's deadline. A successor with its own deadline is then written natively
+// and read by the peer. Nothing is injected and no poller wait is involved, so the
+// record has no witness, no native return time and no timing verdict for the expired
+// claim. The endpoint still requires the whole borrow, the hold and the deadline
+// reset included, to complete before the deadline plus its tolerance; otherwise it
+// faults (overdue or late return) and the case fails.
+func nativeDarwinExpiredBeforeDispatchSuccessor(t *testing.T, facts map[string]any) {
+	const expiredClaim, successorClaim = 1, 2 // claim 0 is the positive control
+	w := newNativeDarwinHeldWriter(t, nil, nativeDarwinHoldUntilDeadline(expiredClaim))
+	w.control(t)
+	deadline := time.Now().Add(nativeDarwinBudget)
+	w.offer(t, w.request(2, "expired", deadline))
+	expired, _ := w.take(t)
+	require.EqualValues(t, 2, expired.identity.registration)
+	require.ErrorIs(t, expired.failure(), os.ErrDeadlineExceeded)
+	require.Equal(t, [3]int{0, 0, 1}, nativeDarwinCounts(expired.members[0]), "the expired claim submitted nothing")
+	claim := w.io.claim(expiredClaim)
+	require.NotNil(t, claim, "the request was never claimed")
+	require.False(t, claim.installedAt.IsZero(), "the claim's deadline was never installed")
+	require.True(t, claim.installedAt.Before(deadline), "the claim's deadline was installed before it passed")
+	class := claim.expiredClass(deadline)
+	require.Equal(t, "expired-claim-unsubmitted", class)
+
+	successorDeadline := time.Now().Add(nativeDarwinBudget)
+	successor := w.send(t, w.request(3, "successor", successorDeadline))
+	require.EqualValues(t, 3, successor.identity.registration)
+	require.NoError(t, successor.failure())
+	require.Equal(t, [3]int{1, 0, 0}, nativeDarwinCounts(successor.members[0]))
+	payload, ecn := w.read(t)
+	require.Equal(t, "successor", payload, "the expired request never reached the peer")
+	require.Equal(t, protocol.ECT0, ecn)
+	next := w.io.claim(successorClaim)
+	require.True(t, next.installed.Equal(successorDeadline), "the successor has its own deadline")
+	require.True(t, next.socket)
+	require.Equal(t, [2]int{1, 0}, [2]int{next.calls, next.injected}, "one native call on the real socket")
+	require.Equal(t, 3, w.io.claimCount())
+	_, faulted := w.e.faultObservation()
+	require.False(t, faulted)
+
+	counts := nativeDarwinCounts(expired.members[0])
+	facts["evidence"] = class
+	facts["positive_control"] = protocol.ECT0.String()
+	facts["expired_claim"] = expiredClaim
+	facts["expired_registration"] = expired.identity.registration
+	facts["expired_during"] = "deadline-setup"
+	facts["expired_native_calls"] = claim.calls
+	facts["expired_deadline_preserved"] = claim.installed.Equal(deadline)
+	facts["expired_deadline_reset"] = claim.reset && claim.resetErr == nil
+	facts["expired_result"] = "deadline-exceeded"
+	facts["expired_accepted"] = counts[0]
+	facts["expired_uncertain"] = counts[1]
+	facts["expired_unsubmitted"] = counts[2]
+	facts["successor_claim"] = successorClaim
+	facts["successor_registration"] = successor.identity.registration
+	facts["successor_native_calls"] = next.calls
+	facts["successor_deadline_preserved"] = true
+	facts["successor_accepted"] = successor.members[0].accepted
+	facts["successor_delivered"] = true
+	facts["injected"] = claim.injected + next.injected
+	facts["traced"] = false
+	facts["faulted"] = false
+}
+
 func nativeDarwinEAGAINToDeadline(t *testing.T, facts map[string]any) {
 	w := newNativeDarwinWriter(t, nil)
 	w.control(t)
@@ -664,8 +788,10 @@ func nativeDarwinActiveCloseJoin(t *testing.T, facts map[string]any) {
 // by interop/multipath/native_darwin.py --profile blocked-writer. The
 // separately classified cases are ordinary Darwin development tests: an injected
 // first-send EPERM before a native retry, a constructed segmented member and its
-// prefix, and scalar EMSGSIZE size feedback. The forced-traversal cases are built
-// only with the nativequal tag, which only that profile selects: they reuse one
+// prefix, and scalar EMSGSIZE size feedback. The remaining cases are built only with
+// the nativequal tag, which only that profile selects. The protocol's expired claim
+// and successor keeps its own class; its expiry is positioned against the endpoint
+// tolerance, so ordinary runs never register it. The forced-traversal cases reuse one
 // current write that waits in the Go poller for queued expiry and active close and
 // join. Their execution is separately authorized native work; a case never skips.
 func TestNativeDarwinBlockedWriter(t *testing.T) {
@@ -675,6 +801,7 @@ func TestNativeDarwinBlockedWriter(t *testing.T) {
 	if !nativeDarwinTraversal {
 		return
 	}
+	nativeDarwinCase(t, "expired-before-dispatch-successor", nativeDarwinExpiredBeforeDispatchSuccessor)
 	nativeDarwinCase(t, "eagain-to-deadline", nativeDarwinEAGAINToDeadline)
 	nativeDarwinCase(t, "queued-expiry", nativeDarwinQueuedExpiry)
 	nativeDarwinCase(t, "active-close-join", nativeDarwinActiveCloseJoin)
@@ -740,6 +867,58 @@ func TestNativeDarwinWriterMethod(t *testing.T) {
 			require.Equal(t, [3]int{0, 0, 1}, nativeDarwinCounts(result.members[0]))
 			require.Nil(t, record.claim(0))
 			require.Equal(t, "expired-before-dispatch", record.claim(0).class(deadline, true))
+			require.Equal(t, "unclaimed", record.claim(0).expiredClass(deadline), "queued expiry is never a claim")
+		})
+	})
+
+	t.Run("a claim that expires in deadline setup is its own class and the successor is another claim", func(t *testing.T) {
+		synctest.Test(t, func(t *testing.T) {
+			record := &nativeDarwinIO{native: endpointTestNative{}, hold: nativeDarwinHoldUntilDeadline(0)}
+			e := startNativeEndpoint(record, nativeDarwinBudget, nil)
+			defer func() { <-e.stop() }()
+			destination := netip.MustParseAddrPort("127.0.0.1:1234")
+			deadline := time.Now().Add(nativeDarwinBudget / 2)
+			request, datagram := nativeDarwinTrigger{}.datagram(destination, deadline, 8)
+			require.NoError(t, e.offer(e.public, 0, request))
+			result := <-datagram.result
+			require.ErrorIs(t, result.failure(), os.ErrDeadlineExceeded)
+			require.Equal(t, [3]int{0, 0, 1}, nativeDarwinCounts(result.members[0]))
+			expired := record.claim(0)
+			require.NotNil(t, expired, "the request was claimed")
+			require.False(t, expired.installedAt.IsZero(), "the deadline was installed")
+			require.True(t, expired.installedAt.Before(deadline), "installed before its deadline")
+			require.Zero(t, expired.calls)
+			require.True(t, expired.reset)
+			require.Equal(t, "expired-before-dispatch", expired.class(deadline, true), "still a traversal failure")
+			require.Equal(t, "simulated", expired.expiredClass(deadline), "not a socket")
+			expired.socket = true
+			require.Equal(t, "expired-claim-unsubmitted", expired.expiredClass(deadline))
+			require.Equal(t, "stale-deadline", expired.expiredClass(deadline.Add(time.Nanosecond)))
+			unreset, refused, injected := *expired, *expired, *expired
+			unreset.reset = false
+			refused.resetErr = errors.New("reset refused")
+			injected.injected = 1
+			require.Equal(t, "reset-failure", unreset.expiredClass(deadline))
+			require.Equal(t, "reset-failure", refused.expiredClass(deadline))
+			require.Equal(t, "simulated", injected.expiredClass(deadline))
+
+			// The successor is a separate claim under its own deadline, offered behind the
+			// retry floor as a producer does.
+			successorDeadline := time.Now().Add(nativeDarwinBudget / 2)
+			request, datagram = nativeDarwinTrigger{}.datagram(destination, successorDeadline, 8)
+			for err := e.offer(e.public, 0, request); err != nil; err = e.offer(e.public, 0, request) {
+				require.ErrorIs(t, err, errEndpointCapacity)
+				time.Sleep(endpointRetry)
+			}
+			result = <-datagram.result
+			require.NoError(t, result.failure())
+			require.Equal(t, [3]int{1, 0, 0}, nativeDarwinCounts(result.members[0]))
+			require.Equal(t, 2, record.claimCount())
+			successor := record.claim(1)
+			require.True(t, successor.installed.Equal(successorDeadline))
+			require.Equal(t, 1, successor.calls)
+			require.Equal(t, "dispatched", successor.expiredClass(successorDeadline))
+			require.Equal(t, "unclaimed", record.claim(2).expiredClass(successorDeadline))
 		})
 	})
 
