@@ -26,7 +26,7 @@ Package the owner-approved macOS profile from [planning issue #1396](https://git
 | Q1 — Concrete execution/venue protocol | E2, E3, P1, P2, C2, C4 | BLOCKED |
 | Q2 — Qualification and public activation | Q1 | BLOCKED |
 
-There are no cross-track edges. E1, P1, P2, C1 and C3 can be dispatched independently in separate worktrees; P1/P2 share some files but have no behavioral dependency. E2/E3 become parallel-safe after E1; C2 can proceed after C1 while C4 additionally needs C3. Prefer E1 and P1 first to expose native socket/build feasibility early; priority does not create a blocking edge. Shared-host qualification coordination belongs to Q1, not to arbitrary serial task order.
+There are no cross-track edges. P1 is complete; E1, P2, C1 and C3 can be dispatched independently in separate worktrees. P1/P2 share some files but have no behavioral dependency. E2/E3 become parallel-safe after E1; C2 can proceed after C1 while C4 additionally needs C3. P1 has exposed native build feasibility; prefer E1 next to expose native socket feasibility early; priority does not create a blocking edge. Shared-host qualification coordination belongs to Q1, not to arbitrary serial task order.
 
 Q1 cannot complete without the concrete owner-approved execution, venue, toolchain, admitted-release and selected maintained-aid decisions. It collects no native qualification campaign. Q2 cannot be ready merely because tooling compiles; its blocker binds the actual methods and authority. The implementation skill verifies those conditions again before dispatch. No implementation agent is launched by this handoff.
 

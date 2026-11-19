@@ -10,6 +10,7 @@ import json
 import os
 from pathlib import Path
 import platform
+import shlex
 import shutil
 import subprocess
 import sys
@@ -45,6 +46,17 @@ def check_static(otool_output):
     """The peer binaries must not load a caller-prefix OpenSSL dylib at run time."""
     if "libssl" in otool_output or "libcrypto" in otool_output:
         raise ValueError(f"peer binary links OpenSSL dynamically:\n{otool_output}")
+
+
+def check_sysroot(compile_commands, sdk_path):
+    """Every compile command must use the SDK the record names, whatever toolchain file or environment is ambient."""
+    sysroots = set()
+    for entry in compile_commands:
+        arguments = entry["arguments"] if "arguments" in entry else shlex.split(entry["command"])
+        flagged = [arguments[i + 1] for i, argument in enumerate(arguments[:-1]) if argument == "-isysroot"]
+        sysroots.add(tuple(flagged))
+    if sysroots != {(sdk_path,)}:
+        raise ValueError(f"peer compile sysroots {sorted(sysroots)} differ from the recorded SDK {sdk_path}")
 
 
 def check_self_test(output):
@@ -89,14 +101,19 @@ def main():
     if output(["git", "rev-parse", "HEAD"], source) != run.PICOQUIC_PIN:
         raise ValueError("picoquic checkout differs from its pin")
     with (source / "CMakeLists.txt").open("a") as cmakelists:
-        cmakelists.write(f"add_executable(qgf-r17-peer {peer})\n"
+        # Relative to the picoquic source directory, so a work path with spaces stays one source argument.
+        cmakelists.write("add_executable(qgf-r17-peer ../r17-peer.c)\n"
                          "target_include_directories(qgf-r17-peer PRIVATE ${PTLS_INCLUDE_DIRS})\n"
                          "target_link_libraries(qgf-r17-peer PRIVATE picoquic-core)\n")
     build = source / "build"
+    sdk_path = output(["xcrun", "--show-sdk-path"])
+    sdk_version = output(["xcrun", "--sdk", sdk_path, "--show-sdk-version"])
     call([args.cmake, "-S", ".", "-B", "build", "-DCMAKE_BUILD_TYPE=Release", "-DPICOQUIC_FETCH_PTLS=ON",
           f"-DPICOQUIC_FETCH_PTLS_TAG={run.PICOTLS_PIN}", "-DBUILD_TESTING=OFF",
           f"-DPKG_CONFIG_EXECUTABLE={args.pkg_config}", "-DCMAKE_OSX_ARCHITECTURES=arm64",
+          f"-DCMAKE_OSX_SYSROOT={sdk_path}", "-DCMAKE_EXPORT_COMPILE_COMMANDS=ON",
           f"-DOPENSSL_ROOT_DIR={args.openssl_root}", "-DOPENSSL_USE_STATIC_LIBS=TRUE"], source)
+    check_sysroot(json.loads((build / "compile_commands.json").read_text()), sdk_path)
     if output(["git", "-C", str(build / "_deps" / "picotls-src"), "rev-parse", "HEAD"]) != run.PICOTLS_PIN:
         raise ValueError("PicoTLS checkout differs from its pin")
     call([args.cmake, "--build", "build", "--target", *run.PEER_BINARIES, "-j", str(args.jobs)], source)
@@ -122,7 +139,7 @@ def main():
         "picoquic": run.PICOQUIC_PIN, "picotls": run.PICOTLS_PIN,
         "toolchain": {
             "cc": f"{compiler}: {output([compiler, '--version']).splitlines()[0]}",
-            "sdk_version": output(["xcrun", "--show-sdk-version"]), "sdk_path": output(["xcrun", "--show-sdk-path"]),
+            "sdk_version": sdk_version, "sdk_path": sdk_path,
             "cmake": output([args.cmake, "--version"]).splitlines()[0], "cmake_sha256": run.digest(args.cmake),
             "pkg_config": output([args.pkg_config, "--version"]), "pkg_config_sha256": run.digest(args.pkg_config),
             "openssl": output([args.openssl_root / "bin" / "openssl", "version"]),

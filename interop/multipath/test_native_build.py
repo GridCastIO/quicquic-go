@@ -38,6 +38,16 @@ class NativeBuildTests(unittest.TestCase):
             with self.subTest(output=output), self.assertRaisesRegex(ValueError, "not exactly arm64"):
                 build.check_arch(output)
 
+    def test_every_compile_uses_the_recorded_sdk(self):
+        sdk = "/Library/Developer/CommandLineTools/SDKs/MacOSX27.2.sdk"
+        other = "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk"
+        entries = [{"command": f"/usr/bin/cc -isysroot {sdk} -c '/work dir/r17-peer.c'"},
+                   {"arguments": ["/usr/bin/cc", "-isysroot", sdk, "-c", "picoquic/sender.c"]}]
+        build.check_sysroot(entries, sdk)
+        for bad in (entries + [{"command": f"/usr/bin/cc -isysroot {other} -c x.c"}], entries + [{"command": "/usr/bin/cc -c x.c"}], []):
+            with self.subTest(bad=bad), self.assertRaisesRegex(ValueError, "recorded SDK"):
+                build.check_sysroot(bad, sdk)
+
     def test_self_test_requires_truncation_and_one_pass(self):
         passing = "bound socket 0 127.0.0.1:5000\nself-test datagram 2048 bytes received 1536 truncated 1\nself-test pass\n"
         build.check_self_test(passing)

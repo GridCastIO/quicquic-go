@@ -151,6 +151,7 @@ def read_record(path, schema, where):
 
 
 SHA256 = hex_text(64)
+REPEATED_SUBTEST = re.compile(r"(.+)#\d+")
 GO_RELEASE = re.compile(r"go version go\d+\.\d+(?:\.\d+)?(?:(?:rc|beta)\d+)?(?: X:\S+)? darwin/arm64")
 BUILD_IDENTITY_SCHEMA = {
     "version": exactly(1), "profile": exactly(NATIVE_PROFILE),
@@ -169,6 +170,8 @@ NATIVE_IDENTITY_SCHEMA = {
     "kernel": {"system": exactly("Darwin"), "release": text, "version": text, "machine": exactly("arm64")},
     "build_identity_sha256": SHA256, "runner_sha256": SHA256, "peer_driver_sha256": SHA256, "test_binary_sha256": SHA256,
 }
+# Every identity field except the test binary, which differs between the two receipts by design.
+NATIVE_SHARED_IDENTITY = tuple(key for key in NATIVE_IDENTITY_SCHEMA if key != "test_binary_sha256")
 NATIVE_RUN_SCHEMA = {"profile": exactly(NATIVE_PROFILE), "status": exactly("pass"), "command": command_line,
                      "started": text, "duration_seconds": nonnegative_number}
 NATIVE_RECEIPT_SCHEMAS = {
@@ -207,6 +210,10 @@ def check_cases(lines, package=PACKAGE, expected=EXPECTED):
         action = event.get("Action")
         if action in ("skip", "fail"):
             raise ValueError(f"{action}: {event.get('Test', package)}")
+        # Go names a repeated subtest "<name>#NN"; a repeated expected case is a duplicate, not an extra test.
+        renamed = REPEATED_SUBTEST.fullmatch(event.get("Test") or "")
+        if renamed and renamed.group(1) in expected:
+            raise ValueError(f"duplicate expected case: {event['Test']}")
         if action == "pass" and event.get("Test") in expected:
             passed.append(event["Test"])
     if sorted(passed) != sorted(expected):
@@ -314,16 +321,26 @@ def check_listing(lines):
     return listed
 
 
+def kill_group(pgid):
+    try:
+        os.killpg(pgid, signal.SIGKILL)
+    except ProcessLookupError:
+        pass  # the group already has no members
+
+
 def run_bounded(command, env, log_path, timeout):
-    """Run one child in its own process group; any failure kills and joins the group."""
+    """Run one child in its own process group; on any exit or failure, kill what remains of the group and join the child."""
     with Path(log_path).open("w") as log:
         process = subprocess.Popen(command, env=env, stdout=log, stderr=subprocess.STDOUT, start_new_session=True)
         try:
-            return process.wait(timeout=timeout)
+            status = process.wait(timeout=timeout)
         except BaseException:
-            os.killpg(process.pid, signal.SIGKILL)
+            kill_group(process.pid)
             process.wait()
             raise
+        # A child that exits, for example after a crash, can leave peers it never joined.
+        kill_group(process.pid)
+        return status
 
 
 def check_native(root):
@@ -337,7 +354,7 @@ def check_native(root):
     listed = check_listing((discovery / "list.txt").read_text().splitlines())
     found = read_record(discovery / "result.json", NATIVE_RECEIPT_SCHEMAS["matrix-discovery"], "native matrix-discovery receipt")
     identities = [ordinary["identity"], found["identity"]]
-    if any(identities[0][key] != identities[1][key] for key in ("candidate", "tree", "go", "kernel", "build_identity_sha256")):
+    if any(identities[0][key] != identities[1][key] for key in NATIVE_SHARED_IDENTITY):
         raise ValueError("native receipts do not share one candidate/toolchain/build identity")
     return {"profile": NATIVE_PROFILE, "status": "pass",
             "ordinary_control": {"executed": EXPECTED, "identity": identities[0]},

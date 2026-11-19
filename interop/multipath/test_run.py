@@ -35,6 +35,13 @@ class AccountingTests(unittest.TestCase):
             with self.subTest(events=events), self.assertRaises(ValueError):
                 runner.check_cases(events)
 
+    def test_numbered_repeat_of_a_role_is_a_duplicate(self):
+        # Go renames a second "client" subtest "client#01"; parent and package events stay ordinary.
+        normal = self.events(runner.EXPECTED + ["TestPicoquicOrdinaryControl"]) + [json.dumps({"Action": "pass", "Package": runner.PACKAGE})]
+        runner.check_cases(normal)
+        with self.assertRaisesRegex(ValueError, "duplicate expected case"):
+            runner.check_cases(normal + self.events([runner.EXPECTED[0] + "#01"]))
+
     def test_unrelated_package_cannot_supply_evidence(self):
         events = [json.dumps({"Action": "pass", "Package": "other", "Test": case}) for case in runner.EXPECTED]
         with self.assertRaisesRegex(ValueError, "missing"):
@@ -288,6 +295,22 @@ class NativeProfileTests(unittest.TestCase):
                     except BlockingIOError:
                         self.assertLess(time.monotonic(), deadline, "the killed grandchild still holds its lock")
                         time.sleep(0.05)
+            # A child that exits nonzero while a descendant survives keeps its status and still loses the descendant.
+            ready.unlink()
+            crashing = ("import pathlib, subprocess, sys, time; subprocess.Popen([sys.executable, '-c', %r]); "
+                        "[time.sleep(0.05) for _ in iter(lambda: not pathlib.Path(%r).exists(), False)]; sys.exit(2)"
+                        ) % (grandchild, str(ready))
+            self.assertEqual(runner.run_bounded([sys.executable, "-c", crashing], os.environ, log, 10), 2)
+            self.assertTrue(ready.exists(), "the grandchild was running when its parent exited")
+            deadline = time.monotonic() + 10
+            with lock.open("w") as handle:
+                while True:
+                    try:
+                        fcntl.flock(handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                        break
+                    except BlockingIOError:
+                        self.assertLess(time.monotonic(), deadline, "the orphaned grandchild still holds its lock")
+                        time.sleep(0.05)
             self.assertEqual(runner.run_bounded([sys.executable, "-c", "print('ok')"], os.environ, log, 5), 0)
             self.assertEqual(log.read_text().strip(), "ok")
 
@@ -346,6 +369,19 @@ class NativeProfileTests(unittest.TestCase):
             for receipt, data in (("ordinary-control", control), ("matrix-discovery", discovery)):
                 (root / receipt / "result.json").write_text(json.dumps(data | {"identity": data["identity"] | {"go": "go version go darwin/arm64"}}))
             with self.assertRaisesRegex(ValueError, "malformed"):
+                runner.check_native(root)
+            # Each shared digest alone must agree; the two test binaries differ by design.
+            (root / "ordinary-control" / "result.json").write_text(json.dumps(control))
+            for key in ("runner_sha256", "peer_driver_sha256"):
+                with self.subTest(key=key):
+                    (root / "matrix-discovery" / "result.json").write_text(json.dumps(discovery | {"identity": identity | {key: "9" * 64}}))
+                    with self.assertRaisesRegex(ValueError, "do not share"):
+                        runner.check_native(root)
+            (root / "matrix-discovery" / "result.json").write_text(json.dumps(discovery))
+            runner.check_native(root)
+            jsonl = root / "ordinary-control" / "go-test.jsonl"
+            jsonl.write_text(jsonl.read_text() + "\n" + json.dumps({"Action": "pass", "Package": runner.PACKAGE, "Test": runner.EXPECTED[0] + "#01"}))
+            with self.assertRaisesRegex(ValueError, "duplicate expected case"):
                 runner.check_native(root)
             (root / "matrix-discovery" / "result.json").unlink()
             with self.assertRaisesRegex(ValueError, "missing"):
