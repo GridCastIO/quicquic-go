@@ -214,7 +214,7 @@ def check_observation(record):
     if not negotiated and cell == "mixed-bulk" and profile == OPTED_IN:
         raise ValueError(NATIVE_MIXED_OPTED_IN)
     if not negotiated and (any(c.get("multipath_negotiated") is not False for c in server["connections"])
-                           or any(f.get("multipath_negotiated", False) is not False or f.get("paths")
+                           or any(f.get("multipath_negotiated") is not False or f.get("paths")
                                   for f in client["flows"])):
         raise ValueError(f"{cell}/{profile}: a {platform_profile} receipt cannot claim negotiated multipath")
     closes = client["flows"] + server["connections"]
@@ -294,6 +294,17 @@ def useful_bytes(record):
 def latency_margin(base, treated):
     """Microseconds above the limit: the larger of 110% of baseline or baseline plus 1 ms."""
     return treated - max(LATENCY_FACTOR * base, base + LATENCY_ALLOWANCE_US)
+
+
+def workload_failures(record):
+    """Execution failures of either arm, which no cost judgment excuses."""
+    failures = []
+    if record["server"]["write_errors"]:
+        failures.append(f"{record['profile']}: {record['server']['write_errors']} write errors")
+    for item in record["client"]["flows"] + record["server"]["connections"]:
+        if item["timeout_close"] or item["close_cause"]:
+            failures.append(f"{record['profile']}: {item['label']} closed: {item['close_cause'] or 'timeout'}")
+    return failures
 
 
 def judge_cell(cell, rounds):
@@ -568,22 +579,27 @@ class HostSampler:
         self.started = time.monotonic()
 
     def stop(self):
-        """Terminate, wait, then kill; returns whether it exited before being stopped."""
+        """Terminate, wait, then kill; returns whether it exited before being stopped.
+        SIGINT and SIGTERM stay blocked for this bounded section, so an operator interrupt
+        is delivered after the sampler is reaped rather than between its steps."""
         if self.process is None:
             return False
-        early = self.process.poll() is not None  # poll reaps an exited sampler
-        if not early:
-            try:
-                self.process.terminate()
-                self.process.wait(timeout=SAMPLER_STOP_S)
-            except subprocess.TimeoutExpired:
-                self.process.kill()
-                self.process.wait()
-            except BaseException:
-                # An interrupted wait still kills and reaps the sampler before unwinding.
-                self.process.kill()
-                self.process.wait()
-                raise
+        interrupts = {signal.SIGINT, signal.SIGTERM}
+        blocked = signal.pthread_sigmask(signal.SIG_BLOCK, interrupts)
+        try:
+            early = self.process.poll() is not None  # poll reaps an exited sampler
+            if not early:
+                try:
+                    self.process.terminate()
+                    self.process.wait(timeout=SAMPLER_STOP_S)
+                except BaseException:
+                    # A timeout, or any other failure of the wait, still kills and reaps it.
+                    self.process.kill()
+                    self.process.wait()
+                    if not isinstance(sys.exc_info()[1], subprocess.TimeoutExpired):
+                        raise
+        finally:
+            signal.pthread_sigmask(signal.SIG_SETMASK, blocked)
         return early
 
     def finish(self, window_start, window_end):
@@ -957,10 +973,15 @@ def main(argv=None):
                 verdict = judge_cell(cell, [tuple(records)])
                 contaminated = sum(r["contaminated"] for r in records)
                 judged = args.controller == "reno" or cell == "stateless-pressure"
-                summary.update(passed=(verdict["passed"] or not judged) and not contaminated, judged=judged,
-                               diagnostic=verdict, contaminated_observations=contaminated)
-                if not judged:
-                    summary["judgment"] = BBR_NOT_JUDGED
+                summary.update(judged=judged, contaminated_observations=contaminated)
+                if judged:
+                    summary.update(passed=verdict["passed"] and not contaminated, diagnostic=verdict)
+                else:
+                    # Ratios only: no threshold outcome is reported, but a failed transfer fails.
+                    failures = [failure for record in records for failure in workload_failures(record)]
+                    observations = {k: v for k, v in verdict.items() if k not in ("passed", "failures")}
+                    summary.update(passed=not failures and not contaminated, judgment=BBR_NOT_JUDGED,
+                                   observations=observations, workload_failures=failures)
     except (Exception, KeyboardInterrupt) as error:
         summary.update(passed=False, error=f"{type(error).__name__}: {error}")
     finally:

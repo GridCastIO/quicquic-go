@@ -643,7 +643,7 @@ class ExecutionTests(unittest.TestCase):
                 for record in records:
                     for connection in record["server"]["connections"]:
                         self.assertFalse(connection["packets_lost_metric"]["available"])
-                self.assertEqual(summary["diagnostic"]["packets_lost"], {"unregistered": [None], "opted-in": [None]})
+                self.assertEqual(summary["observations"]["packets_lost"], {"unregistered": [None], "opted-in": [None]})
 
     def test_only_reno_and_the_historical_bbr_diagnostic_are_judged(self):
         def slow(record):
@@ -657,9 +657,35 @@ class ExecutionTests(unittest.TestCase):
                 self.assertEqual(summary["judged"], judged)
                 self.assertEqual(code, int(judged), summary.get("error"))
                 self.assertEqual(summary["passed"], not judged)
-                self.assertFalse(summary["diagnostic"]["passed"], "the ratios are still reported")
-                if not judged:
+                if judged:
+                    self.assertFalse(summary["diagnostic"]["passed"])
+                else:
                     self.assertIn("observations", summary["judgment"])
+                    self.assertNotIn("diagnostic", summary)
+                    self.assertEqual(summary["workload_failures"], [])
+                    self.assertTrue({"passed", "failures"}.isdisjoint(summary["observations"]))
+                    self.assertLess(summary["observations"]["goodput_ratio"]["median"], 0.95, "the ratio is still reported")
+
+    def test_unjudged_bbr_smoke_fails_on_a_failed_transfer(self):
+        def broken(failure):
+            def edit(record):
+                if record["profile"] != driver.OPTED_IN:
+                    return
+                if failure == "write":
+                    record["server"]["write_errors"] = 1
+                elif failure == "timeout":
+                    record["client"]["flows"][0]["timeout_close"] = True
+                else:
+                    record["server"]["connections"][0]["close_cause"] = "failed connection"
+            return edit
+
+        for failure in ("write", "close", "timeout"):
+            with self.subTest(failure=failure), tempfile.TemporaryDirectory() as temporary:
+                code, summary, _ = self.invoke(Path(temporary), ("--smoke-cell", "stream-gso-on", "--controller", "bbrv3"),
+                                               edit=broken(failure))
+                self.assertEqual(code, 1, summary.get("error"))
+                self.assertFalse(summary["judged"])
+                self.assertTrue(summary["workload_failures"])
 
     def test_unsupported_bbr_or_profiling_campaign_launches_nothing(self):
         for extra in (("--controller", "bbrv3"),
@@ -831,6 +857,7 @@ class NativeRecordTests(unittest.TestCase):
             "connection": lambda r: r["server"]["connections"][0].update(multipath_negotiated=True),
             "connection unstated": lambda r: r["server"]["connections"][0].pop("multipath_negotiated"),
             "flow": lambda r: r["client"]["flows"][0].update(multipath_negotiated=True),
+            "flow unstated": lambda r: r["client"]["flows"][0].pop("multipath_negotiated"),
             "paths": lambda r: r["client"]["flows"][0].update(paths=["live", "live"]),
         }
         for name, edit in cases.items():
@@ -1009,6 +1036,27 @@ class PowermetricsTests(unittest.TestCase):
             with self.assertRaises(ProcessLookupError):
                 os.kill(process.pid, 0)
 
+    def test_operator_signal_waits_until_the_sampler_is_reaped(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            sampler = driver.HostSampler([sys.executable, "-c",
+                "import signal, time; signal.signal(signal.SIGTERM, signal.SIG_IGN); time.sleep(60)"], Path(temporary))
+            sampler.start()
+            time.sleep(0.5)
+            process, real_kill = sampler.process, sampler.process.kill
+
+            def signaled_kill():
+                # A SIGINT at the fallback kill, the boundary a handler cannot protect.
+                os.kill(os.getpid(), signal.SIGINT)
+                real_kill()
+
+            with mock.patch.object(driver, "SAMPLER_STOP_S", 0.3), \
+                    mock.patch.object(process, "kill", side_effect=signaled_kill), \
+                    self.assertRaises(KeyboardInterrupt):
+                sampler.stop()
+            self.assertEqual(process.returncode, -signal.SIGKILL)
+            with self.assertRaises(ProcessLookupError):
+                os.kill(process.pid, 0)
+
     def test_unresponsive_sampler_is_killed_and_joined(self):
         with tempfile.TemporaryDirectory() as temporary:
             with mock.patch.object(driver, "SAMPLER_STOP_S", 0.3):
@@ -1077,8 +1125,12 @@ class NativeExecutionTests(unittest.TestCase):
                 self.assertIn("superuser", record["host_activity"]["reason"])
 
     def test_interrupted_sampler_keeps_the_attempt_facts(self):
+        def interrupted(sampler, *_):
+            sampler.stop()  # the real child is still reaped
+            raise KeyboardInterrupt("SIGTERM")
+
         with tempfile.TemporaryDirectory() as temporary, \
-                mock.patch.object(driver.HostSampler, "finish", side_effect=KeyboardInterrupt("SIGTERM")):
+                mock.patch.object(driver.HostSampler, "finish", autospec=True, side_effect=interrupted):
             code, summary, processes = self.invoke(Path(temporary), ("--platform-profile", "darwin-arm64", "--smoke-cell", "stream",
                                                                      "--host-sampler", "powermetrics"), platform="darwin-arm64",
                                                    sampler=[sys.executable, "-c", "pass"])
