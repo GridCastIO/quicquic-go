@@ -2,6 +2,8 @@
 
 **Date:** 2026-11-18. **Identity:** MP-MAC-1396, revision 4. **Status:** owner-approved planning scope and controller/policy profile; implementation and qualification pending. **Issue:** [Plan multipath support for macOS (#1396)](https://github.com/GridCastIO/quicquic-go/issues/1396). The owner approved including BBR and aggregation while retaining the two-path cap, and authorized this documentation PR through review and merge. This document proposes future work; neither its acceptance nor completion of issue #1396 enables macOS multipath, starts a qualification campaign, allocates campaign capacity, or authorizes the implementation slices below.
 
+**Implementation handoff:** The [current implementation plan](2026-11-19-macos-multipath-implementation-plan.md) and [program index](2026-11-19-macos-multipath-program.md) replace the proposed work-unit decomposition below with audited child contracts. This document remains the accepted target/evidence rationale from issue #1396; it is not the dispatch contract.
+
 ## Outcome and source authority
 
 Deliver an actionable route from the existing Darwin code to a narrowly qualified public profile, with implementation, infrastructure, native evidence and admission separated. Public multipath remains Linux amd64 until separately approved implementation and qualification finish. Preserve the completed [multipath program (#646)](https://github.com/GridCastIO/quicquic-go/issues/646) and [BBR continuation (#1374)](https://github.com/GridCastIO/quicquic-go/issues/1374), their frozen evidence and their exact-result exceptions.
