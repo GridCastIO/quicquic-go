@@ -307,6 +307,30 @@ def check_mixed(record):
         raise ValueError("mixed-bulk opted-in needs one negotiated two-path connection")
 
 
+def same(actual, expected):
+    """Equality that keeps JSON types apart: true is not 1, and 0 is not false."""
+    if type(actual) is not type(expected):
+        return False
+    if isinstance(expected, dict):
+        return actual.keys() == expected.keys() and all(same(actual[key], expected[key]) for key in expected)
+    if isinstance(expected, list):
+        return len(actual) == len(expected) and all(same(a, e) for a, e in zip(actual, expected))
+    return actual == expected
+
+
+LIFECYCLE_STATE_FIELDS = {"wire_id": int, "tuple_generation": int, "lifecycle": str, "local_use": str,
+                          "primary": bool, "validated": bool}
+
+
+def check_path_state(name, state):
+    """One recorded StateV1 observation, typed as the producer wrote it."""
+    if not isinstance(state, dict) or state.keys() != LIFECYCLE_STATE_FIELDS.keys() or any(
+            type(state[field]) is not kind for field, kind in LIFECYCLE_STATE_FIELDS.items()):
+        raise ValueError(f"{name}: malformed path state {state}")
+    if not 0 <= state["wire_id"] < PATH_ID_LIMIT or not 0 <= state["tuple_generation"] < 2**64:
+        raise ValueError(f"{name}: path state outside the producer's uint32/uint64 range")
+
+
 def lifecycle_phase_admits(phase, path_id, state, retired):
     """The sampled path's observed state is the phase; mirrors ordinaryCostPhaseAdmits."""
     if (type(path_id) is not int or not 0 <= path_id < PATH_ID_LIMIT
@@ -346,7 +370,7 @@ def check_lifecycle(record):
         raise ValueError(f"the qualifying retirement state is retained or closed, not {retired}")
     check_identity(record, platform_profile)
     server, client = record["server"], record["client"]
-    if record.get("exit") != {"server": 0, "client": 0}:
+    if not same(record.get("exit"), {"server": 0, "client": 0}):
         raise ValueError(f"both roles must exit 0, not {record.get('exit')}")
     for role, result in (("server", server), ("client", client)):
         if result.get("format") != LIFECYCLE_FORMAT:
@@ -357,16 +381,16 @@ def check_lifecycle(record):
             raise ValueError(f"{role}: an unnegotiated connection is no lifecycle or backup control")
         if result.get("grant_join_source") != LIFECYCLE_BOUNDARY_SOURCES["grant_joins"]:
             raise ValueError(f"{role}: grant joins come from WaitMultipathIOStoppedV1")
-    if server.get("grant_joins") != {"origin": True}:
+    if not same(server.get("grant_joins"), {"origin": True}):
         raise ValueError("server: its grant did not join")
     if server.get("peer_closed") is not True:
         raise ValueError(f"server: the connection ended without the client's close: {server.get('close_cause')}")
     if client.get("retired_lifecycle") != retired:
         raise ValueError("client: its qualifying retirement state is not the run's")
-    if client.get("grant_joins") != {"origin": True, "backup": True}:
+    if not same(client.get("grant_joins"), {"origin": True, "backup": True}):
         raise ValueError("client: every grant must join, separately from detachment")
-    if client.get("transport_detachment") != {"transport": "backup", "detached": True,
-                                               "source": LIFECYCLE_BOUNDARY_SOURCES["transport_detachment"]}:
+    if not same(client.get("transport_detachment"), {"transport": "backup", "detached": True,
+                                                     "source": LIFECYCLE_BOUNDARY_SOURCES["transport_detachment"]}):
         raise ValueError("client: the retired path's transport did not detach")
     samples = client.get("samples")
     if not isinstance(samples, list) or tuple(sample.get("phase") for sample in samples) != LIFECYCLE_PHASES:
@@ -383,7 +407,9 @@ def check_lifecycle(record):
         path_id = sample.get("path_id")
         if type(path_id) is not int or not 0 <= path_id < PATH_ID_LIMIT:
             raise ValueError(f"{phase}: no uint32 sampled path ID")
-        if sample.get("state_before") != sample.get("state_after"):
+        for field in ("state_before", "state_after"):
+            check_path_state(f"{phase} {field}", sample.get(field))
+        if not same(sample["state_before"], sample["state_after"]):
             raise ValueError(f"{phase}: stale sample; the path left the phase during the reading")
         lifecycle_phase_admits(phase, path_id, sample.get("state_before"), retired)
         heap = check_metric(f"{phase} go_heap_live", sample.get("go_heap_live"), "bytes")

@@ -1541,6 +1541,18 @@ class LifecycleRecordTests(unittest.TestCase):
                 record["exit"][role] = 1
             self.rejects(failed, "both roles must exit 0")
 
+    def test_json_types_stay_apart(self):
+        for label, edit in (
+                ("both roles must exit 0", lambda r: r["exit"].update(client=False)),
+                ("every grant must join", lambda r: r["client"]["grant_joins"].update(backup=1)),
+                ("did not detach", lambda r: r["client"]["transport_detachment"].update(detached=1)),
+                ("its grant did not join", lambda r: r["server"]["grant_joins"].update(origin=1)),
+                ("validated-backup state_after: malformed", lambda r: self.sample(r, "validated-backup")["state_after"].update(wire_id=True)),
+                ("validated-backup state_after: malformed", lambda r: self.sample(r, "validated-backup")["state_after"].update(validated=1)),
+                ("retired state_after: malformed", lambda r: self.sample(r, "retired")["state_after"].pop("local_use"))):
+            with self.subTest(label=label):
+                self.rejects(edit, label)
+
     def test_path_ids_are_the_producers_uint32(self):
         for wire_id in (-1, 2**32, True):
             with self.subTest(wire_id=wire_id):
