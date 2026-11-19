@@ -194,7 +194,8 @@ def build_sources(directory, toolchain, profile):
     package build-input fields of every main-module package in its production dependency
     graph, and go.mod and go.sum. Unlike E1's test-build selector, it lists without -test
     and never reads a test-file field, which go list reports even then."""
-    listed = run(["go", "list", "-deps", "-json", "."], cwd=directory, env=build_env(toolchain, profile))
+    listed = subprocess.run(["go", "list", "-deps", "-json", "."], cwd=directory, env=build_env(toolchain, profile),
+                            check=True, capture_output=True, text=True).stdout
     decoder, index, files = json.JSONDecoder(), 0, set()
     while True:
         while index < len(listed) and listed[index].isspace():
@@ -223,7 +224,7 @@ def bind_one(source, tree, regular, module, binary):
     try:
         selected = selected_sources(directory, toolchain, profile) if form == "test" else \
             build_sources(directory, toolchain, profile)
-    except (OSError, subprocess.CalledProcessError, ValueError) as error:
+    except (OSError, subprocess.CalledProcessError) as error:
         raise ValueError(f"{binary}: cannot list the build sources of {package}: {error}") from error
     check_build_sources(selected, tree)
     check_regular_sources(binary, selected, regular)

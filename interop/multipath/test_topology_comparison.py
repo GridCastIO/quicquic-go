@@ -679,9 +679,10 @@ class DarwinVerdictTests(unittest.TestCase):
         extra = [("another commit", lambda source, record: source.update(commit="d" * 40)),
                  ("another binary", lambda source, record: record.update(sha256="6" * 64))]
         table = binding_fixture.refusals() + extra
-        cases = [("relay", label, edit) for label, edit in table] + \
-            [("test", label, edit) for label, edit in table if label in ("digest-only binding", "unclean source",
-                                                                          "missing binding method")]
+        representatives = [("test", label, edit) for label, edit in table
+                           if label in ("digest-only binding", "unclean source", "missing binding method")]
+        self.assertEqual(len(representatives), 3, "the test binary's representative cases are in the table")
+        cases = [("relay", label, edit) for label, edit in table] + representatives
         for name, label, edit in cases:
             with self.subTest(binary=name, label=label):
                 shutil.rmtree(self.root, ignore_errors=True)
