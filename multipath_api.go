@@ -51,8 +51,8 @@ type multipathSelection struct {
 //
 // Multipath is experimental and opt-in. Its one supported profile is draft-21 QUIC v1
 // with Reno or experimental BBR on Linux amd64, or on Darwin 27 (macOS 27) arm64, over a
-// socket granted with [Transport.ConfigureMultipathIOV1]. BBR retains its documented cost exceptions and
-// unqualified controller status; Reno remains the default. Aggregate requires BBR and uses
+// socket granted with [Transport.ConfigureMultipathIOV1]. BBR retains its documented cost
+// exceptions and unqualified controller status; Reno remains the default. Aggregate requires BBR and uses
 // uncoupled paced byte round-robin. It makes no general performance or fairness guarantee.
 // Additional validated paths start as local backups. Each sending endpoint must call
 // [Path.SetLocalUseV1] with "active" on paths it intends to use concurrently; selecting
