@@ -1,9 +1,12 @@
 #!/usr/bin/env python3
-"""MP-MAC E1 Darwin case runner: a missing, duplicate, skipped or unrecorded case fails.
+"""MP-MAC Darwin case runner: a missing, duplicate, skipped or unrecorded case fails.
 
-It builds the root test binary, runs each TestNativeDarwinScalar case alone in its
-own process group and validates the case record that process wrote. A passing run
-is local smoke evidence for the granted endpoint method, never a support receipt.
+It builds the root test binary, runs each case of the selected profile alone in its
+own process group and validates the case record that process wrote. The scalar
+profile runs TestNativeDarwinScalar (E1, with E3's scalar contention record); the
+pressure profile builds with the native_pressure tag and runs E3's bounded
+socket-pressure observation. A passing run is local evidence for the endpoint
+method, never a support receipt.
 """
 
 import argparse
@@ -44,20 +47,29 @@ FIXED_FACTS = {
         "transport_write_after_join": "closed", "caller_deadline_enforced": True, "caller_write_delivered": True,
     },
 }
-CASES = (*FAMILIES, *FIXED_FACTS)
+# E3's contention records. The scalar development case must be a complete, fault-free
+# observation with progress on every lane; the pressure observation records what it saw.
+CONTENTION_CASES = {"scalar-contention": True, "socket-pressure": False}
+CASES = (*FAMILIES, *FIXED_FACTS, "scalar-contention")
 NATIVE_FIELDS = ("product_version", "build_version", "kernel", "cpu")
 BUILD = {"CGO_ENABLED": "0", "GOOS": "darwin", "GOARCH": "arm64", "GOFLAGS": "-buildvcs=false"}
+# Each profile's test, its cases in order and its build mode. Only the pressure
+# profile's tag builds its operational mode into the binary.
+PROFILES = {
+    "scalar": {"test": TEST, "cases": CASES, "mode": BUILD},
+    "pressure": {"test": "TestNativeDarwinPressure", "cases": ("socket-pressure",), "mode": BUILD | {"GOFLAGS": "-buildvcs=false -tags=native_pressure"}},
+}
 
 
-def command_for(binary, name):
-    return [str(binary), f"-test.run=^{TEST}$/^{name}$", "-test.count=1", "-test.timeout=30s", "-test.v"]
+def command_for(binary, name, test=TEST):
+    return [str(binary), f"-test.run=^{test}$/^{name}$", "-test.count=1", "-test.timeout=30s", "-test.v"]
 
 
-def check_output(name, output):
+def check_output(name, output, test=TEST):
     for word in ("SKIP", "FAIL"):
         if re.search(rf"^\s*(--- )?{word}\b", output, re.MULTILINE):
             raise ValueError(f"{word}: {name}")
-    if len(re.findall(rf"^\s*--- PASS: {TEST}/{re.escape(name)} ", output, re.MULTILINE)) != 1:
+    if len(re.findall(rf"^\s*--- PASS: {test}/{re.escape(name)} ", output, re.MULTILINE)) != 1:
         raise ValueError(f"{name} must pass exactly once")
 
 
@@ -105,6 +117,80 @@ def parse_tuple(name, key, facts):
     return address, number
 
 
+CONTENTION_FACTS = {"status", "pressure_wait", "fault", "diagnostics_dropped", "load", "writer", "lanes", "occupancy_max"}
+LOAD_FIELDS = ("participants", "requests", "members", "payload", "budget_ms", "window_ms")
+ERROR_CLASSES = ("enobufs", "eagain", "emsgsize", "deadline", "other")
+WRITER_FIELDS = ("writes", "max_write_ns", "long_writes", "deadline_waits")
+LANES = ("path0", "path1", "control")
+LANE_COUNTS = (
+    "offers", "admitted", "refused", "closed", "results", "withdrawn",
+    "accepted", "uncertain", "unsubmitted", "failed", "diagnostics", "publication_lag_max_ns",
+)
+FAULTS = {"none", "overdue", "late-return", "native"}
+
+
+def check_counts(name, section, value, fields, extra=()):
+    """A section with exactly fields as non-negative integers, plus the extra keys."""
+    if not isinstance(value, dict) or set(value) != {*fields, *extra}:
+        raise ValueError(f"{name}: {section} fields {sorted(value) if isinstance(value, dict) else value!r} are not {sorted({*fields, *extra})}")
+    invalid = sorted(key for key in fields if type(value[key]) is not int or value[key] < 0)
+    if invalid:
+        raise ValueError(f"{name}: {section} has invalid {invalid}")
+
+
+def contention_status(facts):
+    """The status and pressure-wait result the recorded counts imply. Only a complete
+    observation can report that no pressure wait occurred."""
+    lanes, requests = facts["lanes"], facts["load"]["requests"]
+    if any(lane["admitted"] != requests or lane["withdrawn"] != 0 for lane in lanes):
+        status = "interrupted"
+    elif facts["diagnostics_dropped"] != 0 or any(lane["diagnostics"] != lane["results"] for lane in lanes):
+        status = "incomplete-coverage"
+    else:
+        status = "complete"
+    if facts["writer"]["deadline_waits"] > 0:
+        return status, "observed"
+    return status, "not-observed" if status == "complete" else "unknown"
+
+
+def check_contention_facts(name, facts):
+    load, writer, lanes, occupancy = facts["load"], facts["writer"], facts["lanes"], facts["occupancy_max"]
+    check_counts(name, "load", load, LOAD_FIELDS)
+    if min(load["participants"], load["requests"], load["members"], load["payload"]) == 0:
+        raise ValueError(f"{name}: load {load!r} offers nothing")
+    check_counts(name, "writer", writer, WRITER_FIELDS, ("errors",))
+    check_counts(name, "writer errors", writer["errors"], ERROR_CLASSES)
+    if type(facts["diagnostics_dropped"]) is not int or facts["diagnostics_dropped"] < 0:
+        raise ValueError(f"{name}: fact diagnostics_dropped is {facts['diagnostics_dropped']!r}")
+    if facts["fault"] not in FAULTS:
+        raise ValueError(f"{name}: fact fault is {facts['fault']!r}, not one of {sorted(FAULTS)}")
+    participants = load["participants"]
+    if not isinstance(lanes, list) or len(lanes) != participants * len(LANES):
+        raise ValueError(f"{name}: expected {participants * len(LANES)} lanes")
+    for index, lane in enumerate(lanes):
+        check_counts(name, f"lane {index}", lane, LANE_COUNTS, ("participant", "lane"))
+        where = f"{name}: lane {index}"
+        if (lane["participant"], lane["lane"]) != (index // len(LANES), LANES[index % len(LANES)]) or type(lane["participant"]) is not int:
+            raise ValueError(f"{where} is {lane['participant']!r}/{lane['lane']!r}, expected {index // len(LANES)}/{LANES[index % len(LANES)]}")
+        if lane["offers"] != lane["admitted"] + lane["refused"] + lane["closed"]:
+            raise ValueError(f"{where}: offers are not admitted + refused + closed")
+        if lane["admitted"] != lane["results"] + lane["withdrawn"] or lane["admitted"] > load["requests"]:
+            raise ValueError(f"{where}: admitted is not results + withdrawn within the offered requests")
+        if lane["accepted"] + lane["uncertain"] + lane["unsubmitted"] != lane["results"] * load["members"] or lane["failed"] > lane["results"]:
+            raise ValueError(f"{where}: datagram outcomes do not add up to its results")
+    if not isinstance(occupancy, list) or len(occupancy) != participants or any(type(value) is not int or value < 0 for value in occupancy):
+        raise ValueError(f"{name}: occupancy_max is not one count per participant")
+    if writer["writes"] < sum(lane["accepted"] + lane["uncertain"] for lane in lanes):
+        raise ValueError(f"{name}: fewer native writes than accepted or uncertain datagrams")
+    if sum(writer["errors"].values()) > writer["writes"] or writer["long_writes"] > writer["writes"] or writer["deadline_waits"] > writer["errors"]["deadline"]:
+        raise ValueError(f"{name}: writer observations contradict each other: {writer!r}")
+    status, pressure = contention_status(facts)
+    if (facts["status"], facts["pressure_wait"]) != (status, pressure):
+        raise ValueError(f"{name}: status {facts['status']!r} and pressure_wait {facts['pressure_wait']!r}, the counts imply {status!r} and {pressure!r}")
+    if CONTENTION_CASES[name] and (status != "complete" or facts["fault"] != "none" or any(lane["accepted"] == 0 for lane in lanes)):
+        raise ValueError(f"{name}: the development case needs a complete, fault-free observation with progress on every lane")
+
+
 def check_record(name, identity, record):
     if set(record) != RECORD_FIELDS:
         raise ValueError(f"{name}: record fields {sorted(record)} are not {sorted(RECORD_FIELDS)}")
@@ -113,23 +199,26 @@ def check_record(name, identity, record):
         if record[field] != value:
             raise ValueError(f"{name}: record {field} {record[field]!r} is not {value!r}")
     facts = record["facts"]
-    declared = FAMILY_FACTS if name in FAMILIES else set(FIXED_FACTS[name])
+    declared = FAMILY_FACTS if name in FAMILIES else CONTENTION_FACTS if name in CONTENTION_CASES else set(FIXED_FACTS[name])
     if not isinstance(facts, dict) or set(facts) != declared:
         raise ValueError(f"{name}: facts {sorted(facts) if isinstance(facts, dict) else facts!r} are not {sorted(declared)}")
     if name in FAMILIES:
         check_family_facts(name, facts)
+        return
+    if name in CONTENTION_CASES:
+        check_contention_facts(name, facts)
         return
     for key, value in FIXED_FACTS[name].items():
         if facts[key] != value or type(facts[key]) is not type(value):
             raise ValueError(f"{name}: fact {key} is {facts[key]!r}, expected {value!r}")
 
 
-def check_accounting(names):
-    unknown = sorted(set(names) - set(CASES))
-    missing = [name for name in CASES if name not in names]
+def check_accounting(names, cases=CASES):
+    unknown = sorted(set(names) - set(cases))
+    missing = [name for name in cases if name not in names]
     duplicate = sorted({name for name in names if names.count(name) > 1})
     if unknown or missing or duplicate:
-        raise ValueError(f"expected each of the {len(CASES)} cases exactly once: missing {missing}, duplicate {duplicate}, unknown {unknown}")
+        raise ValueError(f"expected each of the {len(cases)} cases exactly once: missing {missing}, duplicate {duplicate}, unknown {unknown}")
 
 
 def check_native(identity):
@@ -173,8 +262,8 @@ GO_LIST_FILE_FIELDS = ("GoFiles", "CgoFiles", "CFiles", "CXXFiles", "MFiles", "H
 GO_LIST_TEST_FIELDS = ("TestGoFiles", "XTestGoFiles", "TestEmbedFiles", "XTestEmbedFiles")
 
 
-def build_env(toolchain):
-    return os.environ | BUILD | {"GOTOOLCHAIN": toolchain}
+def build_env(toolchain, profile="scalar"):
+    return os.environ | PROFILES[profile]["mode"] | {"GOTOOLCHAIN": toolchain}
 
 
 def parse_go_list(text, directory):
@@ -199,9 +288,9 @@ def parse_go_list(text, directory):
         files.update(path for path in (root / "go.mod", root / "go.sum") if path.exists())
 
 
-def selected_sources(source, toolchain):
-    """The main-module files the test build of the source directory reads."""
-    return parse_go_list(capture("go", "list", "-deps", "-test", "-json", ".", env=build_env(toolchain), cwd=source), source)
+def selected_sources(source, toolchain, profile="scalar"):
+    """The main-module files the profile's test build of the source directory reads."""
+    return parse_go_list(capture("go", "list", "-deps", "-test", "-json", ".", env=build_env(toolchain, profile), cwd=source), source)
 
 
 def tree_paths(source, tree):
@@ -217,15 +306,15 @@ def check_build_sources(selected, recorded):
         raise ValueError(f"the build reads source that the recorded tree omits: {missing}")
 
 
-def build(source, toolchain, output):
-    env = build_env(toolchain)
+def build(source, toolchain, output, profile="scalar"):
+    env = build_env(toolchain, profile)
     reported = capture("go", "env", "GOVERSION", env=env, cwd=source)
     if toolchain != "local" and reported != toolchain:
         raise ValueError(f"requested {toolchain}, got {reported}")
     binary = output / "native-darwin.test"
     capture("go", "test", "-c", "-o", str(binary.resolve()), ".", env=env, cwd=source)
     digest = hashlib.sha256(binary.read_bytes()).hexdigest()
-    return binary, {"go": reported, "toolchain": toolchain, "mode": dict(BUILD), "binary_sha256": digest}
+    return binary, {"go": reported, "toolchain": toolchain, "mode": dict(PROFILES[profile]["mode"]), "binary_sha256": digest}
 
 
 def stop_group(process):
@@ -239,11 +328,11 @@ def stop_group(process):
             pass
 
 
-def run_case(binary, name, output, identity, timeout):
+def run_case(binary, name, output, identity, timeout, test=TEST):
     directory = output / name
     directory.mkdir(parents=True)
     record_path = directory / "record.json"
-    command = command_for(Path(binary).resolve(), name)
+    command = command_for(Path(binary).resolve(), name, test)
     instance = {"case": name, "command": command, "exit": None, "seconds": None, "record": None}
     started = time.monotonic()
     process = subprocess.Popen(command, env=os.environ | {RECORD_ENV: str(record_path)}, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, start_new_session=True)
@@ -266,7 +355,7 @@ def run_case(binary, name, output, identity, timeout):
     if process.returncode != 0:
         return instance, f"exit {process.returncode}"
     try:
-        check_output(name, text)
+        check_output(name, text, test)
         if not record_path.exists():
             raise ValueError(f"{name}: no case record was written")
         instance["record"] = parse_record(record_path.read_text())
@@ -276,8 +365,8 @@ def run_case(binary, name, output, identity, timeout):
     return instance, None
 
 
-def status():
-    return {"cases": len(CASES), "status": "pass", "support_receipt": False}
+def status(profile="scalar"):
+    return {"cases": len(PROFILES[profile]["cases"]), "status": "pass", "support_receipt": False}
 
 
 def is_text(value):
@@ -296,11 +385,10 @@ def is_integer(value):
 # type. Cross-field consistency follows in validate_results; nothing else is read.
 RESULTS_SHAPE = {
     "source": {"commit": is_hex(40), "tree": is_hex(40), "head_tree": is_hex(40), "clean": lambda value: type(value) is bool},
-    "build": {"go": is_text, "toolchain": is_text, "mode": lambda value: value == BUILD, "binary_sha256": is_hex(64)},
+    "build": {"go": is_text, "toolchain": is_text, "mode": lambda value: value in [profile["mode"] for profile in PROFILES.values()], "binary_sha256": is_hex(64)},
     "identity": {key: is_text for key in ("system", "machine", "proc_translated", *NATIVE_FIELDS, "go", "goos", "goarch")},
     "status": {
-        "cases": lambda value: is_integer(value) and value == len(CASES), "status": lambda value: value == "pass",
-        "support_receipt": lambda value: value is False,
+        "cases": is_integer, "status": lambda value: value == "pass", "support_receipt": lambda value: value is False,
     },
     "instance": {
         "case": is_text, "command": lambda value: isinstance(value, list) and all(map(is_text, value)),
@@ -308,7 +396,7 @@ RESULTS_SHAPE = {
         "record": lambda value: isinstance(value, dict), "failure": lambda value: value is None,
     },
 }
-RESULTS_FIELDS = {"schema", "source", "build", "identity", "instances", "status"}
+RESULTS_FIELDS = {"schema", "profile", "source", "build", "identity", "instances", "status"}
 
 
 def check_shape(section, value, shape):
@@ -325,12 +413,17 @@ def validate_results(results):
         raise ValueError(f"results fields {sorted(results) if isinstance(results, dict) else results!r} are not {sorted(RESULTS_FIELDS)}")
     if results["schema"] != RESULTS_SCHEMA:
         raise ValueError(f"results schema {results['schema']!r} is not {RESULTS_SCHEMA}")
+    if results["profile"] not in PROFILES:
+        raise ValueError(f"results profile {results['profile']!r} is not one of {sorted(PROFILES)}")
+    profile = PROFILES[results["profile"]]
     source, build_identity, identity = results["source"], results["build"], results["identity"]
     check_shape("source", source, RESULTS_SHAPE["source"])
     check_shape("build", build_identity, RESULTS_SHAPE["build"])
     check_shape("identity", identity, RESULTS_SHAPE["identity"])
     if source["clean"] != (source["tree"] == source["head_tree"]):
         raise ValueError(f"results source clean flag contradicts its trees: {source!r}")
+    if build_identity["mode"] != profile["mode"]:
+        raise ValueError(f"results build mode {build_identity['mode']!r} is not the {results['profile']} profile's")
     if build_identity["toolchain"] not in ("local", build_identity["go"]):
         raise ValueError(f"results build toolchain {build_identity['toolchain']!r} is not local or the built {build_identity['go']!r}")
     expected = {"go": build_identity["go"], "goos": BUILD["GOOS"], "goarch": BUILD["GOARCH"]}
@@ -342,14 +435,17 @@ def validate_results(results):
         raise ValueError("results instances are not a list")
     for instance in instances:
         check_shape("instance", instance, RESULTS_SHAPE["instance"])
-    check_accounting([instance["case"] for instance in instances])
+    check_accounting([instance["case"] for instance in instances], profile["cases"])
     for instance in instances:
         check_record(instance["case"], identity, instance["record"])
     check_shape("status", results["status"], RESULTS_SHAPE["status"])
+    if results["status"]["cases"] != len(profile["cases"]):
+        raise ValueError(f"results status counts {results['status']['cases']} cases, not {len(profile['cases'])}")
 
 
-def run(source, output, toolchain, case_timeout):
-    """Runs every case once and returns the results; stops at the first failure."""
+def run(source, output, toolchain, case_timeout, profile="scalar"):
+    """Runs every case of the profile once and returns the results; stops at the
+    first failure."""
     identity = native_identity()
     check_native(identity)
     if shutil.which("go") is None:
@@ -357,23 +453,23 @@ def run(source, output, toolchain, case_timeout):
     # Snapshot the source before creating output, which may lie inside the tree, and
     # refuse a build that would read source the snapshot leaves out.
     source_snapshot = source_identity(source)
-    check_build_sources(selected_sources(source, toolchain), tree_paths(source, source_snapshot["tree"]))
+    check_build_sources(selected_sources(source, toolchain, profile), tree_paths(source, source_snapshot["tree"]))
     output.mkdir(parents=True, exist_ok=False)
-    binary, build_identity = build(source, toolchain, output)
+    binary, build_identity = build(source, toolchain, output, profile)
     identity |= {"go": build_identity["go"], "goos": BUILD["GOOS"], "goarch": BUILD["GOARCH"]}
-    results = {"schema": RESULTS_SCHEMA, "source": source_snapshot, "build": build_identity, "identity": identity, "instances": []}
-    # There is no repeat-until-pass.
+    results = {"schema": RESULTS_SCHEMA, "profile": profile, "source": source_snapshot, "build": build_identity, "identity": identity, "instances": []}
+    # There is no repeat-until-pass, and a negative pressure observation is a result.
     failure = None
-    for name in CASES:
-        instance, failure = run_case(binary, name, output, identity, case_timeout)
+    for name in PROFILES[profile]["cases"]:
+        instance, failure = run_case(binary, name, output, identity, case_timeout, PROFILES[profile]["test"])
         instance["failure"] = failure
         results["instances"].append(instance)
         if failure is not None:
             break
     if failure is None:
-        check_accounting([instance["case"] for instance in results["instances"]])
+        check_accounting([instance["case"] for instance in results["instances"]], PROFILES[profile]["cases"])
         # Only a complete passing run records a status, so a stopped run claims nothing.
-        results["status"] = status()
+        results["status"] = status(profile)
     (output / "results.json").write_text(json.dumps(results, indent=2) + "\n")
     return results, failure
 
@@ -383,6 +479,7 @@ def main():
     parser.add_argument("--output", type=Path, help="a new directory for this run")
     parser.add_argument("--toolchain", default="local", help="GOTOOLCHAIN for the build, such as go1.27.4")
     parser.add_argument("--source", type=Path, default=Path("."), help="the module root to build")
+    parser.add_argument("--profile", choices=sorted(PROFILES), default="scalar", help="scalar: E1's cases and E3's contention record; pressure: E3's socket-pressure observation")
     parser.add_argument("--case-timeout", type=float, default=60.0)
     parser.add_argument("--validate", type=Path, help="validate an existing results.json and exit")
     args = parser.parse_args()
@@ -392,7 +489,7 @@ def main():
         return
     if args.output is None:
         parser.error("--output is required")
-    results, failure = run(args.source, args.output, args.toolchain, args.case_timeout)
+    results, failure = run(args.source, args.output, args.toolchain, args.case_timeout, args.profile)
     if failure is not None:
         raise SystemExit(f"stopped: {failure}")
     validate_results(json.loads((args.output / "results.json").read_text()))
