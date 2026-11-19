@@ -58,7 +58,6 @@ class NativeBuildTests(unittest.TestCase):
             with self.subTest(output=output), self.assertRaisesRegex(ValueError, "self-test"):
                 build.check_self_test(output)
 
-
     def test_step_timeout_kills_and_joins_the_process_group(self):
         import fcntl
         with tempfile.TemporaryDirectory() as temporary:
