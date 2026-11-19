@@ -13,8 +13,8 @@ from test_powermetrics_wrapper import D6_BOUNDED, wrapper_command
 
 FIXTURE = Path(__file__).parent / "testdata" / "powermetrics" / "cpu_power.plist"
 RECEIPT_TIMES = FIXTURE.parent / "x3_016bc60c7_receipt_times.json"
-# Every separator in the retained real capture (sha256 82b30b20...f9255): a NUL before each
-# record after the first, none after the last.
+# Every separator in the retained real capture (RECEIPT_TIMES capture_sha256): a NUL before
+# each record after the first, none after the last.
 REAL_SEPARATOR = b'</plist>\n\0<?xml version="1.0" encoding="UTF-8"?>'
 SECOND = 10**9
 MS = 10**6
@@ -222,24 +222,24 @@ class FramingTests(unittest.TestCase):
         # one elapsed_ns[1] before record 1: gap 1 is constructed, not evidence, and so is
         # the sum check's start. Gaps 2 to 59 are the evidence.
         times = json.loads(RECEIPT_TIMES.read_text())
-        old, elapsed = times["arrival_ns"], times["elapsed_ns"]
+        old_arrivals, elapsed = times["arrival_ns"], times["elapsed_ns"]
         records = dumped(60, elapsed)
         raw = b"\0".join(records)
         self.assertIn(REAL_SEPARATOR, raw)
         self.assertEqual((raw.count(b"\0"), raw.endswith(b"</plist>\n")), (59, True))
-        first = old[0] - elapsed[1]  # constructed
-        reads = [(LAUNCHED + first, len(records[0]))]
-        reads += [(LAUNCHED + old[index - 1], 1 + len(records[index])) for index in range(1, 59)]
-        reads += [(LAUNCHED + old[58], 1 + len(records[59]) // 2),
-                  (LAUNCHED + old[59], len(records[59]) - len(records[59]) // 2)]
+        constructed_first = old_arrivals[0] - elapsed[1]
+        reads = [(LAUNCHED + constructed_first, len(records[0]))]
+        reads += [(LAUNCHED + old_arrivals[index - 1], 1 + len(records[index])) for index in range(1, 59)]
+        reads += [(LAUNCHED + old_arrivals[58], 1 + len(records[59]) // 2),
+                  (LAUNCHED + old_arrivals[59], len(records[59]) - len(records[59]) // 2)]
         # The schedule reproduces the retained receipt under the old rule: the read that
         # delivered each record's following NUL, and the final record's own last byte.
         nuls = [offset for offset, byte in enumerate(raw) if byte == 0]
         self.assertEqual([reader.arrival(offset + 1, reads) - LAUNCHED for offset in nuls] +
-                         [reader.arrival(len(raw), reads) - LAUNCHED], old)
+                         [reader.arrival(len(raw), reads) - LAUNCHED], old_arrivals)
         result = judge(raw, reads)
         self.assertEqual(result["status"], "passed", result["reasons"])
-        self.assertEqual(arrivals_of(result), [first] + old[:58] + [old[59]])
+        self.assertEqual(arrivals_of(result), [constructed_first] + old_arrivals[:58] + [old_arrivals[59]])
         self.assertEqual(result["max_gap_deviation_ns"], 6_400_917)  # record 18
         self.assertEqual(result["sum_deviation_ns"], -2_339_937)
 
@@ -299,7 +299,7 @@ class CaptureTests(unittest.TestCase):
             result = reader.capture(output, command=wrapper_command(fake, ["bounded"], "w.STOP_GRACE_S = 0.3"))
             self.assertEqual(result["exit"], 0, (output / "capture.log").read_text())
             self.assertEqual((output / "capture.plist").read_bytes(), b"\0".join([record] * 3))
-            arrivals = [entry["arrival_ns"] for entry in result["records"]]
+            arrivals = arrivals_of(result)
             self.assertEqual(len(arrivals), 3)
             for index in (1, 2):
                 self.assertGreater(arrivals[index] - arrivals[index - 1], 200 * MS, arrivals)
