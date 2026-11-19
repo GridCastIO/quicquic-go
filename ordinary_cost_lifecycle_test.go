@@ -273,6 +273,19 @@ type ordinaryCostDetachment struct {
 	Source    string `json:"source"`
 }
 
+// ordinaryCostEstablishedController observes the congestion controller an established
+// connection runs. A requested controller becomes the record's only once the connection
+// runs it.
+func ordinaryCostEstablishedController(conn *Conn, requested string) (string, error) {
+	observed := conn.CongestionControlV1()
+	if observed != requested {
+		return observed, fmt.Errorf("the established connection runs %s, not the requested %s", observed, requested)
+	}
+	return observed, nil
+}
+
+// ordinaryCostLifecycleClientResult is one role's record. Its Controller is observed on the
+// established connection, and is empty if there was none.
 type ordinaryCostLifecycleClientResult struct {
 	Format           string                        `json:"format"`
 	Role             string                        `json:"role"`
@@ -287,6 +300,8 @@ type ordinaryCostLifecycleClientResult struct {
 	JoinSource       string                        `json:"grant_join_source"`
 }
 
+// ordinaryCostLifecycleServerResult is one role's record. Its Controller is observed on the
+// accepted connection, and is empty if there was none.
 type ordinaryCostLifecycleServerResult struct {
 	Format     string               `json:"format"`
 	Role       string               `json:"role"`
@@ -305,7 +320,7 @@ type ordinaryCostLifecycleServerResult struct {
 // qualifying state, and its transport detached. conf is the C1 multipath Config.
 func ordinaryCostRunLifecycleClient(ctx context.Context, spec ordinaryCostLifecycleSpec, conf *Config) (result *ordinaryCostLifecycleClientResult, err error) {
 	result = &ordinaryCostLifecycleClientResult{
-		Format: ordinaryCostLifecycleFormat, Role: "client", Controller: spec.Controller, Go: runtime.Version(), Platform: ordinaryCostHost.identity(),
+		Format: ordinaryCostLifecycleFormat, Role: "client", Go: runtime.Version(), Platform: ordinaryCostHost.identity(),
 		RetiredLifecycle: spec.Retired, Samples: []ordinaryCostLifecycleSample{}, GrantJoins: map[string]bool{},
 		JoinSource: ordinaryCostJoinSource,
 		Detachment: ordinaryCostDetachment{Transport: "backup", Source: ordinaryCostDetachSource},
@@ -324,6 +339,9 @@ func ordinaryCostRunLifecycleClient(ctx context.Context, spec ordinaryCostLifecy
 		return result, err
 	}
 	if lease.conn, err = origin.Dial(ctx, server, ordinaryCostClientTLS(), conf); err != nil {
+		return result, err
+	}
+	if result.Controller, err = ordinaryCostEstablishedController(lease.conn, spec.Controller); err != nil {
 		return result, err
 	}
 	if result.Negotiated, err = lease.conn.MultipathNegotiatedV1(); err != nil {
@@ -382,7 +400,7 @@ func ordinaryCostRunLifecycleClient(ctx context.Context, spec ordinaryCostLifecy
 // until the client closes it.
 func ordinaryCostRunLifecycleServer(ctx context.Context, spec ordinaryCostLifecycleSpec, conf *Config) (result *ordinaryCostLifecycleServerResult, err error) {
 	result = &ordinaryCostLifecycleServerResult{
-		Format: ordinaryCostLifecycleFormat, Role: "server", Controller: spec.Controller, Go: runtime.Version(), Platform: ordinaryCostHost.identity(),
+		Format: ordinaryCostLifecycleFormat, Role: "server", Go: runtime.Version(), Platform: ordinaryCostHost.identity(),
 		GrantJoins: map[string]bool{}, JoinSource: ordinaryCostJoinSource,
 	}
 	ctx, cancel := context.WithTimeout(ctx, spec.timeout())
@@ -400,6 +418,9 @@ func ordinaryCostRunLifecycleServer(ctx context.Context, spec ordinaryCostLifecy
 	}
 	defer listener.Close()
 	if lease.conn, err = listener.Accept(ctx); err != nil {
+		return result, err
+	}
+	if result.Controller, err = ordinaryCostEstablishedController(lease.conn, spec.Controller); err != nil {
 		return result, err
 	}
 	if result.Negotiated, err = lease.conn.MultipathNegotiatedV1(); err != nil {
@@ -543,6 +564,16 @@ func TestOrdinaryCostLifecycle(t *testing.T) {
 		defer probe.Close()
 		return probe.LocalAddr().String()
 	}
+	t.Run("a role with no connection observed no controller", func(t *testing.T) {
+		spec := ordinaryCostLifecycleSpec{Controller: "reno", Retired: "closed", Address: "not-an-address", TimeoutNS: int64(5 * time.Second)}
+		client, err := ordinaryCostRunLifecycleClient(t.Context(), spec, ordinaryCostConfig(t, true, "reno"))
+		require.Error(t, err)
+		require.Empty(t, client.Controller, "the requested controller is not an observed one")
+		spec.Address = newUDPConnLocalhost(t).LocalAddr().String()
+		server, err := ordinaryCostRunLifecycleServer(t.Context(), spec, ordinaryCostConfig(t, true, "reno"))
+		require.Error(t, err, "the address is taken")
+		require.Empty(t, server.Controller)
+	})
 	if !ordinaryCostHost.negotiatedMultipath {
 		spec := ordinaryCostLifecycleSpec{Controller: "reno", Retired: "closed", Address: address(), TimeoutNS: int64(5 * time.Second)}
 		require.ErrorContains(t, spec.validateFor(ordinaryCostHost), "public multipath admission")
@@ -550,9 +581,11 @@ func TestOrdinaryCostLifecycle(t *testing.T) {
 		require.ErrorIs(t, err, ErrMultipathUnsupportedV1, "the public grant refuses")
 		require.Empty(t, client.Samples)
 		require.False(t, client.Negotiated)
+		require.Empty(t, client.Controller)
 		server, err := ordinaryCostRunLifecycleServer(t.Context(), spec, ordinaryCostConfig(t, true, "reno"))
 		require.ErrorIs(t, err, ErrMultipathUnsupportedV1)
 		require.False(t, server.Negotiated)
+		require.Empty(t, server.Controller)
 		return
 	}
 
@@ -609,10 +642,77 @@ func TestOrdinaryCostLifecycle(t *testing.T) {
 			require.Equal(t, ordinaryCostDetachment{Transport: "backup", Detached: true, Source: ordinaryCostDetachSource}, client.Detachment)
 			require.Equal(t, map[string]bool{"origin": true, "backup": true}, client.GrantJoins)
 			require.True(t, server.result.Negotiated)
+			require.Equal(t, controller, server.result.Controller)
 			require.True(t, server.result.PeerClosed, server.result.CloseCause)
 			require.Equal(t, map[string]bool{"origin": true}, server.result.GrantJoins)
 		})
 	}
+
+	// A test-local Config makes one role's connection run bbrv3 where the run requested reno.
+	// Each role's peer is an ordinary test-local endpoint, not the other role, so it cannot
+	// finish first. Each peer keeps its own socket bound from setup through cleanup.
+	t.Run("a client whose connection runs another controller fails", func(t *testing.T) {
+		ordinary := &Transport{Conn: newUDPConnLocalhost(t)}
+		t.Cleanup(func() { ordinary.Close() })
+		ln, err := ordinary.Listen(ordinaryCostServerTLS(), ordinaryCostConfig(t, false, "reno"))
+		require.NoError(t, err)
+		peerDone := make(chan struct{})
+		go func() {
+			defer close(peerDone)
+			if conn, err := ln.Accept(context.Background()); err == nil {
+				<-conn.Context().Done()
+			}
+		}()
+		// Closing the listener and transport ends the peer, which is joined; its outcome is not asserted.
+		t.Cleanup(func() {
+			ln.Close()
+			ordinary.Close()
+			<-peerDone
+		})
+		spec := ordinaryCostLifecycleSpec{Controller: "reno", Retired: "closed", Address: ordinary.Conn.LocalAddr().String(), TimeoutNS: int64(10 * time.Second)}
+		client, err := ordinaryCostRunLifecycleClient(t.Context(), spec, ordinaryCostConfig(t, true, "bbrv3"))
+		require.ErrorContains(t, err, "runs bbrv3, not the requested reno")
+		require.Equal(t, "bbrv3", client.Controller, "the result names what the connection ran")
+		require.Empty(t, client.Samples)
+	})
+
+	t.Run("a server whose connection runs another controller fails", func(t *testing.T) {
+		peer := &Transport{Conn: newUDPConnLocalhost(t)}
+		t.Cleanup(func() { peer.Close() })
+		spec := ordinaryCostLifecycleSpec{Controller: "reno", Retired: "closed", Address: address(), TimeoutNS: int64(10 * time.Second)}
+		type served struct {
+			result *ordinaryCostLifecycleServerResult
+			err    error
+		}
+		servers := make(chan served, 1)
+		serverConf := ordinaryCostConfig(t, true, "bbrv3")
+		go func() {
+			result, err := ordinaryCostRunLifecycleServer(t.Context(), spec, serverConf)
+			servers <- served{result, err}
+		}()
+		joinServer := sync.OnceValue(func() served { return <-servers })
+		t.Cleanup(func() { joinServer() })
+		addr, err := net.ResolveUDPAddr("udp", spec.Address)
+		require.NoError(t, err)
+		ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+		defer cancel()
+		// The server role's close can reach the peer before Dial returns, or after.
+		conn, cause := peer.Dial(ctx, addr, ordinaryCostClientTLS(), ordinaryCostConfig(t, false, "reno"))
+		if cause == nil {
+			select {
+			case <-conn.Context().Done():
+			case <-ctx.Done():
+				t.Fatal("the mismatched server never closed the connection")
+			}
+			cause = context.Cause(conn.Context())
+		}
+		var appErr *ApplicationError
+		require.ErrorAs(t, cause, &appErr)
+		require.True(t, appErr.Remote, "the server role closed the connection")
+		server := joinServer()
+		require.ErrorContains(t, server.err, "runs bbrv3, not the requested reno")
+		require.Equal(t, "bbrv3", server.result.Controller)
+	})
 
 	t.Run("an unnegotiated connection is no control", func(t *testing.T) {
 		ordinary := &Transport{Conn: newUDPConnLocalhost(t)}
