@@ -194,7 +194,7 @@ The Go fixture builds with `-tags ordinarycost` on Linux amd64 or Darwin arm64; 
 
 ## Privileged host sampler and X3 capture
 
-Protocol decision D6 A ([#1552](https://github.com/GridCastIO/quicquic-go/issues/1552)) selects `powermetrics` with privilege for exactly two argument lists, both writing to standard output: `/usr/bin/powermetrics --format plist --samplers cpu_power -i 1000 -n 60` (X3) and the same without `-n 60` (X11, stopped by the driver). [`powermetrics_wrapper.py`](powermetrics_wrapper.py) is the reference source of the owner-installed wrapper that grants them. It accepts only the mode names `bounded` and `driver-stopped`, refuses anything else without launching, and passes the sampler's output and exit status through. It stops `powermetrics` (SIGTERM, then SIGKILL after 3 s, then reap) when its standard input reaches EOF, when it receives SIGTERM, SIGINT or SIGHUP, or after a 600 s lifetime backstop, which exits 75. It runs under `/usr/bin/python3 -I`, the Command Line Tools' Python, so it stays Python 3.9 compatible.
+Protocol decision D6 A ([#1552](https://github.com/GridCastIO/quicquic-go/issues/1552)) selects `powermetrics` with privilege for exactly two argument lists, both writing to standard output: `/usr/bin/powermetrics --format plist --samplers cpu_power -i 1000 -n 60` (X3) and the same without `-n 60` (X11, stopped by the driver). [`powermetrics_wrapper.py`](powermetrics_wrapper.py) is the reference source of the owner-installed wrapper that grants them. It accepts only the mode names `bounded` and `driver-stopped`, refuses anything else without launching, and passes the sampler's output and exit status through. It stops `powermetrics` (SIGTERM, then SIGKILL after 3 s, then reap) when its standard input reaches EOF, when it receives SIGTERM, SIGINT or SIGHUP, or after a 600 s lifetime backstop, which exits 75. It runs under `/usr/bin/python3 -I`. That is Apple's shim, which runs the Python of the developer tools `xcode-select` has selected (the Command Line Tools or an Xcode installation, Python 3.9 on the development host), so the wrapper stays Python 3.9 compatible, and the owner checks that interpreter before granting it (step 1).
 
 [`sampler_capture.py`](sampler_capture.py) is the X3 capture reader: `python3 -B interop/multipath/sampler_capture.py --output DIR` runs the `bounded` mode through the same route and writes `capture.plist`, `capture.log` and the receipt `capture.json` into a new `DIR`, exiting 0 only if the capture passed. It holds the wrapper's standard input open until the output ends and timestamps each record's arrival on the monotonic clock: the read that delivered its NUL terminator, or a final unterminated record's last byte. It reads the clock just before launch and just after reaping. It applies the protocol's [sampler capture and contiguity check](../../docs/adr/2026-11-19-macos-multipath-execution-protocol.md#sampler-capture-and-contiguity-check) with the adapter's own per-record rules (`delta_records`):
 
@@ -206,7 +206,7 @@ The receipt also lists, by name only, the top-level keys beyond the adapter's an
 
 Owner install (B2), done by the owner and never by the drivers or their tests:
 
-1. Review `interop/multipath/powermetrics_wrapper.py` at the merged commit.
+1. Review `interop/multipath/powermetrics_wrapper.py` at the merged commit. Then resolve the interpreter that root would run, `/usr/bin/python3 -I -c 'import os, sys; print(sys.executable, os.__file__)'`, and confirm that both paths and their parent directories are owned by root and writable by no group or other user.
 2. Install it root-owned at the fixed path:
 
    ```sh
@@ -224,7 +224,7 @@ Owner install (B2), done by the owner and never by the drivers or their tests:
    ```
 
    The `Defaults` line keeps sudo from placing a terminal or log between the driver's pipe and the wrapper, so EOF reaches it.
-4. Check the grant without launching anything: `sudo -n -l /usr/local/libexec/quicquic-powermetrics driver-stopped` and the same with `bounded` print the command; `sudo -n -l /usr/local/libexec/quicquic-powermetrics other` is refused.
+4. Check the grant without launching anything: `sudo -n -l /usr/local/libexec/quicquic-powermetrics driver-stopped` and the same with `bounded` print the command. A command-specific listing reports the account's whole policy, so a general administrator rule can also list `… other`; instead, read `sudo -l` and confirm that the only `NOPASSWD` entries naming the wrapper are the two exact command lines. The drivers only ever ask for those two command lines, and `-n` keeps them from prompting.
 5. To remove the grant, delete `/etc/sudoers.d/quicquic-powermetrics` and the wrapper.
 
 ## Negotiated lifecycle memory

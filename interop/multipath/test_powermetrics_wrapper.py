@@ -138,6 +138,22 @@ class WrapperTests(unittest.TestCase):
             self.assertIsNotNone(process.stdin, "standard input was never closed")
 
 
+    def test_backstop_stops_the_sampler_even_when_stderr_is_unwritable(self):
+        """No diagnostic or other failure after launch can skip stopping and reaping."""
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            fake = fake_powermetrics(root, payload=b"<plist/>\0", ignore_term=True, linger_s=60)
+            process = subprocess.Popen(wrapper_command(fake, ["driver-stopped"], "w.STOP_GRACE_S = 0.3; w.MAX_LIFETIME_S = 1"),
+                                       stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            self.addCleanup(process.wait)
+            self.addCleanup(lambda: process.poll() is None and process.kill())
+            self.assertEqual(process.stdout.read(9), b"<plist/>\0")
+            pid = json.loads((root / "invoked.json").read_text())["pid"]
+            self.addCleanup(lambda: alive(pid) and os.kill(pid, signal.SIGKILL))
+            process.stderr.close()  # the wrapper's diagnostics now fail with EPIPE
+            self.assertEqual(process.wait(timeout=10), 75)
+            self.assertFalse(alive(pid))
+
     def test_installed_form_runs_isolated_under_the_system_python(self):
         source = Path(wrapper.__file__).read_text()
         self.assertEqual(source.splitlines()[0], "#!/usr/bin/python3 -I")

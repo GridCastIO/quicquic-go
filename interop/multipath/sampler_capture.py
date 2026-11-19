@@ -47,6 +47,13 @@ def arrival(end, reads):
     raise ValueError(f"no read delivered byte {end}")
 
 
+def receipt_elapsed(record):
+    """A record's elapsed_ns for the receipt: the value when it meets the adapter's rule
+    (a positive integer), otherwise null. The adapter's reason and raw bytes say why."""
+    elapsed = record.get("elapsed_ns")
+    return elapsed if type(elapsed) is int and elapsed > 0 else None
+
+
 def key_paths(value, prefix):
     if isinstance(value, dict):
         for key, child in value.items():
@@ -80,7 +87,8 @@ def judge_capture(raw, reads, launched_ns, reaped_ns, exit, reaped, failures=())
         reasons.append(f"the wrapper was not confirmed stopped within {driver.SAMPLER_STOP_S} s")
     elif exit != 0:
         reasons.append(f"the capture exited {exit}")
-    result = {"format": FORMAT, "exit": exit, "reaped": reaped, "reaped_after_launch_ns": reaped_ns - launched_ns,
+    result = {"format": FORMAT, "exit": exit, "reaped": reaped,
+              "reaped_after_launch_ns": reaped_ns - launched_ns if reaped else None,
               "tolerances": {"gap_ns": GAP_TOLERANCE_NS, "sum_ns": SUM_TOLERANCE_NS, "records": RECORDS}}
     try:
         records, tail = driver.parse_powermetrics(raw)
@@ -91,7 +99,7 @@ def judge_capture(raw, reads, launched_ns, reaped_ns, exit, reaped, failures=())
         reasons.append(f"{tail} bytes of a cut final record")
     arrivals = [arrival(end, reads) - launched_ns for end in record_ends(raw, len(records))]
     result.update(
-        records=[{"arrival_ns": at, "elapsed_ns": record.get("elapsed_ns")} for at, record in zip(arrivals, records)],
+        records=[{"arrival_ns": at, "elapsed_ns": receipt_elapsed(record)} for at, record in zip(arrivals, records)],
         launch_to_first_arrival_ns=arrivals[0] if arrivals else None,  # recorded, not judged
         identity_review=identity_review(records),
     )

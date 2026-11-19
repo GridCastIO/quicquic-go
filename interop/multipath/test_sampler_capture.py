@@ -78,6 +78,17 @@ class JudgeTests(unittest.TestCase):
         self.assertEqual([reason for reason in result["reasons"] if "gap" in reason or "arrived" in reason], [])
         self.assertTrue(any("sum" in reason for reason in result["reasons"]), result["reasons"])
 
+    def test_rejected_producer_values_still_leave_a_json_receipt(self):
+        import datetime
+        raw, reads = capture(edit=lambda records: records[3].update(elapsed_ns=datetime.datetime(2026, 11, 19)))
+        result = judge(raw, reads)
+        self.assertEqual(result["status"], "failed")
+        self.assertTrue(any("adapter rejects" in reason for reason in result["reasons"]), result["reasons"])
+        receipt = json.loads(json.dumps(result))
+        self.assertIsNone(receipt["records"][3]["elapsed_ns"])
+        self.assertEqual(receipt["records"][3]["arrival_ns"], 8 * SECOND)
+        self.assertEqual(receipt["records"][2]["elapsed_ns"], SECOND)
+
     def test_fewer_than_two_deltas_is_inconclusive(self):
         raw, reads = capture(count=1)
         result = judge(raw, reads)
@@ -95,9 +106,11 @@ class JudgeTests(unittest.TestCase):
         result = judge(raw, reads, exit=1)
         self.assertEqual(result["status"], "failed")
         self.assertIn("the capture exited 1", result["reasons"])
+        self.assertEqual(result["reaped_after_launch_ns"], reads[-1][0] + SECOND - LAUNCHED)
         result = judge(raw, reads, exit=None, reaped=False)
         self.assertEqual(result["status"], "failed")
         self.assertTrue(any("not confirmed stopped" in reason for reason in result["reasons"]), result["reasons"])
+        self.assertIsNone(result["reaped_after_launch_ns"], "no reap, so no reap time")
 
     def test_arrival_is_the_read_that_completed_each_record(self):
         raw, _ = capture(count=3, terminate_last=False)

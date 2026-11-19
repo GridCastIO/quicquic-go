@@ -33,7 +33,7 @@ def main(argv, powermetrics=POWERMETRICS):
     """Run one mode. powermetrics is a parameter only for tests that import this module;
     the installed command has no way to change the executable or its arguments."""
     if len(argv) != 1 or argv[0] not in MODES:
-        sys.stderr.write(f"usage: quicquic-powermetrics {{{'|'.join(MODES)}}}\n")
+        note(f"usage: quicquic-powermetrics {{{'|'.join(MODES)}}}")
         return EXIT_USAGE
     # A stop signal before or during the launch is honored as soon as the loop starts.
     requested = []
@@ -42,14 +42,28 @@ def main(argv, powermetrics=POWERMETRICS):
     # Standard output and error are inherited, so the plist bytes reach the caller untouched;
     # the wrapper itself never writes to standard output.
     child = subprocess.Popen([powermetrics, *MODES[argv[0]]], stdin=subprocess.DEVNULL)
-    deadline = time.monotonic() + MAX_LIFETIME_S
-    while child.poll() is None:
-        if requested or stdin_closed():
-            return stop(child, 0)
-        if time.monotonic() > deadline:
-            sys.stderr.write(f"quicquic-powermetrics: stopped at the {MAX_LIFETIME_S} s lifetime bound\n")
-            return stop(child, EXIT_LIFETIME)
-    return status(child.returncode)
+    try:
+        deadline = time.monotonic() + MAX_LIFETIME_S
+        while child.poll() is None:
+            if requested or stdin_closed():
+                return stop(child, 0)
+            if time.monotonic() > deadline:
+                stop(child, EXIT_LIFETIME)
+                note(f"quicquic-powermetrics: stopped at the {MAX_LIFETIME_S} s lifetime bound")
+                return EXIT_LIFETIME
+        return status(child.returncode)
+    finally:
+        if child.returncode is None:  # any other way out still stops and reaps the sampler
+            stop(child, 0)
+
+
+def note(message):
+    """Best-effort diagnostic, unbuffered, so an unwritable stderr can neither skip a stop
+    nor change the exit status at interpreter shutdown."""
+    try:
+        os.write(2, (message + "\n").encode())
+    except OSError:
+        pass
 
 
 def stdin_closed():
