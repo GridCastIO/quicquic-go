@@ -108,6 +108,7 @@ BLOCKED_FACTS = {
     "queued-expiry": {
         **RECORDED_CLAIM_FACTS, "queued_result": "deadline-exceeded", "queued_unsubmitted": 1, "queued_claimed": False,
         "queued_before_current_deadline": True, "writer_waiting_at_queued_expiry": True, "queued_expiry_ms": is_ms,
+        "queued_publication_ms": is_ms,
     },
     "active-close-join": {
         **TRIGGER_FACTS, "request_deadline_preserved": True, "reset_observed_by_caller_write": True, "close_returned_while_borrowed": True, "canceled_wait": "canceled", "returned_after_close_began": True,
