@@ -1,4 +1,6 @@
 import copy
+import hashlib
+import time
 import unittest
 import tempfile
 import contextlib
@@ -27,29 +29,65 @@ def flow(label="ordinary", bytes_per_second=1000, control_p99=1000.0):
     }
 
 
-def observation(cell="stream-gso-on", profile="unregistered", round_=0, **changes):
+def metric(value, unit, source="fixture producer", **extra):
+    return {"value": value, "unit": unit, "source": source, "available": True, **extra}
+
+
+def unavailable(unit, reason="no producer"):
+    return {"value": None, "unit": unit, "source": "fixture producer", "available": False, "reason": reason}
+
+
+def identity(platform):
+    goos, goarch = driver.PROFILES[platform]["identity"]
+    return {"profile": platform, "goos": goos, "goarch": goarch}
+
+
+def lost(controller):
+    return metric(0, "packets") if controller == "reno" else unavailable("packets", "only Reno/CUBIC counts lost packets")
+
+
+def observation(cell="stream-gso-on", profile="unregistered", round_=0, platform="linux-amd64", controller="reno", **changes):
+    linux = platform == "linux-amd64"
+    rss_unit, scale = ("kB", 1024) if linux else ("bytes", 1)
+    rss = 1000 if linux else 1024000
+    connection = {"label": "ordinary", "timeout_close": False, "close_cause": "", "controller": controller,
+                  "packets_lost_metric": lost(controller)}
+    if controller == "reno":
+        connection["packets_lost"] = 0
+    cells = list(driver.PROFILES[platform]["cells"])
     record = {
         "cell": cell,
         "profile": profile,
         "round": round_,
-        "seed": driver.BASE_SEED + 100 * list(driver.CELLS).index(cell) + round_,
-        "mode": "campaign",
-        "contaminated": False,
+        "seed": driver.BASE_SEED + 100 * cells.index(cell) + round_,
+        "mode": "campaign" if linux else "smoke",
+        "platform_profile": platform,
+        "controller": controller,
         "server": {
             "go": driver.GO_VERSION,
+            "controller": controller,
+            "platform": identity(platform),
             "granted": profile == "opted-in",
-            "gso_capable": cell not in ("stream-gso-off", "datagram-batch-off"),
+            "multipath_advertised": linux and profile == "opted-in",
+            "gso_capable": linux and cell not in ("stream-gso-off", "datagram-batch-off"),
             "window_cpu_s": 60.0,
-            "rss_kb_at_20s": 1000,
-            "rss_kb_end": 1000,
+            "self_cpu": metric(60 * 10**9, "ns"),
+            "peak_rss_at_sample": metric(rss, rss_unit, bytes=rss * scale),
+            "peak_rss_end": metric(rss, rss_unit, bytes=rss * scale),
             "write_errors": 0,
             "joined": profile == "opted-in",
             "application_send_call_boundary": driver.METRIC_BOUNDARIES["application_send_call"],
             "application_send_call": {"ordinary": {"count": 6000, "p99_us": 1000.0}},
-            "connections": [{"label": "ordinary", "timeout_close": False, "close_cause": ""}],
+            "connections": [connection],
         },
-        "client": {"go": driver.GO_VERSION, "flows": [flow()]},
+        "client": {"go": driver.GO_VERSION, "controller": controller, "platform": identity(platform),
+                   "self_cpu": metric(30 * 10**9, "ns"), "flows": [flow()]},
     }
+    if linux:
+        record["contaminated"] = False
+        record["server"].update(rss_kb_at_20s=1000, rss_kb_end=1000)
+    else:
+        record["host_activity"] = {"status": "unavailable", "reason": "no host sampler selected"}
     if cell == "mixed-bulk":
         if profile == "opted-in":
             background = flow("background", 2000)
@@ -60,6 +98,7 @@ def observation(cell="stream-gso-on", profile="unregistered", round_=0, **change
             record["client"]["flows"] += [flow("background"), flow("background")]
     if cell == "stateless-pressure":
         record["client"]["flood"] = {"sent": 600000, "resets": 300000}
+    record["client"]["useful_bytes"] = metric(sum(f["useful_bytes"] for f in record["client"]["flows"]), "bytes")
     record.update(changes)
     return record
 
@@ -80,11 +119,16 @@ def pair_rounds(cell="stream-gso-on", opted=None):
     return pairs
 
 
+def resync_useful(record):
+    record["client"]["useful_bytes"]["value"] = sum(f["useful_bytes"] for f in record["client"]["flows"])
+
+
 def scale_goodput(record, factor):
     for item in record["client"]["flows"]:
         if item["label"] == "ordinary":
             item["series"] = [int(value * factor) for value in item["series"]]
             item["useful_bytes"] = sum(item["series"])
+    resync_useful(record)
 
 
 class ScheduleTests(unittest.TestCase):
@@ -169,6 +213,7 @@ class AccountingTests(unittest.TestCase):
     def test_mixed_baseline_must_represent_the_workload(self):
         record = observation("mixed-bulk", "unregistered")
         del record["client"]["flows"][2]
+        resync_useful(record)
         with self.assertRaisesRegex(ValueError, "two independent"):
             driver.check_observation(record)
         record = observation("mixed-bulk", "opted-in")
@@ -352,9 +397,10 @@ class ContaminationTests(unittest.TestCase):
 
 
 class ExecutionTests(unittest.TestCase):
-    def invoke(self, root, extra=(), failure=None, edit=None):
+    def invoke(self, root, extra=(), failure=None, edit=None, platform="linux-amd64", sampler=None, role_s=0):
         binary = root / "fixture"
         binary.write_bytes(b"fixture identity")
+        real_popen = subprocess.Popen
         output = root / "output"
         processes = []
 
@@ -362,6 +408,7 @@ class ExecutionTests(unittest.TestCase):
             returncode = None
 
             def wait(self, timeout=None):
+                time.sleep(role_s)
                 if failure == "timeout" and timeout is not None:
                     raise subprocess.TimeoutExpired("fixture", timeout)
                 self.returncode = 7 if failure == "exit" else 0
@@ -370,15 +417,16 @@ class ExecutionTests(unittest.TestCase):
             def kill(self):
                 self.returncode = -9
 
-        def launch(command, env, stdout, **kwargs):
+        def launch(command, env=None, stdout=None, **kwargs):
+            if env is None or "ORDINARY_COST_SPEC" not in env:
+                return real_popen(command, stdout=stdout, **kwargs)
             if failure == "launch" and processes:
                 raise OSError("second child launch failed")
             spec = json.loads(env["ORDINARY_COST_SPEC"])
             process = Process()
             processes.append(process)
             stdout.write("--- PASS: TestOrdinaryCostRole (0.01s)\n")
-            record = observation(spec["cell"], spec["profile"])
-            record["server"]["controller"] = record["client"]["controller"] = spec["controller"]
+            record = observation(spec["cell"], spec["profile"], platform=platform, controller=spec["controller"])
             for argument in command:
                 if argument.startswith("-test.cpuprofile=") and failure != "missing-profile":
                     Path(argument.split("=", 1)[1]).write_bytes(b"profile")
@@ -392,9 +440,12 @@ class ExecutionTests(unittest.TestCase):
             for name, value in (("wait_quiet", {}), ("schedstat_running_ns", dict.fromkeys(driver.FIXTURE_CPUS, 0)),
                                 ("softirqd_ns", 0)):
                 stack.enter_context(mock.patch.object(driver, name, return_value=value))
-            stack.enter_context(mock.patch.object(driver.platform, "platform", return_value="Linux-test"))
-            stack.enter_context(mock.patch.object(driver.platform, "system", return_value="Linux"))
-            stack.enter_context(mock.patch.object(driver.platform, "machine", return_value="x86_64"))
+            system, machine = driver.PROFILES[platform]["host"]
+            stack.enter_context(mock.patch.object(driver.platform, "platform", return_value=f"{system}-test"))
+            stack.enter_context(mock.patch.object(driver.platform, "system", return_value=system))
+            stack.enter_context(mock.patch.object(driver.platform, "machine", return_value=machine))
+            if sampler is not None:
+                stack.enter_context(mock.patch.object(driver, "powermetrics_command", return_value=sampler))
             stack.enter_context(mock.patch.object(driver.shutil, "which", return_value="taskset"))
             stack.enter_context(mock.patch.object(driver.subprocess, "run", return_value=mock.Mock(stdout=f"fixture: {driver.GO_VERSION}\n")))
             stack.enter_context(mock.patch.object(driver.subprocess, "Popen", side_effect=launch))
@@ -404,8 +455,9 @@ class ExecutionTests(unittest.TestCase):
                                 "--timeout-seconds", "135", *extra])
         return code, json.loads((output / "summary.json").read_text()), processes
 
-    def exercise_sigterm_during_roles(self):
-        """Real process ownership, fake workload: interrupt only after main starts waiting."""
+    def exercise_sigterm_during_roles(self, native=False):
+        """Real process ownership, fake workload: interrupt only after main starts waiting.
+        The native profile also owns a host sampler, which must be reaped too."""
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             (root / "fixture").write_bytes(b"fake-role fixture")
@@ -431,21 +483,24 @@ class ExecutionTests(unittest.TestCase):
                         return code
                 driver.subprocess.Popen = FakeRole
                 driver.subprocess.run = lambda *a, **kw: SimpleNamespace(stdout="fixture: " + driver.GO_VERSION + "\\n")
-                driver.platform.system = lambda: "Linux"
-                driver.platform.machine = lambda: "x86_64"
-                driver.platform.platform = lambda: "Linux-test"
+                native = sys.argv[4] == "native"
+                driver.platform.system = lambda: "Darwin" if native else "Linux"
+                driver.platform.machine = lambda: "arm64" if native else "x86_64"
+                driver.platform.platform = lambda: "test"
+                driver.powermetrics_command = lambda: ["sampler"]
                 driver.shutil.which = lambda _: "taskset"
                 driver.wait_quiet = lambda _: {}
                 driver.schedstat_running_ns = lambda: dict.fromkeys(driver.FIXTURE_CPUS, 0)
                 driver.softirqd_ns = lambda: 0
+                extra = ["--platform-profile", "darwin-arm64", "--smoke-cell", "stream", "--host-sampler", "powermetrics"] if native else []
                 sys.exit(driver.main([
                     "--candidate", "a" * 40, "--binary", str(root / "fixture"), "--output", str(root / "output"),
-                    "--remaining-instances", "36", "--remaining-host-seconds", "5000", "--timeout-seconds", "135",
+                    "--remaining-instances", "36", "--remaining-host-seconds", "5000", "--timeout-seconds", "135", *extra,
                 ]))
             """)
             read_fd, write_fd = os.pipe()
             process = subprocess.Popen([sys.executable, "-c", bootstrap, str(root), str(write_fd),
-                                        str(Path(driver.__file__).parent)], pass_fds=(write_fd,),
+                                        str(Path(driver.__file__).parent), "native" if native else "linux"], pass_fds=(write_fd,),
                                        stdout=subprocess.PIPE, stderr=subprocess.PIPE)
             os.close(write_fd)
             pids = []
@@ -454,7 +509,7 @@ class ExecutionTests(unittest.TestCase):
                 self.assertTrue(ready, "driver did not reach the role wait")
                 self.assertEqual(os.read(read_fd, 7), b"waiting")
                 pids = json.loads((root / "pids.json").read_text())
-                self.assertEqual(len(pids), 2)
+                self.assertEqual(len(pids), 3 if native else 2)
                 process.send_signal(signal.SIGTERM)
                 stdout, stderr = process.communicate(timeout=10)
                 self.assertEqual(process.returncode, 1, stderr.decode())
@@ -576,10 +631,24 @@ class ExecutionTests(unittest.TestCase):
                         for path in record["cpu_profiles"].values():
                             self.assertTrue(Path(path).is_file())
 
+    def test_bbr_runs_every_linux_workload_outside_the_campaign(self):
+        for cell in ("stream-gso-on", "datagram-batch-on", "mixed-bulk"):
+            with self.subTest(cell=cell), tempfile.TemporaryDirectory() as temporary:
+                root = Path(temporary)
+                code, summary, processes = self.invoke(root, ("--smoke-cell", cell, "--controller", "bbrv3"))
+                self.assertEqual(code, 0, summary.get("error"))
+                self.assertEqual(len(processes), 4)
+                records = [json.loads(line) for line in (root / "output" / "smoke.jsonl").read_text().splitlines()]
+                for record in records:
+                    for connection in record["server"]["connections"]:
+                        self.assertFalse(connection["packets_lost_metric"]["available"])
+                self.assertEqual(summary["diagnostic"]["packets_lost"], {"unregistered": [None], "opted-in": [None]})
+
     def test_unsupported_bbr_or_profiling_campaign_launches_nothing(self):
         for extra in (("--controller", "bbrv3"),
-                      ("--controller", "bbrv3", "--diagnostic-cell", "mixed-bulk"),
-                      ("--cpu-profile",)):
+                      ("--cpu-profile",),
+                      ("--smoke-cell", "stream"),
+                      ("--host-sampler", "powermetrics", "--smoke-cell", "stream-gso-on")):
             with self.subTest(extra=extra), tempfile.TemporaryDirectory() as temporary:
                 root = Path(temporary)
                 with contextlib.redirect_stderr(io.StringIO()), self.assertRaises(SystemExit) as caught:
@@ -618,6 +687,287 @@ class RevalidationTests(unittest.TestCase):
             driver.check_accounting(records)
         with self.assertRaisesRegex(ValueError, "not in the inventory"):
             driver.schedule(["no-such-cell"])
+
+
+class MetricRecordTests(unittest.TestCase):
+    """Every metric names its unit and producer, and an unavailable one has no value."""
+
+    def test_reno_zero_is_a_counted_zero(self):
+        record = observation()
+        driver.check_observation(record)
+        rounds = pair_rounds()
+        self.assertEqual(driver.judge_cell("stream-gso-on", rounds)["packets_lost"]["opted-in"], [0, 0, 0])
+
+    def test_bbr_loss_stays_unavailable(self):
+        record = observation(cell="stateless-pressure", controller="bbrv3")
+        driver.check_observation(record)
+        self.assertNotIn("packets_lost", record["server"]["connections"][0])
+        verdict = driver.judge_cell("stateless-pressure", [(record, observation("stateless-pressure", "opted-in", controller="bbrv3"))])
+        self.assertEqual(verdict["packets_lost"], {"unregistered": [None], "opted-in": [None]})
+
+    def test_fabricated_or_missing_loss_fails(self):
+        record = observation(controller="bbrv3")
+        record["server"]["connections"][0]["packets_lost_metric"] = metric(0, "packets")
+        with self.assertRaisesRegex(ValueError, "lost"):
+            driver.check_observation(record)
+        record = observation(controller="bbrv3")
+        record["server"]["connections"][0]["packets_lost"] = 0
+        with self.assertRaisesRegex(ValueError, "lost"):
+            driver.check_observation(record)
+        record = observation()
+        record["server"]["connections"][0]["packets_lost_metric"] = unavailable("packets")
+        with self.assertRaisesRegex(ValueError, "lost"):
+            driver.check_observation(record)
+
+    def test_malformed_metric_fails(self):
+        cases = {
+            "missing": lambda r: r["server"].pop("self_cpu"),
+            "value without availability": lambda r: r["server"]["self_cpu"].update(available=False),
+            "unavailable without reason": lambda r: r["server"].update(self_cpu=unavailable("ns", "")),
+            "no source": lambda r: r["client"]["self_cpu"].update(source=""),
+            "negative": lambda r: r["client"]["self_cpu"].update(value=-1),
+            "float": lambda r: r["client"]["self_cpu"].update(value=1.5),
+            "wrong unit": lambda r: r["client"]["self_cpu"].update(unit="s"),
+        }
+        for name, edit in cases.items():
+            record = observation()
+            edit(record)
+            with self.subTest(name), self.assertRaisesRegex(ValueError, "metric|self_cpu"):
+                driver.check_observation(record)
+
+    def test_useful_bytes_metric_matches_the_flows(self):
+        record = observation("mixed-bulk")
+        record["client"]["useful_bytes"]["value"] += 1
+        with self.assertRaisesRegex(ValueError, "useful"):
+            driver.check_observation(record)
+
+    def test_rss_units_and_normalization(self):
+        for platform, unit, scale in (("linux-amd64", "kB", 1024), ("darwin-arm64", "bytes", 1)):
+            cell = driver.PROFILES[platform]["cells"]
+            record = observation(next(iter(cell)), platform=platform)
+            driver.check_observation(record)
+            self.assertEqual(record["server"]["peak_rss_end"]["bytes"], record["server"]["peak_rss_end"]["value"] * scale)
+            for edit in (lambda r: r["server"]["peak_rss_end"].update(bytes=r["server"]["peak_rss_end"]["bytes"] + 1),
+                         lambda r: r["server"]["peak_rss_end"].update(unit="bytes" if unit == "kB" else "kB")):
+                record = observation(next(iter(cell)), platform=platform)
+                edit(record)
+                with self.subTest(platform=platform), self.assertRaisesRegex(ValueError, "RSS"):
+                    driver.check_observation(record)
+
+
+class NativeRecordTests(unittest.TestCase):
+    def test_native_observation_is_valid(self):
+        for cell in driver.NATIVE_CELLS:
+            for profile in ("unregistered", "opted-in"):
+                if cell == "mixed-bulk" and profile == "opted-in":
+                    continue
+                for controller in ("reno", "bbrv3"):
+                    driver.check_observation(observation(cell, profile, platform="darwin-arm64", controller=controller))
+
+    def test_missing_or_mismatched_native_identity_fails(self):
+        for role in ("server", "client"):
+            for edit in (lambda r: r[role].pop("platform"),
+                         lambda r: r[role].update(platform=identity("linux-amd64")),
+                         lambda r: r[role]["platform"].update(goarch="amd64")):
+                record = observation("stream", platform="darwin-arm64")
+                edit(record)
+                with self.subTest(role=role), self.assertRaisesRegex(ValueError, "identity"):
+                    driver.check_observation(record)
+        record = observation()
+        record["server"].pop("platform")
+        with self.assertRaisesRegex(ValueError, "identity"):
+            driver.check_observation(record)
+
+    def test_native_never_claims_linux_counters_or_negotiation(self):
+        cases = {
+            "gso": lambda r: r["server"].update(gso_capable=True),
+            "advertised": lambda r: r["server"].update(multipath_advertised=True),
+            "legacy rss": lambda r: r["server"].update(rss_kb_end=1000),
+            "quiet host": lambda r: r.update(host_activity={"status": "quiet"}),
+        }
+        for name, edit in cases.items():
+            record = observation("stream", "opted-in", platform="darwin-arm64")
+            edit(record)
+            with self.subTest(name), self.assertRaises(ValueError):
+                driver.check_observation(record)
+
+    def test_native_negotiated_mixed_bulk_is_refused_not_replaced(self):
+        record = observation("mixed-bulk", "unregistered", platform="darwin-arm64")
+        driver.check_observation(record)
+        record = observation("mixed-bulk", "opted-in", platform="darwin-arm64")
+        with self.assertRaisesRegex(ValueError, "negotiated"):
+            driver.check_observation(record)
+
+
+FIXTURE = Path(__file__).parent / "testdata" / "powermetrics" / "cpu_power.plist"
+
+
+class PowermetricsTests(unittest.TestCase):
+    """Recorded producer-shaped plist fixtures; no privileged sampling."""
+
+    def test_recorded_records_attribute_both_cluster_kinds(self):
+        raw = FIXTURE.read_bytes()
+        records, tail = driver.parse_powermetrics(raw)
+        self.assertEqual(len(records), 2)
+        self.assertEqual(tail, 0)
+        activity = driver.cluster_activity(records, 2 * 10**9)
+        self.assertEqual(activity["status"], "observed")
+        self.assertEqual(activity["records"], 2)
+        by_name = {cluster["name"]: cluster for cluster in activity["clusters"]}
+        self.assertEqual({name: c["class"] for name, c in by_name.items()},
+                         {"E-Cluster": "efficiency", "P0-Cluster": "performance", "P1-Cluster": "performance"})
+        self.assertAlmostEqual(by_name["E-Cluster"]["active_ratio"], 0.25)
+        self.assertAlmostEqual(by_name["P0-Cluster"]["active_ratio"], 0.075)
+
+    def test_separator_or_terminator_both_parse_and_a_cut_tail_is_not_evidence(self):
+        raw = FIXTURE.read_bytes()
+        records, tail = driver.parse_powermetrics(raw.rstrip(b"\0"))
+        self.assertEqual((len(records), tail), (2, 0))
+        records, tail = driver.parse_powermetrics(raw + raw[:200])
+        self.assertEqual(len(records), 4 - 2)
+        self.assertEqual(tail, 200)
+
+    def test_malformed_record_fails(self):
+        first, second = FIXTURE.read_bytes().split(b"\0")[:2]
+        for bad in (first + b"\0<plist><dict><key>x</key></plist>\0" + second + b"\0",
+                    b"<?xml version='1.0'?><plist version='1.0'><array/></plist>\0" + second + b"\0",
+                    b"\0\0"):
+            with self.subTest(bad=bad[:20]), self.assertRaisesRegex(ValueError, "powermetrics"):
+                records, _ = driver.parse_powermetrics(bad)
+                if not records:
+                    raise ValueError("powermetrics: no records")
+
+    def test_unsupported_or_incomplete_records_are_inconclusive(self):
+        records, _ = driver.parse_powermetrics(FIXTURE.read_bytes())
+
+        def edited(edit):
+            copied = copy.deepcopy(records)
+            edit(copied)
+            return copied
+
+        cases = {
+            "unknown cluster": edited(lambda r: r[0]["processor"]["clusters"][0].update(name="X-Cluster")),
+            "missing idle": edited(lambda r: r[1]["processor"]["clusters"][1].pop("idle_ratio")),
+            "idle out of range": edited(lambda r: r[1]["processor"]["clusters"][1].update(idle_ratio=1.5)),
+            "no processor": edited(lambda r: r[0].pop("processor")),
+            "no elapsed": edited(lambda r: r[0].pop("elapsed_ns")),
+            "changed cluster set": edited(lambda r: r[1]["processor"]["clusters"].pop()),
+            "absolute sample": edited(lambda r: r[0].update(is_delta=False)),
+        }
+        for name, case in cases.items():
+            with self.subTest(name), self.assertRaises(driver.HostObservationError) as caught:
+                driver.cluster_activity(case, 2 * 10**9)
+            self.assertEqual(caught.exception.status, "inconclusive")
+        with self.assertRaises(driver.HostObservationError) as caught:
+            driver.cluster_activity(records, 3 * 10**9)
+        self.assertIn("window", str(caught.exception))
+
+    def run_sampler(self, root, script, window=(0.2, 0.4)):
+        sampler = driver.HostSampler([sys.executable, "-c", script], root)
+        begun = time.monotonic()
+        sampler.start()
+        time.sleep(window[1])
+        return sampler.finish(begun + window[0], begun + window[1], window_ns=int(1e8))
+
+    def test_privilege_failure_is_unavailable_never_quiet(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            activity = self.run_sampler(Path(temporary),
+                "import sys; sys.stderr.write('powermetrics must be invoked as the superuser\\n'); sys.exit(1)")
+        self.assertEqual(activity["status"], "unavailable")
+        self.assertIn("superuser", activity["reason"])
+        self.assertEqual(activity["exit"], 1)
+
+    def test_sampler_output_is_preserved_and_parsed(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            script = textwrap.dedent(f"""
+                import signal, sys, time
+                sys.stdout.buffer.write(open({str(FIXTURE)!r}, 'rb').read()); sys.stdout.flush()
+                signal.signal(signal.SIGTERM, lambda *_: sys.exit(0))
+                time.sleep(60)
+            """)
+            activity = self.run_sampler(root, script)
+            self.assertEqual(activity["status"], "observed", activity)
+            self.assertEqual((root / "host.plist").read_bytes(), FIXTURE.read_bytes())
+            self.assertEqual(activity["raw_sha256"], hashlib.sha256(FIXTURE.read_bytes()).hexdigest())
+            self.assertTrue(activity["joined"])
+
+    def test_sampler_that_ends_early_is_incomplete(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            activity = self.run_sampler(root, f"import sys; sys.stdout.buffer.write(open({str(FIXTURE)!r}, 'rb').read())")
+        self.assertEqual(activity["status"], "inconclusive")
+        self.assertIn("before the window ended", activity["reason"])
+
+    def test_unresponsive_sampler_is_killed_and_joined(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            with mock.patch.object(driver, "SAMPLER_STOP_S", 0.3):
+                activity = self.run_sampler(Path(temporary),
+                    "import signal, time; signal.signal(signal.SIGTERM, signal.SIG_IGN); time.sleep(60)")
+        self.assertTrue(activity["joined"])
+        self.assertEqual(activity["exit"], -signal.SIGKILL)
+        self.assertEqual(activity["status"], "inconclusive")
+
+
+class NativeExecutionTests(unittest.TestCase):
+    invoke = ExecutionTests.invoke
+    exercise_sigterm_during_roles = ExecutionTests.exercise_sigterm_during_roles
+
+    def test_native_smoke_records_without_a_verdict(self):
+        for cell in driver.NATIVE_CELLS:
+            for controller in ("reno", "bbrv3"):
+                with self.subTest(cell=cell, controller=controller), tempfile.TemporaryDirectory() as temporary:
+                    root = Path(temporary)
+                    code, summary, processes = self.invoke(root, ("--platform-profile", "darwin-arm64", "--smoke-cell", cell,
+                                                                  "--controller", controller), platform="darwin-arm64")
+                    self.assertEqual(code, 0, summary.get("error"))
+                    self.assertFalse(summary["judged"])
+                    self.assertNotIn("diagnostic", summary)
+                    records = [json.loads(line) for line in (root / "output" / "smoke.jsonl").read_text().splitlines()]
+                    expected = ["unregistered"] if cell == "mixed-bulk" else ["unregistered", "opted-in"]
+                    self.assertEqual([record["profile"] for record in records], expected)
+                    self.assertEqual(len(processes), 2 * len(expected))
+                    if cell == "mixed-bulk":
+                        self.assertIn("Q2", summary["not_run"]["opted-in"])
+                    for record in records:
+                        self.assertEqual(record["host_activity"]["status"], "unavailable")
+                        self.assertNotIn("contaminated", record)
+                    identity_record = json.loads((root / "output" / "identity.json").read_text())
+                    self.assertEqual(identity_record["platform_profile"], "darwin-arm64")
+                    self.assertNotIn("server_cpus", identity_record)
+                    with self.assertRaises(ValueError):
+                        driver.check_accounting(records)
+
+    def test_native_campaign_launches_nothing(self):
+        for extra in ((), ("--revalidate-cell", "stream", "--cause", "x")):
+            with self.subTest(extra=extra), tempfile.TemporaryDirectory() as temporary:
+                root = Path(temporary)
+                with contextlib.redirect_stderr(io.StringIO()), self.assertRaises(SystemExit) as caught:
+                    self.invoke(root, ("--platform-profile", "darwin-arm64", *extra), platform="darwin-arm64")
+                self.assertEqual(caught.exception.code, 2)
+                self.assertFalse((root / "output").exists())
+
+    def test_wrong_host_for_profile_fails_before_launch(self):
+        with tempfile.TemporaryDirectory() as temporary, self.assertRaisesRegex(RuntimeError, "Darwin arm64"):
+            self.invoke(Path(temporary), ("--platform-profile", "darwin-arm64", "--smoke-cell", "stream"))
+        with tempfile.TemporaryDirectory() as temporary, self.assertRaisesRegex(RuntimeError, "Linux amd64"):
+            self.invoke(Path(temporary), ("--smoke-cell", "stream-gso-on"), platform="darwin-arm64")
+
+    def test_native_sampler_is_launched_and_joined_per_observation(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            code, summary, _ = self.invoke(root, ("--platform-profile", "darwin-arm64", "--smoke-cell", "stream",
+                                                  "--host-sampler", "powermetrics"), platform="darwin-arm64", role_s=0.5,
+                                           sampler=[sys.executable, "-c", "import sys; sys.stderr.write('must be invoked as the superuser'); sys.exit(1)"])
+            self.assertEqual(code, 0, summary.get("error"))
+            records = [json.loads(line) for line in (root / "output" / "smoke.jsonl").read_text().splitlines()]
+            for record in records:
+                self.assertEqual(record["host_activity"]["status"], "unavailable")
+                self.assertTrue(record["host_activity"]["joined"])
+                self.assertIn("superuser", record["host_activity"]["reason"])
+
+    def test_sigterm_reaps_roles_and_sampler(self):
+        self.exercise_sigterm_during_roles(native=True)
 
 
 if __name__ == "__main__":
