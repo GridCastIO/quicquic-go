@@ -1156,6 +1156,7 @@ class PowermetricsTests(unittest.TestCase):
             pids = json.loads((root / "pids.json").read_text())
             sampler_pid = json.loads((root / "invoked.json").read_text())["pid"]
             self.addCleanup(lambda: alive(pids["role"]) and os.kill(pids["role"], signal.SIGKILL))
+            self.addCleanup(lambda: alive(pids["wrapper"]) and os.kill(pids["wrapper"], signal.SIGKILL))
             self.addCleanup(lambda: alive(sampler_pid) and os.kill(sampler_pid, signal.SIGKILL))
             driver_process.kill()
             driver_process.wait()
