@@ -3,21 +3,11 @@
 package quic
 
 import (
-	"bufio"
 	"context"
-	"crypto/ecdsa"
-	"crypto/elliptic"
-	"crypto/rand"
 	"crypto/tls"
-	"crypto/x509"
-	"crypto/x509/pkix"
-	"encoding/pem"
-	"fmt"
 	"io"
-	"math/big"
 	"net"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -121,43 +111,6 @@ func TestPicoquicMultipathSmoke(t *testing.T) {
 
 func smokeSetUse(conn *Conn, id protocol.PathID, backup bool) error {
 	return conn.runPathCommand(func(r *pathCreditRegistry, now monotime.Time) error { return r.setLocalUsePrivate(id, backup, now) })
-}
-
-func writeSmokeCertificates(t *testing.T, dir string) (*x509.CertPool, tls.Certificate) {
-	t.Helper()
-	// integrationtests/tools imports this package, so this file builds its own chain.
-	caKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
-	require.NoError(t, err)
-	now := time.Now()
-	caTemplate := &x509.Certificate{
-		SerialNumber: big.NewInt(1), Subject: pkix.Name{CommonName: "R14 independent peer smoke CA"},
-		NotBefore: now.Add(-time.Hour), NotAfter: now.Add(time.Hour), IsCA: true, BasicConstraintsValid: true, KeyUsage: x509.KeyUsageCertSign,
-	}
-	caDER, err := x509.CreateCertificate(rand.Reader, caTemplate, caTemplate, caKey.Public(), caKey)
-	require.NoError(t, err)
-	ca, err := x509.ParseCertificate(caDER)
-	require.NoError(t, err)
-	leafKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
-	require.NoError(t, err)
-	leafDER, err := x509.CreateCertificate(rand.Reader, &x509.Certificate{
-		SerialNumber: big.NewInt(2), Subject: pkix.Name{CommonName: "localhost"}, DNSNames: []string{"localhost"},
-		NotBefore: now.Add(-time.Hour), NotAfter: now.Add(time.Hour), KeyUsage: x509.KeyUsageDigitalSignature, ExtKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
-	}, ca, leafKey.Public(), caKey)
-	require.NoError(t, err)
-	leaf, err := x509.ParseCertificate(leafDER)
-	require.NoError(t, err)
-	key, err := x509.MarshalPKCS8PrivateKey(leafKey)
-	require.NoError(t, err)
-	for name, data := range map[string][]byte{
-		"cert.pem": pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: leaf.Raw}),
-		"ca.pem":   pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: ca.Raw}),
-		"key.pem":  pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: key}),
-	} {
-		require.NoError(t, os.WriteFile(filepath.Join(dir, name), data, 0o600))
-	}
-	roots := x509.NewCertPool()
-	roots.AddCert(ca)
-	return roots, tls.Certificate{Certificate: [][]byte{leaf.Raw}, PrivateKey: leafKey}
 }
 
 func smokeTransport(t *testing.T, ip net.IP) *Transport {
@@ -301,53 +254,4 @@ func smokeServer(t *testing.T, ctx context.Context, binary, dir string, payload 
 	case <-ctx.Done():
 		t.Fatal("the peer's close never arrived")
 	}
-}
-
-type smokePeer struct {
-	ready chan struct{}
-	done  chan struct{}
-	err   error // published by closing done
-}
-
-func startSmokePeer(t *testing.T, ctx context.Context, binary, dir string, args ...string) *smokePeer {
-	t.Helper()
-	ctx, cancel := context.WithCancel(ctx)
-	cmd := exec.CommandContext(ctx, "stdbuf", append([]string{"-oL", "-eL", binary}, args...)...)
-	cmd.Dir = dir
-	output, err := cmd.StdoutPipe()
-	require.NoError(t, err)
-	cmd.Stderr = cmd.Stdout
-	log, err := os.Create(filepath.Join(dir, "peer.log"))
-	require.NoError(t, err)
-	peer := &smokePeer{ready: make(chan struct{}), done: make(chan struct{})}
-	require.NoError(t, cmd.Start())
-	go func() {
-		scanner := bufio.NewScanner(output)
-		ready := false
-		for scanner.Scan() {
-			line := scanner.Text()
-			fmt.Fprintln(log, line)
-			if !ready && strings.Contains(line, "Waiting for packets") {
-				close(peer.ready)
-				ready = true
-			}
-		}
-		peer.err = cmd.Wait()
-		if peer.err == nil {
-			peer.err = scanner.Err()
-		}
-		log.Close()
-		close(peer.done)
-	}()
-	t.Cleanup(func() {
-		cancel()
-		<-peer.done
-	})
-	return peer
-}
-
-func (p *smokePeer) wait(t *testing.T) {
-	t.Helper()
-	<-p.done
-	require.NoError(t, p.err, "see peer.log")
 }

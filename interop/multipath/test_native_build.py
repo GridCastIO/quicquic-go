@@ -1,0 +1,60 @@
+import importlib.util
+from pathlib import Path
+import sys
+import tempfile
+import unittest
+
+
+sys.dont_write_bytecode = True
+SPEC = importlib.util.spec_from_file_location("native_build", Path(__file__).with_name("native_build.py"))
+build = importlib.util.module_from_spec(SPEC)
+SPEC.loader.exec_module(build)
+
+
+class NativeBuildTests(unittest.TestCase):
+    def test_missing_tools_fail_before_any_build_step(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            with self.assertRaisesRegex(ValueError, "cmake.*pkg-config.*libcrypto.a"):
+                build.check_tools(root / "cmake", root / "pkg-config", root)
+            for relative in ("include/openssl/ssl.h", "lib/libcrypto.a", "lib/libssl.a", "bin/openssl"):
+                (root / relative).parent.mkdir(parents=True, exist_ok=True)
+                (root / relative).write_text("")
+            with self.assertRaisesRegex(ValueError, "pkg-config"):
+                build.check_tools(Path(sys.executable), root / "pkg-config", root)
+            build.check_tools(Path(sys.executable), Path(sys.executable), root, which=lambda name: f"/usr/bin/{name}")
+            with self.assertRaisesRegex(ValueError, "otool"):
+                build.check_tools(Path(sys.executable), Path(sys.executable), root,
+                                  which=lambda name: None if name == "otool" else f"/usr/bin/{name}")
+
+    def test_peer_binaries_must_not_load_openssl_dynamically(self):
+        build.check_static("qgf-r17-peer:\n\t/usr/lib/libSystem.B.dylib (compatibility version 1.0.0)\n")
+        with self.assertRaisesRegex(ValueError, "dynamically"):
+            build.check_static("picoquicdemo:\n\t/opt/homebrew/opt/openssl@3/lib/libcrypto.3.dylib\n")
+
+    def test_peer_binaries_must_be_exactly_arm64(self):
+        build.check_arch("arm64\n")
+        for output in ("x86_64\n", "x86_64 arm64\n", ""):
+            with self.subTest(output=output), self.assertRaisesRegex(ValueError, "not exactly arm64"):
+                build.check_arch(output)
+
+    def test_every_compile_uses_the_recorded_sdk(self):
+        sdk = "/Library/Developer/CommandLineTools/SDKs/MacOSX27.2.sdk"
+        other = "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk"
+        entries = [{"command": f"/usr/bin/cc -isysroot {sdk} -c '/work dir/r17-peer.c'"},
+                   {"arguments": ["/usr/bin/cc", "-isysroot", sdk, "-c", "picoquic/sender.c"]}]
+        build.check_sysroot(entries, sdk)
+        for bad in (entries + [{"command": f"/usr/bin/cc -isysroot {other} -c x.c"}], entries + [{"command": "/usr/bin/cc -c x.c"}], []):
+            with self.subTest(bad=bad), self.assertRaisesRegex(ValueError, "recorded SDK"):
+                build.check_sysroot(bad, sdk)
+
+    def test_self_test_requires_truncation_and_one_pass(self):
+        passing = "bound socket 0 127.0.0.1:5000\nself-test datagram 2048 bytes received 1536 truncated 1\nself-test pass\n"
+        build.check_self_test(passing)
+        for output in ("self-test pass\n", passing.replace("self-test pass\n", ""), passing + "self-test pass\n"):
+            with self.subTest(output=output), self.assertRaisesRegex(ValueError, "self-test"):
+                build.check_self_test(output)
+
+
+if __name__ == "__main__":
+    unittest.main()
