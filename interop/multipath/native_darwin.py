@@ -16,6 +16,7 @@ import re
 import signal
 import shutil
 import subprocess
+import tempfile
 import time
 
 TEST = "TestNativeDarwinScalar"
@@ -40,6 +41,8 @@ FIXED_FACTS = {
     },
 }
 CASES = (*FAMILIES, *FIXED_FACTS)
+SOURCE_FIELDS = {"commit", "tree", "head_tree", "clean"}
+NATIVE_FIELDS = ("product_version", "build_version", "kernel", "cpu")
 BUILD = {"CGO_ENABLED": "0", "GOOS": "darwin", "GOARCH": "arm64", "GOFLAGS": "-buildvcs=false"}
 
 
@@ -126,12 +129,15 @@ def native_identity():
 
 
 def source_identity(source):
-    status = capture("git", "status", "--porcelain", cwd=source)
-    return {
-        "commit": capture("git", "rev-parse", "HEAD", cwd=source),
-        "tree": capture("git", "rev-parse", "HEAD^{tree}", cwd=source),
-        "clean": status == "",
-    }
+    """The tree is the working tree that was built, tracked and untracked files not
+    ignored, written through a private index; clean means it equals HEAD's tree."""
+    head_tree = capture("git", "rev-parse", "HEAD^{tree}", cwd=source)
+    with tempfile.TemporaryDirectory() as directory:
+        env = os.environ | {"GIT_INDEX_FILE": str(Path(directory) / "index")}
+        capture("git", "read-tree", "HEAD", env=env, cwd=source)
+        capture("git", "add", "--all", env=env, cwd=source)
+        tree = capture("git", "write-tree", env=env, cwd=source)
+    return {"commit": capture("git", "rev-parse", "HEAD", cwd=source), "tree": tree, "head_tree": head_tree, "clean": tree == head_tree}
 
 
 def build(source, toolchain, output):
@@ -203,10 +209,13 @@ def validate_results(results):
     identity = results.get("identity") or {}
     check_native(identity)
     source, build_identity = results.get("source") or {}, results.get("build") or {}
-    if set(source) != {"commit", "tree", "clean"} or not all(isinstance(source[key], str) and source[key] for key in ("commit", "tree")):
-        raise ValueError(f"results source identity is incomplete: {source!r}")
-    if build_identity.get("go") != identity.get("go") or build_identity.get("mode") != BUILD or not build_identity.get("binary_sha256"):
+    if set(source) != SOURCE_FIELDS or not all(isinstance(source[key], str) and source[key] for key in SOURCE_FIELDS - {"clean"}) or source["clean"] != (source["tree"] == source["head_tree"]):
+        raise ValueError(f"results source identity is incomplete or inconsistent: {source!r}")
+    if build_identity.get("go") != identity.get("go") or build_identity.get("mode") != BUILD or not all(build_identity.get(key) for key in ("toolchain", "binary_sha256")):
         raise ValueError(f"results build identity is incomplete or inconsistent: {build_identity!r}")
+    missing = [key for key in NATIVE_FIELDS if not isinstance(identity.get(key), str) or not identity[key]]
+    if missing:
+        raise ValueError(f"results native identity is missing {missing}")
     instances = results.get("instances") or []
     check_accounting([instance.get("case") for instance in instances])
     for instance in instances:

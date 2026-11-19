@@ -177,13 +177,37 @@ class RunCaseTests(unittest.TestCase):
             self.fail("the case's grandchild survived the timeout")
 
 
+class SourceTests(unittest.TestCase):
+    def test_tree_is_the_built_working_tree(self):
+        directory = tempfile.TemporaryDirectory()
+        self.addCleanup(directory.cleanup)
+        source = Path(directory.name)
+        git = ("git", "-c", "user.name=t", "-c", "user.email=t@example.invalid")
+        runner.capture(*git, "init", "-q", cwd=source)
+        (source / "a.go").write_text("package a\n")
+        runner.capture(*git, "add", "a.go", cwd=source)
+        runner.capture(*git, "commit", "-q", "-m", "a", cwd=source)
+        clean = runner.source_identity(source)
+        self.assertTrue(clean["clean"])
+        self.assertEqual(clean["head_tree"], clean["tree"])
+        (source / "b.go").write_text("package a\n")
+        dirty = runner.source_identity(source)
+        self.assertFalse(dirty["clean"])
+        self.assertEqual(clean["head_tree"], dirty["head_tree"])
+        self.assertNotEqual(dirty["head_tree"], dirty["tree"], "the untracked file is part of the built tree")
+        self.assertEqual("?? b.go", runner.capture("git", "status", "--porcelain", cwd=source), "the real index is untouched")
+
+
 class ResultsTests(unittest.TestCase):
     def results(self):
         return {
             "schema": runner.RESULTS_SCHEMA,
-            "source": {"commit": "a" * 40, "tree": "b" * 40, "clean": True},
+            "source": {"commit": "a" * 40, "tree": "b" * 40, "head_tree": "b" * 40, "clean": True},
             "build": {"go": "go1.27.4", "toolchain": "local", "mode": dict(runner.BUILD), "binary_sha256": "c" * 64},
-            "identity": {**IDENTITY, "system": "Darwin", "machine": "arm64", "proc_translated": "0"},
+            "identity": {
+                **IDENTITY, "system": "Darwin", "machine": "arm64", "proc_translated": "0",
+                "product_version": "27.2.1", "build_version": "26B131", "kernel": "Darwin 27.2.0 arm64", "cpu": "Apple M4 Max",
+            },
             "instances": [{"case": name, "exit": 0, "failure": None, "record": record_for(name)} for name in runner.CASES],
             "status": {"cases": len(runner.CASES), "status": "pass", "support_receipt": False},
         }
@@ -206,7 +230,11 @@ class ResultsTests(unittest.TestCase):
         del unsourced["source"]["tree"]
         other_build = self.results()
         other_build["build"]["go"] = "go1.26.11"
-        cases = (("missing", missing), ("failed", failed), ("unstated", unstated), ("translated", translated), ("wrong record", wrong_record), ("unsourced", unsourced), ("other build", other_build))
+        misstated = self.results()
+        misstated["source"]["tree"] = "d" * 40
+        unidentified = self.results()
+        del unidentified["identity"]["build_version"]
+        cases = (("misstated clean", misstated), ("unidentified", unidentified), ("missing", missing), ("failed", failed), ("unstated", unstated), ("translated", translated), ("wrong record", wrong_record), ("unsourced", unsourced), ("other build", other_build))
         for name, results in cases:
             with self.subTest(name=name), self.assertRaises(ValueError):
                 runner.validate_results(results)

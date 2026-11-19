@@ -1,6 +1,6 @@
 # macOS multipath program
 
-**Date:** 2026-11-19. **Identity:** MP-MAC-20261119. **Status:** Accepted handoff; no implementation dispatched. **Tracking issue:** pending. **Audit history:** [Source and slice audit](../audits/2026-11-19-macos-multipath-handoff/README.md).
+**Date:** 2026-11-19. **Identity:** MP-MAC-20261119. **Status:** Accepted handoff; implementation in progress. **Tracking issue:** pending. **Audit history:** [Source and slice audit](../audits/2026-11-19-macos-multipath-handoff/README.md).
 
 ## Purpose and source of truth
 
@@ -10,7 +10,7 @@ Package the owner-approved macOS profile from [planning issue #1396](https://git
 
 | Track | Plan | Parent issue | Size | Current frontier | State |
 | --- | --- | --- | --- | --- | --- |
-| MP-MAC — Native macOS multipath | [Implementation plan](2026-11-19-macos-multipath-implementation-plan.md) | pending | 11 slices / intended PRs | E2, E3, P1, P2, C1, C3 | Readiness not implemented |
+| MP-MAC — Native macOS multipath | [Implementation plan](2026-11-19-macos-multipath-implementation-plan.md) | pending | 11 slices / intended PRs | E2, E3, P1, P2, C1, C3 | Readiness in progress |
 
 | Slice | Blocked by | State |
 | --- | --- | --- |

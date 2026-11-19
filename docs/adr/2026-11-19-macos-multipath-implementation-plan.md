@@ -1,6 +1,6 @@
 # macOS multipath implementation plan
 
-**Date:** 2026-11-19. **Track:** MP-MAC, one track in [MP-MAC-20261119](2026-11-19-macos-multipath-program.md). **Status:** Accepted handoff; no implementation dispatched. **Parent issue:** pending. **Normative scope:** Current slice contracts, preserved profile, evidence, dependencies and stop conditions. **Audit history:** [Handoff audit](../audits/2026-11-19-macos-multipath-handoff/README.md); [planning PR #1479](https://github.com/GridCastIO/quicquic-go/pull/1479). The completed [planning issue #1396](https://github.com/GridCastIO/quicquic-go/issues/1396) stays closed.
+**Date:** 2026-11-19. **Track:** MP-MAC, one track in [MP-MAC-20261119](2026-11-19-macos-multipath-program.md). **Status:** Accepted handoff; implementation in progress. **Parent issue:** pending. **Normative scope:** Current slice contracts, preserved profile, evidence, dependencies and stop conditions. **Audit history:** [Handoff audit](../audits/2026-11-19-macos-multipath-handoff/README.md); [planning PR #1479](https://github.com/GridCastIO/quicquic-go/pull/1479). The completed [planning issue #1396](https://github.com/GridCastIO/quicquic-go/issues/1396) stays closed.
 
 ## Outcome and authority
 

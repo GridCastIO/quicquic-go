@@ -17,12 +17,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestNativeDarwinScalar is MP-MAC E1's granted scalar fixture. Each subtest is one
-// named case: interop/multipath/native_darwin.py runs it alone in its own process
-// and reads the case record it writes. Without nativeDarwinRecordEnv the cases are
-// ordinary development tests and write nothing. A case never skips. It sends and
-// receives scalar UDP through the real private grant on real loopback sockets, so
-// it is local smoke evidence for the endpoint method, not a support receipt.
+// The runner names the case record file in nativeDarwinRecordEnv.
 const (
 	nativeDarwinRecordEnv = "NATIVE_DARWIN_RECORD"
 	nativeDarwinSchema    = "native-darwin-case/v1"
@@ -238,6 +233,12 @@ func nativeDarwinDualStack(t *testing.T) *net.UDPConn {
 	return socket
 }
 
+// TestNativeDarwinScalar is MP-MAC E1's granted scalar fixture. Each subtest is one
+// named case: interop/multipath/native_darwin.py runs it alone in its own process
+// and reads the case record it writes. Without nativeDarwinRecordEnv the cases are
+// ordinary development tests and write nothing. A case never skips. It sends and
+// receives scalar UDP through the real private grant on real loopback sockets, so
+// it is local smoke evidence for the endpoint method, not a support receipt.
 func TestNativeDarwinScalar(t *testing.T) {
 	ipv4, ipv6 := netip.MustParseAddr("127.0.0.1"), netip.IPv6Loopback()
 	for _, family := range []nativeDarwinFamily{
@@ -297,7 +298,7 @@ func TestNativeDarwinScalar(t *testing.T) {
 		_, err = tr.WriteTo([]byte("late"), peerSocket.LocalAddr())
 		require.ErrorIs(t, err, net.ErrClosed, "the joined transport can't write")
 
-		// The caller's deadline now governs: the writer's final reset came earlier.
+		// After the join the caller's own write deadline governs the socket.
 		require.NoError(t, socket.SetWriteDeadline(time.Now().Add(-time.Second)))
 		_, err = socket.WriteToUDP([]byte("expired"), peerSocket.LocalAddr().(*net.UDPAddr))
 		require.ErrorIs(t, err, os.ErrDeadlineExceeded)
