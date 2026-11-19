@@ -345,22 +345,31 @@ func nativeDarwinSendmsgError(errno syscall.Errno) error {
 	return &os.SyscallError{Syscall: "sendmsg", Err: errno}
 }
 
-// nativeDarwinTraversalFacts records one traversal claim's observation. The case has
-// already required the class; timing is recorded, never judged here.
-func nativeDarwinTraversalFacts(facts map[string]any, w *nativeDarwinWriter, claim *nativeDarwinClaim, deadline time.Time, class string) {
+// nativeDarwinTriggerFacts records what every forced-traversal case observed of its
+// trigger: geometry, positive control, poller witness and the native return's
+// distance from the deadline. The case has already required its class; timing is
+// recorded, never judged here.
+func nativeDarwinTriggerFacts(facts map[string]any, trigger nativeDarwinTrigger, class string, injected int, returnAfterDeadline time.Duration) {
 	facts["evidence"] = class
-	facts["send_buffer"] = w.trigger.capacity
-	facts["control_bytes"] = len(w.trigger.control)
-	facts["payload_bytes"] = w.trigger.capacity
+	facts["send_buffer"] = trigger.capacity
+	facts["control_bytes"] = len(trigger.control)
+	facts["payload_bytes"] = trigger.capacity
 	facts["positive_control"] = protocol.ECT0.String()
 	facts["poller_witness"] = true
-	facts["injected"] = claim.injected
+	facts["injected"] = injected
 	facts["traced"] = false
+	facts["result"] = "deadline-exceeded"
+	facts["uncertain"] = 1
+	facts["native_return_after_deadline_ms"] = nativeDarwinMS(returnAfterDeadline)
+}
+
+// nativeDarwinTraversalFacts adds the recorder's view of the trigger's claim.
+func nativeDarwinTraversalFacts(facts map[string]any, w *nativeDarwinWriter, claim *nativeDarwinClaim, deadline time.Time, class string) {
+	nativeDarwinTriggerFacts(facts, w.trigger, class, claim.injected, claim.returnedAt.Sub(deadline))
 	facts["native_calls"] = claim.calls
 	facts["deadline_preserved"] = claim.installed.Equal(deadline)
 	facts["deadline_reset"] = claim.reset && claim.resetErr == nil
 	facts["native_returned"] = claim.returned()
-	facts["native_return_after_deadline_ms"] = nativeDarwinMS(claim.returnedAt.Sub(deadline))
 }
 
 func nativeDarwinFirstSendEPERM(t *testing.T, facts map[string]any) {
@@ -500,8 +509,6 @@ func nativeDarwinEAGAINToDeadline(t *testing.T, facts map[string]any) {
 	require.False(t, faulted)
 
 	nativeDarwinTraversalFacts(facts, w, claim, deadline, class)
-	facts["result"] = "deadline-exceeded"
-	facts["uncertain"] = 1
 	facts["publication_ms"] = nativeDarwinMS(seen.Sub(claim.returnedAt))
 	facts["successor_deadline_preserved"] = true
 	facts["successor_delivered"] = true
@@ -537,8 +544,6 @@ func nativeDarwinQueuedExpiry(t *testing.T, facts map[string]any) {
 	require.Equal(t, "native-traversal", class)
 
 	nativeDarwinTraversalFacts(facts, w, claim, currentDeadline, class)
-	facts["result"] = "deadline-exceeded"
-	facts["uncertain"] = 1
 	facts["queued_result"] = "deadline-exceeded"
 	facts["queued_unsubmitted"] = 1
 	facts["queued_claimed"] = false
@@ -547,6 +552,10 @@ func nativeDarwinQueuedExpiry(t *testing.T, facts map[string]any) {
 	facts["queued_expiry_ms"] = nativeDarwinMS(seen.Sub(queuedDeadline))
 }
 
+// nativeDarwinActiveCloseJoin closes the production granted Transport, whose endpoint
+// writes to the socket directly, so no recorder sees its claim. The request's
+// deadline is read from the writer's held token instead, and the final reset from the
+// caller's untouched write after the join.
 func nativeDarwinActiveCloseJoin(t *testing.T, facts map[string]any) {
 	socket := nativeDarwinListen("udp4", net.IPv4(127, 0, 0, 1))(t)
 	peerSocket := nativeDarwinListen("udp4", net.IPv4(127, 0, 0, 1))(t)
@@ -558,12 +567,20 @@ func nativeDarwinActiveCloseJoin(t *testing.T, facts map[string]any) {
 	t.Cleanup(func() { tr.Close() })
 	e := nativeTransportEndpoint(tr)
 	require.NotNil(t, e)
+	control := nativeDarwinSend(t, tr, destination, packetInfo{}, protocol.ECT0, "positive control")
+	require.NoError(t, control.failure())
+	payload, received := peer.read(t)
+	require.Equal(t, "positive control", payload)
+	require.Equal(t, protocol.ECT0, received.ecn)
 
 	deadline := time.Now().Add(nativeDarwinBudget)
 	request, datagram := trigger.datagram(destination, deadline, trigger.capacity)
 	require.NoError(t, e.offer(e.public, 0, request))
 	token := nativeDarwinAwaitWait(e, datagram, deadline)
 	require.NotNil(t, token, "the writer never waited in the Go poller")
+	var installed time.Time
+	e.do(func(*endpointState) { installed = token.request.deadline })
+	require.True(t, installed.Equal(deadline), "the held request keeps its absolute deadline")
 
 	closing := time.Now()
 	require.NoError(t, tr.Close())
@@ -585,6 +602,7 @@ func nativeDarwinActiveCloseJoin(t *testing.T, facts map[string]any) {
 	require.Equal(t, [3]int{0, 1, 0}, nativeDarwinCounts(fact.result.members[0]))
 	require.True(t, fact.returnedAt.After(closing), "close began while the trigger was in the native call")
 	require.False(t, joined.Before(fact.returnedAt), "the join never precedes the native return")
+	require.False(t, fact.returnedAt.Before(deadline), "the poller returned at the deadline")
 
 	// The join returned write authority with the writer's deadline reset: an
 	// untouched caller write is not refused by the expired request deadline.
@@ -592,18 +610,13 @@ func nativeDarwinActiveCloseJoin(t *testing.T, facts map[string]any) {
 	require.ErrorIs(t, err, net.ErrClosed)
 	_, err = socket.WriteToUDP([]byte("caller"), peerSocket.LocalAddr().(*net.UDPAddr))
 	require.NoError(t, err)
-	payload, _ := peer.read(t)
+	payload, _ = peer.read(t)
 	require.Equal(t, "caller", payload, "the trigger was not delivered")
 
-	facts["evidence"] = "native-traversal"
-	facts["send_buffer"] = trigger.capacity
-	facts["control_bytes"] = len(trigger.control)
-	facts["payload_bytes"] = trigger.capacity
-	facts["poller_witness"] = true
-	facts["injected"] = 0
-	facts["traced"] = false
-	facts["result"] = "deadline-exceeded"
-	facts["uncertain"] = 1
+	// The production endpoint writes only to the real socket, so nothing is injected.
+	nativeDarwinTriggerFacts(facts, trigger, "native-traversal", 0, fact.returnedAt.Sub(deadline))
+	facts["request_deadline_preserved"] = true
+	facts["reset_observed_by_caller_write"] = true
 	facts["close_returned_while_borrowed"] = true
 	facts["canceled_wait"] = "canceled"
 	facts["returned_after_close_began"] = true
@@ -611,7 +624,6 @@ func nativeDarwinActiveCloseJoin(t *testing.T, facts map[string]any) {
 	facts["transport_write_after_join"] = "closed"
 	facts["caller_write_delivered"] = true
 	facts["close_to_join_ms"] = nativeDarwinMS(joined.Sub(closing))
-	facts["native_return_after_deadline_ms"] = nativeDarwinMS(fact.returnedAt.Sub(deadline))
 }
 
 // TestNativeDarwinBlockedWriter is MP-MAC E2's blocked-writer method, run case by case

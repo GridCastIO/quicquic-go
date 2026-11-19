@@ -73,11 +73,13 @@ BLOCKED_TEST = "TestNativeDarwinBlockedWriter"
 TRAVERSAL_CLASSES = {"expired-before-dispatch", "stale-deadline", "missing-native-return", "reset-failure", "simulated", "no-witness", "native-traversal"}
 TRIGGER_FACTS = {
     "evidence": "native-traversal", "send_buffer": is_send_buffer, "control_bytes": is_count, "payload_bytes": is_count,
-    "poller_witness": True, "injected": 0, "traced": False, "result": "deadline-exceeded", "uncertain": 1,
-    "native_return_after_deadline_ms": is_ms,
+    "positive_control": "ECT(0)", "poller_witness": True, "injected": 0, "traced": False, "result": "deadline-exceeded",
+    "uncertain": 1, "native_return_after_deadline_ms": is_ms,
 }
+# The recorder's view of the claim. The active-close case's production endpoint has
+# no recorder, so it records the held request's deadline and the reset its caller saw.
 RECORDED_CLAIM_FACTS = {
-    **TRIGGER_FACTS, "positive_control": "ECT(0)", "native_calls": is_count, "deadline_preserved": True,
+    **TRIGGER_FACTS, "native_calls": is_count, "deadline_preserved": True,
     "deadline_reset": True, "native_returned": True,
 }
 BLOCKED_FACTS = {
@@ -102,7 +104,7 @@ BLOCKED_FACTS = {
         "queued_before_current_deadline": True, "writer_waiting_at_queued_expiry": True, "queued_expiry_ms": is_ms,
     },
     "active-close-join": {
-        **TRIGGER_FACTS, "close_returned_while_borrowed": True, "canceled_wait": "canceled", "returned_after_close_began": True,
+        **TRIGGER_FACTS, "request_deadline_preserved": True, "reset_observed_by_caller_write": True, "close_returned_while_borrowed": True, "canceled_wait": "canceled", "returned_after_close_began": True,
         "joined_after_return": True, "transport_write_after_join": "closed", "caller_write_delivered": True, "close_to_join_ms": is_ms,
     },
 }

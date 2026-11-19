@@ -390,10 +390,10 @@ class ResultsTests(unittest.TestCase):
 
 BLOCKED = runner.PROFILES["blocked-writer"]
 TRIGGER = {
-    "evidence": "native-traversal", "send_buffer": 4096, "control_bytes": 12, "payload_bytes": 4096, "poller_witness": True,
+    "evidence": "native-traversal", "send_buffer": 4096, "control_bytes": 12, "payload_bytes": 4096, "positive_control": "ECT(0)", "poller_witness": True,
     "injected": 0, "traced": False, "result": "deadline-exceeded", "uncertain": 1, "native_return_after_deadline_ms": 0.41,
 }
-CLAIM = {**TRIGGER, "positive_control": "ECT(0)", "native_calls": 2, "deadline_preserved": True, "deadline_reset": True, "native_returned": True}
+CLAIM = {**TRIGGER, "native_calls": 2, "deadline_preserved": True, "deadline_reset": True, "native_returned": True}
 # What the Go fixture records for each blocked-writer case on a passing run.
 BLOCKED_FACTS = {
     "first-send-eperm": {
@@ -414,7 +414,7 @@ BLOCKED_FACTS = {
         "queued_before_current_deadline": True, "writer_waiting_at_queued_expiry": True, "queued_expiry_ms": 0.3,
     },
     "active-close-join": {
-        **TRIGGER, "close_returned_while_borrowed": True, "canceled_wait": "canceled", "returned_after_close_began": True,
+        **TRIGGER, "request_deadline_preserved": True, "reset_observed_by_caller_write": True, "close_returned_while_borrowed": True, "canceled_wait": "canceled", "returned_after_close_began": True,
         "joined_after_return": True, "transport_write_after_join": "closed", "caller_write_delivered": True, "close_to_join_ms": 180.5,
     },
 }
@@ -498,6 +498,9 @@ class BlockedWriterClassificationTests(unittest.TestCase):
         self.refused("queued-expiry", "queued_claimed", queued_claimed=True)
         self.refused("active-close-join", "canceled_wait", canceled_wait="joined")
         self.refused("active-close-join", "joined_after_return", joined_after_return=False)
+        self.refused("active-close-join", "request_deadline_preserved", request_deadline_preserved=False)
+        self.refused("active-close-join", "reset_observed_by_caller_write", reset_observed_by_caller_write=False)
+        self.refused("active-close-join", "positive_control", positive_control="CE")
 
     def test_bool_is_not_a_count_or_duration(self):
         self.refused("eagain-to-deadline", "send_buffer", send_buffer=True)
