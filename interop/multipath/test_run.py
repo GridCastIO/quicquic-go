@@ -1,6 +1,10 @@
+import hashlib
 import importlib.util
 import json
+import os
 from pathlib import Path
+import re
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -131,6 +135,174 @@ class AccountingTests(unittest.TestCase):
             (case / "go-test.jsonl").unlink()
             with self.assertRaisesRegex(ValueError, "missing"):
                 runner.check_matrix(root)
+
+
+def sha256(path):
+    return hashlib.sha256(Path(path).read_bytes()).hexdigest()
+
+
+GO_BUILD_INFO = """peer-matrix.test: go1.27.4
+\tpath\tgithub.com/GridCastIO/quicquic-go.test
+\tbuild\t-tags=picoquic
+\tbuild\tGOARCH=arm64
+\tbuild\tGOOS=darwin
+"""
+
+
+class NativeProfileTests(unittest.TestCase):
+    """The darwin-native profile is an explicit execution identity, not a Linux fallback."""
+
+    def build_identity(self, directory, peer):
+        record = {
+            "version": 1, "profile": "darwin-native",
+            "platform": {"system": "Darwin", "machine": "arm64", "release": "27.2.0", "macos": "27.2.1"},
+            "picoquic": runner.PICOQUIC_PIN, "picotls": runner.PICOTLS_PIN,
+            "toolchain": {"cc": "Apple clang version 21.0.0", "sdk_version": "27.2", "sdk_path": "/sdk",
+                          "cmake": "cmake version 3.31.12", "cmake_sha256": "c" * 64,
+                          "pkg_config": "3.0.11", "pkg_config_sha256": "a" * 64,
+                          "openssl": "OpenSSL 3.5.9", "openssl_root": "/openssl",
+                          "openssl_static_sha256": {"libcrypto.a": "d" * 64, "libssl.a": "e" * 64}},
+            "peer_driver_sha256": sha256(Path(runner.__file__).with_name("peer.c")),
+            "binaries": {"picoquicdemo": {"sha256": sha256(peer)}, "qgf-r17-peer": {"sha256": "f" * 64}},
+            "self_test": "pass",
+        }
+        path = Path(directory) / "build-identity.json"
+        path.write_text(json.dumps(record))
+        return path, record
+
+    def test_identity_dispatch_selects_exactly_one_profile(self):
+        self.assertEqual(runner.execution_profile("Linux", "x86_64"), "linux-docker")
+        self.assertEqual(runner.execution_profile("Darwin", "arm64"), "darwin-native")
+        for system, machine in (("Darwin", "x86_64"), ("Linux", "arm64"), ("Windows", "AMD64")):
+            with self.subTest(system=system, machine=machine), self.assertRaisesRegex(ValueError, "no peer execution profile"):
+                runner.execution_profile(system, machine)
+
+    def test_requested_profile_must_match_the_host(self):
+        runner.check_prerequisites(sys.executable, "darwin", "arm64", "darwin-native")
+        with self.assertRaisesRegex(ValueError, "Darwin arm64"):
+            runner.check_prerequisites(__file__, "linux", "x86_64", "darwin-native")
+        with self.assertRaisesRegex(ValueError, "Linux amd64"):
+            runner.check_prerequisites(__file__, "darwin", "arm64", "linux-docker")
+        with self.assertRaisesRegex(ValueError, "binary"):
+            runner.check_prerequisites("/nonexistent/peer", "darwin", "arm64", "darwin-native")
+
+    def test_native_profile_launches_without_stdbuf(self):
+        self.assertEqual(runner.required_executables("linux-docker"), ("go", "stdbuf"))
+        self.assertEqual(runner.required_executables("darwin-native"), ("go",))
+
+    def test_build_identity_must_match_pins_platform_driver_and_binary(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            path, record = self.build_identity(temporary, __file__)
+            self.assertEqual(runner.load_build_identity(path, "Darwin", "arm64", __file__), record)
+            with self.assertRaisesRegex(ValueError, "platform"):
+                runner.load_build_identity(path, "Darwin", "x86_64", __file__)
+            with self.assertRaisesRegex(ValueError, "peer binary"):
+                runner.load_build_identity(path, "Darwin", "arm64", Path(runner.__file__).with_name("peer.c"))
+            for field, value in (("picoquic", "0" * 40), ("version", 2), ("peer_driver_sha256", "0" * 64),
+                                 ("self_test", "skip"), ("unexpected", 1)):
+                with self.subTest(field=field):
+                    path.write_text(json.dumps(record | {field: value}))
+                    with self.assertRaises(ValueError):
+                        runner.load_build_identity(path, "Darwin", "arm64", __file__)
+            missing = dict(record)
+            del missing["toolchain"]
+            path.write_text(json.dumps(missing))
+            with self.assertRaisesRegex(ValueError, "build identity"):
+                runner.load_build_identity(path, "Darwin", "arm64", __file__)
+            path.write_text("{not json")
+            with self.assertRaises(ValueError):
+                runner.load_build_identity(path, "Darwin", "arm64", __file__)
+            with self.assertRaisesRegex(ValueError, "build identity"):
+                runner.load_build_identity(Path(temporary) / "absent.json", "Darwin", "arm64", __file__)
+
+    def test_test_binary_must_be_a_tagged_native_build(self):
+        settings = runner.check_test_binary_settings(GO_BUILD_INFO, "darwin", "arm64")
+        self.assertEqual(settings["GOOS"], "darwin")
+        for wrong in (GO_BUILD_INFO.replace("-tags=picoquic", "-tags=other"),
+                      GO_BUILD_INFO.replace("GOOS=darwin", "GOOS=linux"),
+                      GO_BUILD_INFO.replace("\tbuild\tGOARCH=arm64\n", "")):
+            with self.subTest(wrong=wrong), self.assertRaises(ValueError):
+                runner.check_test_binary_settings(wrong, "darwin", "arm64")
+
+    def test_matrix_discovery_lists_exactly_the_matrix(self):
+        runner.check_listing(["TestPicoquicMultipathMatrix", ""])
+        for lines in ([], ["TestPicoquicMultipathMatrix"] * 2, ["TestPicoquicMultipathMatrix", "TestOther"],
+                      ["TestPicoquicMultipathSmoke"]):
+            with self.subTest(lines=lines), self.assertRaisesRegex(ValueError, "discovery"):
+                runner.check_listing(lines)
+        command = runner.discovery_command(Path("/bin/peer-matrix.test"))
+        self.assertEqual(command, ["/bin/peer-matrix.test", "-test.list", "^TestPicoquicMultipathMatrix$"])
+
+    def test_native_ordinary_control_runs_the_compiled_self_binary(self):
+        command, package, expected = runner.ordinary_invocation(Path("/bin/peer-control.test"))
+        self.assertEqual((package, expected), (runner.PACKAGE, runner.EXPECTED))
+        self.assertEqual(command[:7], ["go", "tool", "test2json", "-t", "-p", runner.PACKAGE, "/bin/peer-control.test"])
+        self.assertIn("-test.run=^TestPicoquicOrdinaryControl$", command)
+        self.assertEqual(command[-1], "-version=1")
+        linux, _, _ = runner.ordinary_invocation(None)
+        self.assertEqual(linux, ["go", "test", "-json", "-tags=picoquic", "-run=^TestPicoquicOrdinaryControl$",
+                                 "-count=1", "-timeout=90s", "./integrationtests/self", "-version=1"])
+
+    def test_launch_failure_and_timeout_kill_and_join_the_process_group(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            log = Path(temporary) / "log"
+            with self.assertRaises(OSError):
+                runner.run_bounded(["/nonexistent/peer"], os.environ, log, 5)
+            pid_file = Path(temporary) / "pid"
+            child = f"import os, time; open({str(pid_file)!r}, 'w').write(str(os.getpid())); time.sleep(60)"
+            command = [sys.executable, "-c", f"import subprocess, sys; subprocess.Popen([sys.executable, '-c', {child!r}]).wait()"]
+            with self.assertRaises(subprocess.TimeoutExpired):
+                runner.run_bounded(command, os.environ, log, 2)
+            grandchild = int(pid_file.read_text())
+            with self.assertRaises(ProcessLookupError):
+                os.kill(grandchild, 0)
+            self.assertEqual(runner.run_bounded([sys.executable, "-c", "print('ok')"], os.environ, log, 5), 0)
+            self.assertEqual(log.read_text().strip(), "ok")
+
+    def native_root(self, temporary):
+        root = Path(temporary)
+        core = {"candidate": "a" * 40, "tree": "b" * 40, "go": "go version go1.27.4 darwin/arm64",
+                "build_identity_sha256": "c" * 64}
+        control = root / "ordinary-control"
+        control.mkdir()
+        (control / "go-test.jsonl").write_text("\n".join(
+            json.dumps({"Action": "pass", "Package": runner.PACKAGE, "Test": case}) for case in runner.EXPECTED))
+        (control / "result.json").write_text(json.dumps({"profile": "darwin-native", "mode": "ordinary-control", "status": "pass",
+                                                         "executed": runner.EXPECTED, "identity": core | {"peer_binary_sha256": "d" * 64}}))
+        discovery = root / "matrix-discovery"
+        discovery.mkdir()
+        (discovery / "list.txt").write_text("TestPicoquicMultipathMatrix\n")
+        (discovery / "result.json").write_text(json.dumps({"profile": "darwin-native", "mode": "matrix-discovery", "status": "pass",
+                                                           "listed": runner.DISCOVERY_EXPECTED, "executed": [], "identity": core}))
+        return root
+
+    def test_native_receipts_require_both_roles_and_discovery_separately(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = self.native_root(temporary)
+            result = runner.check_native(root)
+            self.assertEqual(result["ordinary_control"]["executed"], runner.EXPECTED)
+            self.assertEqual(result["matrix_discovery"]["listed"], runner.DISCOVERY_EXPECTED)
+            self.assertEqual(result["matrix_discovery"]["executed"], [])
+            discovery = json.loads((root / "matrix-discovery" / "result.json").read_text())
+            (root / "matrix-discovery" / "result.json").write_text(json.dumps(discovery | {"identity": discovery["identity"] | {"candidate": "e" * 40}}))
+            with self.assertRaisesRegex(ValueError, "identity"):
+                runner.check_native(root)
+            (root / "matrix-discovery" / "result.json").write_text(json.dumps(discovery | {"executed": runner.MATRIX_EXPECTED}))
+            with self.assertRaisesRegex(ValueError, "discovery"):
+                runner.check_native(root)
+            (root / "matrix-discovery" / "result.json").unlink()
+            with self.assertRaisesRegex(ValueError, "missing"):
+                runner.check_native(root)
+        with tempfile.TemporaryDirectory() as temporary:
+            root = self.native_root(temporary)
+            (root / "ordinary-control" / "go-test.jsonl").write_text(json.dumps({"Action": "skip", "Package": runner.PACKAGE, "Test": runner.EXPECTED[0]}))
+            with self.assertRaisesRegex(ValueError, "skip"):
+                runner.check_native(root)
+
+    def test_docker_and_runner_pins_agree(self):
+        dockerfile = Path(runner.__file__).with_name("Dockerfile").read_text()
+        self.assertEqual(re.findall(r"fetch -q --depth 1 origin ([0-9a-f]{40})", dockerfile), [runner.PICOQUIC_PIN])
+        self.assertEqual(re.findall(r"PICOQUIC_FETCH_PTLS_TAG=([0-9a-f]{40})", dockerfile), [runner.PICOTLS_PIN])
 
 
 if __name__ == "__main__":

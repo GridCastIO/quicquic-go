@@ -79,6 +79,36 @@ This is example-level evidence for these fixed scenarios, pins and venue. It doe
 
 The required [independent peer workflow](../../.github/workflows/multipath-interop.yml) executes this fixed inventory on a GitHub-hosted Linux amd64 runner for a ready source PR, checking out its exact head. Draft pushes and documentation-only changes do not start the matrix. It records the actual hosted runner, kernel, native architecture, image and packages and rejects an unexpected self-hosted venue before peer launch. For R17 qualification, this job supplies the original 16 instances; do not run a duplicate manual matrix first. The workflow retains failed setup/case attempts and raw peer/Go JSON as an artifact and stops at the first failure.
 
+## Native Darwin peer profile
+
+[MP-MAC-P1 (#1488)](https://github.com/GridCastIO/quicquic-go/issues/1488) adds an explicit `darwin-native` execution profile for the same picoquic and PicoTLS pins on Darwin arm64. It builds the peer natively, runs the ordinary control in both roles and compiles and lists the root multipath matrix. It executes no multipath case: Darwin public admission stays closed until its qualification slice. The Linux Docker profile remains the default, with unchanged image, toolchain, addresses and peer arguments. The [implementation plan](../../docs/adr/2026-11-19-macos-multipath-implementation-plan.md#p1--native-pinned-peer-build-and-ordinary-control) owns this contract; the transport integration suite owns the fixture.
+
+Build inputs come from explicit caller-owned prefixes. CMake and pkg-config (PicoTLS's CMake requires it to probe Brotli, which picoquic disables) are not system packages here; OpenSSL is read from a prefix with static libraries, so the peer binaries do not load it at run time. A missing tool fails before any fetch. Nothing is installed or changed on the host:
+
+```sh
+python3 -B interop/multipath/native_build.py --cmake "$TOOLS/cmake" --pkg-config "$TOOLS/pkg-config" \
+  --openssl-root "$OPENSSL_PREFIX" --work "$BUILD"
+```
+
+The recipe verifies both source revisions, links both binaries, rejects dynamic OpenSSL linkage, and runs the C adapter's fixed self-test: three explicit loopback tuples bind, and an oversized datagram is reported as truncated through `recvmsg` flags, which Darwin and Linux both provide. It then writes `build-identity.json` with the platform, compiler, SDK, CMake, pkg-config and OpenSSL identities, the `peer.c` digest and both binary digests. The runner reads that record back and rejects unknown fields, other pins, another platform, another `peer.c` or an unrecorded binary.
+
+Darwin configures only `127.0.0.1` on loopback without a privileged alias, so its tuples use that address with distinct ephemeral ports, including replacement and migration targets. The Go fixture owns this plan and passes the adapter its three socket addresses and the replacement address explicitly; Linux keeps `127.0.0.1`–`127.0.0.3` and the original seven arguments. Darwin has no GNU `stdbuf`: the C adapter's output is already unbuffered, and the ordinary demo's readiness is a successful Dial within the role context. Both child processes are still canceled and joined, and both exit statuses are checked.
+
+Compile both test binaries for the candidate and pass its exact commit and tree. Each invocation uses a fresh output directory:
+
+```sh
+go test -c -tags=picoquic -o "$BIN/peer-control.test" ./integrationtests/self
+go test -c -tags=picoquic -o "$BIN/peer-matrix.test" .
+export QGF_SOURCE_COMMIT=$(git rev-parse HEAD) QGF_SOURCE_TREE=$(git rev-parse 'HEAD^{tree}')
+python3 -B interop/multipath/run.py --profile darwin-native --binary "$BUILD/picoquic/build/picoquicdemo" \
+  --test-binary "$BIN/peer-control.test" --build-identity "$BUILD/build-identity.json" --output "$OUT/ordinary-control"
+python3 -B interop/multipath/run.py --profile darwin-native --discover-matrix \
+  --test-binary "$BIN/peer-matrix.test" --build-identity "$BUILD/build-identity.json" --output "$OUT/matrix-discovery"
+python3 -B interop/multipath/run.py --profile darwin-native --validate-native --output "$OUT"
+```
+
+The ordinary control must pass `TestPicoquicOrdinaryControl/client` and `/server` exactly once from the compiled `integrationtests/self` binary. Discovery requires the tagged `darwin/arm64` binary to list exactly `TestPicoquicMultipathMatrix`. Validation reads both receipts back and requires one shared candidate, toolchain and build identity; neither receipt substitutes for the other. The profile refuses `--smoke`, `--matrix`, `--zero-vectors` and `--validate-matrix`. These receipts are example-level development evidence for one host and toolchain, not qualification; the qualification slices select toolchains, venues and executions.
+
 ## Native deadline qualification
 
 [E6 (#1020)](https://github.com/the-sarge/quic-go-fast/issues/1020) runs six native classes on real UDP sockets, once each on Go 1.26.11 and 1.27.4: 12 instances. `native_qualification_test.go` in the root package is the fixture, under `//go:build nativequal && linux && amd64`, and `native_qualification.py` is its driver. The transport test suite owns both, and retirement requires equivalent replacement or feature removal.
