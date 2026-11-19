@@ -5,6 +5,7 @@ package quic
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net"
 	"net/netip"
 	"os"
@@ -16,6 +17,7 @@ import (
 	"testing/synctest"
 	"time"
 
+	"github.com/GridCastIO/quicquic-go/internal/monotime"
 	"github.com/GridCastIO/quicquic-go/internal/protocol"
 	"github.com/stretchr/testify/require"
 )
@@ -515,6 +517,25 @@ func nativeDarwinEAGAINToDeadline(t *testing.T, facts map[string]any) {
 	facts["faulted"] = false
 }
 
+// nativeDarwinQueuedExpiryTiming times a queued request's expiry from decision, the
+// endpoint state owner's terminal decision for its member, and the request's
+// deadline. The fixture saw the result at seen; the time from the decision to then is
+// publication and collection, never expiry. A decision before the deadline, or one
+// the fixture could not yet have seen, is not a queued expiry.
+func nativeDarwinQueuedExpiryTiming(decision monotime.Time, deadline, seen time.Time) (expiry, publication time.Duration, err error) {
+	if decision.IsZero() {
+		return 0, 0, errors.New("the queued result carries no expiry decision")
+	}
+	decided := decision.ToTime()
+	switch {
+	case decided.Before(deadline):
+		return 0, 0, fmt.Errorf("the queued request expired %s before its deadline", deadline.Sub(decided))
+	case decided.After(seen):
+		return 0, 0, fmt.Errorf("the queued request expired %s after the fixture observed it", decided.Sub(seen))
+	}
+	return decided.Sub(deadline), seen.Sub(decided), nil
+}
+
 func nativeDarwinQueuedExpiry(t *testing.T, facts map[string]any) {
 	w := newNativeDarwinWriter(t, nil)
 	w.control(t)
@@ -533,6 +554,8 @@ func nativeDarwinQueuedExpiry(t *testing.T, facts map[string]any) {
 	require.ErrorIs(t, queued.failure(), os.ErrDeadlineExceeded)
 	require.Equal(t, [3]int{0, 0, 1}, nativeDarwinCounts(queued.members[0]), "queued work expires unsubmitted")
 	require.True(t, seen.Before(currentDeadline), "its expiry can't wait for the current request's return")
+	expiry, publication, err := nativeDarwinQueuedExpiryTiming(queued.members[0].returnedAt, queuedDeadline, seen)
+	require.NoError(t, err)
 	require.NotNil(t, nativeDarwinHeld(w.e, datagram), "the current request still holds its borrow")
 	require.True(t, nativeDarwinWriterWaiting(), "the current request is still in the Go poller")
 	require.Equal(t, 2, w.io.claimCount(), "the expired request was never claimed")
@@ -550,7 +573,8 @@ func nativeDarwinQueuedExpiry(t *testing.T, facts map[string]any) {
 	facts["queued_claimed"] = false
 	facts["queued_before_current_deadline"] = true
 	facts["writer_waiting_at_queued_expiry"] = true
-	facts["queued_expiry_ms"] = nativeDarwinMS(seen.Sub(queuedDeadline))
+	facts["queued_expiry_ms"] = nativeDarwinMS(expiry)
+	facts["queued_publication_ms"] = nativeDarwinMS(publication)
 }
 
 // nativeDarwinActiveCloseJoin closes the production granted Transport, whose endpoint
@@ -750,6 +774,68 @@ func TestNativeDarwinWriterMethod(t *testing.T) {
 			<-stopped
 			require.NotNil(t, token.completion.Load(), "the writer published the borrow before its exit")
 			require.True(t, record.claim(0).returned())
+		})
+	})
+
+	t.Run("queued expiry is timed from the endpoint's decision", func(t *testing.T) {
+		deadline := time.Now()
+		seen := deadline.Add(9 * time.Millisecond)
+		at := func(d time.Duration) monotime.Time { return monotime.FromTime(deadline.Add(d)) }
+		expiry, publication, err := nativeDarwinQueuedExpiryTiming(at(2*time.Millisecond), deadline, seen)
+		require.NoError(t, err)
+		require.Equal(t, 2*time.Millisecond, expiry, "the decision, not the observation")
+		require.Equal(t, 7*time.Millisecond, publication, "collection delay is publication, never expiry")
+		_, _, err = nativeDarwinQueuedExpiryTiming(at(0), deadline, seen)
+		require.NoError(t, err, "a decision at the deadline is on time")
+		_, _, err = nativeDarwinQueuedExpiryTiming(at(9*time.Millisecond), deadline, seen)
+		require.NoError(t, err, "a decision at the observation is not after it")
+		_, _, err = nativeDarwinQueuedExpiryTiming(0, deadline, seen)
+		require.ErrorContains(t, err, "no expiry decision")
+		_, _, err = nativeDarwinQueuedExpiryTiming(at(-time.Millisecond), deadline, seen)
+		require.ErrorContains(t, err, "before its deadline")
+		_, _, err = nativeDarwinQueuedExpiryTiming(at(10*time.Millisecond), deadline, seen)
+		require.ErrorContains(t, err, "after the fixture observed it")
+	})
+
+	t.Run("a late collection is publication, not queued expiry", func(t *testing.T) {
+		synctest.Test(t, func(t *testing.T) {
+			release := make(chan struct{})
+			record := &nativeDarwinIO{native: endpointTestNative{send: func(data []byte) (int, error) {
+				<-release
+				return len(data), nil
+			}}}
+			e := startNativeEndpoint(record, nativeDarwinBudget, nil)
+			var once sync.Once
+			unblock := func() { once.Do(func() { close(release) }) }
+			defer func() { unblock(); <-e.stop() }()
+			p, err := e.attach(1)
+			require.NoError(t, err)
+			destination := netip.MustParseAddrPort("127.0.0.1:1234")
+			start := time.Now()
+			current, datagram := nativeDarwinTrigger{}.datagram(destination, start.Add(nativeDarwinBudget), 8)
+			require.NoError(t, e.offer(e.public, 0, current))
+			synctest.Wait()
+			require.NotNil(t, nativeDarwinHeld(e, datagram), "the current request holds the writer")
+			queuedDeadline := start.Add(nativeDarwinBudget / 2)
+			require.NoError(t, e.offer(p, 0, endpointRequest{
+				identity:    endpointIdentity{connection: 1, registration: 2},
+				destination: destination,
+				members:     []endpointMember{{buffer: endpointTestBuffer("queued")}},
+				deadline:    queuedDeadline,
+			}))
+			// The fixture collects the expired result well after the endpoint decided it.
+			const delay = 7 * time.Millisecond
+			time.Sleep(time.Until(queuedDeadline) + delay)
+			queued, ok := e.take(p)
+			seen := time.Now()
+			require.True(t, ok)
+			require.ErrorIs(t, queued.failure(), os.ErrDeadlineExceeded)
+			require.Equal(t, [3]int{0, 0, 1}, nativeDarwinCounts(queued.members[0]))
+			expiry, publication, err := nativeDarwinQueuedExpiryTiming(queued.members[0].returnedAt, queuedDeadline, seen)
+			require.NoError(t, err)
+			require.Zero(t, expiry, "the endpoint expired the queued request at its deadline")
+			require.Equal(t, delay, publication, "the collection delay")
+			require.Equal(t, 1, record.claimCount(), "the expired request was never claimed")
 		})
 	})
 

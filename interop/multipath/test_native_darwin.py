@@ -562,6 +562,7 @@ BLOCKED_FACTS = {
     "queued-expiry": {
         **CLAIM, "queued_result": "deadline-exceeded", "queued_unsubmitted": 1, "queued_claimed": False,
         "queued_before_current_deadline": True, "writer_waiting_at_queued_expiry": True, "queued_expiry_ms": 0.3,
+        "queued_publication_ms": 0.05,
     },
     "active-close-join": {
         **TRIGGER, "request_deadline_preserved": True, "reset_observed_by_caller_write": True, "close_returned_while_borrowed": True, "canceled_wait": "canceled", "returned_after_close_began": True,
@@ -660,7 +661,18 @@ class BlockedWriterClassificationTests(unittest.TestCase):
     def test_bool_is_not_a_count_or_duration(self):
         self.refused("eagain-to-deadline", "send_buffer", send_buffer=True)
         self.refused("eagain-to-deadline", "publication_ms", publication_ms=True)
+        self.refused("queued-expiry", "queued_publication_ms", queued_publication_ms=True)
         self.refused("scalar-emsgsize", "send_buffer", send_buffer=60000)
+
+    def test_queued_expiry_needs_both_timing_facts(self):
+        # The expiry is timed from the endpoint's decision and the collection delay
+        # is its own fact, so a record lacking either is refused.
+        for fact in ("queued_expiry_ms", "queued_publication_ms"):
+            with self.subTest(fact=fact):
+                record = blocked_record("queued-expiry")
+                del record["facts"][fact]
+                with self.assertRaisesRegex(ValueError, "queued-expiry: facts"):
+                    runner.check_record("queued-expiry", IDENTITY, record, BLOCKED)
 
 
 class BlockedWriterRunCaseTests(unittest.TestCase):

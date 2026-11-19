@@ -9,6 +9,7 @@ import (
 	"net/netip"
 	"os"
 	"sync"
+	"sync/atomic"
 	"syscall"
 	"testing"
 	"testing/synctest"
@@ -347,6 +348,9 @@ type nativeDarwinObservation struct {
 	unexpected  error
 	owned       int
 	endpointCap [2]int // records and bytes the endpoint still charged after its join
+	// detached counts the participants detached after a failed attach, before any
+	// producer started.
+	detached int
 }
 
 // Observation statuses. Only a complete observation can report that no pressure
@@ -362,29 +366,52 @@ var nativeDarwinFaults = map[endpointFaultCause]string{
 }
 
 // observeNativeDarwinContention starts the endpoint's real writer over native,
-// offers load from one producer per participant and returns the observation.
-// It joins every producer, then the writer, and then waits up to the endpoint's
-// tolerance for the diagnostic sink's backlog, which touches only the fixture's
-// counts, before it returns; the caller still owns native and closes it afterward.
-func observeNativeDarwinContention(ctx context.Context, native endpointNativeIO, destination netip.AddrPort, load nativeDarwinLoad, hook func()) nativeDarwinObservation {
+// attaches every participant, then offers load from one producer per participant
+// and returns the observation. If an attach fails, no producer starts: the
+// attached participants are detached and the observation carries the attach
+// error. It joins every producer, then the writer, and then waits up to the
+// endpoint's tolerance for the diagnostic sink's backlog, which touches only the
+// fixture's counts, before it returns; the caller still owns native and closes it
+// afterward. attached, when set, runs after each participant attaches.
+func observeNativeDarwinContention(ctx context.Context, native endpointNativeIO, destination netip.AddrPort, load nativeDarwinLoad, hook func(), attached func(participant int)) nativeDarwinObservation {
 	ctx, cancel := context.WithTimeout(ctx, load.window)
 	defer cancel()
 	writer := &nativeDarwinWriterObserver{native: native}
 	diagnostics := &nativeDarwinDiagnostics{counts: map[[2]uint64]int{}, hook: hook}
 	e := startNativeEndpoint(writer, load.budget, diagnostics.sink)
 	observation := nativeDarwinObservation{load: load, writer: writer, fault: "none"}
-	var wg sync.WaitGroup
+	// Every participant attaches before any producer offers, so the declared load is
+	// what runs from the first offer, and a refused attach is a setup failure.
 	for i := range load.participants {
 		participant, err := e.attach(uint64(i + 1))
 		if err != nil {
 			observation.unexpected = err
 			break
 		}
-		producer := &nativeDarwinProducer{load: load, endpoint: e, participant: participant, destination: destination}
-		observation.producers = append(observation.producers, producer)
-		wg.Go(func() { producer.run(ctx) })
+		observation.producers = append(observation.producers, &nativeDarwinProducer{load: load, endpoint: e, participant: participant, destination: destination})
+		if attached != nil {
+			attached(i)
+		}
 	}
-	wg.Wait()
+	if observation.unexpected == nil {
+		// One barrier releases the producers together.
+		start := make(chan struct{})
+		var wg sync.WaitGroup
+		for _, producer := range observation.producers {
+			wg.Go(func() {
+				<-start
+				producer.run(ctx)
+			})
+		}
+		close(start)
+		wg.Wait()
+	} else {
+		// No producer started, so none offered; detach what attached.
+		for _, producer := range observation.producers {
+			<-e.detach(producer.participant)
+			observation.detached++
+		}
+	}
 	<-e.stop() // the join orders every read of endpoint state below
 	observation.endpointCap = [2]int{e.state.count, e.state.bytes}
 	select {
@@ -520,6 +547,8 @@ type nativeDarwinGatedIO struct {
 	permits  chan struct{}
 	fail     func() error
 	deadline time.Time
+	// writes counts the writes the writer has entered.
+	writes atomic.Int64
 }
 
 func (n *nativeDarwinGatedIO) SetWriteDeadline(deadline time.Time) error {
@@ -528,6 +557,7 @@ func (n *nativeDarwinGatedIO) SetWriteDeadline(deadline time.Time) error {
 }
 
 func (n *nativeDarwinGatedIO) WriteMsgUDPAddrPort(b, _ []byte, _ netip.AddrPort) (int, int, error) {
+	n.writes.Add(1)
 	if n.permits != nil {
 		<-n.permits
 	}
@@ -553,7 +583,7 @@ func TestNativeDarwinContentionAccounting(t *testing.T) {
 		native := &nativeDarwinGatedIO{permits: permits}
 		done := make(chan nativeDarwinObservation)
 		go func() {
-			done <- observeNativeDarwinContention(t.Context(), native, nativeDarwinSyntheticDestination, load, nil)
+			done <- observeNativeDarwinContention(t.Context(), native, nativeDarwinSyntheticDestination, load, nil, nil)
 		}()
 		// Hold the writer until the producers stop being admitted.
 		synctest.Wait()
@@ -596,7 +626,7 @@ func TestNativeDarwinContentionObservations(t *testing.T) {
 				failures--
 				return &os.SyscallError{Syscall: "sendmsg", Err: syscall.ENOBUFS}
 			}}
-			observation := observeNativeDarwinContention(t.Context(), native, nativeDarwinSyntheticDestination, load, nil)
+			observation := observeNativeDarwinContention(t.Context(), native, nativeDarwinSyntheticDestination, load, nil, nil)
 			observation.requireSettled(t)
 			require.Equal(t, nativeDarwinComplete, observation.status)
 			require.Equal(t, 2, observation.writer.errors[0], "immediate ENOBUFS")
@@ -628,7 +658,7 @@ func TestNativeDarwinContentionObservations(t *testing.T) {
 				time.Sleep(time.Until(native.deadline))
 				return os.ErrDeadlineExceeded
 			}
-			observation := observeNativeDarwinContention(t.Context(), native, nativeDarwinSyntheticDestination, load, nil)
+			observation := observeNativeDarwinContention(t.Context(), native, nativeDarwinSyntheticDestination, load, nil, nil)
 			observation.requireSettled(t)
 			require.Equal(t, 1, observation.writer.deadlineWaits)
 			require.Equal(t, "observed", observation.pressure)
@@ -643,7 +673,7 @@ func TestNativeDarwinContentionObservations(t *testing.T) {
 			release := make(chan struct{})
 			defer close(release)
 			wide := nativeDarwinLoad{participants: 8, requests: 8, members: 1, payload: 1200, budget: time.Second, window: time.Minute}
-			observation := observeNativeDarwinContention(t.Context(), &nativeDarwinGatedIO{}, nativeDarwinSyntheticDestination, wide, func() { <-release })
+			observation := observeNativeDarwinContention(t.Context(), &nativeDarwinGatedIO{}, nativeDarwinSyntheticDestination, wide, func() { <-release }, nil)
 			observation.requireSettled(t)
 			require.Positive(t, observation.dropped)
 			require.Equal(t, nativeDarwinIncompleteCoverage, observation.status)
@@ -663,7 +693,7 @@ func TestNativeDarwinContentionObservations(t *testing.T) {
 			ctx, cancel := context.WithCancel(t.Context())
 			done := make(chan nativeDarwinObservation)
 			go func() {
-				done <- observeNativeDarwinContention(ctx, native, nativeDarwinSyntheticDestination, load, nil)
+				done <- observeNativeDarwinContention(ctx, native, nativeDarwinSyntheticDestination, load, nil, nil)
 			}()
 			synctest.Wait()
 			cancel()
@@ -705,7 +735,7 @@ func TestNativeDarwinContentionObservations(t *testing.T) {
 				}
 				return nil
 			}
-			observation := observeNativeDarwinContention(t.Context(), native, nativeDarwinSyntheticDestination, one, nil)
+			observation := observeNativeDarwinContention(t.Context(), native, nativeDarwinSyntheticDestination, one, nil, nil)
 			observation.requireSettled(t)
 			require.NotEqual(t, "none", observation.fault)
 			attempted := 0
@@ -718,6 +748,55 @@ func TestNativeDarwinContentionObservations(t *testing.T) {
 				}
 			}
 			require.Equal(t, 1, attempted, "only the late write reached the socket")
+			require.Equal(t, nativeDarwinInterrupted, observation.status)
+			require.Equal(t, "unknown", observation.pressure)
+		})
+	})
+
+	t.Run("every participant attaches before any offer", func(t *testing.T) {
+		synctest.Test(t, func(t *testing.T) {
+			native := &nativeDarwinGatedIO{}
+			var writes []int64
+			observation := observeNativeDarwinContention(t.Context(), native, nativeDarwinSyntheticDestination, load, nil, func(int) {
+				// Any producer already started runs until it blocks; an admitted offer
+				// reaches the ungated writer.
+				synctest.Wait()
+				writes = append(writes, native.writes.Load())
+			})
+			require.Equal(t, make([]int64, load.participants), writes, "native writes as each participant attached")
+			observation.requireSettled(t)
+			require.Equal(t, nativeDarwinComplete, observation.status)
+		})
+	})
+
+	t.Run("a refused attach offers nothing", func(t *testing.T) {
+		synctest.Test(t, func(t *testing.T) {
+			// One participant more than the endpoint holds: it refuses the last attach.
+			full := nativeDarwinLoad{participants: endpointParticipants + 1, requests: 1, members: 1, payload: 1200, budget: time.Second, window: time.Minute}
+			native := &nativeDarwinGatedIO{}
+			observation := observeNativeDarwinContention(t.Context(), native, nativeDarwinSyntheticDestination, full, nil, nil)
+			require.ErrorIs(t, observation.unexpected, errEndpointCapacity, "the attach error is the observation's")
+			require.Zero(t, native.writes.Load(), "nothing was written")
+			require.Len(t, observation.producers, endpointParticipants)
+			for _, producer := range observation.producers {
+				for _, lane := range producer.lanes {
+					require.Zero(t, lane.offers, "no producer offered")
+				}
+			}
+			require.Equal(t, endpointParticipants, observation.detached, "every attached participant was detached")
+			require.Equal(t, [2]int{}, observation.endpointCap, "the joined endpoint charges nothing")
+			require.Equal(t, nativeDarwinInterrupted, observation.status)
+		})
+	})
+
+	t.Run("a fault after every attach is interrupted, not an attach error", func(t *testing.T) {
+		synctest.Test(t, func(t *testing.T) {
+			three := nativeDarwinLoad{participants: 3, requests: 2, members: 1, payload: 1200, budget: time.Second, window: time.Minute}
+			// The first write finds the socket gone, which faults the endpoint.
+			native := &nativeDarwinGatedIO{fail: func() error { return &os.SyscallError{Syscall: "sendmsg", Err: syscall.EBADF} }}
+			observation := observeNativeDarwinContention(t.Context(), native, nativeDarwinSyntheticDestination, three, nil, func(int) { synctest.Wait() })
+			observation.requireSettled(t)
+			require.Equal(t, "native", observation.fault)
 			require.Equal(t, nativeDarwinInterrupted, observation.status)
 			require.Equal(t, "unknown", observation.pressure)
 		})
@@ -809,7 +888,7 @@ func observeNativeDarwinLoopback(t *testing.T, load nativeDarwinLoad) nativeDarw
 	socket := nativeDarwinListen("udp4", net.IPv4(127, 0, 0, 1))(t)
 	peer := nativeDarwinListen("udp4", net.IPv4(127, 0, 0, 1))(t)
 	require.Nil(t, socket.RemoteAddr(), "the endpoint requires an unconnected socket")
-	return observeNativeDarwinContention(t.Context(), socket, peer.LocalAddr().(*net.UDPAddr).AddrPort(), load, nil)
+	return observeNativeDarwinContention(t.Context(), socket, peer.LocalAddr().(*net.UDPAddr).AddrPort(), load, nil, nil)
 }
 
 // nativeDarwinLateTimer is a context whose deadline has passed before its
