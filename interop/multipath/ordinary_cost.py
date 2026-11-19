@@ -19,6 +19,8 @@ import statistics
 import subprocess
 import time
 
+import candidate_binding
+
 GO_VERSION = "go1.27.4"
 ROUNDS = 3
 WARMUP_S = 10
@@ -1198,6 +1200,11 @@ def run_campaign(binary, output, candidate, log, ledger, cells=None):
     return records, reruns
 
 
+# The candidate checkout a Darwin run binds its binary to (#1528): by default the one
+# that holds this driver, which is the protocol's $SRC.
+SOURCE = Path(__file__).resolve().parents[2]
+
+
 def binary_identity(binary):
     path = Path(binary).resolve(strict=True)
     build = subprocess.run(["go", "version", "-m", str(path)], capture_output=True, text=True, check=True).stdout
@@ -1219,6 +1226,9 @@ def main(argv=None):
     parser.add_argument("--candidate", required=True, help="the exact 40-character product commit under measurement")
     parser.add_argument("--binary", required=True, help="the test binary built with -tags ordinarycost")
     parser.add_argument("--output", required=True, type=Path)
+    parser.add_argument("--source", type=Path,
+                        help="darwin-arm64 only: the clean candidate checkout the binary must rebuild from byte for byte; "
+                             "default: the checkout holding this driver")
     parser.add_argument("--remaining-instances", required=True, type=int)
     parser.add_argument("--remaining-host-seconds", required=True, type=float)
     parser.add_argument("--timeout-seconds", required=True, type=float, help="maximum reserved duration per observation, including setup/cleanup")
@@ -1249,6 +1259,8 @@ def main(argv=None):
         parser.error("the native profile records smoke or diagnostic observations; Q1 selects any campaign protocol")
     if args.host_sampler != "none" and not native:
         parser.error("--host-sampler belongs to the native profile")
+    if args.source is not None and not native:
+        parser.error("--source belongs to the native profile")
     check_prerequisites(platform.system(), platform.machine(), shutil.which, args.platform_profile)
     if len(args.candidate) != 40 or any(c not in "0123456789abcdef" for c in args.candidate):
         parser.error("--candidate must be a full lowercase commit SHA")
@@ -1261,6 +1273,10 @@ def main(argv=None):
     if bool(args.revalidate_cell) != bool(args.cause):
         parser.error("--revalidate-cell and --cause go together")
     binary = binary_identity(args.binary)
+    if native:
+        # Before any output or launch, and outside the ledger and every timeout (#1528).
+        bound = candidate_binding.bind(args.source or SOURCE, args.candidate, {"binary": binary["path"]})
+        binary["binding"] = bound["bindings"]["binary"]
     args.output.mkdir(parents=True, exist_ok=False)
     mode = ("smoke" if args.smoke_cell else "diagnostic" if args.diagnostic_cell
             else LIFECYCLE if args.lifecycle_memory else "campaign")
@@ -1284,7 +1300,7 @@ def main(argv=None):
                         lifecycle_phases=LIFECYCLE_PHASES, lifecycle_boundaries=LIFECYCLE_BOUNDARIES)
     if native:
         identity.update(macos=platform.mac_ver()[0], pinning="none: Darwin offers no CPU affinity",
-                        host_sampler=args.host_sampler)
+                        host_sampler=args.host_sampler, source=bound["source"])
     else:
         identity.update(server_cpus=SERVER_CPUS, client_cpus=CLIENT_CPUS, fixture_cpus_and_siblings=FIXTURE_CPUS)
     (args.output / "identity.json").write_text(json.dumps(identity, indent=2) + "\n")

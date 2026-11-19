@@ -18,6 +18,7 @@ import sys
 import time
 from pathlib import Path
 
+import candidate_binding
 import ordinary_cost as c1
 
 VERSION = 1
@@ -363,6 +364,9 @@ def main(argv=None):
     parser.add_argument("--relay-binary", required=True, help="the built interop/multipath/relay/cmd/udprelay executable")
     parser.add_argument("--candidate", required=True, help="the exact 40-character product commit under observation")
     parser.add_argument("--output", required=True, type=Path)
+    parser.add_argument("--source", type=Path,
+                        help="darwin-arm64 only: the clean candidate checkout both binaries must rebuild from byte for byte; "
+                             "default: the checkout holding this driver")
     parser.add_argument("--platform-profile", choices=sorted(c1.PROFILES), default=c1.LINUX)
     parser.add_argument("--topology", required=True, choices=sorted(TOPOLOGIES))
     parser.add_argument("--arm", required=True, action="append", choices=list(ARMS),
@@ -374,6 +378,9 @@ def main(argv=None):
     parser.add_argument("--timeout-seconds", required=True, type=float,
                         help="maximum duration of one observation, including setup, drain and cleanup")
     args = parser.parse_args(argv)
+    native = args.platform_profile == c1.DARWIN
+    if args.source is not None and not native:
+        parser.error("--source belongs to the darwin-arm64 profile")
     if len(set(args.arm)) != len(args.arm):
         parser.error("each arm runs once")
     for arm in args.arm:
@@ -387,6 +394,12 @@ def main(argv=None):
         parser.error("--timeout-seconds does not cover setup, warmup, window, drain and cleanup")
     check_host(platform.system(), platform.machine(), args.platform_profile)
     binaries = {"test": c1.binary_identity(args.test_binary), "relay": c1.binary_identity(args.relay_binary)}
+    if native:
+        # One snapshot binds both binaries, before any output or launch (#1528).
+        bound = candidate_binding.bind(args.source or c1.SOURCE, args.candidate,
+                                       {name: binary["path"] for name, binary in binaries.items()})
+        for name, binary in binaries.items():
+            binary["binding"] = bound["bindings"][name]
     args.output.mkdir(parents=True, exist_ok=False)
     identity = {
         "version": VERSION, "candidate": args.candidate, "binaries": binaries, "platform_profile": args.platform_profile,
@@ -396,8 +409,8 @@ def main(argv=None):
         "pinning": "none: Q1 selects any CPU placement", "metric_boundaries": METRIC_BOUNDARIES,
         "evidence_class": EVIDENCE_CLASS[args.platform_profile],
     }
-    if args.platform_profile == c1.DARWIN:
-        identity["macos"] = platform.mac_ver()[0]
+    if native:
+        identity.update(macos=platform.mac_ver()[0], source=bound["source"])
     (args.output / "identity.json").write_text(json.dumps(identity, indent=2) + "\n")
 
     def interrupt_on_sigterm(signum, frame):

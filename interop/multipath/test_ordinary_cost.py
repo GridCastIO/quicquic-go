@@ -17,6 +17,7 @@ from pathlib import Path
 from unittest import mock
 
 import ordinary_cost as driver
+import test_candidate_binding as binding_fixture
 
 
 def flow(label="ordinary", bytes_per_second=1000, control_p99=1000.0):
@@ -476,6 +477,10 @@ class ExecutionTests(unittest.TestCase):
             stack.enter_context(mock.patch.object(driver.platform, "machine", return_value=machine))
             if sampler is not None:
                 stack.enter_context(mock.patch.object(driver, "powermetrics_command", return_value=sampler))
+            # Stand-in binaries: the binding itself is exercised by NativeBindingTests, and a
+            # Linux profile must never reach it.
+            stack.enter_context(mock.patch.object(driver.candidate_binding, "bind", side_effect=(
+                stub_binding if platform == driver.DARWIN else AssertionError("bound off Darwin"))))
             stack.enter_context(mock.patch.object(driver.shutil, "which", return_value="taskset"))
             stack.enter_context(mock.patch.object(driver.subprocess, "run", return_value=mock.Mock(stdout=f"fixture: {driver.GO_VERSION}\n")))
             stack.enter_context(mock.patch.object(driver.subprocess, "Popen", side_effect=launch))
@@ -522,6 +527,9 @@ class ExecutionTests(unittest.TestCase):
                 driver.wait_quiet = lambda _: {}
                 driver.schedstat_running_ns = lambda: dict.fromkeys(driver.FIXTURE_CPUS, 0)
                 driver.softirqd_ns = lambda: 0
+                driver.candidate_binding.bind = lambda source, candidate, binaries, tree=None: {
+                    "source": {"commit": candidate, "tree": "b" * 40, "head_tree": "b" * 40, "clean": True},
+                    "bindings": {name: {"method": "stub"} for name in binaries}}
                 extra = ["--platform-profile", "darwin-arm64", "--smoke-cell", "stream", "--host-sampler", "powermetrics"] if native else []
                 sys.exit(driver.main([
                     "--candidate", "a" * 40, "--binary", str(root / "fixture"), "--output", str(root / "output"),
@@ -1784,6 +1792,86 @@ class LifecycleExecutionTests(unittest.TestCase):
             self.assertEqual(code, 1)
             self.assertEqual(processes, {})
             self.assertIn(f"at least {driver.LIFECYCLE_TIMEOUT_S}", summary["error"])
+
+
+
+def stub_binding(source, candidate, binaries, tree=None):
+    """A binding record for stand-in binaries; real bindings are tested below and in
+    test_candidate_binding."""
+    return {"source": {"commit": candidate, "tree": "b" * 40, "head_tree": "b" * 40, "clean": True},
+            "bindings": {name: {"method": "stub", "sha256": hashlib.sha256(Path(path).read_bytes()).hexdigest()}
+                         for name, path in binaries.items()}}
+
+
+class NativeBindingTests(unittest.TestCase):
+    """MP-MAC #1528: on darwin-arm64 the driver refuses a test binary that is not a
+    byte-identical rebuild of the clean candidate, before any output or launch."""
+
+    def setUp(self):
+        directory = tempfile.TemporaryDirectory()
+        self.addCleanup(directory.cleanup)
+        self.root = Path(directory.name)
+        self.repo = binding_fixture.FixtureRepo(self.root)
+
+    def run_driver(self, binary, candidate=None, profile="darwin-arm64"):
+        """Run main against the fixture checkout; any role launch is recorded and fails."""
+        launches, real_popen = [], subprocess.Popen
+
+        def popen(command, *args, env=None, **kwargs):
+            if env is not None and "ORDINARY_COST_SPEC" in env:
+                launches.append(command)
+                raise OSError("launch spy: no role runs in a binding test")
+            return real_popen(command, *args, env=env, **kwargs)
+
+        system, machine = driver.PROFILES[profile]["host"]
+        with contextlib.ExitStack() as stack:
+            stack.enter_context(mock.patch.object(driver, "GO_VERSION", binding_fixture.GO_VERSION))
+            stack.enter_context(mock.patch.object(driver.platform, "system", return_value=system))
+            stack.enter_context(mock.patch.object(driver.platform, "machine", return_value=machine))
+            stack.enter_context(mock.patch.object(driver.shutil, "which", return_value="taskset"))
+            stack.enter_context(mock.patch.object(driver.subprocess, "Popen", side_effect=popen))
+            stack.enter_context(contextlib.redirect_stdout(io.StringIO()))
+            code = driver.main(["--platform-profile", profile, "--controller", "reno", "--diagnostic-cell", "stream",
+                                "--candidate", candidate or self.repo.head(), "--binary", str(binary),
+                                "--source", str(self.repo.root), "--output", str(self.root / "output"),
+                                "--remaining-instances", "56", "--remaining-host-seconds", "7560", "--timeout-seconds", "135"])
+        return code, launches
+
+    def refused(self, pattern, binary, candidate=None):
+        with self.assertRaisesRegex(ValueError, pattern):
+            self.run_driver(binary, candidate)
+        self.assertFalse((self.root / "output").exists(), "refused before any output")
+
+    def test_candidate_build_is_accepted_and_recorded(self):
+        binary = self.repo.build("ordinary-cost-T27.test", tags="ordinarycost")
+        code, launches = self.run_driver(binary)
+        self.assertEqual(code, 1)
+        self.assertEqual(len(launches), 1, "the bound binary reached its first role launch")
+        identity = json.loads((self.root / "output" / "identity.json").read_text())
+        self.assertEqual(identity["source"], {"commit": self.repo.head(), "tree": self.repo.tree(),
+                                              "head_tree": self.repo.tree(), "clean": True})
+        bound = identity["binary"]["binding"]
+        self.assertEqual((bound["sha256"], bound["rebuild"]), (identity["binary"]["sha256"], "byte-identical"))
+        self.assertEqual(bound["settings"]["-tags"], "ordinarycost")
+
+    def test_stale_dirty_mismatched_or_ignored_builds_are_refused(self):
+        first = self.repo.head()
+        self.refused("is not the candidate's build", self.repo.stale("stale.test", tags="ordinarycost"))
+        self.refused("not the candidate", self.repo.build("current.test", tags="ordinarycost"), candidate=first)
+        self.repo.write("extra_ignored.go", "package bindingfixture\n\nconst Extra = 1\n")
+        self.refused("recorded tree omits", self.repo.build("ignored.test", tags="ordinarycost"))
+        (self.repo.root / "extra_ignored.go").unlink()
+        binary = self.repo.build("dirty.test", tags="ordinarycost")
+        self.repo.write("fixture.go", 'package bindingfixture\n\nconst Version = "edited"\n')
+        self.refused("not clean", binary)
+
+    def test_linux_profile_never_binds(self):
+        with tempfile.TemporaryDirectory() as temporary, \
+                mock.patch.object(driver.candidate_binding, "bind", side_effect=AssertionError("bound on Linux")):
+            code, summary, _ = ExecutionTests().invoke(Path(temporary), ("--smoke-cell", "stream-gso-on"))
+        self.assertEqual(code, 0, summary)
+        with contextlib.redirect_stderr(io.StringIO()), self.assertRaises(SystemExit):
+            self.run_driver(self.repo.build("linux.test"), profile="linux-amd64")
 
 
 if __name__ == "__main__":

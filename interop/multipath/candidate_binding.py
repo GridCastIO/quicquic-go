@@ -1,0 +1,156 @@
+#!/usr/bin/env python3
+"""MP-MAC #1528 (protocol D4 A): bind each prebuilt Go binary a Darwin driver consumes to
+the recorded candidate tree.
+
+A binary is bound only when a fresh rebuild from the clean candidate checkout, with the
+settings the binary records about its own build, is byte-identical to it. The checkout
+is snapshotted with E1's method before and after the rebuilds, and a build that reads
+main-module files the recorded tree omits is refused. Byte identity is the acceptance
+criterion, so a drifted build environment can only refuse a binary, never accept a stale
+one. The drivers call bind before they create output or launch anything.
+"""
+
+import hashlib
+import os
+from pathlib import Path
+import subprocess
+import tempfile
+
+from native_darwin import Profile, check_build_sources, selected_sources, source_identity, tree_paths
+
+METHOD = "rebuild-from-candidate/v1"
+# The go command's output depends on which flags were given, not only on the settings it
+# records: an explicit default such as -buildmode=exe, -compiler=gc or -buildvcs=false
+# changes the binary. So the rebuild passes only the flags a default build records as
+# given (-tags and -trimpath), requires the others to be the defaults, and passes the
+# recorded environment. Anything else recorded refuses the binary.
+FLAGS = ("-tags", "-trimpath")
+DEFAULTS = {"-buildmode": "exe", "-compiler": "gc"}
+ENVIRONMENT = ("CGO_ENABLED", "CGO_CFLAGS", "CGO_CPPFLAGS", "CGO_CXXFLAGS", "CGO_LDFLAGS", "GOOS", "GOARCH", "GOARM64")
+# Derived by the go command from go.mod, and from the checkout when it stamps VCS
+# information, which by default it does for go build and not for go test.
+DERIVED = ("DefaultGODEBUG",)
+VCS = ("vcs", "vcs.revision", "vcs.time", "vcs.modified")
+# Never passed to the rebuild: the recorded flags replace GOFLAGS, and a GOEXPERIMENT the
+# binary does not record was not set.
+UNRECORDED = ("GOFLAGS", "GOEXPERIMENT")
+
+
+def run(command, cwd=None, env=None):
+    try:
+        return subprocess.run(command, cwd=cwd, env=env, check=True, capture_output=True, text=True).stdout
+    except (OSError, subprocess.CalledProcessError) as error:
+        detail = getattr(error, "stderr", "") or ""
+        raise ValueError(f"{' '.join(map(str, command))} failed: {error}\n{detail[-2000:]}") from error
+
+
+def snapshot(source):
+    try:
+        return source_identity(source)
+    except (OSError, subprocess.CalledProcessError) as error:
+        raise ValueError(f"cannot snapshot the source checkout {source}: {error}") from error
+
+
+def build_info(binary):
+    """The toolchain, package path, main module and build settings `go version -m` reads
+    from the binary. A quoted key or value is not reproduced, so it is refused."""
+    lines = run(["go", "version", "-m", str(binary)]).splitlines()
+    if not lines or ": " not in lines[0]:
+        raise ValueError(f"{binary} carries no Go build information")
+    info = {"toolchain": lines[0].rpartition(": ")[2].strip(), "path": None, "module": None, "settings": {}}
+    for line in lines[1:]:
+        fields = line.strip("\n").split("\t")
+        if len(fields) < 3 or fields[0] != "":
+            continue
+        kind, value = fields[1], fields[2]
+        if kind == "path":
+            info["path"] = value
+        elif kind == "mod":
+            info["module"] = value
+        elif kind == "build":
+            key, separator, setting = value.partition("=")
+            if not separator or key.startswith('"') or setting.startswith('"'):
+                raise ValueError(f"{binary}: build setting {value!r} cannot be reproduced")
+            info["settings"][key] = setting
+    if not info["path"] or not info["module"]:
+        raise ValueError(f"{binary} does not name its package and main module")
+    return info
+
+
+def rebuild_plan(binary, info, module):
+    """The package, form, flags and environment that reproduce the binary's recorded build."""
+    path = info["path"]
+    form = "test" if path.endswith(".test") else "build"
+    package = path[:-len(".test")] if form == "test" else path
+    if info["module"] != module or (package != module and not package.startswith(module + "/")):
+        raise ValueError(f"{binary}: package {package} is not in the source's main module {module}")
+    settings = info["settings"]
+    unknown = sorted(set(settings) - set(FLAGS) - set(DEFAULTS) - set(ENVIRONMENT) - set(DERIVED) - set(VCS))
+    if unknown:
+        raise ValueError(f"{binary}: recorded build settings {unknown} cannot be reproduced")
+    for key, default in DEFAULTS.items():
+        if settings.get(key, default) != default:
+            raise ValueError(f"{binary}: {key}={settings[key]} is not the default build and cannot be reproduced")
+    if ("vcs" in settings) != (form == "build"):
+        raise ValueError(f"{binary}: VCS stamping differs from go {form}'s default, so -buildvcs was given; "
+                         "the build cannot be reproduced")
+    if settings.get("-trimpath", "true") != "true":
+        raise ValueError(f"{binary}: -trimpath={settings['-trimpath']} cannot be reproduced")
+    flags = [f"-tags={settings['-tags']}"] if "-tags" in settings else []
+    flags += ["-trimpath"] if "-trimpath" in settings else []
+    environment = {key: settings[key] for key in ENVIRONMENT if key in settings}
+    return package, form, flags, environment
+
+
+def bind_one(source, tree, module, binary):
+    info = build_info(binary)
+    package, form, flags, environment = rebuild_plan(binary, info, module)
+    toolchain = info["toolchain"]
+    directory = source / package[len(module) + 1:] if package != module else source
+    # The source check lists the package as the build reads it, with no workspace outside
+    # the module; native_darwin passes build settings through the environment.
+    listing = environment | {"GOFLAGS": " ".join(flags), "GOWORK": "off"}
+    try:
+        selected = selected_sources(directory, toolchain, Profile("candidate-binding", "", (), listing))
+    except (OSError, subprocess.CalledProcessError) as error:
+        raise ValueError(f"{binary}: cannot list the build sources of {package}: {error}") from error
+    check_build_sources(selected, tree)
+    env = {key: value for key, value in os.environ.items() if key not in ENVIRONMENT and key not in UNRECORDED}
+    env |= environment | {"GOWORK": "off", "GOTOOLCHAIN": toolchain}
+    digest = hashlib.sha256(Path(binary).read_bytes()).hexdigest()
+    with tempfile.TemporaryDirectory(prefix="candidate-binding-") as temporary:
+        # The binary's own name: a Darwin code signature can carry the output name.
+        output = Path(temporary) / Path(binary).name
+        command = ["go", "test", "-c", *flags, "-o", str(output), package] if form == "test" else \
+            ["go", "build", *flags, "-o", str(output), package]
+        run(command, cwd=source, env=env)
+        rebuilt = hashlib.sha256(output.read_bytes()).hexdigest()
+    if rebuilt != digest:
+        raise ValueError(f"{binary} (sha256 {digest}) is not the candidate's build of {package}: "
+                         f"a rebuild from the recorded tree has sha256 {rebuilt}")
+    return {"method": METHOD, "package": package, "form": form, "toolchain": toolchain,
+            "settings": dict(info["settings"]), "sha256": digest, "rebuild": "byte-identical"}
+
+
+def bind(source, candidate, binaries, tree=None):
+    """Bind each named binary to the clean candidate checkout at source, or raise ValueError
+    naming why not. candidate is the asserted commit; tree, when the caller asserts one,
+    must be its tree. Returns the snapshot and one binding record per binary."""
+    source = Path(source).resolve()
+    before = snapshot(source)
+    if not before["clean"]:
+        raise ValueError(f"the source checkout {source} is not clean: its working tree {before['tree']} "
+                         f"is not HEAD's tree {before['head_tree']}")
+    if before["commit"] != candidate:
+        raise ValueError(f"the source checkout is at {before['commit']}, not the candidate {candidate}")
+    if tree is not None and before["tree"] != tree:
+        raise ValueError(f"the source checkout's tree is {before['tree']}, not the recorded tree {tree}")
+    listed = run(["go", "list", "-m", "-f", "{{.Path}}\t{{.Dir}}"], cwd=source,
+                 env=os.environ | {"GOWORK": "off"}).strip().split("\t")
+    if len(listed) != 2 or Path(listed[1]).resolve() != source:
+        raise ValueError(f"the source checkout {source} is not the root of its main module")
+    module, recorded = listed[0], tree_paths(source, before["tree"])
+    bindings = {name: bind_one(source, recorded, module, binary) for name, binary in binaries.items()}
+    if snapshot(source) != before:
+        raise ValueError(f"the source checkout {source} changed while its binaries were bound")
+    return {"source": before, "bindings": bindings}

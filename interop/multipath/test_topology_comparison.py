@@ -15,6 +15,7 @@ from unittest import mock
 
 import ordinary_cost as c1
 import topology_comparison as driver
+import test_candidate_binding as binding_fixture
 
 CANDIDATE = "0" * 40
 
@@ -109,6 +110,11 @@ def alive(pid):
     return True
 
 
+def stub_binding(source, candidate, binaries, tree=None):
+    return {"source": {"commit": candidate, "tree": "b" * 40, "head_tree": "b" * 40, "clean": True},
+            "bindings": {name: {"method": "stub"} for name in binaries}}
+
+
 class Fixture:
     def __init__(self, root, profile):
         self.root = root
@@ -130,6 +136,10 @@ class Fixture:
             stack.enter_context(mock.patch.object(driver.platform, "system", return_value=system))
             stack.enter_context(mock.patch.object(driver.platform, "machine", return_value=machine))
             stack.enter_context(mock.patch.object(c1, "binary_identity", side_effect=lambda path: {"path": str(Path(path).resolve())}))
+            # Stand-in executables: the binding is exercised by NativeBindingTests, and a Linux
+            # profile must never reach it.
+            stack.enter_context(mock.patch.object(driver.candidate_binding, "bind", side_effect=(
+                stub_binding if self.profile == c1.DARWIN else AssertionError("bound off Darwin"))))
             stack.enter_context(contextlib.redirect_stdout(io.StringIO()))
             code = driver.main(argv)
         summary = json.loads((output / "summary.json").read_text())
@@ -390,6 +400,81 @@ class RecordTests(unittest.TestCase):
                                 ({"version": 1, "fronts": fronts, "extra": 1}, "disjoint")):
             with self.assertRaises(ValueError):
                 driver.check_ready(ready, topology)
+
+
+
+class NativeBindingTests(unittest.TestCase):
+    """MP-MAC #1528: on darwin-arm64 the driver refuses a test or relay binary that is not
+    a byte-identical rebuild of the clean candidate, before any output or launch."""
+
+    def setUp(self):
+        directory = tempfile.TemporaryDirectory()
+        self.addCleanup(directory.cleanup)
+        self.root = Path(directory.name)
+        self.repo = binding_fixture.FixtureRepo(self.root)
+
+    def build(self, prefix):
+        return (self.repo.build(f"{prefix}.test", tags="ordinarycost"),
+                self.repo.build(f"{prefix}-udprelay", test=False, package="./cmd/tool"))
+
+    def run_driver(self, binaries, candidate=None, profile=c1.DARWIN):
+        launches, real_popen = [], driver.subprocess.Popen
+        test, relay = binaries
+
+        def popen(command, *args, **kwargs):
+            if Path(command[0]).resolve() in (Path(test).resolve(), Path(relay).resolve()):
+                launches.append(command)
+                raise OSError("launch spy: nothing runs in a binding test")
+            return real_popen(command, *args, **kwargs)
+
+        system, machine = c1.PROFILES[profile]["host"]
+        with contextlib.ExitStack() as stack:
+            stack.enter_context(mock.patch.object(c1, "GO_VERSION", binding_fixture.GO_VERSION))
+            stack.enter_context(mock.patch.object(driver.platform, "system", return_value=system))
+            stack.enter_context(mock.patch.object(driver.platform, "machine", return_value=machine))
+            stack.enter_context(mock.patch.object(driver.subprocess, "Popen", side_effect=popen))
+            stack.enter_context(contextlib.redirect_stdout(io.StringIO()))
+            code = driver.main(["--platform-profile", profile, "--test-binary", str(test), "--relay-binary", str(relay),
+                                "--candidate", candidate or self.repo.head(), "--source", str(self.repo.root),
+                                "--controller", "bbrv3", "--topology", "disjoint", "--arm", "single-a", "--seed", "1493",
+                                "--mode", "diagnostic", "--timeout-seconds", "135", "--output", str(self.root / "output")])
+        return code, launches
+
+    def refused(self, pattern, binaries, candidate=None):
+        with self.assertRaisesRegex(ValueError, pattern):
+            self.run_driver(binaries, candidate)
+        self.assertFalse((self.root / "output").exists(), "refused before any output")
+
+    def test_candidate_builds_are_accepted_and_recorded(self):
+        code, launches = self.run_driver(self.build("bound"))
+        self.assertEqual(code, 1)
+        self.assertEqual(len(launches), 1, "the bound binaries reached their first launch")
+        identity = json.loads((self.root / "output" / "identity.json").read_text())
+        self.assertEqual(identity["source"], {"commit": self.repo.head(), "tree": self.repo.tree(),
+                                              "head_tree": self.repo.tree(), "clean": True})
+        for name, form in (("test", "test"), ("relay", "build")):
+            bound = identity["binaries"][name]["binding"]
+            self.assertEqual((bound["sha256"], bound["form"], bound["rebuild"]),
+                             (identity["binaries"][name]["sha256"], form, "byte-identical"))
+
+    def test_stale_dirty_mismatched_or_ignored_builds_are_refused(self):
+        first = self.repo.head()
+        test, relay = self.build("first")
+        self.repo.stale("advance.test")
+        fresh_test, fresh_relay = self.build("fresh")
+        self.refused("is not the candidate's build", (test, fresh_relay))
+        self.refused("is not the candidate's build", (fresh_test, relay))
+        self.refused("not the candidate", (fresh_test, fresh_relay), candidate=first)
+        self.repo.write("extra_ignored.go", "package bindingfixture\n\nconst Extra = 1\n")
+        self.refused("recorded tree omits", self.build("ignored"))
+        (self.repo.root / "extra_ignored.go").unlink()
+        self.repo.write("fixture.go", 'package bindingfixture\n\nconst Version = "edited"\n')
+        self.refused("not clean", (fresh_test, fresh_relay))
+
+    def test_linux_profile_takes_no_source(self):
+        with contextlib.redirect_stderr(io.StringIO()), self.assertRaises(SystemExit):
+            self.run_driver(self.build("linux"), profile=c1.LINUX)
+        self.assertFalse((self.root / "output").exists())
 
 
 if __name__ == "__main__":
