@@ -3,6 +3,7 @@ rebuild from the clean recorded tree. These tests use real git repositories and 
 builds of a tiny module; other driver tests import this module for the same fixture."""
 
 import hashlib
+import json
 import os
 from pathlib import Path
 import shutil
@@ -136,6 +137,49 @@ class BindTests(unittest.TestCase):
         self.assertEqual(self.repo.git("status", "--porcelain"), "")
         test_binary = self.repo.build("fixture.test")
         self.refused("recorded tree omits.*extra_ignored.go", {"test": test_binary})
+
+    def test_staged_change_is_refused_even_when_the_working_file_matches_head(self):
+        test_binary = self.repo.build("fixture.test")
+        original = (self.repo.root / "fixture.go").read_text()
+        self.repo.write("fixture.go", 'package bindingfixture\n\nconst Version = "staged"\n')
+        self.repo.git("add", "fixture.go")
+        self.repo.write("fixture.go", original)
+        self.assertNotEqual(self.repo.git("status", "--porcelain"), "")
+        self.refused("not clean", {"test": test_binary})
+
+    def test_tracked_link_to_an_ignored_source_is_refused(self):
+        # Git records the link, not the bytes the build reads through it.
+        # The target sits in a directory no build imports, so only the link compiles it.
+        self.repo.write("targets/target_ignored.go", "package bindingfixture\n\nconst Extra = 1\n")
+        os.symlink("targets/target_ignored.go", self.repo.root / "linked.go")
+        self.repo.commit("track a link to an ignored file")
+        self.assertEqual(self.repo.git("status", "--porcelain"), "")
+        self.refused("not a regular file in the recorded tree.*target_ignored.go",
+                     {"test": self.repo.build("linked.test")})
+
+    def test_tracked_link_to_a_tracked_source_is_bound(self):
+        self.repo.write("targets/target.go", "package bindingfixture\n\nconst Extra = 1\n")
+        os.symlink("targets/target.go", self.repo.root / "linked.go")
+        self.repo.commit("track a link to a tracked file")
+        test_binary = self.repo.build("linked.test")
+        binding.bind(self.repo.root, self.repo.head(), {"test": test_binary})
+
+    def test_go_environment_file_cannot_substitute_sources(self):
+        # A persisted GOFLAGS (go env -w) applies whenever GOFLAGS is unset or empty.
+        overlay_dir = self.repo.bin.parent / "overlay"
+        overlay_dir.mkdir()
+        alternate = overlay_dir / "fixture.go"
+        alternate.write_text('package bindingfixture\n\nconst Version = "alternate"\n')
+        overlay = overlay_dir / "overlay.json"
+        overlay.write_text(json.dumps({"Replace": {str((self.repo.root / "fixture.go").resolve()): str(alternate)}}))
+        goenv = overlay_dir / "env"
+        goenv.write_text(f"GOFLAGS=-overlay={overlay}\n")
+        genuine = self.repo.build("genuine.test")
+        substituted = self.repo.build("substituted.test", env={"GOENV": str(goenv)})
+        self.assertNotEqual(sha256(genuine), sha256(substituted))
+        with mock.patch.dict(os.environ, {"GOENV": str(goenv)}):
+            self.refused("is not the candidate's build", {"test": substituted})
+            binding.bind(self.repo.root, self.repo.head(), {"test": genuine})
 
     def test_candidate_or_tree_mismatch_is_refused(self):
         first = self.repo.head()

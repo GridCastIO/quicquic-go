@@ -34,6 +34,11 @@ VCS = ("vcs", "vcs.revision", "vcs.time", "vcs.modified")
 # Never passed to the rebuild: the recorded flags replace GOFLAGS, and a GOEXPERIMENT the
 # binary does not record was not set.
 UNRECORDED = ("GOFLAGS", "GOEXPERIMENT")
+# Every go command here ignores the persisted environment file (go env -w): it applies a
+# GOFLAGS, such as an -overlay the binary does not record, whenever GOFLAGS is unset or empty.
+ISOLATED = {"GOENV": "off", "GOWORK": "off"}
+# Git modes of regular files: the tree holds their bytes, not a link to bytes it omits.
+REGULAR_MODES = ("100644", "100755")
 
 
 def run(command, cwd=None, env=None):
@@ -45,10 +50,42 @@ def run(command, cwd=None, env=None):
 
 
 def snapshot(source):
+    """E1's tree snapshot, with the checkout's own status: a staged change whose working
+    file was restored is clean to the snapshot but not to candidate rule 1."""
     try:
-        return source_identity(source)
+        identity = source_identity(source)
+        status = run(["git", "status", "--porcelain"], cwd=source)
     except (OSError, subprocess.CalledProcessError) as error:
         raise ValueError(f"cannot snapshot the source checkout {source}: {error}") from error
+    if status.strip():
+        identity = dict(identity, clean=False)
+    return identity
+
+
+def regular_files(source, tree):
+    """The resolved paths at which the recorded tree holds a regular file's bytes."""
+    top = Path(run(["git", "rev-parse", "--show-toplevel"], cwd=source).strip()).resolve()
+    try:
+        listed = subprocess.run(["git", "ls-tree", "-r", "-z", "--full-tree", tree], cwd=top, check=True,
+                                capture_output=True).stdout
+    except (OSError, subprocess.CalledProcessError) as error:
+        raise ValueError(f"cannot list the recorded tree {tree}: {error}") from error
+    files = set()
+    for entry in filter(None, os.fsdecode(listed).split("\0")):
+        # "<mode> <type> <object>\t<path>"
+        header, _, name = entry.partition("\t")
+        if header.split(" ")[0] in REGULAR_MODES:
+            files.add(top / name)
+    return files
+
+
+def check_regular_sources(binary, selected, regular):
+    """Every main-module file the build reads, followed through any link, must be a regular
+    file at its own path in the recorded tree; E1's membership check resolves links in the
+    live checkout, so a tracked link to an ignored file would pass it."""
+    outside = sorted(str(path.resolve()) for path in selected if path.resolve() not in regular)
+    if outside:
+        raise ValueError(f"{binary}: the build reads files that are not a regular file in the recorded tree: {outside}")
 
 
 def build_info(binary):
@@ -102,21 +139,22 @@ def rebuild_plan(binary, info, module):
     return package, form, flags, environment
 
 
-def bind_one(source, tree, module, binary):
+def bind_one(source, tree, regular, module, binary):
     info = build_info(binary)
     package, form, flags, environment = rebuild_plan(binary, info, module)
     toolchain = info["toolchain"]
     directory = source / package[len(module) + 1:] if package != module else source
     # The source check lists the package as the build reads it, with no workspace outside
     # the module; native_darwin passes build settings through the environment.
-    listing = environment | {"GOFLAGS": " ".join(flags), "GOWORK": "off"}
+    listing = environment | {"GOFLAGS": " ".join(flags)} | ISOLATED
     try:
         selected = selected_sources(directory, toolchain, Profile("candidate-binding", "", (), listing))
     except (OSError, subprocess.CalledProcessError) as error:
         raise ValueError(f"{binary}: cannot list the build sources of {package}: {error}") from error
     check_build_sources(selected, tree)
+    check_regular_sources(binary, selected, regular)
     env = {key: value for key, value in os.environ.items() if key not in ENVIRONMENT and key not in UNRECORDED}
-    env |= environment | {"GOWORK": "off", "GOTOOLCHAIN": toolchain}
+    env |= environment | ISOLATED | {"GOTOOLCHAIN": toolchain}
     digest = hashlib.sha256(Path(binary).read_bytes()).hexdigest()
     with tempfile.TemporaryDirectory(prefix="candidate-binding-") as temporary:
         # The binary's own name: a Darwin code signature can carry the output name.
@@ -146,11 +184,11 @@ def bind(source, candidate, binaries, tree=None):
     if tree is not None and before["tree"] != tree:
         raise ValueError(f"the source checkout's tree is {before['tree']}, not the recorded tree {tree}")
     listed = run(["go", "list", "-m", "-f", "{{.Path}}\t{{.Dir}}"], cwd=source,
-                 env=os.environ | {"GOWORK": "off"}).strip().split("\t")
+                 env=os.environ | ISOLATED).strip().split("\t")
     if len(listed) != 2 or Path(listed[1]).resolve() != source:
         raise ValueError(f"the source checkout {source} is not the root of its main module")
-    module, recorded = listed[0], tree_paths(source, before["tree"])
-    bindings = {name: bind_one(source, recorded, module, binary) for name, binary in binaries.items()}
+    module, recorded, regular = listed[0], tree_paths(source, before["tree"]), regular_files(source, before["tree"])
+    bindings = {name: bind_one(source, recorded, regular, module, binary) for name, binary in binaries.items()}
     if snapshot(source) != before:
         raise ValueError(f"the source checkout {source} changed while its binaries were bound")
     return {"source": before, "bindings": bindings}
