@@ -439,7 +439,7 @@ func nativeProbeRebind(tc *testConnection, destination *net.UDPAddr, info packet
 	now := monotime.Now()
 	c.peerParams = &wire.TransportParameters{}
 	c.mtuDiscoverer = c.newPathMTUFinder(1200, 1452)
-	c.resetPathPacketSize(now)
+	c.resetPathPacketSize(now, now)
 	c.startMTUDiscovery(now)
 	c.pathGeneration++
 	c.emission.resetLocalPath(c.pathGeneration, now)

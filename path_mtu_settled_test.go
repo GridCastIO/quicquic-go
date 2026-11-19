@@ -309,7 +309,7 @@ func TestPathMTUInfoStageOneLoss(t *testing.T) {
 	ceiling, stageOne := c.PathMTUInfoV1()
 	require.EqualValues(t, 8972, ceiling)
 	require.EqualValues(t, 1390, stageOne, "report the tested size, rather than the narrowed bound")
-	c.resetPathPacketSize(now)
+	c.resetPathPacketSize(now, now)
 	ceiling, stageOne = c.PathMTUInfoV1()
 	require.EqualValues(t, 8972, ceiling)
 	require.Zero(t, stageOne, "a new path has not finished stage one")
