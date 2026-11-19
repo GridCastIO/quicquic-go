@@ -1,6 +1,6 @@
 # macOS multipath implementation plan
 
-**Date:** 2026-11-19. **Track:** MP-MAC, one track in [MP-MAC-20261119](2026-11-19-macos-multipath-program.md). **Status:** Accepted handoff; readiness implementation in progress. **Parent issue:** pending. **Normative scope:** Current slice contracts, preserved profile, evidence, dependencies and stop conditions. **Audit history:** [Handoff audit](../audits/2026-11-19-macos-multipath-handoff/README.md); [planning PR #1479](https://github.com/GridCastIO/quicquic-go/pull/1479). The completed [planning issue #1396](https://github.com/GridCastIO/quicquic-go/issues/1396) stays closed.
+**Date:** 2026-11-19. **Track:** MP-MAC, one track in [MP-MAC-20261119](2026-11-19-macos-multipath-program.md). **Status:** Accepted handoff; implementation in progress. **Parent issue:** pending. **Normative scope:** Current slice contracts, preserved profile, evidence, dependencies and stop conditions. **Audit history:** [Handoff audit](../audits/2026-11-19-macos-multipath-handoff/README.md); [planning PR #1479](https://github.com/GridCastIO/quicquic-go/pull/1479). The completed [planning issue #1396](https://github.com/GridCastIO/quicquic-go/issues/1396) stays closed.
 
 ## Outcome and authority
 
@@ -53,10 +53,10 @@ C2 observes live/retained memory at matched negotiated-connection lifecycle stat
 
 | Slice | State/disposition | End-to-end outcome | Blocked by | Temporary seam removed |
 | --- | --- | --- | --- | --- |
-| E1 | New; frontier | Granted scalar socket fixture and native case receipt | None | None |
-| E2 | New; blocked | Blocked-writer deadline/borrow fixture | E1 | None |
-| E3 | New; blocked | Scalar contention and pressure-observation fixture | E1 | None |
-| P1 | New; frontier | Native pinned peer build, launch and ordinary control | None | None |
+| E1 | Complete ([PR #1498](https://github.com/GridCastIO/quicquic-go/pull/1498)) | Granted scalar socket fixture and native case receipt | None | None |
+| E2 | New; frontier | Blocked-writer deadline/borrow fixture | E1 | None |
+| E3 | New; frontier | Scalar contention and pressure-observation fixture | E1 | None |
+| P1 | Complete ([PR #1499](https://github.com/GridCastIO/quicquic-go/pull/1499)) | Native pinned peer build, launch and ordinary control | None | None |
 | P2 | New; frontier | Fresh aggregate DATAGRAM ingress witness | None | None |
 | C1 | Complete ([PR #1501](https://github.com/GridCastIO/quicquic-go/pull/1501)) | Native ordinary workloads and truthful metrics | None | None |
 | C2 | New; frontier | Negotiated lifecycle-memory observation | C1 | None |

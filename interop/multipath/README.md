@@ -79,6 +79,36 @@ This is example-level evidence for these fixed scenarios, pins and venue. It doe
 
 The required [independent peer workflow](../../.github/workflows/multipath-interop.yml) executes this fixed inventory on a GitHub-hosted Linux amd64 runner for a ready source PR, checking out its exact head. Draft pushes and documentation-only changes do not start the matrix. It records the actual hosted runner, kernel, native architecture, image and packages and rejects an unexpected self-hosted venue before peer launch. For R17 qualification, this job supplies the original 16 instances; do not run a duplicate manual matrix first. The workflow retains failed setup/case attempts and raw peer/Go JSON as an artifact and stops at the first failure.
 
+## Native Darwin peer profile
+
+[MP-MAC-P1 (#1488)](https://github.com/GridCastIO/quicquic-go/issues/1488) adds an explicit `darwin-native` execution profile for the same picoquic and PicoTLS pins on Darwin arm64. It builds the peer natively, runs the ordinary control in both roles and compiles and lists the root multipath matrix. It executes no multipath case: Darwin public admission stays closed until its qualification slice. The Linux Docker profile remains the default, with unchanged image, toolchain, addresses and peer arguments. The [implementation plan](../../docs/adr/2026-11-19-macos-multipath-implementation-plan.md#p1--native-pinned-peer-build-and-ordinary-control) owns this contract; the transport integration suite owns the fixture.
+
+Build inputs come from explicit caller-owned prefixes. CMake and pkg-config (PicoTLS's CMake requires it to probe Brotli, which picoquic disables) are not system packages here; OpenSSL is read from a prefix with static libraries, so the peer binaries do not load it at run time. A missing tool fails before any fetch. Nothing is installed or changed on the host:
+
+```sh
+python3 -B interop/multipath/native_build.py --cmake "$TOOLS/cmake" --pkg-config "$TOOLS/pkg-config" \
+  --openssl-root "$OPENSSL_PREFIX" --work "$BUILD"
+```
+
+The recipe verifies both source revisions, links both binaries, rejects dynamic OpenSSL linkage, requires both to be exactly arm64, and runs the C adapter's fixed self-test: three explicit loopback tuples bind, and an oversized datagram is reported as truncated through `recvmsg` flags, which Darwin and Linux both provide. It passes the selected SDK to CMake explicitly and requires every compile command to use it. It then writes `build-identity.json` with the platform, compiler, that SDK, CMake, pkg-config and OpenSSL identities, the `peer.c` digest and both binary digests. The runner reads that record back and rejects unknown fields, other pins, another platform, another `peer.c` or an unrecorded binary.
+
+Darwin configures only `127.0.0.1` on loopback without a privileged alias, so its tuples use that address with distinct ephemeral ports, including replacement and migration targets. The Go fixture owns this plan: on Darwin it reserves the adapter's three bind tuples together and passes each exact address and port, plus the replacement address, and the adapter binds exactly those or fails. Linux keeps `127.0.0.1`–`127.0.0.3` and the original seven arguments. On Linux the abandon/reopen tuple gate's address check also proves that the armed tuple is the replacement, because `127.0.0.3` belongs to no other tuple. On Darwin that check cannot separate tuples by address; the gate still matches only the exact armed address and port. The qualification protocol records this difference when it binds native multipath commands. Darwin has no GNU `stdbuf`: the C adapter's output is already unbuffered, and the ordinary demo's readiness is a successful Dial within the role context. Both child processes are still canceled and joined, and both exit statuses are checked.
+
+Compile both test binaries for the candidate and pass its exact commit and tree. Each invocation uses a fresh output directory:
+
+```sh
+go test -c -tags=picoquic -o "$BIN/peer-control.test" ./integrationtests/self
+go test -c -tags=picoquic -o "$BIN/peer-matrix.test" .
+export QGF_SOURCE_COMMIT=$(git rev-parse HEAD) QGF_SOURCE_TREE=$(git rev-parse 'HEAD^{tree}')
+python3 -B interop/multipath/run.py --profile darwin-native --binary "$BUILD/picoquic/build/picoquicdemo" \
+  --test-binary "$BIN/peer-control.test" --build-identity "$BUILD/build-identity.json" --output "$OUT/ordinary-control"
+python3 -B interop/multipath/run.py --profile darwin-native --discover-matrix \
+  --test-binary "$BIN/peer-matrix.test" --build-identity "$BUILD/build-identity.json" --output "$OUT/matrix-discovery"
+python3 -B interop/multipath/run.py --profile darwin-native --validate-native --output "$OUT"
+```
+
+The ordinary control must pass `TestPicoquicOrdinaryControl/client` and `/server` exactly once from the compiled `integrationtests/self` binary. Discovery requires the tagged `darwin/arm64` binary to list exactly `TestPicoquicMultipathMatrix`. Validation reads both receipts back and requires one shared candidate, toolchain and build identity; neither receipt substitutes for the other. The profile refuses `--smoke`, `--matrix`, `--zero-vectors` and `--validate-matrix`. These receipts are example-level development evidence for one host and toolchain, not qualification; the qualification slices select toolchains, venues and executions.
+
 ## Native deadline qualification
 
 [E6 (#1020)](https://github.com/the-sarge/quic-go-fast/issues/1020) runs six native classes on real UDP sockets, once each on Go 1.26.11 and 1.27.4: 12 instances. `native_qualification_test.go` in the root package is the fixture, under `//go:build nativequal && linux && amd64`, and `native_qualification.py` is its driver. The transport test suite owns both, and retirement requires equivalent replacement or feature removal.
@@ -90,6 +120,18 @@ python3 interop/multipath/native_qualification.py --candidate "$(git rev-parse H
 ```
 
 `EAGAIN-to-deadline`, `retry-fallback` and `queued-expiry` run under strace. Their timing is attributed separately and never compared to the 20 ms tolerance. The other three classes are uninstrumented and are compared to it. The GSO `EIO` in `retry-fallback` is simulated by a test wrapper, because this kernel gave no real trigger. Everything after it is native. See the [re-audit](../../docs/audits/2026-11-03-e6-native-qualification-reaudit.md) for the method and the receipt for the executed identities.
+
+## Native Darwin granted scalar fixture
+
+[MP-MAC E1 (#1485)](https://github.com/GridCastIO/quicquic-go/issues/1485) adds `TestNativeDarwinScalar` in the root package (`native_darwin_fixture_test.go`, `//go:build darwin`) and its case runner `native_darwin.py`. The fixture reaches the real private write grant on loopback sockets. For IPv4-only, IPv6-only and a dual-stack socket's mapped IPv4 and native IPv6 delivery, it reads a CE-marked datagram on the granted socket with its source, packet-info destination and interface, then sends an ECT(0) reply through the granted writer, passing that packet info as control data, checks that the peer sees the granted address and port, and joins. It also checks repeated, held-socket, connected-socket and send-thread-QoS grant refusals, and that write and deadline authority return to the caller after the join. Without `NATIVE_DARWIN_RECORD` the cases are ordinary Darwin development tests and write nothing.
+
+The runner requires native Darwin arm64 (Rosetta is refused). It builds one test binary for the requested `--toolchain` (default `local`) with `CGO_ENABLED=0`, `GOARCH=arm64` and `-buildvcs=false`, records the source commit, the built working tree's hash (taken before any output exists) and whether it equals HEAD's tree, and refuses a build that reads a main-module file, as `go list` reports the test build's inputs, that the recorded tree omits. It also records the toolchain, build mode, binary hash and native identity, and runs each case once in its own process group under a timeout, killing and reaping the group on timeout. A missing, duplicate, unknown, skipped, failed, unrecorded or mismatched case, or a case record whose socket tuples contradict its family, fails the run; it stops at the first failure and writes a status only for a complete passing run, then reads its `results.json` back against one declared results shape. `--validate RESULTS` repeats that readback.
+
+```sh
+python3 interop/multipath/native_darwin.py --output /path/to/new/results
+```
+
+A passing run is ordinary local smoke evidence for the endpoint method (`support_receipt: false`), not qualification or a support receipt. Native timing, pressure and exact-candidate family/metadata/ECN receipts are bound by later MP-MAC slices. The transport test suite owns the fixture and runner; retire them with equivalent replacement or removal of the Darwin support profile, preserving accepted receipts.
 
 ## Aggregation comparison and BBR revalidation (retired)
 

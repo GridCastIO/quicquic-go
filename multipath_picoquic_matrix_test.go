@@ -1,4 +1,4 @@
-//go:build picoquic && linux && amd64
+//go:build picoquic && ((linux && amd64) || (darwin && arm64))
 
 package quic
 
@@ -13,7 +13,6 @@ import (
 	"net"
 	"os"
 	"path/filepath"
-	"strconv"
 	"testing"
 	"time"
 
@@ -36,9 +35,11 @@ type matrixSession struct {
 	primary *Transport
 }
 
-func matrixTransport(t *testing.T, lastIPByte byte, trace *matrixTrace) *Transport {
+// matrixTransport binds the host plan's Go tuple: 0 is path zero, 1 path one
+// and 2 the replacement or migration target.
+func matrixTransport(t *testing.T, tuple int, trace *matrixTrace) *Transport {
 	t.Helper()
-	socket, err := net.ListenUDP("udp4", &net.UDPAddr{IP: net.IPv4(127, 0, 0, lastIPByte)})
+	socket, err := net.ListenUDP("udp4", &net.UDPAddr{IP: hostPicoquicTuples(t).goIPs[tuple]})
 	require.NoError(t, err)
 	tr := &Transport{Conn: socket, ConnectionIDLength: 8}
 	if trace != nil {
@@ -71,7 +72,7 @@ func newMatrixSession(t *testing.T, role string, negotiated, cidReceipt bool) *m
 	if cidReceipt {
 		trace.cidReceipt = &matrixCIDReceipt{}
 	}
-	s := &matrixSession{t: t, ctx: ctx, role: role, dir: dir, trace: trace, primary: matrixTransport(t, 1, trace)}
+	s := &matrixSession{t: t, ctx: ctx, role: role, dir: dir, trace: trace, primary: matrixTransport(t, 0, trace)}
 	conf := &Config{Versions: []Version{Version1}, EnableDatagrams: true, MaxIdleTimeout: 10 * time.Second, Tracer: s.trace.tracer}
 	controller := os.Getenv("PICOQUIC_CONTROLLER")
 	if controller == "" {
@@ -84,16 +85,11 @@ func newMatrixSession(t *testing.T, role string, negotiated, cidReceipt bool) *m
 	}
 	require.NoError(t, conf.ConfigureMultipathV1(true, 2, s.policy))
 	cert, key, ca := filepath.Join(dir, "cert.pem"), filepath.Join(dir, "key.pem"), filepath.Join(dir, "ca.pem")
-	mp := "1"
-	if !negotiated {
-		mp = "0"
-	}
+	tuples := hostPicoquicTuples(t)
 	if role == "client" {
-		reserved, err := net.ListenUDP("udp4", &net.UDPAddr{IP: net.IPv4(127, 0, 0, 1)})
-		require.NoError(t, err)
-		s.remote = reserved.LocalAddr().(*net.UDPAddr)
-		require.NoError(t, reserved.Close())
-		s.peer = startSmokePeer(t, ctx, binary, dir, "server", strconv.Itoa(s.remote.Port), "0", cert, key, ca, mp)
+		peer := tuples.reservePeerTuples(t, true)
+		s.remote = peer[0]
+		s.peer = startSmokePeer(t, ctx, binary, dir, tuples.peerArgs("server", peer, 0, cert, key, ca, negotiated)...)
 		s.awaitReady()
 		s.conn, err = s.primary.Dial(ctx, s.remote, &tls.Config{ServerName: "localhost", RootCAs: roots, NextProtos: []string{"qgf-r17"}}, conf)
 		require.NoError(t, err)
@@ -102,7 +98,8 @@ func newMatrixSession(t *testing.T, role string, negotiated, cidReceipt bool) *m
 		require.NoError(t, err)
 		t.Cleanup(func() { listener.Close() })
 		port := s.primary.Conn.LocalAddr().(*net.UDPAddr).Port
-		s.peer = startSmokePeer(t, ctx, binary, dir, "client", "0", strconv.Itoa(port), cert, key, ca, mp)
+		peer := tuples.reservePeerTuples(t, false)
+		s.peer = startSmokePeer(t, ctx, binary, dir, tuples.peerArgs("client", peer, port, cert, key, ca, negotiated)...)
 		s.conn, err = listener.Accept(ctx)
 		require.NoError(t, err)
 	}
@@ -191,7 +188,7 @@ func (s *matrixSession) path(id uint32) *Path {
 func (s *matrixSession) open(id uint32) *Path {
 	s.t.Helper()
 	if s.role == "client" {
-		path, err := s.conn.OpenPathV1(s.ctx, matrixTransport(s.t, byte(id)+1, s.trace), s.remote)
+		path, err := s.conn.OpenPathV1(s.ctx, matrixTransport(s.t, int(id), s.trace), s.remote)
 		require.NoError(s.t, err)
 		got, err := path.PathIDV1()
 		require.NoError(s.t, err)
@@ -206,7 +203,7 @@ func (s *matrixSession) open(id uint32) *Path {
 // before delivering the new tuple. It makes no arbitrary-reordering claim.
 func (s *matrixSession) openReplacementWithCIDReceipt() {
 	s.t.Helper()
-	transport := matrixTransport(s.t, 3, s.trace)
+	transport := matrixTransport(s.t, 2, s.trace)
 	local := transport.Conn.LocalAddr().(*net.UDPAddr)
 	payload := append([]byte(nil), local.IP.To4()...)
 	payload = binary.BigEndian.AppendUint16(payload, uint16(local.Port))
@@ -567,7 +564,7 @@ func matrixMigration(s *matrixSession) {
 	require.NoError(s.t, err)
 	sentBefore, _ := s.trace.traffic(1)
 	if s.role == "client" {
-		target := matrixTransport(s.t, 3, s.trace)
+		target := matrixTransport(s.t, 2, s.trace)
 		require.NoError(s.t, path.MigrateV1(s.ctx, target))
 	} else {
 		s.command('N', 1)
@@ -674,7 +671,7 @@ func TestMultipathNegotiatedZeroControlledPeer(t *testing.T) {
 	requireMultipathProfile(t)
 	ctx, cancel := context.WithTimeout(t.Context(), 30*time.Second)
 	defer cancel()
-	clientTr, serverTr := matrixTransport(t, 1, nil), matrixTransport(t, 1, nil)
+	clientTr, serverTr := matrixTransport(t, 0, nil), matrixTransport(t, 0, nil)
 	conf := &Config{Versions: []Version{Version1}}
 	require.NoError(t, conf.ConfigureMultipathV1(true, 1, "primary-backup"))
 	listener, err := serverTr.Listen(nativeServerTLS(), conf)
