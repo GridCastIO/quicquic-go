@@ -272,6 +272,9 @@ class RunTests(unittest.TestCase):
         self.addCleanup(setattr, runner, "native_identity", originals[0])
         self.addCleanup(setattr, runner, "build", originals[1])
         self.addCleanup(setattr, runner, "run_case", originals[2])
+        which = runner.shutil.which
+        runner.shutil.which = lambda tool: f"/usr/bin/{tool}"
+        self.addCleanup(setattr, runner.shutil, "which", which)
         results, failure = runner.run(source, source / "results", "local", 1)
         self.assertIsNone(failure)
         self.assertTrue(results["source"]["clean"], "the in-tree output is not source")
