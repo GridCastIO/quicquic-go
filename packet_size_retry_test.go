@@ -1,3 +1,5 @@
+//go:build linux || darwin || windows
+
 package quic
 
 import (
@@ -163,4 +165,14 @@ func TestPacketSizeRetryThresholdCycle(t *testing.T) {
 	require.Equal(t, 120*time.Second, deadline.Sub(now))
 	c.advancePacketSizeRetry(now.Add(time.Second))
 	require.Equal(t, deadline, c.mtuRetry.deadline)
+}
+
+func TestPacketSizeRetryCeilingCapturedBeforeFallback(t *testing.T) {
+	c := newJumboRefusalEmission(t).conn
+	// A destination ceiling can be captured before the first fallback. Initial
+	// discovery retains its existing policy; post-fallback search uses that ceiling.
+	c.mtuRetry.pathCeiling = 1452
+	require.EqualValues(t, 8972, c.currentPathPacketCeiling())
+	c.mtuFallback.started = monotime.Now()
+	require.EqualValues(t, 1452, c.currentPathPacketCeiling())
 }

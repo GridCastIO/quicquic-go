@@ -30,7 +30,7 @@ func (c *Conn) schedulePacketSizeRetry(now monotime.Time) {
 
 func (c *Conn) currentPathPacketCeiling() protocol.ByteCount {
 	ceiling := c.effectivePacketCeiling()
-	if c.mtuRetry.pathCeiling != 0 {
+	if c.mtuFallback.started != 0 && c.mtuRetry.pathCeiling != 0 {
 		ceiling = min(ceiling, c.mtuRetry.pathCeiling)
 	}
 	return ceiling

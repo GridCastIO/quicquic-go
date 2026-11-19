@@ -1118,9 +1118,9 @@ func (c *Conn) idleTimeoutStartTime() monotime.Time {
 func (c *Conn) switchToNewPath(tr *Transport, now monotime.Time) {
 	c.pathGeneration++
 	c.emission.resetLocalPath(c.pathGeneration, now)
-	if c.mtuFallback.started != 0 {
-		c.mtuRetry.pathCeiling = tr.packetCeiling.size()
-	}
+	// Retain the destination fact even before the first fallback; only later
+	// post-fallback searches change their ceiling policy.
+	c.mtuRetry.pathCeiling = tr.packetCeiling.size()
 	c.resetPathPacketSize(now)
 	conn := newSendConn(tr.conn, c.conn.RemoteAddr(), packetInfo{}, utils.DefaultLogger) // TODO: find a better way
 	var queue sender
