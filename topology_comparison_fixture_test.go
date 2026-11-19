@@ -3,6 +3,7 @@
 package quic
 
 import (
+	"bytes"
 	"context"
 	"crypto/tls"
 	"encoding/binary"
@@ -352,34 +353,32 @@ type topologyFlowStats struct {
 
 	completion ordinaryCostHistogram
 	latency    ordinaryCostHistogram
-	last       time.Time
+	arrivals   []time.Duration
 	seen       map[uint64]struct{}
 }
 
-// arrived notes a useful arrival for the gap account; f.mu is held. The arrival is
-// timestamped here, under the flow's lock, so concurrent receive workers record arrivals
-// in the order they are accounted and a gap is never measured backward.
-func (f *topologyFlowStats) arrived(line ordinaryCostTimeline) {
-	now := time.Now()
-	if !line.inWindow(now) {
-		return
+// arrived notes a useful arrival at now, the receive observation that also decided the
+// arrival's usefulness; f.mu is held. Arrivals are kept, not folded into a running gap,
+// because concurrent receive workers can take the lock out of arrival order.
+func (f *topologyFlowStats) arrived(line ordinaryCostTimeline, now time.Time) {
+	if line.inWindow(now) {
+		f.arrivals = append(f.arrivals, now.Sub(line.window))
 	}
-	if f.last.IsZero() {
-		f.last = line.window
-	}
-	f.MaxGapNS = max(f.MaxGapNS, int64(now.Sub(f.last)))
-	f.last = now
 }
 
-// finish closes the gap account at the window's end and summarizes the latencies.
+// finish orders the arrivals, takes the longest gap between the window's boundaries and
+// them, and summarizes the latencies.
 func (f *topologyFlowStats) finish(line ordinaryCostTimeline) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	last := f.last
-	if last.IsZero() {
-		last = line.window
+	slices.Sort(f.arrivals)
+	last := time.Duration(0)
+	for _, at := range f.arrivals {
+		f.MaxGapNS = max(f.MaxGapNS, int64(at-last))
+		last = at
 	}
-	f.MaxGapNS = max(f.MaxGapNS, int64(line.end.Sub(last)))
+	f.MaxGapNS = max(f.MaxGapNS, int64(line.end.Sub(line.window)-last))
+	f.arrivals = nil
 	f.Completion = f.completion.summary()
 	f.DatagramLatency = f.latency.summary()
 }
@@ -440,7 +439,7 @@ func (s *topologyServer) object(entry *topologyServerConn, str *ReceiveStream) {
 				f.mu.Lock()
 				f.StreamSeries[second] += uint64(n)
 				f.StreamBytes += uint64(n)
-				f.arrived(s.line)
+				f.arrived(s.line, now)
 				f.mu.Unlock()
 			}
 		}
@@ -488,7 +487,7 @@ func (s *topologyServer) datagrams(entry *topologyServerConn) {
 				f.DatagramsUseful++
 				f.DatagramBytes += uint64(len(b))
 				f.latency.add(now.Sub(sent))
-				f.arrived(s.line)
+				f.arrived(s.line, now)
 			}
 		}
 		f.mu.Unlock()
@@ -607,21 +606,17 @@ func topologyRunServer(t testing.TB, spec topologySpec) *topologyServerResult {
 
 	// The client holds its connections until the drain ends, so no reading sees a close.
 	time.Sleep(time.Until(line.end.Add(topologyDrain / 2)))
+	// Mode, peer tuples and close cause are sampled before the close; labels are attached
+	// after the receive workers join, with the flow totals they attribute.
 	s.connsMu.Lock()
-	for _, entry := range s.conns {
+	sampled := slices.Clone(s.conns)
+	for _, entry := range sampled {
 		negotiated, err := entry.conn.MultipathNegotiatedV1()
 		require.NoError(t, err)
 		remotes, _ := topologyRemotes(entry.conn)
 		cause, timedOut := ordinaryCostCloseCause(entry.conn)
-		entry.mu.Lock()
-		labels := make([]string, 0, len(entry.labels))
-		for label := range entry.labels {
-			labels = append(labels, topologyLabelName(label))
-		}
-		entry.mu.Unlock()
-		slices.Sort(labels)
 		result.Connections = append(result.Connections, topologyServerConnResult{
-			Labels: labels, Multipath: negotiated, Remotes: remotes, CloseCause: cause, TimeoutClose: timedOut,
+			Multipath: negotiated, Remotes: remotes, CloseCause: cause, TimeoutClose: timedOut,
 		})
 	}
 	s.connsMu.Unlock()
@@ -640,6 +635,16 @@ func topologyRunServer(t testing.TB, spec topologySpec) *topologyServerResult {
 	// accounts are final only once every receive worker has returned.
 	s.workers.Wait()
 	result.StreamErrors = s.errors.Load()
+	for i, entry := range sampled {
+		labels := []string{}
+		entry.mu.Lock()
+		for label := range entry.labels {
+			labels = append(labels, topologyLabelName(label))
+		}
+		entry.mu.Unlock()
+		slices.Sort(labels)
+		result.Connections[i].Labels = labels
+	}
 	var useful uint64
 	for label, f := range s.flows {
 		f.finish(line)
@@ -899,14 +904,59 @@ func topologyDecode(r io.Reader, v any) error {
 	return nil
 }
 
+// topologyDecodeFile reads a role record strictly and completely: no unknown field, no
+// trailing data, and every field the record encodes stated in the file. Decoding fills an
+// omitted field with its zero value, which would otherwise pass a zero seed or an
+// unavailable BBR loss metric the producer never wrote.
 func topologyDecodeFile(path string, v any) error {
-	f, err := os.Open(path)
+	data, err := os.ReadFile(path)
 	if err != nil {
 		return err
 	}
-	defer f.Close()
-	if err := topologyDecode(f, v); err != nil {
+	if err := topologyDecode(bytes.NewReader(data), v); err != nil {
 		return fmt.Errorf("%s: %w", path, err)
+	}
+	encoded, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+	var stated, want any
+	if err := json.Unmarshal(data, &stated); err != nil {
+		return err
+	}
+	if err := json.Unmarshal(encoded, &want); err != nil {
+		return err
+	}
+	if err := topologyStated(stated, want, "record"); err != nil {
+		return fmt.Errorf("%s: %w", path, err)
+	}
+	return nil
+}
+
+// topologyStated requires stated to carry every key want has, recursively.
+func topologyStated(stated, want any, at string) error {
+	switch want := want.(type) {
+	case map[string]any:
+		got, _ := stated.(map[string]any)
+		for key, value := range want {
+			v, ok := got[key]
+			if !ok {
+				return fmt.Errorf("%s.%s is not stated", at, key)
+			}
+			if err := topologyStated(v, value, at+"."+key); err != nil {
+				return err
+			}
+		}
+	case []any:
+		got, _ := stated.([]any)
+		for i, value := range want {
+			if i >= len(got) {
+				return fmt.Errorf("%s[%d] is not stated", at, i)
+			}
+			if err := topologyStated(got[i], value, fmt.Sprintf("%s[%d]", at, i)); err != nil {
+				return err
+			}
+		}
 	}
 	return nil
 }

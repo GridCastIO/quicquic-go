@@ -82,11 +82,19 @@ def check_role_log(role, output):
         raise ValueError(f"{role} must pass exactly once:\n{output[-2000:]}")
 
 
-def run_role(binary, env, spec, log_path, timeout_s):
-    """A short synchronous role: relay-config or verify."""
+def run_role(binary, env, spec, log_path, timeout_s, launched):
+    """A short synchronous role: relay-config or verify. Its child is killed and reaped on
+    any exit from the wait, an interrupt or timeout included."""
     with log_path.open("w") as log:
-        process = subprocess.run(role_command(binary, timeout_s), env=dict(env, **{SPEC_ENV: json.dumps(spec)}),
-                                 stdout=log, stderr=subprocess.STDOUT, timeout=timeout_s)
+        process = subprocess.Popen(role_command(binary, timeout_s), env=dict(env, **{SPEC_ENV: json.dumps(spec)}),
+                                   stdout=log, stderr=subprocess.STDOUT)
+    launched.setdefault("test", str(binary))
+    try:
+        process.wait(timeout=timeout_s)
+    finally:
+        if process.returncode is None:
+            process.kill()
+            process.wait()
     if process.returncode != 0:
         raise ValueError(f"{spec['role']} exit {process.returncode}:\n{log_path.read_text()[-2000:]}")
     check_role_log(spec["role"], log_path.read_text())
@@ -169,19 +177,34 @@ def run_observation(test_binary, relay_binary, directory, topology, arm, control
     """One observation. Every launched child (relay, server, client) is terminated and reaped,
     even after a partial launch, a failure or an interrupt; the relay's CPU is its own."""
     record = record if record is not None else {}
-    record["launched"] = {"test": str(test_binary), "relay": str(relay_binary)}
+    record["launched"] = launched = {}  # each executable, once a child of it exists
     directory.mkdir(parents=True, exist_ok=False)
     env = {key: value for key, value in os.environ.items() if not key.startswith("QUIC_GO_") and key != SPEC_ENV}
     base = {"topology": topology, "arm": arm, "controller": controller, "seed": seed,
             "server": f"127.0.0.1:{free_port()}"}
     begun = time.monotonic()
     deadline = begun + timeout_s
+    try:
+        observation = observe(test_binary, relay_binary, directory, env, base, platform_profile,
+                              warmup_s, window_s, timeout_s, deadline, record, launched)
+        if time.monotonic() > deadline:
+            raise ValueError("the observation was accepted only after its deadline")
+    finally:
+        # Every attempt, failed ones included, charges its host time through readback.
+        record["occupied_s"] = time.monotonic() - begun
+    record["observation"] = observation
+    return record
+
+
+def observe(test_binary, relay_binary, directory, env, base, platform_profile, warmup_s, window_s,
+            timeout_s, deadline, record, launched):
+    topology, arm = base["topology"], base["arm"]
     processes, usage = {}, {}
     relay_cpu = {"value": None, "unit": "ns", "source": RELAY_CPU_SOURCE, "available": False,
                  "reason": "the relay did not exit normally"}
     config = directory / "relay-config.json"
     run_role(test_binary, env, dict(base, role="relay-config", output=str(config)), directory / "relay-config.log",
-             max(1, deadline - time.monotonic()))
+             max(1, deadline - time.monotonic()), launched)
 
     def reap(role, process, timeout=None):
         # Only this function reaps children, so each RUSAGE_CHILDREN delta is one child's.
@@ -199,6 +222,7 @@ def run_observation(test_binary, relay_binary, directory, topology, arm, control
                 relay = subprocess.Popen([str(relay_binary), "-config", str(config), "-record", str(directory / "relay.json")],
                                          stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=log, env=env)
             processes["relay"] = relay
+            launched["relay"] = str(relay_binary)
             with interrupts.interruptible():
                 fronts = check_ready(read_ready(relay, min(deadline, time.monotonic() + RELAY_READY_S)), topology)
             spec = dict(base, fronts=fronts, start_at_unix_ns=time.time_ns() + SETUP_S * 10**9,
@@ -234,10 +258,9 @@ def run_observation(test_binary, relay_binary, directory, topology, arm, control
                     for pipe in (process.stdin, process.stdout):
                         if pipe and not pipe.closed:
                             pipe.close()
-                record.update(topology=topology, arm=arm, controller=controller, seed=seed,
+                record.update(topology=topology, arm=arm, controller=base["controller"], seed=base["seed"],
                               platform_profile=platform_profile, process_cpu_s=usage, relay_cpu=relay_cpu,
-                              exit={role: process.returncode for role, process in processes.items()},
-                              occupied_s=time.monotonic() - begun)
+                              exit={role: process.returncode for role, process in processes.items()})
     for role in ("server", "client"):
         check_role_log(role, (directory / f"{role}.log").read_text())
     check_relay_cpu(relay_cpu)
@@ -245,19 +268,15 @@ def run_observation(test_binary, relay_binary, directory, topology, arm, control
     remaining = deadline - time.monotonic()
     if remaining <= 0:
         raise ValueError("no time remains in the observation's deadline for verification")
-    try:
-        run_role(test_binary, env, dict(spec, role="verify", output=str(observation_path), relay_record=str(directory / "relay.json"),
-                                        server_result=str(directory / "server.json"), client_result=str(directory / "client.json")),
-                 directory / "verify.log", remaining)
-    finally:
-        record["occupied_s"] = time.monotonic() - begun
+    run_role(test_binary, env, dict(spec, role="verify", output=str(observation_path), relay_record=str(directory / "relay.json"),
+                                    server_result=str(directory / "server.json"), client_result=str(directory / "client.json")),
+             directory / "verify.log", remaining, launched)
 
     def reject_nonfinite(value):
         raise ValueError(f"nonfinite JSON number {value}")
     observation = json.loads(observation_path.read_text(), parse_constant=reject_nonfinite)
     check_observation(observation, base, platform_profile)
-    record["observation"] = observation
-    return record
+    return observation
 
 
 def sampled(latency):

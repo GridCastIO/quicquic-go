@@ -324,6 +324,30 @@ func topologyRefusals(t *testing.T, run topologySmokeRun) {
 	require.ErrorContains(t, err, "unknown field")
 	spec.ServerResult = write("server2.json", run.server)
 
+	// A field the producer never wrote is refused, not read as its zero value: an omitted
+	// availability would pass for BBR's unavailable loss metric, an omitted seed for seed 0.
+	omit := func(name string, v any, drop func(map[string]any)) string {
+		var doc map[string]any
+		b, err := json.Marshal(v)
+		require.NoError(t, err)
+		require.NoError(t, json.Unmarshal(b, &doc))
+		drop(doc)
+		return write(name, doc)
+	}
+	require.Equal(t, "bbrv3", run.spec.Controller, "the shared run's loss metric is unavailable")
+	spec.ClientResult = omit("client-lost.json", run.client, func(doc map[string]any) {
+		delete(doc["flows"].([]any)[0].(map[string]any)["packets_lost_metric"].(map[string]any), "available")
+	})
+	_, err = topologyVerify(spec, ordinaryCostHost)
+	require.ErrorContains(t, err, "packets_lost_metric.available is not stated")
+	spec.ClientResult = write("client2.json", run.client)
+	spec.ServerResult = omit("server-seed.json", run.server, func(doc map[string]any) {
+		delete(doc["identity"].(map[string]any), "seed")
+	})
+	_, err = topologyVerify(spec, ordinaryCostHost)
+	require.ErrorContains(t, err, "identity.seed is not stated")
+	spec.ServerResult = write("server3.json", run.server)
+
 	unbalanced := run.clone(t).rec
 	unbalanced.Routes[0].Forward.Delivered++
 	spec.RelayRecord = write("relay2.json", unbalanced)

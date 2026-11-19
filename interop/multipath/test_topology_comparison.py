@@ -7,6 +7,7 @@ import stat
 import sys
 import tempfile
 import textwrap
+import time
 import unittest
 from pathlib import Path
 from unittest import mock
@@ -182,6 +183,43 @@ class ExecutionTests(unittest.TestCase):
                 self.assertFalse(any(alive(pid) for pid in fixture.launched()), name)
                 if records[0].get("exit"):
                     self.assertTrue(all(code is not None for code in records[0]["exit"].values()))
+
+    def test_failed_relay_config_charges_time_and_launches_no_relay(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            fixture = Fixture(Path(temporary), c1.DARWIN)
+            code, summary, records = fixture.run("--topology", "disjoint", "--arm", "single-a",
+                                                 env={"FAKE_ROLE": "relay-config:exit"})
+            self.assertEqual(code, 1)
+            self.assertEqual(records[0]["status"], "failed")
+            self.assertGreater(records[0]["occupied_s"], 0)
+            self.assertEqual(set(records[0]["launched"]), {"test"}, "no relay process existed")
+            self.assertFalse(any(alive(pid) for pid in fixture.launched()))
+
+    def test_observation_accepted_after_its_deadline_fails(self):
+        class Clock:
+            late = False
+
+            def monotonic(self):
+                return time.monotonic() + (10**6 if self.late else 0)
+
+            def __getattr__(self, name):
+                return getattr(time, name)
+        clock = Clock()
+        check = driver.check_observation
+
+        def slow_readback(*args):
+            check(*args)
+            clock.late = True
+        with tempfile.TemporaryDirectory() as temporary:
+            fixture = Fixture(Path(temporary), c1.DARWIN)
+            with mock.patch.object(driver, "time", clock), mock.patch.object(driver, "SETUP_S", 0), \
+                    mock.patch.object(driver, "check_observation", side_effect=slow_readback), \
+                    mock.patch.dict(driver.MODES, smoke=(0, 1)):
+                code, summary, records = fixture.run("--topology", "disjoint", "--arm", "single-a")
+            self.assertEqual(code, 1)
+            self.assertEqual(records[0]["status"], "failed")
+            self.assertIn("deadline", records[0]["error"])
+            self.assertGreaterEqual(records[0]["occupied_s"], 10**6, "readback is charged")
 
     def test_refused_arms_launch_nothing(self):
         for profile, extra in ((c1.DARWIN, ("--arm", "primary-backup")),
