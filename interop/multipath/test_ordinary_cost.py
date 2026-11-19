@@ -1795,7 +1795,6 @@ class LifecycleExecutionTests(unittest.TestCase):
             self.assertIn(f"at least {driver.LIFECYCLE_TIMEOUT_S}", summary["error"])
 
 
-
 def stub_binding(source, candidate, binaries, tree=None):
     """A binding record for stand-in binaries; real bindings are tested below and in
     test_candidate_binding."""
@@ -1873,7 +1872,6 @@ class NativeBindingTests(unittest.TestCase):
         self.assertEqual(code, 0, summary)
         with contextlib.redirect_stderr(io.StringIO()), self.assertRaises(SystemExit):
             self.run_driver(self.repo.build("linux.test"), profile="linux-amd64")
-
 
 
 VERDICT_CANDIDATE = "c" * 40
@@ -2048,9 +2046,13 @@ class DarwinVerdictTests(unittest.TestCase):
         def records(**changes):
             return {"per_round": {3: {"record_edit": lambda record: record.update(changes)}}}
 
+        # Round 3 is self-consistent and bound; it differs from rounds 1 and 2 only.
+        other_candidate = {"per_round": {3: {
+            "identity_edit": lambda record: record.update(candidate="d" * 40, source=dict(record["source"], commit="d" * 40)),
+            "record_edit": lambda record: record.update(candidate="d" * 40)}}}
         for attempt, pattern in (
-                (identity(candidate="d" * 40), "candidate"),
-                (identity(binary={"sha256": "7" * 64, "binding": {"sha256": "7" * 64}}), "binary"),
+                (other_candidate, "do not share one candidate"),
+                (identity(binary={"sha256": "7" * 64, "binding": {"sha256": "7" * 64}}), "do not share one binary"),
                 (identity(controller="bbrv3"), "controller"),
                 (identity(cells=["datagram"]), "cell"),
                 (identity(mode="smoke"), "diagnostic"),

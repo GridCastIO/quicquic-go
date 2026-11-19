@@ -470,7 +470,7 @@ def ratio_gate(gate, numerators, denominators):
         if failures:
             reasons += failures
             rounds[str(n)] = None
-        elif not isinstance(bottom, (int, float)) or isinstance(bottom, bool) or not isinstance(top, (int, float)):
+        elif any(not isinstance(value, (int, float)) or isinstance(value, bool) for value in (top, bottom)):
             reasons.append(f"round {n}: missing {metric}")
             rounds[str(n)] = None
         elif bottom == 0:
@@ -485,7 +485,7 @@ def ratio_gate(gate, numerators, denominators):
             "median": median, "passed": not reasons, "reasons": reasons}
 
 
-def reported(row):
+def reported_figures(row):
     if row is None:
         return None
     figures = {key: row[key] for key in ("useful_bytes", "focal_stream_bytes", "focal_datagram_bytes", "workload_failures")}
@@ -539,9 +539,9 @@ def topology_verdict(attempts):
     for (controller, topology, arm, n), (row, failure) in runs.items():
         section = report.setdefault("reno" if controller == "reno" else topology, {})
         if controller == "reno":
-            section[topology] = {"arm": arm, "1": reported(row), "failure": failure}
+            section[topology] = {"arm": arm, "1": reported_figures(row), "failure": failure}
         else:
-            section.setdefault(arm, {})[str(n)] = reported(row) if failure is None else {"failure": failure, **(reported(row) or {})}
+            section.setdefault(arm, {})[str(n)] = reported_figures(row) if failure is None else {"failure": failure, **(reported_figures(row) or {})}
     first = identities[("bbrv3", "disjoint", "aggregate", 1)]
     return {"schema": VERDICT_SCHEMA, "platform_profile": c1.DARWIN, "controller": "bbrv3", "judged": True,
             "candidate": first["candidate"], "source": first["source"],

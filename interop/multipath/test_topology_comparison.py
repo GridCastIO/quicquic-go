@@ -403,7 +403,6 @@ class RecordTests(unittest.TestCase):
                 driver.check_ready(ready, topology)
 
 
-
 class NativeBindingTests(unittest.TestCase):
     """MP-MAC #1528: on darwin-arm64 the driver refuses a test or relay binary that is not
     a byte-identical rebuild of the clean candidate, before any output or launch."""
@@ -476,7 +475,6 @@ class NativeBindingTests(unittest.TestCase):
         with contextlib.redirect_stderr(io.StringIO()), self.assertRaises(SystemExit):
             self.run_driver(self.build("linux"), profile=c1.LINUX)
         self.assertFalse((self.root / "output").exists())
-
 
 
 VERDICT_CANDIDATE = "c" * 40

@@ -500,7 +500,6 @@ class NativeProfileTests(unittest.TestCase):
         self.assertEqual(re.findall(r"PICOQUIC_FETCH_PTLS_TAG=([0-9a-f]{40})", dockerfile), [runner.PICOTLS_PIN])
 
 
-
 class NativeBindingTests(unittest.TestCase):
     """MP-MAC #1528: darwin-native refuses a test binary that is not a byte-identical
     rebuild of the clean QGF_SOURCE_COMMIT/QGF_SOURCE_TREE checkout, before any launch."""
@@ -578,6 +577,35 @@ class NativeBindingTests(unittest.TestCase):
         with contextlib.redirect_stderr(io.StringIO()), self.assertRaises(SystemExit):
             self.run_driver(self.build("linux.test"), profile="linux-docker")
         self.assertFalse((self.root / "output").exists())
+
+    def test_linux_docker_never_binds(self):
+        test_binary, launches = self.build("linux.test"), []
+
+        def run_bounded(command, env, log_path, timeout):
+            launches.append(command)
+            return 1
+
+        environment = {"QGF_SOURCE_COMMIT": self.repo.head(), "QGF_SOURCE_TREE": self.repo.tree(),
+                       "QGF_IMAGE_ID": "sha256:" + "0" * 64}
+        argv = ["run.py", "--profile", "linux-docker", "--zero-vectors", "--binary", str(test_binary), "--test-binary", str(test_binary),
+                "--output", str(self.root / "output")]
+        with contextlib.ExitStack() as stack:
+            stack.enter_context(mock.patch.dict(os.environ, environment))
+            stack.enter_context(mock.patch.object(sys, "argv", argv))
+            stack.enter_context(mock.patch.object(runner.platform, "system", return_value="Linux"))
+            stack.enter_context(mock.patch.object(runner.platform, "machine", return_value="x86_64"))
+            stack.enter_context(mock.patch.object(runner.shutil, "which", return_value="/usr/bin/stand-in"))
+            stack.enter_context(mock.patch.object(runner.subprocess, "check_output",
+                                                  return_value="go version go1.27.4 linux/amd64\n"))
+            stack.enter_context(mock.patch.object(runner, "run_bounded", side_effect=run_bounded))
+            stack.enter_context(mock.patch.object(runner.candidate_binding, "bind",
+                                                  side_effect=AssertionError("bound on linux-docker")))
+            with self.assertRaisesRegex(ValueError, "peer control exited 1"):
+                runner.main()
+        self.assertEqual(len(launches), 1)
+        identity = json.loads((self.root / "output" / "attempt.json").read_text())["identity"]
+        self.assertNotIn("source", identity)
+        self.assertNotIn("test_binary_binding", identity)
 
 
 if __name__ == "__main__":
