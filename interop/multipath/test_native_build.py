@@ -32,6 +32,12 @@ class NativeBuildTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "dynamically"):
             build.check_static("picoquicdemo:\n\t/opt/homebrew/opt/openssl@3/lib/libcrypto.3.dylib\n")
 
+    def test_peer_binaries_must_be_exactly_arm64(self):
+        build.check_arch("arm64\n")
+        for output in ("x86_64\n", "x86_64 arm64\n", ""):
+            with self.subTest(output=output), self.assertRaisesRegex(ValueError, "not exactly arm64"):
+                build.check_arch(output)
+
     def test_self_test_requires_truncation_and_one_pass(self):
         passing = "bound socket 0 127.0.0.1:5000\nself-test datagram 2048 bytes received 1536 truncated 1\nself-test pass\n"
         build.check_self_test(passing)

@@ -87,11 +87,9 @@ func newMatrixSession(t *testing.T, role string, negotiated, cidReceipt bool) *m
 	cert, key, ca := filepath.Join(dir, "cert.pem"), filepath.Join(dir, "key.pem"), filepath.Join(dir, "ca.pem")
 	tuples := hostPicoquicTuples(t)
 	if role == "client" {
-		reserved, err := net.ListenUDP("udp4", &net.UDPAddr{IP: net.IPv4(127, 0, 0, 1)})
-		require.NoError(t, err)
-		s.remote = reserved.LocalAddr().(*net.UDPAddr)
-		require.NoError(t, reserved.Close())
-		s.peer = startSmokePeer(t, ctx, binary, dir, tuples.peerArgs("server", s.remote.Port, 0, cert, key, ca, negotiated)...)
+		peer := tuples.reservePeerTuples(t, true)
+		s.remote = peer[0]
+		s.peer = startSmokePeer(t, ctx, binary, dir, tuples.peerArgs("server", peer, 0, cert, key, ca, negotiated)...)
 		s.awaitReady()
 		s.conn, err = s.primary.Dial(ctx, s.remote, &tls.Config{ServerName: "localhost", RootCAs: roots, NextProtos: []string{"qgf-r17"}}, conf)
 		require.NoError(t, err)
@@ -100,7 +98,8 @@ func newMatrixSession(t *testing.T, role string, negotiated, cidReceipt bool) *m
 		require.NoError(t, err)
 		t.Cleanup(func() { listener.Close() })
 		port := s.primary.Conn.LocalAddr().(*net.UDPAddr).Port
-		s.peer = startSmokePeer(t, ctx, binary, dir, tuples.peerArgs("client", 0, port, cert, key, ca, negotiated)...)
+		peer := tuples.reservePeerTuples(t, false)
+		s.peer = startSmokePeer(t, ctx, binary, dir, tuples.peerArgs("client", peer, port, cert, key, ca, negotiated)...)
 		s.conn, err = listener.Accept(ctx)
 		require.NoError(t, err)
 	}

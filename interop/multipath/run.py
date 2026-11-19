@@ -35,19 +35,7 @@ PICOTLS_PIN = "e446233b4100ebcdec60901c05bfb7f4cd369c5d"
 # default and keeps its image, toolchain and line-buffered launch assumptions.
 PROFILES = {"linux-docker": ("linux", ("x86_64", "amd64")), "darwin-native": ("darwin", ("arm64",))}
 NATIVE_PROFILE = "darwin-native"
-BUILD_IDENTITY_KEYS = {"version", "profile", "platform", "picoquic", "picotls", "toolchain",
-                       "peer_driver_sha256", "binaries", "self_test"}
-TOOLCHAIN_KEYS = {"cc", "sdk_version", "sdk_path", "cmake", "cmake_sha256", "pkg_config", "pkg_config_sha256",
-                  "openssl", "openssl_root", "openssl_static_sha256"}
 PEER_BINARIES = ("picoquicdemo", "qgf-r17-peer")
-NATIVE_IDENTITY_KEYS = {"candidate", "tree", "go", "kernel", "build_identity_sha256", "runner_sha256",
-                        "peer_driver_sha256", "test_binary_sha256"}
-NATIVE_RECEIPT_KEYS = {
-    "ordinary-control": ({"profile", "mode", "policy", "controller", "executed", "status", "identity", "command",
-                          "started", "duration_seconds"}, NATIVE_IDENTITY_KEYS | {"peer_binary_sha256"}),
-    "matrix-discovery": ({"profile", "mode", "status", "listed", "executed", "identity", "command", "started",
-                          "duration_seconds"}, NATIVE_IDENTITY_KEYS),
-}
 
 
 BBR_SCENARIOS = ("useful-transfer", "abandon-reopen-late-feedback", "same-id-migration-rebinding")
@@ -120,6 +108,77 @@ def is_hex(value, length):
     return isinstance(value, str) and len(value) == length and all(c in "0123456789abcdef" for c in value)
 
 
+def hex_text(length):
+    return lambda value: is_hex(value, length)
+
+
+def text(value):
+    return isinstance(value, str) and value != ""
+
+
+def exactly(expected):
+    return lambda value: value == expected and type(value) is type(expected)
+
+
+def nonnegative_number(value):
+    return isinstance(value, (int, float)) and not isinstance(value, bool) and value >= 0
+
+
+def command_line(value):
+    return isinstance(value, list) and value != [] and all(text(item) for item in value)
+
+
+def check_record(value, schema, where):
+    """Check one parsed JSON value against a typed schema: nested dicts are exact objects,
+    callables check values. Unknown, missing or malformed fields fail at any depth."""
+    if not isinstance(value, dict) or set(value) != set(schema):
+        raise ValueError(f"malformed {where} fields")
+    for key, check in schema.items():
+        if isinstance(check, dict):
+            check_record(value[key], check, f"{where}.{key}")
+        elif not check(value[key]):
+            raise ValueError(f"malformed {where}.{key}: {value[key]!r}")
+    return value
+
+
+def read_record(path, schema, where):
+    try:
+        value = json.loads(Path(path).read_text())
+    except (OSError, json.JSONDecodeError) as error:
+        raise ValueError(f"unreadable {where}: {error}") from error
+    return check_record(value, schema, where)
+
+
+SHA256 = hex_text(64)
+BUILD_IDENTITY_SCHEMA = {
+    "version": exactly(1), "profile": exactly(NATIVE_PROFILE),
+    "platform": {"system": text, "machine": text, "release": text, "macos": text},
+    "picoquic": exactly(PICOQUIC_PIN), "picotls": exactly(PICOTLS_PIN),
+    "toolchain": {"cc": text, "sdk_version": text, "sdk_path": text, "cmake": text, "cmake_sha256": SHA256,
+                  "pkg_config": text, "pkg_config_sha256": SHA256, "openssl": text, "openssl_root": text,
+                  "openssl_static_sha256": {"libcrypto.a": SHA256, "libssl.a": SHA256}},
+    "peer_driver_sha256": SHA256,
+    "binaries": {name: {"sha256": SHA256} for name in PEER_BINARIES},
+    "self_test": exactly("pass"),
+}
+NATIVE_IDENTITY_SCHEMA = {
+    "candidate": hex_text(40), "tree": hex_text(40),
+    "go": lambda value: text(value) and value.startswith("go version go") and value.endswith(" darwin/arm64"),
+    "kernel": {"system": exactly("Darwin"), "release": text, "version": text, "machine": exactly("arm64")},
+    "build_identity_sha256": SHA256, "runner_sha256": SHA256, "peer_driver_sha256": SHA256, "test_binary_sha256": SHA256,
+}
+NATIVE_RUN_SCHEMA = {"profile": exactly(NATIVE_PROFILE), "status": exactly("pass"), "command": command_line,
+                     "started": text, "duration_seconds": nonnegative_number}
+NATIVE_RECEIPT_SCHEMAS = {
+    "ordinary-control": NATIVE_RUN_SCHEMA | {
+        "mode": exactly("ordinary-control"), "policy": exactly("primary-backup"), "controller": exactly("reno"),
+        "executed": exactly(EXPECTED), "identity": NATIVE_IDENTITY_SCHEMA | {"peer_binary_sha256": SHA256}},
+    "matrix-discovery": NATIVE_RUN_SCHEMA | {
+        "mode": exactly("matrix-discovery"), "listed": exactly(DISCOVERY_EXPECTED), "executed": exactly([]),
+        "identity": NATIVE_IDENTITY_SCHEMA},
+}
+
+
 def execution_identity(binary, test_binary):
     candidate = os.environ.get("QGF_SOURCE_COMMIT", "")
     tree = os.environ.get("QGF_SOURCE_TREE", "")
@@ -177,36 +236,12 @@ def required_executables(profile):
 
 def load_build_identity(path, system, machine, binary=None):
     """Read back the native build recipe's record; unknown or malformed fields fail."""
-    try:
-        record = json.loads(Path(path).read_text())
-    except (OSError, json.JSONDecodeError) as error:
-        raise ValueError(f"unreadable build identity: {error}") from error
-    if not isinstance(record, dict) or set(record) != BUILD_IDENTITY_KEYS:
-        raise ValueError("malformed build identity fields")
-    if record["version"] != 1 or record["profile"] != NATIVE_PROFILE or record["self_test"] != "pass":
-        raise ValueError("unsupported build identity version, profile or self-test")
-    if record["picoquic"] != PICOQUIC_PIN or record["picotls"] != PICOTLS_PIN:
-        raise ValueError("build identity peer pins differ from the runner pins")
-    platform_record = record["platform"]
-    if (not isinstance(platform_record, dict) or platform_record.get("system") != system
-            or platform_record.get("machine") != machine):
+    record = read_record(path, BUILD_IDENTITY_SCHEMA, "build identity")
+    if record["platform"]["system"] != system or record["platform"]["machine"] != machine:
         raise ValueError(f"build identity platform does not match {system}/{machine}")
-    toolchain = record["toolchain"]
-    if (not isinstance(toolchain, dict) or set(toolchain) != TOOLCHAIN_KEYS
-            or any(not isinstance(toolchain[key], str) or not toolchain[key] for key in TOOLCHAIN_KEYS - {"openssl_static_sha256"})
-            or not is_hex(toolchain["cmake_sha256"], 64) or not is_hex(toolchain["pkg_config_sha256"], 64)
-            or not isinstance(toolchain["openssl_static_sha256"], dict)
-            or set(toolchain["openssl_static_sha256"]) != {"libcrypto.a", "libssl.a"}
-            or not all(is_hex(value, 64) for value in toolchain["openssl_static_sha256"].values())):
-        raise ValueError("malformed build identity toolchain")
-    binaries = record["binaries"]
-    if (not isinstance(binaries, dict) or set(binaries) != set(PEER_BINARIES)
-            or not all(isinstance(entry, dict) and set(entry) == {"sha256"} and is_hex(entry["sha256"], 64)
-                       for entry in binaries.values())):
-        raise ValueError("malformed build identity binaries")
     if record["peer_driver_sha256"] != digest(Path(__file__).with_name("peer.c")):
         raise ValueError("build identity was produced from a different peer.c")
-    if binary is not None and digest(binary) not in {entry["sha256"] for entry in binaries.values()}:
+    if binary is not None and digest(binary) not in {entry["sha256"] for entry in record["binaries"].values()}:
         raise ValueError(f"peer binary is not one recorded by the build identity: {binary}")
     return record
 
@@ -248,9 +283,11 @@ def native_identity(build_identity, binary, test_binary):
                 "kernel": {"system": system, "release": platform.release(), "version": platform.version(), "machine": machine},
                 "build_identity_sha256": digest(build_identity), "runner_sha256": digest(__file__),
                 "peer_driver_sha256": digest(Path(__file__).with_name("peer.c")), "test_binary_sha256": digest(test_binary)}
+    schema = NATIVE_IDENTITY_SCHEMA
     if binary is not None:
         identity["peer_binary_sha256"] = digest(binary)
-    return identity
+        schema = schema | {"peer_binary_sha256": SHA256}
+    return check_record(identity, schema, "native identity")
 
 
 def ordinary_invocation(test_binary=None):
@@ -258,13 +295,14 @@ def ordinary_invocation(test_binary=None):
         command = ["go", "test", "-json", "-tags=picoquic", "-run=^TestPicoquicOrdinaryControl$", "-count=1", "-timeout=90s",
                    "./integrationtests/self", "-version=1"]
     else:
-        command = ["go", "tool", "test2json", "-t", "-p", PACKAGE, str(test_binary), "-test.v=test2json",
+        # An absolute path: a bare name would be looked up on PATH instead of the hashed file.
+        command = ["go", "tool", "test2json", "-t", "-p", PACKAGE, str(Path(test_binary).resolve()), "-test.v=test2json",
                    "-test.run=^TestPicoquicOrdinaryControl$", "-test.count=1", "-test.timeout=90s", "-version=1"]
     return command, PACKAGE, EXPECTED
 
 
 def discovery_command(test_binary):
-    return [str(test_binary), "-test.list", "^TestPicoquicMultipathMatrix$"]
+    return [str(Path(test_binary).resolve()), "-test.list", "^TestPicoquicMultipathMatrix$"]
 
 
 def check_listing(lines):
@@ -286,20 +324,6 @@ def run_bounded(command, env, log_path, timeout):
             raise
 
 
-def read_native_receipt(path, mode):
-    """Parse one native receipt; unknown, missing or non-object fields fail rather than count."""
-    keys, identity_keys = NATIVE_RECEIPT_KEYS[mode]
-    try:
-        receipt = json.loads(path.read_text())
-    except json.JSONDecodeError as error:
-        raise ValueError(f"malformed native {mode} receipt: {error}") from error
-    if not isinstance(receipt, dict) or set(receipt) != keys:
-        raise ValueError(f"malformed native {mode} receipt fields")
-    if not isinstance(receipt["identity"], dict) or set(receipt["identity"]) != identity_keys:
-        raise ValueError(f"malformed native {mode} receipt identity")
-    return receipt
-
-
 def check_native(root):
     """Read back the native ordinary-control and discovery receipts; neither substitutes for the other."""
     control, discovery = root / "ordinary-control", root / "matrix-discovery"
@@ -307,19 +331,11 @@ def check_native(root):
     if not all(path.is_file() for path in paths):
         raise ValueError(f"missing native receipt: {[str(path) for path in paths if not path.is_file()]}")
     check_cases((control / "go-test.jsonl").read_text().splitlines(), PACKAGE, EXPECTED)
-    ordinary = read_native_receipt(control / "result.json", "ordinary-control")
-    if (ordinary.get("profile") != NATIVE_PROFILE or ordinary.get("mode") != "ordinary-control"
-            or ordinary.get("status") != "pass" or ordinary.get("executed") != EXPECTED):
-        raise ValueError("invalid native ordinary-control receipt")
+    ordinary = read_record(control / "result.json", NATIVE_RECEIPT_SCHEMAS["ordinary-control"], "native ordinary-control receipt")
     listed = check_listing((discovery / "list.txt").read_text().splitlines())
-    found = read_native_receipt(discovery / "result.json", "matrix-discovery")
-    if (found.get("profile") != NATIVE_PROFILE or found.get("mode") != "matrix-discovery" or found.get("status") != "pass"
-            or found.get("listed") != listed or found.get("executed") != []):
-        raise ValueError("invalid native matrix-discovery receipt")
-    shared = ("candidate", "tree", "go", "build_identity_sha256")
-    identities = [receipt.get("identity") or {} for receipt in (ordinary, found)]
-    if any(any(not identity.get(key) for key in shared) for identity in identities) or \
-            any(identities[0][key] != identities[1][key] for key in shared):
+    found = read_record(discovery / "result.json", NATIVE_RECEIPT_SCHEMAS["matrix-discovery"], "native matrix-discovery receipt")
+    identities = [ordinary["identity"], found["identity"]]
+    if any(identities[0][key] != identities[1][key] for key in ("candidate", "tree", "go", "kernel", "build_identity_sha256")):
         raise ValueError("native receipts do not share one candidate/toolchain/build identity")
     return {"profile": NATIVE_PROFILE, "status": "pass",
             "ordinary_control": {"executed": EXPECTED, "identity": identities[0]},
@@ -375,6 +391,10 @@ def main():
         parser.error("--matrix requires --scenario and --role")
     if native and (not args.test_binary or not args.build_identity):
         parser.error("darwin-native requires --test-binary and --build-identity")
+    if native:
+        # Resolve once, so the inspected, hashed, recorded and launched files are the same.
+        args.test_binary, args.build_identity = args.test_binary.resolve(), args.build_identity.resolve()
+        args.binary = str(Path(args.binary).resolve()) if args.binary else None
     check_prerequisites(args.binary, platform.system(), platform.machine(), args.profile)
     for executable in required_executables(args.profile):
         if shutil.which(executable) is None:

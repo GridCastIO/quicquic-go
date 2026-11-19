@@ -65,16 +65,53 @@ func hostPicoquicTuples(t testing.TB) picoquicTuples {
 // replacement is the Go tuple address the adapter's tuple gate accepts.
 func (p picoquicTuples) replacement() net.IP { return p.goIPs[2] }
 
+// reserveUDPTuples reserves one free port on each address. The sockets close
+// together, so the ports are distinct; a later bind race fails one attempt.
+func reserveUDPTuples(t testing.TB, ips [3]net.IP) [3]*net.UDPAddr {
+	t.Helper()
+	var tuples [3]*net.UDPAddr
+	for i, ip := range ips {
+		socket, err := net.ListenUDP("udp4", &net.UDPAddr{IP: ip})
+		require.NoError(t, err)
+		defer socket.Close()
+		tuples[i] = socket.LocalAddr().(*net.UDPAddr)
+	}
+	return tuples
+}
+
+// reservePeerTuples returns the C adapter's bind tuples for one launch.
+// Darwin reserves all three together, so the adapter binds exactly the
+// fixture's distinct choices or fails. Linux keeps its defaults: socket zero
+// gets a reserved port only when the Go client must dial it, and the adapter
+// chooses the others.
+func (p picoquicTuples) reservePeerTuples(t testing.TB, dialed bool) [3]*net.UDPAddr {
+	t.Helper()
+	if p.explicit {
+		return reserveUDPTuples(t, p.peerIPs)
+	}
+	var tuples [3]*net.UDPAddr
+	for i, ip := range p.peerIPs {
+		tuples[i] = &net.UDPAddr{IP: ip}
+	}
+	if dialed {
+		socket, err := net.ListenUDP("udp4", tuples[0])
+		require.NoError(t, err)
+		tuples[0] = socket.LocalAddr().(*net.UDPAddr)
+		require.NoError(t, socket.Close())
+	}
+	return tuples
+}
+
 // peerArgs returns the C adapter's arguments for one role launch.
-func (p picoquicTuples) peerArgs(role string, localPort, remotePort int, cert, key, ca string, negotiated bool) []string {
+func (p picoquicTuples) peerArgs(role string, peer [3]*net.UDPAddr, remotePort int, cert, key, ca string, negotiated bool) []string {
 	mp := "0"
 	if negotiated {
 		mp = "1"
 	}
-	args := []string{role, strconv.Itoa(localPort), strconv.Itoa(remotePort), cert, key, ca, mp}
+	args := []string{role, strconv.Itoa(peer[0].Port), strconv.Itoa(remotePort), cert, key, ca, mp}
 	if p.explicit {
-		for _, ip := range p.peerIPs {
-			args = append(args, ip.String())
+		for _, tuple := range peer {
+			args = append(args, tuple.String())
 		}
 		args = append(args, p.replacement().String())
 	}
@@ -188,9 +225,16 @@ func TestPicoquicMatrixTuplePlan(t *testing.T) {
 		require.Equal(t, want, linux.goIPs[i].String())
 		require.Equal(t, want, linux.peerIPs[i].String())
 	}
-	// Linux argv is unchanged: the adapter keeps its defaults.
-	require.Equal(t, []string{"server", "4433", "0", "c", "k", "a", "1"}, linux.peerArgs("server", 4433, 0, "c", "k", "a", true))
-	require.Equal(t, []string{"client", "0", "4433", "c", "k", "a", "0"}, linux.peerArgs("client", 0, 4433, "c", "k", "a", false))
+	// Linux argv is unchanged: socket zero's port only; the adapter keeps its defaults.
+	linuxServer := linux.reservePeerTuples(t, true)
+	require.NotZero(t, linuxServer[0].Port, "the dialed socket has a reserved port")
+	require.Equal(t, []string{"server", strconv.Itoa(linuxServer[0].Port), "0", "c", "k", "a", "1"},
+		linux.peerArgs("server", linuxServer, 0, "c", "k", "a", true))
+	linuxClient := linux.reservePeerTuples(t, false)
+	require.Equal(t, []string{"client", "0", "4433", "c", "k", "a", "0"}, linux.peerArgs("client", linuxClient, 4433, "c", "k", "a", false))
+	for _, tuple := range append(linuxServer[1:], linuxClient[:]...) {
+		require.Zero(t, tuple.Port, "Linux leaves the other adapter ports to the adapter")
+	}
 	require.Equal(t, "127.0.0.3", linux.replacement().String())
 
 	darwin, err := picoquicTuplePlan("darwin")
@@ -200,9 +244,20 @@ func TestPicoquicMatrixTuplePlan(t *testing.T) {
 		require.Equal(t, "127.0.0.1", darwin.peerIPs[i].String())
 	}
 	require.Equal(t, "127.0.0.1", darwin.replacement().String())
-	explicit := []string{"127.0.0.1", "127.0.0.1", "127.0.0.1", "127.0.0.1"}
-	require.Equal(t, append([]string{"server", "4433", "0", "c", "k", "a", "1"}, explicit...), darwin.peerArgs("server", 4433, 0, "c", "k", "a", true))
-	require.Equal(t, append([]string{"client", "0", "4433", "c", "k", "a", "1"}, explicit...), darwin.peerArgs("client", 0, 4433, "c", "k", "a", true))
+	lo := net.IPv4(127, 0, 0, 1)
+	peer := [3]*net.UDPAddr{{IP: lo, Port: 5001}, {IP: lo, Port: 5002}, {IP: lo, Port: 5003}}
+	explicit := []string{"127.0.0.1:5001", "127.0.0.1:5002", "127.0.0.1:5003", "127.0.0.1"}
+	require.Equal(t, append([]string{"server", "5001", "0", "c", "k", "a", "1"}, explicit...), darwin.peerArgs("server", peer, 0, "c", "k", "a", true))
+	require.Equal(t, append([]string{"client", "5001", "4433", "c", "k", "a", "1"}, explicit...), darwin.peerArgs("client", peer, 4433, "c", "k", "a", true))
+	// Darwin reserves every adapter tuple: distinct, nonzero ports, with socket zero as requested.
+	for _, dialed := range []bool{true, false} {
+		reserved := darwin.reservePeerTuples(t, dialed)
+		require.Len(t, map[string]bool{reserved[0].String(): true, reserved[1].String(): true, reserved[2].String(): true}, 3)
+		for _, tuple := range reserved {
+			require.NotZero(t, tuple.Port)
+			require.Equal(t, "127.0.0.1", tuple.IP.String())
+		}
+	}
 
 	_, err = picoquicTuplePlan("windows")
 	require.ErrorContains(t, err, "no picoquic peer tuple plan")
@@ -265,31 +320,20 @@ func TestPicoquicMatrixPeerAdapter(t *testing.T) {
 	binary := os.Getenv("PICOQUIC_BINARY")
 	require.NotEmpty(t, binary, "PICOQUIC_BINARY must name the pinned C adapter")
 	plan := hostPicoquicTuples(t)
+	requested := reserveUDPTuples(t, plan.peerIPs)
 	args := []string{"self-test"}
-	for _, ip := range plan.peerIPs {
-		args = append(args, ip.String())
+	for _, tuple := range requested {
+		args = append(args, tuple.String())
 	}
 	ctx, cancel := context.WithTimeout(t.Context(), 20*time.Second)
 	defer cancel()
 	output, err := exec.CommandContext(ctx, binary, args...).CombinedOutput()
 	require.NoError(t, err, "%s", output)
 	t.Logf("adapter self-test:\n%s", output)
-	tuples := map[string]bool{}
-	for i, ip := range plan.peerIPs {
-		prefix := fmt.Sprintf("bound socket %d %s:", i, ip)
-		var line string
-		for _, l := range strings.Split(string(output), "\n") {
-			if strings.HasPrefix(l, prefix) {
-				line = l
-			}
-		}
-		require.NotEmpty(t, line, "socket %d bound to %s", i, ip)
-		port, err := strconv.Atoi(strings.TrimPrefix(line, prefix))
-		require.NoError(t, err)
-		require.NotZero(t, port)
-		tuples[fmt.Sprintf("%s:%d", ip, port)] = true
+	// The adapter binds exactly the requested tuples.
+	for i, tuple := range requested {
+		require.Contains(t, strings.Split(string(output), "\n"), fmt.Sprintf("bound socket %d %s", i, tuple), "socket %d", i)
 	}
-	require.Len(t, tuples, 3, "distinct adapter tuples")
 	require.Contains(t, string(output), "self-test datagram 1200 bytes received 1200 truncated 0")
 	require.Contains(t, string(output), "self-test datagram 2048 bytes received 1536 truncated 1")
 	require.Contains(t, string(output), "self-test pass")

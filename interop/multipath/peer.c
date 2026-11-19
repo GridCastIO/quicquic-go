@@ -282,19 +282,20 @@ static ssize_t receive_datagram(int fd, uint8_t *buffer, size_t size, struct soc
     return length;
 }
 
-/* Bind the three adapter sockets to explicit IPv4 tuples. Socket zero takes
- * the requested port; the others take distinct ephemeral ports. */
-static int bind_sockets(int sockets[3], struct sockaddr_in addresses[3], const struct in_addr ips[3], uint16_t port)
+/* Bind the three adapter sockets to IPv4 tuples. A zero port takes an
+ * ephemeral port; a requested port must be the one bound. */
+static int bind_sockets(int sockets[3], struct sockaddr_in addresses[3], const struct in_addr ips[3], const uint16_t ports[3])
 {
     for (int i = 0; i < 3; i++) {
         sockets[i] = socket(AF_INET, SOCK_DGRAM, 0);
         memset(&addresses[i], 0, sizeof(addresses[i]));
         addresses[i].sin_family = AF_INET;
-        addresses[i].sin_port = htons(i == 0 ? port : 0);
+        addresses[i].sin_port = htons(ports[i]);
         addresses[i].sin_addr = ips[i];
         if (sockets[i] < 0 || bind(sockets[i], (struct sockaddr *)&addresses[i], sizeof(struct sockaddr_in)) != 0) return -1;
         socklen_t length = sizeof(struct sockaddr_in);
         if (getsockname(sockets[i], (struct sockaddr *)&addresses[i], &length) != 0) return -1;
+        if (addresses[i].sin_addr.s_addr != ips[i].s_addr || (ports[i] != 0 && ntohs(addresses[i].sin_port) != ports[i])) return -1;
         char text[INET_ADDRSTRLEN];
         fprintf(stdout, "bound socket %d %s:%u\n", i, inet_ntop(AF_INET, &addresses[i].sin_addr, text, sizeof(text)),
                 ntohs(addresses[i].sin_port));
@@ -307,15 +308,36 @@ static int parse_ip(const char *text, struct in_addr *ip)
     return inet_pton(AF_INET, text, ip) == 1 ? 0 : -1;
 }
 
+/* An explicit tuple is IPv4[:port]; a missing port means ephemeral. */
+static int parse_tuple(const char *text, struct in_addr *ip, uint16_t *port)
+{
+    char address[INET_ADDRSTRLEN];
+    const char *colon = strchr(text, ':');
+    size_t length = colon ? (size_t)(colon - text) : strlen(text);
+    if (length >= sizeof(address)) return -1;
+    memcpy(address, text, length);
+    address[length] = 0;
+    *port = 0;
+    if (colon) {
+        char *end = NULL;
+        errno = 0;
+        unsigned long value = strtoul(colon + 1, &end, 10);
+        if (errno != 0 || end == colon + 1 || *end != 0 || value == 0 || value > 65535) return -1;
+        *port = (uint16_t)value;
+    }
+    return parse_ip(address, ip);
+}
+
 /* Fixed adapter check: explicit tuples bind, a fitting datagram is received
  * whole and an oversized one is reported as truncated. */
-static int self_test(char **ip_args)
+static int self_test(char **tuple_args)
 {
     struct in_addr ips[3];
+    uint16_t ports[3];
     int sockets[3];
     struct sockaddr_in addresses[3];
-    for (int i = 0; i < 3; i++) if (parse_ip(ip_args[i], &ips[i]) != 0) return 2;
-    if (bind_sockets(sockets, addresses, ips, 0) != 0) return 1;
+    for (int i = 0; i < 3; i++) if (parse_tuple(tuple_args[i], &ips[i], &ports[i]) != 0) return 2;
+    if (bind_sockets(sockets, addresses, ips, ports) != 0) return 1;
     static uint8_t sent[2048], buffer[PICOQUIC_MAX_PACKET_SIZE];
     const size_t sizes[2] = {1200, sizeof(sent)};
     memset(sent, 'T', sizeof(sent));
@@ -423,24 +445,27 @@ static int run(driver_t *d)
 int main(int argc, char **argv)
 {
     setbuf(stdout, NULL);
-    /* self-test, socket IPv4 addresses 0..2 */
+    /* self-test, socket tuples IPv4[:port] 0..2 */
     if (argc == 5 && strcmp(argv[1], "self-test") == 0) return self_test(argv + 2);
     /* role, local port, remote port, certificate, key, CA, multipath(0/1),
-     * then optionally explicit socket IPv4 addresses 0..2 and the replacement
-     * tuple address. Without them, Linux keeps 127.0.0.1-3 and 127.0.0.3. */
+     * then optionally explicit socket tuples IPv4[:port] 0..2 and the
+     * replacement tuple address. Socket zero's tuple port must equal the
+     * local port. Without them, Linux keeps 127.0.0.1-3 with socket zero on
+     * the local port, ephemeral others, and replacement 127.0.0.3. */
     if (argc != 8 && argc != 12) return 2;
     driver_t *d = calloc(1, sizeof(*d));
     if (d == NULL) return 2;
     int client = strcmp(argv[1], "client") == 0;
     d->is_client = client;
     struct in_addr ips[3];
+    uint16_t ports[3] = {(uint16_t)atoi(argv[2]), 0, 0};
     for (int i = 0; i < 3; i++) ips[i].s_addr = htonl(0x7f000001u + (unsigned)i);
     d->replacement.s_addr = htonl(0x7f000003u);
     if (argc == 12) {
-        for (int i = 0; i < 3; i++) if (parse_ip(argv[8 + i], &ips[i]) != 0) return 2;
-        if (parse_ip(argv[11], &d->replacement) != 0) return 2;
+        for (int i = 0; i < 3; i++) if (parse_tuple(argv[8 + i], &ips[i], &ports[i]) != 0) return 2;
+        if (ports[0] != (uint16_t)atoi(argv[2]) || parse_ip(argv[11], &d->replacement) != 0) return 2;
     }
-    if (bind_sockets(d->sockets, d->addresses, ips, (uint16_t)atoi(argv[2])) != 0) return 2;
+    if (bind_sockets(d->sockets, d->addresses, ips, ports) != 0) return 2;
     d->quic = picoquic_create(1, client ? NULL : argv[4], client ? NULL : argv[5], argv[6], ALPN,
                               callback, d, NULL, NULL, NULL, picoquic_current_time(), NULL, NULL, NULL, 0);
     if (d->quic == NULL) return 2;

@@ -35,6 +35,12 @@ def check_tools(cmake, pkg_config, openssl_root, which=shutil.which):
         raise ValueError(f"missing native build prerequisites: {missing}")
 
 
+def check_arch(lipo_output):
+    """Each peer binary must be a native arm64 build, not an Intel build run under Rosetta."""
+    if lipo_output.split() != ["arm64"]:
+        raise ValueError(f"peer binary architectures are {lipo_output.split()}, not exactly arm64")
+
+
 def check_static(otool_output):
     """The peer binaries must not load a caller-prefix OpenSSL dylib at run time."""
     if "libssl" in otool_output or "libcrypto" in otool_output:
@@ -57,6 +63,8 @@ def main():
     parser.add_argument("--jobs", type=int, default=4)
     args = parser.parse_args()
     run.check_prerequisites(None, platform.system(), platform.machine(), run.NATIVE_PROFILE)
+    # Resolve caller-relative inputs before any step changes the working directory.
+    args.cmake, args.pkg_config, args.openssl_root = args.cmake.resolve(), args.pkg_config.resolve(), args.openssl_root.resolve()
     check_tools(args.cmake, args.pkg_config, args.openssl_root)
     args.work.mkdir(parents=True, exist_ok=False)
     work = args.work.resolve()
@@ -87,8 +95,8 @@ def main():
     build = source / "build"
     call([args.cmake, "-S", ".", "-B", "build", "-DCMAKE_BUILD_TYPE=Release", "-DPICOQUIC_FETCH_PTLS=ON",
           f"-DPICOQUIC_FETCH_PTLS_TAG={run.PICOTLS_PIN}", "-DBUILD_TESTING=OFF",
-          f"-DPKG_CONFIG_EXECUTABLE={args.pkg_config.resolve()}",
-          f"-DOPENSSL_ROOT_DIR={args.openssl_root.resolve()}", "-DOPENSSL_USE_STATIC_LIBS=TRUE"], source)
+          f"-DPKG_CONFIG_EXECUTABLE={args.pkg_config}", "-DCMAKE_OSX_ARCHITECTURES=arm64",
+          f"-DOPENSSL_ROOT_DIR={args.openssl_root}", "-DOPENSSL_USE_STATIC_LIBS=TRUE"], source)
     if output(["git", "-C", str(build / "_deps" / "picotls-src"), "rev-parse", "HEAD"]) != run.PICOTLS_PIN:
         raise ValueError("PicoTLS checkout differs from its pin")
     call([args.cmake, "--build", "build", "--target", *run.PEER_BINARIES, "-j", str(args.jobs)], source)
@@ -98,6 +106,7 @@ def main():
         linked = output(["otool", "-L", str(binary)])
         log.write(linked + "\n")
         check_static(linked)
+        check_arch(output(["xcrun", "lipo", "-archs", str(binary)]))
         binaries[name] = {"sha256": run.digest(binary)}
     self_test = subprocess.run([build / "qgf-r17-peer", "self-test", *SELF_TEST_IPS], capture_output=True, text=True, timeout=20)
     log.write(self_test.stdout + self_test.stderr)
@@ -117,7 +126,7 @@ def main():
             "cmake": output([args.cmake, "--version"]).splitlines()[0], "cmake_sha256": run.digest(args.cmake),
             "pkg_config": output([args.pkg_config, "--version"]), "pkg_config_sha256": run.digest(args.pkg_config),
             "openssl": output([args.openssl_root / "bin" / "openssl", "version"]),
-            "openssl_root": str(args.openssl_root.resolve()),
+            "openssl_root": str(args.openssl_root),
             "openssl_static_sha256": {name: run.digest(args.openssl_root / "lib" / name) for name in ("libcrypto.a", "libssl.a")},
         },
         "peer_driver_sha256": run.digest(peer), "binaries": binaries, "self_test": "pass",

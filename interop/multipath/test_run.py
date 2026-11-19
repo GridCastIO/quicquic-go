@@ -7,6 +7,7 @@ import re
 import subprocess
 import sys
 import tempfile
+import time
 import unittest
 
 
@@ -204,6 +205,12 @@ class NativeProfileTests(unittest.TestCase):
                     path.write_text(json.dumps(record | {field: value}))
                     with self.assertRaises(ValueError):
                         runner.load_build_identity(path, "Darwin", "arm64", __file__)
+            for platform_record in ({"system": "Darwin", "machine": "arm64"},
+                                    record["platform"] | {"unexpected": "x"}, record["platform"] | {"macos": ""}):
+                with self.subTest(platform=platform_record):
+                    path.write_text(json.dumps(record | {"platform": platform_record}))
+                    with self.assertRaisesRegex(ValueError, "malformed"):
+                        runner.load_build_identity(path, "Darwin", "arm64", __file__)
             missing = dict(record)
             del missing["toolchain"]
             path.write_text(json.dumps(missing))
@@ -234,6 +241,9 @@ class NativeProfileTests(unittest.TestCase):
                 runner.check_listing(lines)
         command = runner.discovery_command(Path("/bin/peer-matrix.test"))
         self.assertEqual(command, ["/bin/peer-matrix.test", "-test.list", "^TestPicoquicMultipathMatrix$"])
+        # A caller-relative binary launches the hashed file, never a PATH lookup.
+        relative = runner.discovery_command(Path("./peer-matrix.test"))[0]
+        self.assertEqual(relative, str(Path.cwd() / "peer-matrix.test"))
 
     def test_native_ordinary_control_runs_the_compiled_self_binary(self):
         command, package, expected = runner.ordinary_invocation(Path("/bin/peer-control.test"))
@@ -241,31 +251,52 @@ class NativeProfileTests(unittest.TestCase):
         self.assertEqual(command[:7], ["go", "tool", "test2json", "-t", "-p", runner.PACKAGE, "/bin/peer-control.test"])
         self.assertIn("-test.run=^TestPicoquicOrdinaryControl$", command)
         self.assertEqual(command[-1], "-version=1")
+        relative, _, _ = runner.ordinary_invocation(Path("./peer-control.test"))
+        self.assertEqual(relative[6], str(Path.cwd() / "peer-control.test"))
         linux, _, _ = runner.ordinary_invocation(None)
         self.assertEqual(linux, ["go", "test", "-json", "-tags=picoquic", "-run=^TestPicoquicOrdinaryControl$",
                                  "-count=1", "-timeout=90s", "./integrationtests/self", "-version=1"])
 
     def test_launch_failure_and_timeout_kill_and_join_the_process_group(self):
         with tempfile.TemporaryDirectory() as temporary:
-            log = Path(temporary) / "log"
+            directory = Path(temporary)
+            log = directory / "log"
             with self.assertRaises(OSError):
                 runner.run_bounded(["/nonexistent/peer"], os.environ, log, 5)
-            pid_file = Path(temporary) / "pid"
-            child = f"import os, time; open({str(pid_file)!r}, 'w').write(str(os.getpid())); time.sleep(60)"
-            command = [sys.executable, "-c", f"import subprocess, sys; subprocess.Popen([sys.executable, '-c', {child!r}]).wait()"]
+            # The grandchild alone holds an exclusive lock; the kernel releases it when that
+            # process exits, so acquiring it observes descendant termination without a PID race.
+            lock, ready, child_pid = directory / "lock", directory / "ready", directory / "child-pid"
+            grandchild = ("import fcntl, time; f = open(%r, 'w'); fcntl.flock(f, fcntl.LOCK_EX); "
+                          "open(%r, 'w').close(); time.sleep(60)") % (str(lock), str(ready))
+            child = ("import os, pathlib, subprocess, sys, time; pathlib.Path(%r).write_text(str(os.getpid())); "
+                     "subprocess.Popen([sys.executable, '-c', %r]); "
+                     "[time.sleep(0.05) for _ in iter(lambda: not pathlib.Path(%r).exists(), False)]; time.sleep(60)"
+                     ) % (str(child_pid), grandchild, str(ready))
             with self.assertRaises(subprocess.TimeoutExpired):
-                runner.run_bounded(command, os.environ, log, 2)
-            grandchild = int(pid_file.read_text())
+                runner.run_bounded([sys.executable, "-c", child], os.environ, log, 10)
+            self.assertTrue(ready.exists(), "the grandchild was running before the timeout")
+            # The direct child was joined by run_bounded, so its PID no longer exists.
             with self.assertRaises(ProcessLookupError):
-                os.kill(grandchild, 0)
+                os.kill(int(child_pid.read_text()), 0)
+            import fcntl
+            deadline = time.monotonic() + 10
+            with lock.open("w") as handle:
+                while True:
+                    try:
+                        fcntl.flock(handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                        break
+                    except BlockingIOError:
+                        self.assertLess(time.monotonic(), deadline, "the killed grandchild still holds its lock")
+                        time.sleep(0.05)
             self.assertEqual(runner.run_bounded([sys.executable, "-c", "print('ok')"], os.environ, log, 5), 0)
             self.assertEqual(log.read_text().strip(), "ok")
 
     def native_root(self, temporary):
         root = Path(temporary)
         core = {"candidate": "a" * 40, "tree": "b" * 40, "go": "go version go1.27.4 darwin/arm64",
-                "build_identity_sha256": "c" * 64, "kernel": {"system": "Darwin"}, "runner_sha256": "1" * 64,
-                "peer_driver_sha256": "2" * 64, "test_binary_sha256": "3" * 64}
+                "build_identity_sha256": "c" * 64,
+                "kernel": {"system": "Darwin", "release": "27.2.0", "version": "Darwin Kernel Version 27.2.0", "machine": "arm64"},
+                "runner_sha256": "1" * 64, "peer_driver_sha256": "2" * 64, "test_binary_sha256": "3" * 64}
         run = {"command": ["go"], "started": "2026-11-19T00:00:00+00:00", "duration_seconds": 1.0}
         control = root / "ordinary-control"
         control.mkdir()
@@ -279,7 +310,7 @@ class NativeProfileTests(unittest.TestCase):
         (discovery / "list.txt").write_text("TestPicoquicMultipathMatrix\n")
         (discovery / "result.json").write_text(json.dumps(run | {
             "profile": "darwin-native", "mode": "matrix-discovery", "status": "pass",
-            "listed": runner.DISCOVERY_EXPECTED, "executed": [], "identity": core}))
+            "listed": runner.DISCOVERY_EXPECTED, "executed": [], "identity": core | {"test_binary_sha256": "4" * 64}}))
         return root
 
     def test_native_receipts_require_both_roles_and_discovery_separately(self):
@@ -296,11 +327,22 @@ class NativeProfileTests(unittest.TestCase):
             (root / "matrix-discovery" / "result.json").write_text(json.dumps(discovery | {"executed": runner.MATRIX_EXPECTED}))
             with self.assertRaisesRegex(ValueError, "discovery"):
                 runner.check_native(root)
-            for malformed in (discovery | {"unexpected": 1}, discovery | {"identity": discovery["identity"] | {"unexpected": 1}}, ["list"]):
+            identity = discovery["identity"]
+            linux_kernel = identity["kernel"] | {"system": "Linux", "machine": "x86_64"}
+            for malformed in (discovery | {"unexpected": 1}, discovery | {"identity": identity | {"unexpected": 1}}, ["list"],
+                              discovery | {"identity": identity | {"kernel": linux_kernel}},
+                              discovery | {"identity": identity | {"test_binary_sha256": None}},
+                              discovery | {"identity": identity | {"go": "go version go1.27.4 linux/amd64"}},
+                              discovery | {"duration_seconds": True}, discovery | {"status": "skip"}):
                 with self.subTest(malformed=malformed):
                     (root / "matrix-discovery" / "result.json").write_text(json.dumps(malformed))
                     with self.assertRaisesRegex(ValueError, "malformed"):
                         runner.check_native(root)
+            control = json.loads((root / "ordinary-control" / "result.json").read_text())
+            for receipt, data in (("ordinary-control", control), ("matrix-discovery", discovery)):
+                (root / receipt / "result.json").write_text(json.dumps(data | {"identity": data["identity"] | {"candidate": "x", "tree": 1}}))
+            with self.assertRaisesRegex(ValueError, "malformed"):
+                runner.check_native(root)
             (root / "matrix-discovery" / "result.json").unlink()
             with self.assertRaisesRegex(ValueError, "missing"):
                 runner.check_native(root)

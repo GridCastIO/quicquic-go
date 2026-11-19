@@ -1,6 +1,6 @@
 # macOS multipath program
 
-**Date:** 2026-11-19. **Identity:** MP-MAC-20261119. **Status:** Accepted handoff; no implementation dispatched. **Tracking issue:** pending. **Audit history:** [Source and slice audit](../audits/2026-11-19-macos-multipath-handoff/README.md).
+**Date:** 2026-11-19. **Identity:** MP-MAC-20261119. **Status:** Accepted handoff; readiness implementation in progress. **Tracking issue:** pending. **Audit history:** [Source and slice audit](../audits/2026-11-19-macos-multipath-handoff/README.md).
 
 ## Purpose and source of truth
 
