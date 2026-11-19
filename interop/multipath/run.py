@@ -2,6 +2,7 @@
 """Required peer scenarios: a missing or skipped role is a failed claim."""
 
 import argparse
+import contextlib
 from datetime import datetime, timezone
 import hashlib
 import json
@@ -328,10 +329,32 @@ def kill_group(pgid):
         pass  # the group already has no members
 
 
-def run_bounded(command, env, log_path, timeout):
-    """Run one child in its own process group; on any exit or failure, kill what remains of the group and join the child."""
-    with Path(log_path).open("w") as log:
-        process = subprocess.Popen(command, env=env, stdout=log, stderr=subprocess.STDOUT, start_new_session=True)
+@contextlib.contextmanager
+def sigterm_as_interrupt():
+    """While active, SIGTERM raises KeyboardInterrupt, the operator-interrupt unwind path.
+
+    An inherited ignore stays installed, so children still inherit it. The previous
+    disposition is restored on exit. Python installs handlers only on the main thread.
+    """
+    def interrupt(signum, frame):
+        raise KeyboardInterrupt("SIGTERM")
+
+    previous = signal.getsignal(signal.SIGTERM)
+    if previous is not signal.SIG_IGN:
+        signal.signal(signal.SIGTERM, interrupt)
+    try:
+        yield
+    finally:
+        signal.signal(signal.SIGTERM, signal.SIG_DFL if previous is None else previous)
+
+
+def run_group(command, stdout, timeout, env=None, cwd=None):
+    """Run one child in its own process group; on any exit or failure, including timeout,
+    interrupt or SIGTERM, kill what remains of the group and join the child. Call it from
+    the main thread: it installs the SIGTERM conversion while it waits."""
+    with sigterm_as_interrupt():
+        process = subprocess.Popen(command, env=env, cwd=cwd, stdout=stdout, stderr=subprocess.STDOUT,
+                                   start_new_session=True)
         try:
             status = process.wait(timeout=timeout)
         except BaseException:
@@ -341,6 +364,12 @@ def run_bounded(command, env, log_path, timeout):
         # A child that exits, for example after a crash, can leave peers it never joined.
         kill_group(process.pid)
         return status
+
+
+def run_bounded(command, env, log_path, timeout):
+    """Run one child in its own process group; on any exit or failure, kill what remains of the group and join the child."""
+    with Path(log_path).open("w") as log:
+        return run_group(command, log, timeout, env=env)
 
 
 def check_native(root):
