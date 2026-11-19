@@ -263,9 +263,7 @@ func (p *nativeDarwinProducer) run(ctx context.Context) {
 	for ctx.Err() == nil {
 		took := p.collect()
 		if p.done() {
-			// The last take has returned, so a live window here means it preceded the
-			// deadline; a take that crossed it leaves the producer unfinished.
-			p.finished = ctx.Err() == nil
+			p.finished = nativeDarwinInWindow(ctx, time.Now())
 			break
 		}
 		admitted, closed := p.offer()
@@ -302,6 +300,15 @@ func (p *nativeDarwinProducer) run(ctx context.Context) {
 		lane := &p.lanes[i]
 		lane.withdrawn = lane.admitted - lane.results
 	}
+}
+
+// nativeDarwinInWindow decides whether work that completed by now finished inside
+// the load window. It compares now with the window's deadline itself, since the
+// context's cancellation callback can run late, and a canceled context is never in
+// the window. The producer samples now after its last take returned.
+func nativeDarwinInWindow(ctx context.Context, now time.Time) bool {
+	deadline, ok := ctx.Deadline()
+	return ctx.Err() == nil && ok && now.Before(deadline)
 }
 
 // nativeDarwinDiagnostics counts the endpoint's publication diagnostics per lane.
@@ -738,6 +745,21 @@ func TestNativeDarwinContentionObservations(t *testing.T) {
 		require.Equal(t, [4]int{3, 1, 1, 2}, [4]int{lane.results, lane.accepted, lane.uncertain, lane.unsubmitted})
 	})
 
+	t.Run("completion against the window", func(t *testing.T) {
+		now := time.Now()
+		live, cancel := context.WithDeadline(context.Background(), now.Add(time.Hour))
+		defer cancel()
+		require.True(t, nativeDarwinInWindow(live, now))
+		require.False(t, nativeDarwinInWindow(live, now.Add(time.Hour)), "a take at the deadline is outside the window")
+		// The deadline has passed but its cancellation callback hasn't run yet.
+		require.False(t, nativeDarwinInWindow(nativeDarwinLateTimer{deadline: now}, now.Add(time.Millisecond)))
+		require.True(t, nativeDarwinInWindow(nativeDarwinLateTimer{deadline: now}, now.Add(-time.Millisecond)))
+		canceled, cancelNow := context.WithDeadline(context.Background(), now.Add(time.Hour))
+		cancelNow()
+		require.False(t, nativeDarwinInWindow(canceled, now), "a canceled load is not in its window")
+		require.False(t, nativeDarwinInWindow(context.Background(), now), "a load has a window")
+	})
+
 	t.Run("finished outside the window", func(t *testing.T) {
 		// The status decision alone: a producer whose last result was drained during
 		// cleanup, after its window ended, has full counts but did not finish in time.
@@ -789,3 +811,13 @@ func observeNativeDarwinLoopback(t *testing.T, load nativeDarwinLoad) nativeDarw
 	require.Nil(t, socket.RemoteAddr(), "the endpoint requires an unconnected socket")
 	return observeNativeDarwinContention(t.Context(), socket, peer.LocalAddr().(*net.UDPAddr).AddrPort(), load, nil)
 }
+
+// nativeDarwinLateTimer is a context whose deadline has passed before its
+// cancellation ran.
+type nativeDarwinLateTimer struct {
+	context.Context
+	deadline time.Time
+}
+
+func (c nativeDarwinLateTimer) Deadline() (time.Time, bool) { return c.deadline, true }
+func (nativeDarwinLateTimer) Err() error                    { return nil }
