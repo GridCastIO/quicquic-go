@@ -125,8 +125,9 @@ type nativeDarwinLane struct {
 	// Admitted requests not yet taken, and their peak.
 	occupancy, maxOccupancy int
 	// The longest time from a natively attempted member's return to the producer
-	// taking its result: an upper bound on the time to publication. Members that
-	// ended locally, such as queued expiry or an untouched suffix, add no sample.
+	// taking its result: an upper bound on the time to publication. A native size
+	// error counts as attempted; members that ended locally, such as queued expiry
+	// or an untouched suffix, add no sample.
 	nativeReturnToTake time.Duration
 }
 
@@ -202,7 +203,7 @@ func (l *nativeDarwinLane) take(result endpointResult, now monotime.Time) {
 		l.accepted += member.accepted
 		l.uncertain += member.uncertain
 		l.unsubmitted += member.unsubmitted
-		if member.accepted+member.uncertain > 0 {
+		if member.accepted+member.uncertain > 0 || errors.Is(member.err, syscall.EMSGSIZE) {
 			l.nativeReturnToTake = max(l.nativeReturnToTake, now.Sub(member.returnedAt))
 		}
 	}
@@ -253,14 +254,18 @@ func (p *nativeDarwinProducer) done() bool {
 
 // run offers the load until it is finished, interrupted or closed, then settles
 // everything it owns and detaches. A refused lane waits for the endpoint's
-// readiness or completion signal, never for a retry of its own.
+// readiness or completion signal, or at most one endpoint lease, before the
+// producer offers its unfinished lanes again; each refusal it counts is a real
+// capacity response.
 func (p *nativeDarwinProducer) run(ctx context.Context) {
 	fallback := time.NewTimer(endpointLease)
 	defer fallback.Stop()
 	for ctx.Err() == nil {
 		took := p.collect()
 		if p.done() {
-			p.finished = true
+			// The last take has returned, so a live window here means it preceded the
+			// deadline; a take that crossed it leaves the producer unfinished.
+			p.finished = ctx.Err() == nil
 			break
 		}
 		admitted, closed := p.offer()
@@ -725,7 +730,12 @@ func TestNativeDarwinContentionObservations(t *testing.T) {
 			{uncertain: 1, err: syscall.ENOBUFS, returnedAt: now.Add(-5 * time.Millisecond)},
 		}}, now)
 		require.Equal(t, 5*time.Millisecond, lane.nativeReturnToTake)
-		require.Equal(t, [4]int{2, 1, 1, 1}, [4]int{lane.results, lane.accepted, lane.uncertain, lane.unsubmitted})
+		// A native size error leaves its member unsubmitted, but the socket returned it.
+		lane.take(endpointResult{members: []endpointMemberResult{
+			{unsubmitted: 1, err: &os.SyscallError{Syscall: "sendmsg", Err: syscall.EMSGSIZE}, returnedAt: now.Add(-7 * time.Millisecond)},
+		}}, now)
+		require.Equal(t, 7*time.Millisecond, lane.nativeReturnToTake)
+		require.Equal(t, [4]int{3, 1, 1, 2}, [4]int{lane.results, lane.accepted, lane.uncertain, lane.unsubmitted})
 	})
 
 	t.Run("finished outside the window", func(t *testing.T) {
