@@ -523,11 +523,15 @@ class HostSampler:
     def __init__(self, command, directory):
         self.command, self.directory = command, directory
         self.raw_path, self.log_path = directory / "host.plist", directory / "host.log"
-        self.process, self.started = None, None
+        self.process, self.started, self.launch_error = None, None, None
 
     def start(self):
-        with self.raw_path.open("wb") as raw, self.log_path.open("wb") as log:
-            self.process = subprocess.Popen(self.command, stdout=raw, stderr=log)
+        """A sampler that cannot launch leaves the observation running, unattributed."""
+        try:
+            with self.raw_path.open("wb") as raw, self.log_path.open("wb") as log:
+                self.process = subprocess.Popen(self.command, stdout=raw, stderr=log)
+        except OSError as error:
+            self.launch_error = f"{type(error).__name__}: {error}"
         self.started = time.monotonic()
 
     def stop(self):
@@ -555,7 +559,7 @@ class HostSampler:
                   "raw_sha256": hashlib.sha256(raw).hexdigest()}
         try:
             if self.process is None:
-                raise HostObservationError("unavailable", "sampler never launched")
+                raise HostObservationError("unavailable", f"sampler never launched: {self.launch_error}")
             log = self.log_path.read_text(errors="replace").strip()[-500:]
             if early and self.process.returncode != 0:
                 raise HostObservationError("unavailable", f"sampler exited {self.process.returncode}: {log}")

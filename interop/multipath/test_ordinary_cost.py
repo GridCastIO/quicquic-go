@@ -892,6 +892,15 @@ class PowermetricsTests(unittest.TestCase):
             self.assertEqual(activity["raw_sha256"], hashlib.sha256(FIXTURE.read_bytes()).hexdigest())
             self.assertTrue(activity["joined"])
 
+    def test_missing_sampler_is_unavailable(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            sampler = driver.HostSampler([str(Path(temporary) / "no-such-powermetrics")], Path(temporary))
+            sampler.start()
+            activity = sampler.finish(0, 0, window_ns=1)
+        self.assertEqual(activity["status"], "unavailable")
+        self.assertIn("never launched", activity["reason"])
+        self.assertFalse(activity["joined"])
+
     def test_sampler_that_ends_early_is_incomplete(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
