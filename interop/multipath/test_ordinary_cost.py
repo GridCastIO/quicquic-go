@@ -1318,6 +1318,53 @@ class NativeExecutionTests(unittest.TestCase):
             os.kill(stopped[0].process.pid, 0)
         self.assertTrue(all(process.returncode is not None for process in processes))
 
+    def test_interrupt_gate_keeps_inherited_ignores_for_children(self):
+        previous = signal.signal(signal.SIGINT, signal.SIG_IGN)
+        try:
+            with driver.DeferredInterrupts():
+                self.assertIs(signal.getsignal(signal.SIGINT), signal.SIG_IGN)
+                child = subprocess.run([sys.executable, "-c",
+                                        "import signal; print(signal.getsignal(signal.SIGINT) is signal.SIG_IGN)"],
+                                       capture_output=True, text=True, check=True)
+            self.assertEqual(child.stdout.strip(), "True")
+            self.assertIs(signal.getsignal(signal.SIGINT), signal.SIG_IGN)
+        finally:
+            signal.signal(signal.SIGINT, previous)
+
+    def test_interrupt_gate_is_ready_before_its_handler_can_run(self):
+        real_signal, before = signal.signal, {n: signal.getsignal(n) for n in driver.DeferredInterrupts.SIGNALS}
+
+        def delivered_at_install(number, handler):
+            previous = real_signal(number, handler)
+            if getattr(handler, "__self__", None).__class__ is driver.DeferredInterrupts and number == signal.SIGINT:
+                handler(number, None)  # a SIGINT the instant the gate's handler is installed
+            return previous
+
+        with mock.patch.object(driver.signal, "signal", side_effect=delivered_at_install), \
+                self.assertRaises(KeyboardInterrupt):
+            with driver.DeferredInterrupts():
+                pass  # nothing is interruptible here; the interrupt is honored on exit
+        self.assertEqual({n: signal.getsignal(n) for n in before}, before)
+
+    def test_output_parsing_is_cancellable_after_every_child_is_reaped(self):
+        real_finish, continued = driver.HostSampler.finish, []
+
+        def signaled(sampler, *args):
+            self.assertIsNotNone(sampler.process.returncode, "the sampler is reaped before parsing")
+            os.kill(os.getpid(), signal.SIGTERM)
+            time.sleep(1)  # an honored interrupt ends this wait
+            continued.append(True)
+            return real_finish(sampler, *args)
+
+        with tempfile.TemporaryDirectory() as temporary, \
+                mock.patch.object(driver.HostSampler, "finish", autospec=True, side_effect=signaled):
+            code, summary, _ = self.invoke(Path(temporary), ("--platform-profile", "darwin-arm64", "--smoke-cell", "stream",
+                                                             "--host-sampler", "powermetrics"), platform="darwin-arm64",
+                                           sampler=[sys.executable, "-c", "import time; time.sleep(60)"])
+        self.assertEqual(code, 1)
+        self.assertIn("SIGTERM", summary["attempts"][0]["error"])
+        self.assertEqual(continued, [])
+
     def test_sigterm_reaps_roles_and_sampler(self):
         self.exercise_sigterm_during_roles(native=True)
 

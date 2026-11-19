@@ -581,19 +581,33 @@ class DeferredInterrupts:
     wait; anywhere else (child launch and registration, teardown, sampler stop and
     attribution) they are recorded and honored once every owned child is reaped. The
     handler disarms before raising, so a second signal cannot interrupt the cleanup the
-    first began. Children keep normal delivery: exec resets handled signals, and nothing
-    is masked."""
+    first began. Children keep the caller's delivery: nothing is masked, exec resets the
+    handler to the default, and an inherited ignore stays installed, so children inherit
+    it too."""
 
     SIGNALS = (signal.SIGINT, signal.SIGTERM)
 
     def __enter__(self):
-        self.pending, self.armed = [], False
-        self.previous = {number: signal.signal(number, self.handle) for number in self.SIGNALS}
+        # All state exists before the first handler can run.
+        self.pending, self.armed, self.installed = [], False, []
+        self.previous = {number: signal.getsignal(number) for number in self.SIGNALS}
+        try:
+            for number in self.SIGNALS:
+                if self.previous[number] is not signal.SIG_IGN:
+                    signal.signal(number, self.handle)
+                    self.installed.append(number)
+        except BaseException:
+            self.restore()
+            raise
         return self
 
+    def restore(self):
+        for number in self.installed:
+            previous = self.previous[number]
+            signal.signal(number, signal.SIG_DFL if previous is None else previous)
+        self.installed = []
+
     def handle(self, number, frame):
-        if self.previous[number] is signal.SIG_IGN:
-            return  # an inherited ignore stays ignored
         self.pending.append(number)
         if self.armed:
             self.armed = False
@@ -611,8 +625,7 @@ class DeferredInterrupts:
             self.armed = False
 
     def __exit__(self, kind, error, traceback):
-        for number, handler in self.previous.items():
-            signal.signal(number, handler)
+        self.restore()
         if error is None and self.pending:
             number = self.pending[0]
             handler = self.previous[number]
@@ -803,8 +816,9 @@ def run_observation(binary, directory, cell, round_, profile, seed, warmup_s=WAR
                 finally:
                     occupied = time.monotonic() - begun
                     record["occupied_s"] = occupied
-        if sampler:
-            host = sampler.finish(*window)
+    # Every owned child is reaped: parsing the capture is ordinary, cancellable work.
+    if sampler:
+        host = sampler.finish(*window)
     if linux:
         running = schedstat_running_ns()
         foreign = (sum(running[cpu] - before[cpu] for cpu in FIXTURE_CPUS)
