@@ -4,6 +4,7 @@ import json
 import os
 from pathlib import Path
 import re
+import signal
 import subprocess
 import sys
 import tempfile
@@ -313,6 +314,73 @@ class NativeProfileTests(unittest.TestCase):
                         time.sleep(0.05)
             self.assertEqual(runner.run_bounded([sys.executable, "-c", "print('ok')"], os.environ, log, 5), 0)
             self.assertEqual(log.read_text().strip(), "ok")
+
+    def test_sigterm_kills_and_joins_the_process_group(self):
+        import fcntl
+        with tempfile.TemporaryDirectory() as temporary:
+            directory = Path(temporary)
+            lock, ready, child_pid = directory / "lock", directory / "ready", directory / "child-pid"
+            grandchild = ("import fcntl, time; f = open(%r, 'w'); fcntl.flock(f, fcntl.LOCK_EX); "
+                          "open(%r, 'w').close(); time.sleep(60)") % (str(lock), str(ready))
+            child = ("import os, pathlib, subprocess, sys, time; pathlib.Path(%r).write_text(str(os.getpid())); "
+                     "subprocess.Popen([sys.executable, '-c', %r]); "
+                     "[time.sleep(0.05) for _ in iter(lambda: not pathlib.Path(%r).exists(), False)]; time.sleep(60)"
+                     ) % (str(child_pid), grandchild, str(ready))
+            # A separate supervising process, so the test can deliver SIGTERM to the runner alone. It starts
+            # from the default disposition: the runner deliberately keeps an inherited ignore.
+            supervisor = ("import importlib.util, os, signal, sys; sys.dont_write_bytecode = True; "
+                          "signal.signal(signal.SIGTERM, signal.SIG_DFL); "
+                          "spec = importlib.util.spec_from_file_location('peer_run', %r); "
+                          "runner = importlib.util.module_from_spec(spec); spec.loader.exec_module(runner); "
+                          "print('returned', runner.run_bounded([sys.executable, '-c', %r], os.environ, %r, 30))"
+                          ) % (str(Path(runner.__file__).resolve()), child, str(directory / "log"))
+            process = subprocess.Popen([sys.executable, "-B", "-c", supervisor],
+                                       stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+            try:
+                deadline = time.monotonic() + 10
+                while not ready.exists():
+                    self.assertIsNone(process.poll(), "the supervisor exited before SIGTERM")
+                    self.assertLess(time.monotonic(), deadline, "the grandchild never took its lock")
+                    time.sleep(0.05)
+                process.send_signal(signal.SIGTERM)
+                stdout, stderr = process.communicate(timeout=10)
+            finally:
+                if process.poll() is None:
+                    process.kill()
+                    process.communicate()
+            # The runner fails through the interrupt path rather than returning a status.
+            self.assertNotEqual(process.returncode, 0)
+            self.assertIn("KeyboardInterrupt: SIGTERM", stderr)
+            self.assertNotIn("returned", stdout)
+            with self.assertRaises(ProcessLookupError):
+                os.kill(int(child_pid.read_text()), 0)
+            deadline = time.monotonic() + 10
+            with lock.open("w") as handle:
+                while True:
+                    try:
+                        fcntl.flock(handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                        break
+                    except BlockingIOError:
+                        self.assertLess(time.monotonic(), deadline, "the grandchild outlived its terminated runner")
+                        time.sleep(0.05)
+
+    def test_sigterm_conversion_restores_the_caller_disposition(self):
+        self.addCleanup(signal.signal, signal.SIGTERM, signal.getsignal(signal.SIGTERM))
+        with tempfile.TemporaryDirectory() as temporary:
+            log = Path(temporary) / "log"
+            show = [sys.executable, "-c", "import signal; print(signal.getsignal(signal.SIGTERM).name)"]
+            signal.signal(signal.SIGTERM, signal.SIG_DFL)
+            self.assertEqual(runner.run_bounded(show, os.environ, log, 5), 0)
+            self.assertEqual(log.read_text().strip(), "SIG_DFL")
+            self.assertIs(signal.getsignal(signal.SIGTERM), signal.SIG_DFL)
+            with self.assertRaises(subprocess.TimeoutExpired):
+                runner.run_bounded([sys.executable, "-c", "import time; time.sleep(60)"], os.environ, log, 0.5)
+            self.assertIs(signal.getsignal(signal.SIGTERM), signal.SIG_DFL)
+            # An inherited ignore stays installed for the runner and its children.
+            signal.signal(signal.SIGTERM, signal.SIG_IGN)
+            self.assertEqual(runner.run_bounded(show, os.environ, log, 5), 0)
+            self.assertEqual(log.read_text().strip(), "SIG_IGN")
+            self.assertIs(signal.getsignal(signal.SIGTERM), signal.SIG_IGN)
 
     def native_root(self, temporary):
         root = Path(temporary)

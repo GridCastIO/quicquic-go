@@ -65,6 +65,21 @@ def check_self_test(output):
         raise ValueError(f"peer self-test did not report tuple binding and truncation:\n{output}")
 
 
+def run_step(command, log, cwd, timeout=1200):
+    """Run one build step in its own process group, appending its command line and output to the open build log.
+
+    On timeout, interrupt or SIGTERM, `run.run_group` sends SIGKILL to the whole group (CMake
+    plus its make and compiler workers) and reaps the direct child; a nonzero exit fails like
+    `check=True`.
+    """
+    log.write(f"$ {' '.join(map(str, command))}\n")
+    log.flush()
+    status = run.run_group(command, log, timeout, cwd=cwd)
+    if status != 0:
+        raise subprocess.CalledProcessError(status, command)
+    return status
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--cmake", required=True, type=Path, help="cmake executable from an isolated user-owned prefix")
@@ -83,9 +98,7 @@ def main():
     log = (work / "build.log").open("w")
 
     def call(command, cwd=work, timeout=1200):
-        log.write(f"$ {' '.join(map(str, command))}\n")
-        log.flush()
-        return subprocess.run(command, cwd=cwd, stdout=log, stderr=subprocess.STDOUT, check=True, timeout=timeout)
+        return run_step(command, log, cwd, timeout)
 
     def output(command, cwd=work):
         return subprocess.check_output(command, cwd=cwd, text=True, timeout=60).strip()
