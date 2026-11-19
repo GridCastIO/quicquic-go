@@ -1,6 +1,6 @@
 # macOS multipath execution protocol
 
-**Date:** 2026-11-19. **Identity:** MP-MAC-Q1, [Bind the concrete execution protocol and venue (#1494)](https://github.com/GridCastIO/quicquic-go/issues/1494), in [MP-MAC-20261119](2026-11-19-macos-multipath-program.md). **Status:** Draft for the owner's decision. Not executable. **Contract:** [Q1 slice](2026-11-19-macos-multipath-implementation-plan.md#q1--bind-the-concrete-execution-protocol-and-venue) at accepted plan commit `24cd8a12dbf63bdd8bfbffdcfc07ca987739e465`. **Source inspected:** `7895b718318f644d352c1c97a7ef119e61eb5dbc`. **Consumer:** [Q2 (#1495)](https://github.com/GridCastIO/quicquic-go/issues/1495).
+**Date:** 2026-11-19. **Identity:** MP-MAC-Q1, [Bind the concrete execution protocol and venue (#1494)](https://github.com/GridCastIO/quicquic-go/issues/1494), in [MP-MAC-20261119](2026-11-19-macos-multipath-program.md). **Status:** Approved by the owner. Executable once the [concrete blockers](#concrete-blockers) its steps depend on clear. **Contract:** [Q1 slice](2026-11-19-macos-multipath-implementation-plan.md#q1--bind-the-concrete-execution-protocol-and-venue) at accepted plan commit `24cd8a12dbf63bdd8bfbffdcfc07ca987739e465`. **Source inspected:** `7895b718318f644d352c1c97a7ef119e61eb5dbc`. **Consumer:** [Q2 (#1495)](https://github.com/GridCastIO/quicquic-go/issues/1495).
 
 ## Purpose and authority
 
@@ -239,4 +239,31 @@ These stay blockers until the named decision or action clears them. None is waiv
 
 ## Owner decision receipt
 
-Pending. The owner records here, with this document's exact revision: each of D1–D15 as approved or as the option chosen instead; any owner action taken, such as the privilege change or toolchain acquisition; and the date. Until this section records approval of every row, this protocol is not executable, [#1494](https://github.com/GridCastIO/quicquic-go/issues/1494) stays open and Q2 stays blocked.
+- **Date:** 2026-11-19.
+- **Approved revision:** `4541b45a7b1ef6a1b9888fa016fb94e4be6c9a3b`.
+- **Approval:** the owner's decision, recorded in [#1494 comment 7013142410](https://github.com/GridCastIO/quicquic-go/issues/1494#issuecomment-7013142410).
+
+| Decision | Outcome |
+| --- | --- |
+| D1 | approved (A) |
+| D2 | approved (A) |
+| D3 | approved (A) |
+| D4 | approved (A) |
+| D5 | approved (A) |
+| D6 | approved (A) |
+| D7 | approved (A) |
+| D8 | approved (A) |
+| D9 | approved (A) |
+| D10 | approved (A) |
+| D11 | approved (A) |
+| D12 | approved (A) |
+| D13 | approved (A) |
+| D14 | approved (A) |
+| D15 | approved (A) |
+
+Owner actions pending, not yet taken:
+
+- the D6 privilege change for the two fixed `powermetrics` argument lists, which clears B2 together with [#1552](https://github.com/GridCastIO/quicquic-go/issues/1552);
+- the go1.26.11 acquisition, which clears B1.
+
+This approval does not activate Q2 ([#1495](https://github.com/GridCastIO/quicquic-go/issues/1495)), which needs separate owner activation authority.
