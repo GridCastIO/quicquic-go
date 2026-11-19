@@ -18,6 +18,20 @@ Never move or reuse an existing tag, or replace an existing published release in
 
 The `v0.62.1-fast.N` series ended at fast.10. Inherited tags, including upstream quic-go releases and the fast-series prereleases, are history, not releases of the new module. Tags with a `go.mod` file declare `github.com/quic-go/quic-go` or `github.com/lucas-clemente/quic-go`, so Go rejects them for the new path when it loads the requirement. The few pre-module tags without one, such as `v0.10.1`, resolve under any requested path because Go synthesizes their declaration; they rank below every independent release and are not supported versions. v0.63.0's `go.mod` retracts every tagged version below v0.63.0 with `retract [v0.0.0, v0.62.99]` and a rationale comment. Go reads retractions only from the `go.mod` of the module's latest version, so every later release must keep that directive.
 
+## JR1 minor-release handoff
+
+[JR1 (#1476)](https://github.com/GridCastIO/quicquic-go/issues/1476), merged in [PR #1477](https://github.com/GridCastIO/quicquic-go/pull/1477), deliberately changes the documented jumbo fallback behavior published in v0.63.0. It belongs in a minor release, not a v0.63.x patch. The [Unreleased changelog](../../CHANGELOG.md#unreleased--next-minor-release) and [consumer migration guidance](../usage.md#migrate-jumbo-recovery-for-jr1) are prepared; choose the version, release type, date and exact candidate through the normal flow below.
+
+Carry the following into the selected release's notes:
+
+- `PathMTUFallbackV1` reports the first size drop once, with the same channel identity; later recovery episodes do not signal again. `PathMTUSettledV1` still reports only the first path's search completion.
+- Live probe acknowledgments can restore jumbo packetization and transport DATAGRAM admission after confirmed fallback. Retry backoff is 60/120/240/480/900 seconds, capped at 900, retained across growth and migration; ordinary loss and send eligibility still apply, so it is not a recovery deadline.
+- A later shrink can repeat fallback. The consumer's published application DATAGRAM limit stays fixed despite changing transport admission.
+- Probe traffic and ACKs refresh ordinary idle timers and can extend otherwise idle connections, including with keepalive disabled. Applications with an inactivity deadline must base it on their own activity policy.
+- JR1 changes no module path, public signatures, dependencies or Go minimum; Go 1.26.0 remains the minimum. Connections at the default ceiling or capped by the peer to standard sizes keep their existing behavior, and existing experimental/qualification limits remain. No new physical-link performance or interruption guarantee follows.
+
+Inventory any other changes included since the chosen previous release. The implementation's CI and certification receipts do not replace the selected candidate's existing release checks, vulnerability/advisory review, fresh-consumer verification or immutable-tag/publication verification below. Keep the published v0.63.0 release record and historical evidence unchanged, and keep installation examples on a real published version until the new release exists.
+
 ## Prepare and validate
 
 1. Prepare the changelog, release record and any adoption changes in a dedicated feature worktree. Merge their PR through the repository's existing checks. Keep archived evidence unchanged.

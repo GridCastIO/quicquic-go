@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased — next minor release
+
+JR1 is merged on `main` and is not included in the published v0.63.0 release. It deliberately changes documented experimental jumbo behavior and must ship in a minor release, not a v0.63.x patch, under [ADR 0016](docs/adr/0016-version-aware-compatibility.md). The release version, date and candidate commit remain to be selected through the [release runbook](docs/runbooks/release.md#jr1-minor-release-handoff).
+
+- **Jumbo recovery after fallback:** long-lived jumbo-active connections can restore larger packetization after confirmed fallback through padded discovery probes and live acknowledgments. Retry intervals are 60, 120, 240, 480, then 900 seconds, capped at 900; accumulated backoff survives successful growth and migration. Later local refusal or far-side shrink can repeat fallback. `PathMTUFallbackV1` remains a one-time first-drop signal, and `PathMTUSettledV1` remains a one-time first-path discovery signal; neither promises a permanent sending size. Transport DATAGRAM admission can grow again after probe acknowledgments and shrink on later fallback, while the consumer's published application DATAGRAM limit stays fixed. Probe traffic uses ordinary idle accounting and can extend an otherwise idle connection. Follow the [JR1 migration guidance](docs/usage.md#migrate-jumbo-recovery-for-jr1) before adopting this behavior. [Issue #1476](https://github.com/GridCastIO/quicquic-go/issues/1476), [PR #1477](https://github.com/GridCastIO/quicquic-go/pull/1477).
+
+JR1 adds no public configuration or API signature, module-path, dependency or minimum-Go-version change; Go 1.26.0 remains the minimum. Connections using the default 1452-byte ceiling, or capped by their peer to standard sizes, retain their existing behavior. Jumbo remains experimental and opt-in, with no new physical-link qualification, throughput target or recovery-time guarantee. Other changes included in a selected release candidate need their own release inventory and validation.
+
 ## v0.63.0 — 2026-11-17
 
 Published release from `29e02d690fb13ef1e60756bfc5700a07a48d3cfe`: the first independent release of quicquic-go, under module `github.com/GridCastIO/quicquic-go` with root package `quic`. Earlier entries record releases of the quic-go-fast fork, which declared `github.com/quic-go/quic-go` and was adopted through application-owned module replacement. Their versions, tags, evidence and qualifications remain as published. The [release notes](https://github.com/GridCastIO/quicquic-go/releases/tag/v0.63.0) and [release record](docs/releases/v0.63.0.md) hold scope, migration, the upstream-advisory applicability review and the publication results.
