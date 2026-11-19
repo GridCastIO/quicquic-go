@@ -818,10 +818,6 @@ runLoop:
 			}
 		}
 
-		// Ordinary loss callbacks may complete discovery even when send capacity
-		// prevents emission preparation. Anchor the next cooldown at this event.
-		c.advancePacketSizeRetry(now)
-
 		if keepAliveTime := c.nextKeepAliveTime(); !keepAliveTime.IsZero() && !now.Before(keepAliveTime) {
 			// send a PING frame since there is no activity in the connection
 			c.logger.Debugf("Sending a keep-alive PING to keep the connection alive.")
@@ -1125,7 +1121,7 @@ func (c *Conn) switchToNewPath(tr *Transport, now monotime.Time) {
 	// Retain the destination fact even before the first fallback; only later
 	// post-fallback searches change their ceiling policy.
 	c.mtuRetry.pathCeiling = tr.packetCeiling.size()
-	c.resetPathPacketSize(now)
+	c.resetPathPacketSize(now, now)
 	conn := newSendConn(tr.conn, c.conn.RemoteAddr(), packetInfo{}, utils.DefaultLogger) // TODO: find a better way
 	var queue sender
 	if c.emission.local != nil {
@@ -1145,13 +1141,14 @@ func (c *Conn) switchToNewPath(tr *Transport, now monotime.Time) {
 // resetPathPacketSize starts a new path at the connection's effective initial size:
 // 1200 after the unset handshake fallback, otherwise the configured or default size.
 // Datagram admission follows, so SendDatagram refuses payloads that no longer fit.
-// The caller starts discovery once the new path is in place.
-func (c *Conn) resetPathPacketSize(now monotime.Time) {
+// now is recovery event time; cutover is the run-loop time for a newly armed
+// retry cooldown. The caller starts discovery once the new path is in place.
+func (c *Conn) resetPathPacketSize(now, cutover monotime.Time) {
 	size := c.effectiveInitialPacketSize
 	c.mtuRetry.running = false
 	c.mtuRetry.awaitingStandard = c.mtuFallback.started != 0
 	if c.mtuFallback.started != 0 {
-		c.schedulePacketSizeRetry(now)
+		c.schedulePacketSizeRetry(cutover)
 	}
 	c.mtuFallback.active, c.mtuFallback.probe = false, nil
 	c.mtuWatch = packetSizeWatch{}
@@ -1159,9 +1156,8 @@ func (c *Conn) resetPathPacketSize(now monotime.Time) {
 	c.sentPacketHandler.MigratedPath(now, size)
 	c.maxPayloadSizeEstimate.Store(uint32(estimateMaxPayloadSize(size)))
 	// The first path's search is over. Settle after the reset, so the limit read
-	// afterwards is the initial size. MigratedPath can declare an in-flight probe
-	// lost and so conclude the old search a moment earlier: a conclusion followed
-	// by a path change, as PathMTUSettledV1 documents.
+	// afterwards is the initial size. Reset invalidates old probe callbacks before
+	// MigratedPath retires their recovery state.
 	c.pathMTUSettled.settle()
 }
 
@@ -1593,7 +1589,7 @@ func (c *Conn) handleShortHeaderPacket(
 		return true, nil
 	}
 	c.pathManager.SwitchToPath(p.remoteAddr)
-	c.resetPathPacketSize(p.rcvTime)
+	c.resetPathPacketSize(p.rcvTime, monotime.Now())
 	c.startMTUDiscovery(p.rcvTime)
 	c.pathGeneration++
 	c.emission.resetLocalPath(c.pathGeneration, p.rcvTime)
@@ -3013,6 +3009,11 @@ func (c *Conn) applyTransportParameters() {
 // finder replaced by the handshake fallback reports to the same signal.
 func (c *Conn) newPathMTUFinder(start, max protocol.ByteCount) *mtuFinder {
 	f := newTwoStageMTUDiscoverer(c.rttStats, start, max, c.qlogger)
+	f.onComplete = func(result mtuSearchResult) {
+		if c.mtuDiscoverer == f {
+			c.completePacketSizeSearch(result)
+		}
+	}
 	f.settled = &c.pathMTUSettled
 	f.stageOneReport = &c.pathMTUStageOneSize
 	c.pathMTUStageOneSize.Store(uint32(f.StageOneSize()))

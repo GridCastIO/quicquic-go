@@ -354,7 +354,7 @@ func (p *pathCreditRegistry) commitTuple(m *pathMember, candidate *pathCandidate
 		c.pathGeneration++
 		m.tuple = c.pathGeneration
 		c.emission.resetLocalPath(c.pathGeneration, now)
-		c.resetPathPacketSize(now)
+		c.resetPathPacketSize(now, now)
 		if moved {
 			c.emission.moveLocalZero(m.transport, m.addr, m.info, newSendConn(p.transportConn(m.transport), m.addr, m.info, utils.DefaultLogger))
 		} else {

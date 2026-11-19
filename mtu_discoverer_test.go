@@ -520,3 +520,28 @@ func TestMTUDiscovererRetryRetainsFallback(t *testing.T) {
 	d.Reset(1232, 1452)
 	require.Zero(t, report.Load())
 }
+
+func TestMTUDiscovererCompletionNotification(t *testing.T) {
+	for _, ack := range []bool{false, true} {
+		t.Run(fmt.Sprint(ack), func(t *testing.T) {
+			d := newTwoStageMTUDiscoverer(utils.NewRTTStats(), 1449, 1453, nil)
+			old, _ := d.GetPing(monotime.Now())
+			var results []mtuSearchResult
+			d.onComplete = func(result mtuSearchResult) { results = append(results, result) }
+			d.Restart(1449, 1453)
+			old.Handler.OnLost(old.Frame)
+			require.Empty(t, results)
+			for !d.done() {
+				ping, _ := d.GetPing(monotime.Now())
+				if ack {
+					ping.Handler.OnAcked(ping.Frame)
+				} else {
+					ping.Handler.OnLost(ping.Frame)
+				}
+			}
+			require.Len(t, results, 1)
+			require.Equal(t, d.CurrentSize(), results[0].size)
+			require.NotZero(t, results[0].at)
+		})
+	}
+}

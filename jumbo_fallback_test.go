@@ -206,7 +206,7 @@ func TestJumboRefusalStream(t *testing.T) {
 					default:
 						t.Fatal("fallback was not signaled")
 					}
-					// A later path reset must preserve stay-down while retaining the
+					// A later path reset stays standard during cooldown while retaining the
 					// negotiated ceiling as a distinct read-only observation.
 					if route == "ordinary" {
 						path, err := c.AddPath(migration)

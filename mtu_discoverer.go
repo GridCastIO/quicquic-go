@@ -79,8 +79,18 @@ const (
 //
 // MTU discovery concludes once the interval min and max has been narrowed down to maxMTUDiff.
 
+// mtuSearchResult is a terminal live-search fact. The finder owns its production;
+// its connection owns any retry policy. Notification stays on the run loop.
+type mtuSearchResult struct {
+	at               monotime.Time
+	size             protocol.ByteCount
+	standardNarrowed bool
+}
+
 type mtuFinder struct {
-	lastProbeTime monotime.Time
+	onComplete         func(mtuSearchResult)
+	completionReported bool
+	lastProbeTime      monotime.Time
 
 	rttStats *utils.RTTStats
 
@@ -219,6 +229,18 @@ func (f *mtuFinder) finishStageOne() {
 	}
 }
 
+// reportCompletion only publishes a fact; the callback must not restart the
+// finder, modify recovery history or emit packets during ACK/loss iteration.
+func (f *mtuFinder) reportCompletion() {
+	if !f.done() || f.completionReported {
+		return
+	}
+	f.completionReported = true
+	if f.onComplete != nil {
+		f.onComplete(mtuSearchResult{at: monotime.Now(), size: f.min, standardNarrowed: f.max() < f.stageOneMax})
+	}
+}
+
 // StageOneSize is zero until the first stage has finished.
 func (f *mtuFinder) StageOneSize() protocol.ByteCount { return f.stageOneSize }
 
@@ -277,6 +299,7 @@ func (f *mtuFinder) CurrentSize() protocol.ByteCount {
 // Reset starts a new path generation. Probing stays stopped until Start.
 func (f *mtuFinder) Reset(start, max protocol.ByteCount) {
 	f.generation = &struct{ marker byte }{}
+	f.completionReported = false
 	f.lastProbeTime = 0
 	f.retry = false
 	f.lastProbeWasLost = false
@@ -339,6 +362,7 @@ func (h *mtuFinderAckHandler) OnAcked(wire.Frame) {
 		}
 	}
 	h.finishStageOne()
+	h.reportCompletion()
 	if h.qlogger != nil {
 		h.qlogger.RecordEvent(qlog.MTUUpdated{
 			Value: int(size),
@@ -377,6 +401,7 @@ func (h *mtuFinderAckHandler) OnLost(wire.Frame) {
 		}
 	}
 	h.finishStageOne()
+	h.reportCompletion()
 	if h.settled != nil && h.done() {
 		h.settled.settle()
 	}

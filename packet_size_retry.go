@@ -56,31 +56,39 @@ func (c *Conn) advancePacketSizeRetry(now monotime.Time) {
 	if r.deadline != 0 && !now.Before(r.deadline) {
 		r.deadline, r.pending = 0, true
 	}
-	if r.awaitingStandard && c.mtuDiscoverer.done() {
-		r.awaitingStandard = false
-		// Elapsed eligibility does not authorize an immediate second search after
-		// this path's standard search failed admission. Observe that result once.
-		if r.pending && c.mtuDiscoverer.max() < c.mtuDiscoverer.stageOneMax {
-			r.pending = false
-			c.schedulePacketSizeRetry(now)
-			return
-		}
-	}
-	if r.running {
-		if !c.mtuDiscoverer.done() {
-			return
-		}
-		r.running = false
-		size := c.mtuDiscoverer.CurrentSize()
-		if size > protocol.MaxPacketBufferSize && c.currentPathPacketCeiling()-size <= maxMTUDiff+1 {
-			return
-		}
-		c.schedulePacketSizeRetry(now)
-	}
-	if !r.pending || !c.mtuDiscoverer.done() {
+	if r.running || !r.pending || !c.mtuDiscoverer.done() {
 		return
 	}
+	r.awaitingStandard = false
 	r.pending, r.running = false, true
 	c.mtuDiscoverer.Restart(c.mtuDiscoverer.CurrentSize(), c.currentPathPacketCeiling())
 	c.mtuDiscoverer.Start(now)
+}
+
+// completePacketSizeSearch runs synchronously inside the current finder's live
+// ACK/loss callback. It changes scheduling only, never finder/recovery/emission.
+func (c *Conn) completePacketSizeSearch(result mtuSearchResult) {
+	r := &c.mtuRetry
+	if c.mtuFallback.active || (!r.running && !r.awaitingStandard) || !c.packetSizeRetryPermitted() {
+		return
+	}
+	if r.deadline != 0 && !result.at.Before(r.deadline) {
+		r.deadline, r.pending = 0, true
+	}
+	if r.awaitingStandard {
+		r.awaitingStandard = false
+		if r.pending && result.standardNarrowed {
+			r.pending = false
+			c.schedulePacketSizeRetry(result.at)
+		}
+	}
+	if r.running {
+		r.running = false
+		if result.size <= protocol.MaxPacketBufferSize || c.currentPathPacketCeiling()-result.size > maxMTUDiff+1 {
+			c.schedulePacketSizeRetry(result.at)
+		}
+	}
+	// A productive receive pass may otherwise enter a wait with capacity blocked.
+	// The existing coalesced wake makes pending eligibility and the timer visible.
+	c.scheduleSending()
 }

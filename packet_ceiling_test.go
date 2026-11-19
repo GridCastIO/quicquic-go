@@ -83,7 +83,7 @@ func TestPacketCeilingAdvertisementAndDiscovery(t *testing.T) {
 					require.Equal(t, tc.want, conn.effectivePacketCeiling())
 					requirePacketCeilingSearch(t, conn, tc.probes)
 					// A new path must use the same endpoint ceiling.
-					conn.resetPathPacketSize(monotime.Now())
+					conn.resetPathPacketSize(monotime.Now(), monotime.Now())
 					require.Equal(t, tc.want, conn.effectivePacketCeiling())
 					requirePacketCeilingSearch(t, conn, tc.probes)
 				}
