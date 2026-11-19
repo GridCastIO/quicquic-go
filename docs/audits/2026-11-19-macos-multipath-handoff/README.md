@@ -1,0 +1,37 @@
+# macOS multipath handoff audit
+
+**Source:** `0fbad183f7c92eba8fa234cb9194d87029e4014d`. **Request:** explicitly invoked architecture-handoff for the existing OmniFocus “macOS multipath” parent. **State:** source self-grill and final slice-graph audit passed before publication. No implementation or native measurement was run.
+
+## Source and prior-work evidence
+
+The accepted profile and completed planning outcome are [issue #1396](https://github.com/GridCastIO/quicquic-go/issues/1396), [PR #1479](https://github.com/GridCastIO/quicquic-go/pull/1479) and its [final source-backed disposition receipt for PR #1479](https://github.com/GridCastIO/quicquic-go/pull/1479#issuecomment-7000671011). Those reviews corrected planning descriptions; they did not identify a new runtime defect or authorize a campaign. Their chronology remains in the linked discussion rather than the current slice contracts.
+
+Two read-only audit agents inspected endpoint/admission and peer/measurement seams at the pinned source. They were architecture auditors, not implementation agents. The source facts and exact file:line anchors are in the current plan; the following external/history references bound its nonlocal evidence:
+
+- The pinned picoquic [DATAGRAM decoder](https://github.com/private-octopus/picoquic/blob/fbd46d9a1f54ebf9397f2ee6355b5019ab379fb7/picoquic/frames.c#L4855) supplies actual callback path identity when path callbacks are enabled. The repository enables them; requested echo-path bytes alone are insufficient evidence.
+- Archived B11 at `8c34fbac874adf55f096b6c67d51244160169422`: `aggregation_test.go:83` declares queue/topology identity; `:279` owns synchronized admission; `:348` routes UDP; `:471` joins workers; `:989` supplies finite queue/topology tests. Its `interop/multipath/aggregation.py:197` distinguishes useful bytes, ratios, latency and relay bytes. The new C3/C4 successor is scoped separately; archive bytes and campaign loops remain untouched.
+- [PR #1295](https://github.com/GridCastIO/quicquic-go/pull/1295) is open Draft at `6f3192a596c069007ac2fb7b470a0c4b45dba813`, unselected after its terminal finite comparison; GitHub reviews/comments add no unresolved new review demand. The branch's scalar adapter is Linux-only and Darwin falls back to the original socket. [Issue #1285](https://github.com/GridCastIO/quicquic-go/issues/1285) is closed NOT_PLANNED under its [owner closure of issue #1285](https://github.com/GridCastIO/quicquic-go/issues/1285#issuecomment-6788620596), following [PR #1297](https://github.com/GridCastIO/quicquic-go/pull/1297). Retain it as historical evidence, exclude it as a baseline/dependency, and leave its refs/state untouched.
+- Read-only host tooling inspection found clang, Python, Go and OpenSSL on PATH; CMake and pkg-config were not found there. P1 must establish its isolated native build prerequisites, not claim an existing build receipt. No package was installed.
+- Read-only `/usr/bin/powermetrics --help` advertises NUL-separated plist, tasks/cpu_power samplers, process AMP and cluster information. That supports the selected standard-parser adapter shape, not an actual metric-availability or sampling receipt. No privileged capture or sample was run.
+
+There is no prior macOS child implementation to retain or rework, and the OmniFocus parent had no children or note. This is a new program packaging the accepted profile, not a rebaseline of completed Linux/BBR work. Existing campaign counts, exceptions and closed history remain with their original owners.
+
+## Slice-design decisions
+
+The final audit judges the current [implementation plan](../../adr/2026-11-19-macos-multipath-implementation-plan.md) and [program index](../../adr/2026-11-19-macos-multipath-program.md). Each numbered contract records ownership, authority, transitions, blast radius, artifact/representation/evidence/context bounds and split/merge alternatives.
+
+The broad M1 readiness proposal is split into scalar/socket, blocked-write lifecycle and observational-pressure pieces because their success meanings differ. M2 is split into native build/ordinary control and ingress-witness semantics. An initial convenient P1→P2 edge was removed: P2 can characterize its receipt contract on the existing Linux fixture, so shared files require coordination, not blocking. ME is split into ordinary metrics, lifecycle memory, a real UDP relay and its QUIC comparison consumer. C3 is independently useful through the real UDP seam, so the smaller C3/C4 split wins over one large topology task. Q1 supplies concrete protocol authority; Q2 retains the mandatory single activation/evidence/CI/support PR.
+
+Only the existing public-support obligations trigger the native safety/admission coverage argument. Readiness aids receive finite semantic interface tests without recursive harness closure. No repeated-root approach conclusion is inferred from two documentation findings or a common module; no pair of runtime counterexamples at one newly changed enforcement owner exists in this handoff.
+
+The domain-modeling check retained existing glossary terms and settled ADRs. The artifact is an implementation plan with reversible tooling and slice decisions, not a new numbered architecture decision. The architecture auditors did not launch or implement any child.
+
+## Final audit receipt
+
+Two independent read-only architecture auditors reviewed the eleven-slice graph before any commit. The implementation-plan draft SHA256 was `2e62b5755bdbf60868e041086a54085fc107e38a54c6847b93f6e0aee4c170a7`; the index was `90943750e63870b489032ff3f5fef2f977ea930c535555e216a0bdc4eed5dc6c`. Both assessed the common graph and authority/representation/artifact/evidence/context gates; one focused E1–E3/Q1/Q2 and the other P1/P2/C1–C4.
+
+The peer/measurement audit passed without corrections. The endpoint audit passed subject to one wording correction: syscall tracing is optional attribution, but the actual Go poller/write-wait witness required for qualification is not optional. The parent accepted this in-scope correction, distinguished untraced timing from tracing, and applied it before commit. The parent also made the already-required opt-in selection of operational entrypoints explicit so ordinary development tests cannot accidentally execute qualification modes; no new case, attempt allowance or gate was added. Two citation labels were corrected to include their issue/PR numbers.
+
+The parent independently judged all eleven slice decisions and genuine blocking edges. It retained the five-slice frontier E1/P1/P2/C1/C3, accepted the smaller independent relay/comparison split, confirmed Q1 remains open until concrete owner approval, and confirmed Q2 keeps public activation/evidence/CI/support together. Each slice has the complete fifteen-field contract and a bounded fresh context. The local graph check found eleven unique identities, no cycle, the expected frontier and no missing relative file target. No technical/product choice remains unresolved for these frontier contracts; later venue/collection/continuing-aid choices are explicit Q1 obligations, not implicit authority.
+
+**Audit outcome: PASS after the accepted wording correction.** No implementation, test, native sample or campaign was launched by either architecture auditor. Subsequent publication-review chronology and exact-head receipts belong in the documentation PR discussion; the plan remains normative rather than an append-only review log.
