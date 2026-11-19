@@ -67,12 +67,15 @@ elif role == "verify":
         "server": {"self_cpu": metric(5, "ns"), "peak_rss_end": metric(9, os.environ["FAKE_RSS_UNIT"]),
                    "useful_bytes": metric(1000, "bytes"),
                    "flows": {"focal-1": {"stream_useful_bytes": 800, "datagram_useful_bytes": 200, "max_receive_gap_ns": 7,
-                                         "datagram_latency": {"p99_us": 3.0}, "object_completion": {"p99_us": 9.0}}}},
+                                         "datagram_latency": {"count": 2, "p50_us": 2.0, "p99_us": 3.0, "max_us": 3.0},
+                                         "object_completion": {"count": 0, "p50_us": 0, "p99_us": 0, "max_us": 0}}}},
         "client": {"self_cpu": metric(4, "ns")},
         "workload_failures": [],
     }
     if spec["topology"] == "shared":
-        result["server"]["flows"]["competitor"] = {"stream_useful_bytes": 300}
+        empty = {"count": 0, "p50_us": 0, "p99_us": 0, "max_us": 0}
+        result["server"]["flows"]["competitor"] = {"stream_useful_bytes": 300, "datagram_useful_bytes": 0, "max_receive_gap_ns": 9,
+                                                   "datagram_latency": empty, "object_completion": empty}
     if failing == role and failure == "workload":
         result["workload_failures"] = ["focal-1: no useful STREAM delivery"]
     if failing == role and failure == "no-cpu":
@@ -121,7 +124,7 @@ class Fixture:
             stack.enter_context(mock.patch.dict(os.environ, environment))
             stack.enter_context(mock.patch.object(driver.platform, "system", return_value=system))
             stack.enter_context(mock.patch.object(driver.platform, "machine", return_value=machine))
-            stack.enter_context(mock.patch.object(c1, "binary_identity", side_effect=lambda path: {"path": str(path)}))
+            stack.enter_context(mock.patch.object(c1, "binary_identity", side_effect=lambda path: {"path": str(Path(path).resolve())}))
             stack.enter_context(contextlib.redirect_stdout(io.StringIO()))
             code = driver.main(argv)
         summary = json.loads((output / "summary.json").read_text())
@@ -150,6 +153,9 @@ class ExecutionTests(unittest.TestCase):
                 self.assertEqual(observation["relay_cpu_ns"], record["relay_cpu"]["value"])
                 self.assertEqual(set(observation["relay_drops"]), {"a", "b", "competitor"})
                 self.assertIn("competitor_share", observation)
+                self.assertEqual(observation["flows"]["focal-1"]["datagram_latency"]["count"], 2)
+                self.assertIsNone(observation["flows"]["focal-1"]["object_completion"], "an empty histogram has no percentile")
+            self.assertTrue(all(Path(p).is_absolute() for p in (records[0]["launched"]["test"], records[0]["launched"]["relay"])))
             self.assertFalse(any(alive(pid) for pid in fixture.launched()))
 
     def test_failure_fails_the_run_and_reaps_every_child(self):

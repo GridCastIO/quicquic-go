@@ -313,6 +313,14 @@ func topologyTransport(t testing.TB, address netip.AddrPort, granted bool) *Tran
 	t.Cleanup(func() { tr.Close() })
 	if granted {
 		require.NoError(t, tr.ConfigureMultipathIOV1(topologyWriteBudget))
+		// Registered after the close cleanup, so it runs first: a setup failure still
+		// closes the transport and waits for its writer to return authority.
+		t.Cleanup(func() {
+			tr.Close()
+			ctx, cancel := context.WithTimeout(context.Background(), ordinaryCostStopTimeout)
+			defer cancel()
+			tr.WaitMultipathIOStoppedV1(ctx)
+		})
 	}
 	return tr
 }
@@ -348,8 +356,11 @@ type topologyFlowStats struct {
 	seen       map[uint64]struct{}
 }
 
-// arrived notes a useful arrival at now for the gap account; f.mu is held.
-func (f *topologyFlowStats) arrived(line ordinaryCostTimeline, now time.Time) {
+// arrived notes a useful arrival for the gap account; f.mu is held. The arrival is
+// timestamped here, under the flow's lock, so concurrent receive workers record arrivals
+// in the order they are accounted and a gap is never measured backward.
+func (f *topologyFlowStats) arrived(line ordinaryCostTimeline) {
+	now := time.Now()
 	if !line.inWindow(now) {
 		return
 	}
@@ -429,7 +440,7 @@ func (s *topologyServer) object(entry *topologyServerConn, str *ReceiveStream) {
 				f.mu.Lock()
 				f.StreamSeries[second] += uint64(n)
 				f.StreamBytes += uint64(n)
-				f.arrived(s.line, now)
+				f.arrived(s.line)
 				f.mu.Unlock()
 			}
 		}
@@ -477,7 +488,7 @@ func (s *topologyServer) datagrams(entry *topologyServerConn) {
 				f.DatagramsUseful++
 				f.DatagramBytes += uint64(len(b))
 				f.latency.add(now.Sub(sent))
-				f.arrived(s.line, now)
+				f.arrived(s.line)
 			}
 		}
 		f.mu.Unlock()
@@ -614,17 +625,6 @@ func topologyRunServer(t testing.TB, spec topologySpec) *topologyServerResult {
 		})
 	}
 	s.connsMu.Unlock()
-	var useful uint64
-	s.mu.Lock()
-	for label, f := range s.flows {
-		f.finish(line)
-		result.Flows[topologyLabelName(label)] = f
-		if label != topologyCompetitor {
-			useful += f.StreamBytes + f.DatagramBytes
-		}
-	}
-	s.mu.Unlock()
-	result.UsefulBytes = ordinaryCostObserved(useful, "bytes", topologyUsefulSource)
 	result.PeakRSSEnd, err = ordinaryCostPeakRSS()
 	require.NoError(t, err)
 
@@ -636,8 +636,19 @@ func topologyRunServer(t testing.TB, spec topologySpec) *topologyServerResult {
 		defer cancel()
 		result.Joined = tr.WaitMultipathIOStoppedV1(ctx) == nil
 	}
+	// Late DATAGRAMs sent inside the window can still arrive during the drain, so the flow
+	// accounts are final only once every receive worker has returned.
 	s.workers.Wait()
 	result.StreamErrors = s.errors.Load()
+	var useful uint64
+	for label, f := range s.flows {
+		f.finish(line)
+		result.Flows[topologyLabelName(label)] = f
+		if label != topologyCompetitor {
+			useful += f.StreamBytes + f.DatagramBytes
+		}
+	}
+	result.UsefulBytes = ordinaryCostObserved(useful, "bytes", topologyUsefulSource)
 	return result
 }
 
@@ -853,8 +864,9 @@ func topologyRunClient(t testing.TB, spec topologySpec) *topologyClientResult {
 	for _, tr := range granted {
 		require.NoError(t, tr.Close())
 		ctx, cancel := context.WithTimeout(context.Background(), ordinaryCostStopTimeout)
-		result.Joined = result.Joined && tr.WaitMultipathIOStoppedV1(ctx) == nil
+		joined := tr.WaitMultipathIOStoppedV1(ctx) == nil // every grant is waited for
 		cancel()
+		result.Joined = result.Joined && joined
 	}
 	return result
 }
@@ -1024,8 +1036,8 @@ func topologyCheck(spec topologySpec, platform ordinaryCostPlatformProfile, rec 
 			objects += f.ObjectsInFlight
 			rate += f.DatagramRate
 		}
-		if (controller == "reno") != f.Lost.Available {
-			return fmt.Errorf("%s packets-lost availability does not match its %s producer", f.Label, controller)
+		if err := topologyCheckLost(f.Lost, controller); err != nil {
+			return fmt.Errorf("%s: %w", f.Label, err)
 		}
 		// The client sent to the relay fronts of its own routes, in path order.
 		fronts := make([]netip.AddrPort, len(plan.Routes))
@@ -1104,6 +1116,9 @@ func topologyCheck(spec topologySpec, platform ordinaryCostPlatformProfile, rec 
 			return fmt.Errorf("server connection labeled %s matches no client connection", conn.Labels[0])
 		}
 		f := client.Flows[i]
+		if conn.Multipath != f.Multipath {
+			return fmt.Errorf("server saw %s with multipath %v, the client %v", f.Label, conn.Multipath, f.Multipath)
+		}
 		want := make([]netip.AddrPort, 0, len(f.Routes))
 		for _, route := range f.Routes {
 			want = append(want, backs[route])
@@ -1115,6 +1130,11 @@ func topologyCheck(spec topologySpec, platform ordinaryCostPlatformProfile, rec 
 			return fmt.Errorf("server saw %s from %v, not its routes' relay sockets %v", f.Label, conn.Remotes, want)
 		}
 	}
+	for _, f := range client.Flows {
+		if server.Flows[f.Label] != nil && !attributed[f.Label] {
+			return fmt.Errorf("%s delivered useful bytes, but no server connection carried it", f.Label)
+		}
+	}
 	for _, route := range rec.Routes {
 		carried := route.Forward.Received != 0 || route.Reverse.Received != 0
 		if !used[route.Name] && carried {
@@ -1123,6 +1143,20 @@ func topologyCheck(spec topologySpec, platform ordinaryCostPlatformProfile, rec 
 		if used[route.Name] && (route.Forward.Delivered == 0 || route.Reverse.Delivered == 0) {
 			return fmt.Errorf("route %s delivered nothing in one direction although arm %s uses it", route.Name, arm.Name)
 		}
+	}
+	return nil
+}
+
+// topologyCheckLost requires C1's packet-loss representation for controller: an observed
+// count from the Reno/CUBIC sender, and an explicit unavailable metric for BBR, which
+// has no producer.
+func topologyCheckLost(m ordinaryCostMetric, controller string) error {
+	want := ordinaryCostLostMetric(controller, 0)
+	if m.Unit != want.Unit || m.Source != want.Source || m.Available != want.Available || m.Bytes != nil {
+		return fmt.Errorf("packets-lost metric %+v is not %s's representation", m, controller)
+	}
+	if m.Available && m.Value == nil || !m.Available && (m.Value != nil || m.Reason == "") {
+		return fmt.Errorf("packets-lost metric %+v needs a count when observed and a reason otherwise", m)
 	}
 	return nil
 }

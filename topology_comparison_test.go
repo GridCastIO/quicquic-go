@@ -283,6 +283,17 @@ func topologyRefusals(t *testing.T, run topologySmokeRun) {
 			}
 		},
 		"unknown record version": func(r *topologySmokeRun) { r.server.Version = 2 },
+		"no server witness": func(r *topologySmokeRun) {
+			r.server.Connections = slices.DeleteFunc(r.server.Connections, func(c topologyServerConnResult) bool {
+				return slices.Equal(c.Labels, []string{focal})
+			})
+		},
+		"BBR loss claimed": func(r *topologySmokeRun) {
+			r.client.Flows[0].Lost = ordinaryCostObserved(0, "packets", "ConnectionStats().PacketsLost")
+		},
+		"Reno loss withheld": func(r *topologySmokeRun) {
+			r.client.Flows[1].Lost = ordinaryCostUnavailable("packets", "ConnectionStats().PacketsLost", "test")
+		},
 	} {
 		mutated := run.clone(t)
 		require.NoError(t, mutated.check(), "the clone is valid")

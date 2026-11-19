@@ -169,6 +169,7 @@ def run_observation(test_binary, relay_binary, directory, topology, arm, control
     """One observation. Every launched child (relay, server, client) is terminated and reaped,
     even after a partial launch, a failure or an interrupt; the relay's CPU is its own."""
     record = record if record is not None else {}
+    record["launched"] = {"test": str(test_binary), "relay": str(relay_binary)}
     directory.mkdir(parents=True, exist_ok=False)
     env = {key: value for key, value in os.environ.items() if not key.startswith("QUIC_GO_") and key != SPEC_ENV}
     base = {"topology": topology, "arm": arm, "controller": controller, "seed": seed,
@@ -241,9 +242,15 @@ def run_observation(test_binary, relay_binary, directory, topology, arm, control
         check_role_log(role, (directory / f"{role}.log").read_text())
     check_relay_cpu(relay_cpu)
     observation_path = directory / "observation.json"
-    run_role(test_binary, env, dict(spec, role="verify", output=str(observation_path), relay_record=str(directory / "relay.json"),
-                                    server_result=str(directory / "server.json"), client_result=str(directory / "client.json")),
-             directory / "verify.log", max(30, ROLE_SLACK_S))
+    remaining = deadline - time.monotonic()
+    if remaining <= 0:
+        raise ValueError("no time remains in the observation's deadline for verification")
+    try:
+        run_role(test_binary, env, dict(spec, role="verify", output=str(observation_path), relay_record=str(directory / "relay.json"),
+                                        server_result=str(directory / "server.json"), client_result=str(directory / "client.json")),
+                 directory / "verify.log", remaining)
+    finally:
+        record["occupied_s"] = time.monotonic() - begun
 
     def reject_nonfinite(value):
         raise ValueError(f"nonfinite JSON number {value}")
@@ -251,6 +258,14 @@ def run_observation(test_binary, relay_binary, directory, topology, arm, control
     check_observation(observation, base, platform_profile)
     record["observation"] = observation
     return record
+
+
+def sampled(latency):
+    """A latency summary with its sample count, or None when it has no samples: the
+    producer reports zero percentiles for an empty histogram."""
+    if not latency.get("count"):
+        return None
+    return {key: latency[key] for key in ("count", "p50_us", "p99_us", "max_us")}
 
 
 def summarize(record):
@@ -263,9 +278,13 @@ def summarize(record):
         "focal_stream_bytes": sum(flow["stream_useful_bytes"] for flow in focal.values()),
         "focal_datagram_bytes": sum(flow["datagram_useful_bytes"] for flow in focal.values()),
         "useful_bytes": observation["server"]["useful_bytes"]["value"],
-        "max_receive_gap_ns": max((flow["max_receive_gap_ns"] for flow in focal.values()), default=None),
-        "datagram_latency_p99_us": max((flow["datagram_latency"]["p99_us"] for flow in focal.values()), default=None),
-        "object_completion_p99_us": max((flow["object_completion"]["p99_us"] for flow in focal.values()), default=None),
+        # Each flow's own figures: an arm with two focal connections has two populations.
+        "flows": {label: {"stream_useful_bytes": flow["stream_useful_bytes"],
+                          "datagram_useful_bytes": flow["datagram_useful_bytes"],
+                          "max_receive_gap_ns": flow["max_receive_gap_ns"],
+                          "object_completion": sampled(flow["object_completion"]),
+                          "datagram_latency": sampled(flow["datagram_latency"])}
+                  for label, flow in sorted(flows.items())},
         "relay_drops": {route["name"]: {"dropped": route["forward"]["dropped"],
                                         "overflow": route["forward"]["overflow"] + route["reverse"]["overflow"]}
                         for route in observation["relay"]["routes"]},
@@ -340,7 +359,7 @@ def main(argv=None):
         for arm in args.arm:
             record = {"status": "started"}
             try:
-                run_observation(args.test_binary, args.relay_binary, args.output / args.topology / arm, args.topology, arm,
+                run_observation(binaries["test"]["path"], binaries["relay"]["path"], args.output / args.topology / arm, args.topology, arm,
                                 args.controller, args.seed, args.platform_profile, warmup, window, args.timeout_seconds, record)
                 record["status"] = "succeeded"
                 summary["observations"].append(summarize(record))
