@@ -3,9 +3,10 @@
 
 It builds the root test binary for one profile, runs each of the profile's cases
 alone in its own process group and validates the case record that process wrote.
-The scalar profile (MP-MAC E1) is local smoke evidence for the granted endpoint
-method; the blocked-writer profile (MP-MAC E2) is separately authorized native
-work. Neither is ever a support receipt.
+The scalar profile (MP-MAC E1, with E3's scalar contention record) is local
+smoke evidence for the granted endpoint method; the blocked-writer profile (MP-MAC
+E2) is separately authorized native work; the pressure profile (MP-MAC E3) is the
+bounded socket-pressure observation. None is ever a support receipt.
 """
 
 import argparse
@@ -48,7 +49,11 @@ FIXED_FACTS = {
         "transport_write_after_join": "closed", "caller_deadline_enforced": True, "caller_write_delivered": True,
     },
 }
-CASES = (*FAMILIES, *FIXED_FACTS)
+# MP-MAC E3's contention records. The scalar development case must be a complete,
+# fault-free observation with progress on every lane; the pressure observation
+# records what it saw.
+CONTENTION_CASES = {"scalar-contention": True, "socket-pressure": False}
+CASES = (*FAMILIES, *FIXED_FACTS, "scalar-contention")
 NATIVE_FIELDS = ("product_version", "build_version", "kernel", "cpu")
 BUILD = {"CGO_ENABLED": "0", "GOOS": "darwin", "GOARCH": "arm64", "GOFLAGS": "-buildvcs=false"}
 
@@ -103,6 +108,7 @@ BLOCKED_FACTS = {
     "queued-expiry": {
         **RECORDED_CLAIM_FACTS, "queued_result": "deadline-exceeded", "queued_unsubmitted": 1, "queued_claimed": False,
         "queued_before_current_deadline": True, "writer_waiting_at_queued_expiry": True, "queued_expiry_ms": is_ms,
+        "queued_publication_ms": is_ms,
     },
     "active-close-join": {
         **TRIGGER_FACTS, "request_deadline_preserved": True, "reset_observed_by_caller_write": True, "close_returned_while_borrowed": True, "canceled_wait": "canceled", "returned_after_close_began": True,
@@ -134,6 +140,8 @@ class Profile(NamedTuple):
 PROFILES = {
     "scalar": Profile("scalar", TEST, CASES, BUILD),
     "blocked-writer": Profile("blocked-writer", BLOCKED_TEST, tuple(BLOCKED_FACTS), BUILD | {"GOFLAGS": "-buildvcs=false -tags=nativequal"}),
+    # MP-MAC E3's bounded socket-pressure observation, built only with its own tag.
+    "pressure": Profile("pressure", "TestNativeDarwinPressure", ("socket-pressure",), BUILD | {"GOFLAGS": "-buildvcs=false -tags=nativepressure"}),
 }
 SCALAR = PROFILES["scalar"]
 
@@ -217,6 +225,91 @@ def check_blocked_facts(name, facts):
         raise ValueError(f"{name}: fact control_bytes {facts['control_bytes']} must fit send_buffer {facts['send_buffer']}")
 
 
+CONTENTION_FACTS = {"status", "pressure_wait", "fault", "unfinished_participants", "diagnostics_dropped", "load", "writer", "lanes", "participant_occupancy_max"}
+LOAD_FIELDS = ("participants", "requests", "members", "payload", "budget_ms", "window_ms")
+ERROR_CLASSES = ("enobufs", "eagain", "emsgsize", "deadline", "other")
+WRITER_FIELDS = ("writes", "max_write_ns", "long_writes", "deadline_waits")
+LANES = ("path0", "path1", "control")
+LANE_COUNTS = (
+    "offers", "admitted", "refused", "closed", "results", "withdrawn",
+    "accepted", "uncertain", "unsubmitted", "failed", "diagnostics", "occupancy_max", "native_return_to_take_max_ns",
+)
+FAULTS = {"none", "overdue", "late-return", "native"}
+
+
+def check_counts(name, section, value, fields, extra=()):
+    """A section with exactly fields as non-negative integers, plus the extra keys."""
+    if not isinstance(value, dict) or set(value) != {*fields, *extra}:
+        raise ValueError(f"{name}: {section} fields {sorted(value) if isinstance(value, dict) else value!r} are not {sorted({*fields, *extra})}")
+    invalid = sorted(key for key in fields if type(value[key]) is not int or value[key] < 0)
+    if invalid:
+        raise ValueError(f"{name}: {section} has invalid {invalid}")
+
+
+def contention_status(facts):
+    """The status and pressure-wait result the recorded facts imply. Only a load that
+    every producer finished inside its window, on an endpoint that never faulted,
+    fully taken and fully observed, is complete; only a complete observation can
+    report that no pressure wait occurred."""
+    lanes, requests = facts["lanes"], facts["load"]["requests"]
+    if facts["unfinished_participants"] != 0 or facts["fault"] != "none" or any(lane["admitted"] != requests or lane["withdrawn"] != 0 for lane in lanes):
+        status = "interrupted"
+    elif facts["diagnostics_dropped"] != 0 or any(lane["diagnostics"] != lane["results"] for lane in lanes):
+        status = "incomplete-coverage"
+    else:
+        status = "complete"
+    if facts["writer"]["deadline_waits"] > 0:
+        return status, "observed"
+    return status, "not-observed" if status == "complete" else "unknown"
+
+
+def check_contention_facts(name, facts):
+    load, writer, lanes, occupancy = facts["load"], facts["writer"], facts["lanes"], facts["participant_occupancy_max"]
+    check_counts(name, "load", load, LOAD_FIELDS)
+    if min(load["participants"], load["requests"], load["members"], load["payload"]) == 0:
+        raise ValueError(f"{name}: load {load!r} offers nothing")
+    check_counts(name, "writer", writer, WRITER_FIELDS, ("errors",))
+    check_counts(name, "writer errors", writer["errors"], ERROR_CLASSES)
+    for key in ("diagnostics_dropped", "unfinished_participants"):
+        if type(facts[key]) is not int or facts[key] < 0:
+            raise ValueError(f"{name}: fact {key} is {facts[key]!r}")
+    if facts["unfinished_participants"] > load["participants"]:
+        raise ValueError(f"{name}: more unfinished participants than participants")
+    if facts["fault"] not in FAULTS:
+        raise ValueError(f"{name}: fact fault is {facts['fault']!r}, not one of {sorted(FAULTS)}")
+    participants = load["participants"]
+    if not isinstance(lanes, list) or len(lanes) != participants * len(LANES):
+        raise ValueError(f"{name}: expected {participants * len(LANES)} lanes")
+    for index, lane in enumerate(lanes):
+        check_counts(name, f"lane {index}", lane, LANE_COUNTS, ("participant", "lane"))
+        where = f"{name}: lane {index}"
+        if (lane["participant"], lane["lane"]) != (index // len(LANES), LANES[index % len(LANES)]) or type(lane["participant"]) is not int:
+            raise ValueError(f"{where} is {lane['participant']!r}/{lane['lane']!r}, expected {index // len(LANES)}/{LANES[index % len(LANES)]}")
+        if lane["offers"] != lane["admitted"] + lane["refused"] + lane["closed"]:
+            raise ValueError(f"{where}: offers are not admitted + refused + closed")
+        if lane["admitted"] != lane["results"] + lane["withdrawn"] or lane["admitted"] > load["requests"]:
+            raise ValueError(f"{where}: admitted is not results + withdrawn within the offered requests")
+        if lane["accepted"] + lane["uncertain"] + lane["unsubmitted"] != lane["results"] * load["members"] or lane["failed"] > lane["results"]:
+            raise ValueError(f"{where}: datagram outcomes do not add up to its results")
+        if lane["occupancy_max"] > lane["admitted"] or (lane["admitted"] > 0) != (lane["occupancy_max"] > 0):
+            raise ValueError(f"{where}: occupancy_max does not fit its admissions")
+    if not isinstance(occupancy, list) or len(occupancy) != participants or any(type(value) is not int or value < 0 for value in occupancy):
+        raise ValueError(f"{name}: participant_occupancy_max is not one count per participant")
+    if writer["writes"] < sum(lane["accepted"] + lane["uncertain"] for lane in lanes):
+        raise ValueError(f"{name}: fewer native writes than accepted or uncertain datagrams")
+    if sum(writer["errors"].values()) > writer["writes"] or writer["long_writes"] > writer["writes"] or writer["deadline_waits"] > writer["errors"]["deadline"]:
+        raise ValueError(f"{name}: writer observations contradict each other: {writer!r}")
+    # A pressure wait is a native timeout, which the endpoint reports as an uncertain
+    # member of a failed result; only a withdrawn result can hide it.
+    if writer["deadline_waits"] > 0 and not any(lane["withdrawn"] for lane in lanes) and not any(lane["uncertain"] and lane["failed"] for lane in lanes):
+        raise ValueError(f"{name}: an observed pressure wait has no uncertain member in a failed result")
+    status, pressure = contention_status(facts)
+    if (facts["status"], facts["pressure_wait"]) != (status, pressure):
+        raise ValueError(f"{name}: status {facts['status']!r} and pressure_wait {facts['pressure_wait']!r}, the counts imply {status!r} and {pressure!r}")
+    if CONTENTION_CASES[name] and (status != "complete" or facts["fault"] != "none" or any(lane["accepted"] == 0 for lane in lanes)):
+        raise ValueError(f"{name}: the development case needs a complete, fault-free observation with progress on every lane")
+
+
 def check_record(name, identity, record, profile=SCALAR):
     if name not in profile.cases:
         raise ValueError(f"{name}: not a {profile.name} case")
@@ -227,11 +320,20 @@ def check_record(name, identity, record, profile=SCALAR):
         if record[field] != value:
             raise ValueError(f"{name}: record {field} {record[field]!r} is not {value!r}")
     facts = record["facts"]
-    declared = set(BLOCKED_FACTS[name]) if profile is not SCALAR else FAMILY_FACTS if name in FAMILIES else set(FIXED_FACTS[name])
+    blocked = profile.name == "blocked-writer"
+    if blocked:
+        declared = set(BLOCKED_FACTS[name])
+    elif name in CONTENTION_CASES:
+        declared = CONTENTION_FACTS
+    else:
+        declared = FAMILY_FACTS if name in FAMILIES else set(FIXED_FACTS[name])
     if not isinstance(facts, dict) or set(facts) != declared:
         raise ValueError(f"{name}: facts {sorted(facts) if isinstance(facts, dict) else facts!r} are not {sorted(declared)}")
-    if profile is not SCALAR:
+    if blocked:
         check_blocked_facts(name, facts)
+        return
+    if name in CONTENTION_CASES:
+        check_contention_facts(name, facts)
         return
     if name in FAMILIES:
         check_family_facts(name, facts)
@@ -515,7 +617,7 @@ def run(source, output, toolchain, case_timeout, profile=SCALAR):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path, help="a new directory for this run")
-    parser.add_argument("--profile", choices=sorted(PROFILES), help="the case set: scalar (E1, the default) or blocked-writer (E2, separately authorized); with --validate, the profile the results must record")
+    parser.add_argument("--profile", choices=sorted(PROFILES), help="the case set: scalar (E1 and E3's contention record, the default), blocked-writer (E2, separately authorized) or pressure (E3's socket-pressure observation); with --validate, the profile the results must record")
     parser.add_argument("--print-race-command", action="store_true", help="print the selected focused race command and exit")
     parser.add_argument("--toolchain", default="local", help="GOTOOLCHAIN for the build, such as go1.27.4")
     parser.add_argument("--source", type=Path, default=Path("."), help="the module root to build")

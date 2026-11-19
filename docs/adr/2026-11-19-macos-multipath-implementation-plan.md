@@ -55,13 +55,13 @@ C2 observes live/retained memory at matched negotiated-connection lifecycle stat
 | --- | --- | --- | --- | --- |
 | E1 | Complete ([PR #1498](https://github.com/GridCastIO/quicquic-go/pull/1498)) | Granted scalar socket fixture and native case receipt | None | None |
 | E2 | Complete ([PR #1533](https://github.com/GridCastIO/quicquic-go/pull/1533)) | Blocked-writer deadline/borrow fixture | E1 | None |
-| E3 | New; frontier | Scalar contention and pressure-observation fixture | E1 | None |
+| E3 | Complete ([PR #1532](https://github.com/GridCastIO/quicquic-go/pull/1532)) | Scalar contention and pressure-observation fixture | E1 | None |
 | P1 | Complete ([PR #1499](https://github.com/GridCastIO/quicquic-go/pull/1499)) | Native pinned peer build, launch and ordinary control | None | None |
 | P2 | Complete ([PR #1534](https://github.com/GridCastIO/quicquic-go/pull/1534)) | Fresh aggregate DATAGRAM ingress witness | None | None |
 | C1 | Complete ([PR #1501](https://github.com/GridCastIO/quicquic-go/pull/1501)) | Native ordinary workloads and truthful metrics | None | None |
 | C2 | Complete ([PR #1554](https://github.com/GridCastIO/quicquic-go/pull/1554)) | Negotiated lifecycle-memory observation | C1 | None |
 | C3 | Complete ([PR #1497](https://github.com/GridCastIO/quicquic-go/pull/1497)) | Scoped UDP queue/topology relay | None | None |
-| C4 | New; frontier | Topology/control comparison workload | C1, C3 | None |
+| C4 | Complete ([PR #1557](https://github.com/GridCastIO/quicquic-go/pull/1557)) | Topology/control comparison workload | C1, C3 | None |
 | Q1 | New; blocked | Concrete approved execution/venue protocol | E2, E3, P1, P2, C2, C4 | None |
 | Q2 | New; blocked | Qualified public activation, continuing coverage and support | Q1 | None |
 
