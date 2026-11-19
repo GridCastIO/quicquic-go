@@ -933,14 +933,15 @@ func topologyDecodeFile(path string, v any) error {
 	return nil
 }
 
-// topologyStated requires stated to carry every key want has, recursively.
+// topologyStated requires stated to carry every key want has, recursively, with a null
+// only where the record itself encodes one.
 func topologyStated(stated, want any, at string) error {
 	switch want := want.(type) {
 	case map[string]any:
 		got, _ := stated.(map[string]any)
 		for key, value := range want {
 			v, ok := got[key]
-			if !ok {
+			if !ok || v == nil && value != nil {
 				return fmt.Errorf("%s.%s is not stated", at, key)
 			}
 			if err := topologyStated(v, value, at+"."+key); err != nil {

@@ -5,6 +5,7 @@ missing, refused or misaccounted observation fails the run."""
 
 import argparse
 import json
+import math
 import os
 import platform
 import resource
@@ -74,7 +75,7 @@ def refusal(platform_profile, arm, controller):
 
 
 def role_command(binary, timeout_s):
-    return [str(binary), f"-test.run=^{ROLE_TEST}$", "-test.count=1", "-test.v", f"-test.timeout={int(timeout_s)}s"]
+    return [str(binary), f"-test.run=^{ROLE_TEST}$", "-test.count=1", "-test.v", f"-test.timeout={math.ceil(timeout_s)}s"]
 
 
 def check_role_log(role, output):
@@ -85,16 +86,18 @@ def check_role_log(role, output):
 def run_role(binary, env, spec, log_path, timeout_s, launched):
     """A short synchronous role: relay-config or verify. Its child is killed and reaped on
     any exit from the wait, an interrupt or timeout included."""
-    with log_path.open("w") as log:
-        process = subprocess.Popen(role_command(binary, timeout_s), env=dict(env, **{SPEC_ENV: json.dumps(spec)}),
-                                   stdout=log, stderr=subprocess.STDOUT)
-    launched.setdefault("test", str(binary))
-    try:
-        process.wait(timeout=timeout_s)
-    finally:
-        if process.returncode is None:
-            process.kill()
-            process.wait()
+    with c1.DeferredInterrupts() as interrupts:
+        with log_path.open("w") as log:
+            process = subprocess.Popen(role_command(binary, timeout_s), env=dict(env, **{SPEC_ENV: json.dumps(spec)}),
+                                       stdout=log, stderr=subprocess.STDOUT)
+        launched.setdefault("test", str(binary))
+        try:
+            with interrupts.interruptible():  # the only point an operator interrupt raises
+                process.wait(timeout=timeout_s)
+        finally:
+            if process.returncode is None:
+                process.kill()
+                process.wait()
     if process.returncode != 0:
         raise ValueError(f"{spec['role']} exit {process.returncode}:\n{log_path.read_text()[-2000:]}")
     check_role_log(spec["role"], log_path.read_text())
@@ -161,10 +164,22 @@ def check_observation(observation, expected, platform_profile):
         raise ValueError("peak_rss_end is unavailable")
     if c1.check_metric("useful_bytes", server.get("useful_bytes"), "bytes") is None:
         raise ValueError("useful_bytes is unavailable")
+    for label, flow in (server.get("flows") or {}).items():
+        for key in ("datagram_latency", "object_completion"):
+            check_latency(f"{label} {key}", flow.get(key) if isinstance(flow, dict) else None)
     if not isinstance(observation.get("workload_failures"), list):
         raise ValueError("observation lacks its workload failures")
     if not isinstance(observation.get("relay"), dict) or observation["relay"].get("config", {}).get("kind") != expected["topology"]:
         raise ValueError("observation lacks its relay record")
+
+
+def check_latency(name, latency):
+    """A latency summary states its sample count; an empty one is a recorded zero count."""
+    if not isinstance(latency, dict) or type(latency.get("count")) is not int or latency["count"] < 0:
+        raise ValueError(f"{name}: latency summary needs a nonnegative integer sample count")
+    for key in ("p50_us", "p99_us", "max_us"):
+        if type(latency.get(key)) not in (int, float):
+            raise ValueError(f"{name}: latency summary needs {key}")
 
 
 def check_relay_cpu(metric):
@@ -282,7 +297,7 @@ def observe(test_binary, relay_binary, directory, env, base, platform_profile, w
 def sampled(latency):
     """A latency summary with its sample count, or None when it has no samples: the
     producer reports zero percentiles for an empty histogram."""
-    if not latency.get("count"):
+    if latency["count"] == 0:
         return None
     return {key: latency[key] for key in ("count", "p50_us", "p99_us", "max_us")}
 

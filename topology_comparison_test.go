@@ -346,7 +346,18 @@ func topologyRefusals(t *testing.T, run topologySmokeRun) {
 	})
 	_, err = topologyVerify(spec, ordinaryCostHost)
 	require.ErrorContains(t, err, "identity.seed is not stated")
+	spec.ServerResult = omit("server-null-seed.json", run.server, func(doc map[string]any) {
+		doc["identity"].(map[string]any)["seed"] = nil
+	})
+	_, err = topologyVerify(spec, ordinaryCostHost)
+	require.ErrorContains(t, err, "identity.seed is not stated", "a null seed states no identity")
 	spec.ServerResult = write("server3.json", run.server)
+	spec.ClientResult = omit("client-null-lost.json", run.client, func(doc map[string]any) {
+		doc["flows"].([]any)[0].(map[string]any)["packets_lost_metric"].(map[string]any)["available"] = nil
+	})
+	_, err = topologyVerify(spec, ordinaryCostHost)
+	require.ErrorContains(t, err, "packets_lost_metric.available is not stated", "a null availability states nothing")
+	spec.ClientResult = write("client3.json", run.client)
 
 	unbalanced := run.clone(t).rec
 	unbalanced.Routes[0].Forward.Delivered++

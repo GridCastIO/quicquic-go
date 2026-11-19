@@ -249,7 +249,9 @@ def observation(profile=c1.LINUX):
         "platform": {"profile": profile, "goos": goos, "goarch": goarch},
         "relay": {"config": {"kind": "shared"}},
         "server": {"self_cpu": metric(1, "ns"), "peak_rss_end": metric(2, c1.PROFILES[profile]["rss_unit"]),
-                   "useful_bytes": metric(3, "bytes")},
+                   "useful_bytes": metric(3, "bytes"),
+                   "flows": {"focal-1": {"datagram_latency": {"count": 2, "p50_us": 1.0, "p99_us": 2.0, "max_us": 2.0},
+                                         "object_completion": {"count": 0, "p50_us": 0, "p99_us": 0, "max_us": 0}}}},
         "client": {"self_cpu": metric(1, "ns")},
         "workload_failures": [],
     }
@@ -271,6 +273,9 @@ class RecordTests(unittest.TestCase):
                            ("rss unit", lambda o: o["server"]["peak_rss_end"].update(unit="bytes")),
                            ("unavailable useful bytes", lambda o: o["server"].update(
                                useful_bytes={"value": None, "unit": "bytes", "source": "x", "available": False, "reason": "r"})),
+                           ("latency count", lambda o: o["server"]["flows"]["focal-1"]["datagram_latency"].pop("count")),
+                           ("empty latency", lambda o: o["server"]["flows"]["focal-1"].update(object_completion={})),
+                           ("latency p99", lambda o: o["server"]["flows"]["focal-1"]["datagram_latency"].pop("p99_us")),
                            ("failures", lambda o: o.pop("workload_failures"))):
             with self.subTest(name):
                 record = copy.deepcopy(observation())
@@ -284,6 +289,9 @@ class RecordTests(unittest.TestCase):
         for bad in (dict(good, source="relay self-report"), dict(good, value=None, available=False, reason="x"), dict(good, unit="s")):
             with self.assertRaises(ValueError):
                 driver.check_relay_cpu(bad)
+
+    def test_role_alarm_covers_the_remaining_time(self):
+        self.assertIn("-test.timeout=2s", driver.role_command("bin", 1.2))
 
     def test_ready_line_names_exactly_the_routes(self):
         fronts = {"a": "127.0.0.1:1", "b": "127.0.0.1:2"}
