@@ -97,7 +97,10 @@ LIFECYCLE_NOT_JUDGED = ("lifecycle memory records are readiness observations; Q1
                         "its qualifying retirement state and its thresholds")
 NATIVE_LIFECYCLE_REFUSED = ("negotiated lifecycle memory needs public Darwin multipath admission (Q2); "
                             "no ordinary or privately granted connection replaces it")
-POWERMETRICS_INTERVAL_MS = 1000
+SUDO = "/usr/bin/sudo"
+SAMPLER_WRAPPER = "/usr/local/libexec/quicquic-powermetrics"  # the owner's root-owned install
+# The bounded wait for the sampler to exit once its standard input closes. It covers the
+# wrapper's own grace before it kills powermetrics.
 SAMPLER_STOP_S = 5
 # Allowance for the driver's own launch/stop timing around the sampler's elapsed sum.
 SAMPLER_SLACK_S = 0.05
@@ -714,20 +717,14 @@ def parse_powermetrics(raw):
     return records, tail
 
 
-def cluster_activity(records, coverage):
-    """Elapsed-weighted active residency (1 - idle_ratio - down_ratio) of each CPU cluster,
-    labeled by the producer's E/P cluster name, averaged over the sampler's lifetime.
-
-    coverage holds the driver's monotonic times: the window, a launch read before the
-    sampler could exist, and a stop read after it was reaped. Delta samples are contiguous
-    (each covers the time since the previous one) from some unknown start delay after
-    launch, and they finish before the stop, so they certainly cover the window only when
-    their total elapsed time reaches the window's end from launch and reaches back to its
-    start from the stop. Second-resolution timestamps are not used. Unsupported fields or
-    uncertain coverage are inconclusive."""
-    if not records:
-        raise HostObservationError("inconclusive", "no complete powermetrics record")
-    names, active, elapsed_total = None, {}, 0
+def delta_records(records):
+    """The adapter's per-record rules, shared with the X3 capture reader: every record is a
+    positive delta sample (is_delta true, a positive integer elapsed_ns) whose processor
+    clusters carry E/P names, supported idle and down residency and no repeated name, and
+    every record has the same cluster set. Returns the cluster names, each record's
+    elapsed_ns and each cluster's elapsed-weighted active time; anything else is
+    inconclusive."""
+    names, active, elapsed_ns = None, {}, []
     for index, record in enumerate(records):
         elapsed = record.get("elapsed_ns")
         if record.get("is_delta") is not True or type(elapsed) is not int or elapsed <= 0:
@@ -751,7 +748,25 @@ def cluster_activity(records, coverage):
         if names is not None and seen != names:
             raise HostObservationError("inconclusive", f"record {index} changed the cluster set")
         names = seen
-        elapsed_total += elapsed
+        elapsed_ns.append(elapsed)
+    return names or [], elapsed_ns, active
+
+
+def cluster_activity(records, coverage):
+    """Elapsed-weighted active residency (1 - idle_ratio - down_ratio) of each CPU cluster,
+    labeled by the producer's E/P cluster name, averaged over the sampler's lifetime.
+
+    coverage holds the driver's monotonic times: the window, a launch read before the
+    sampler could exist, and a stop read after it was reaped. Delta samples are contiguous
+    (each covers the time since the previous one) from some unknown start delay after
+    launch, and they finish before the stop, so they certainly cover the window only when
+    their total elapsed time reaches the window's end from launch and reaches back to its
+    start from the stop. Second-resolution timestamps are not used. Unsupported fields or
+    uncertain coverage are inconclusive."""
+    if not records:
+        raise HostObservationError("inconclusive", "no complete powermetrics record")
+    names, elapsed_ns, active = delta_records(records)
+    elapsed_total = sum(elapsed_ns)
     total_s = elapsed_total / 1e9
     lifetime_s = coverage["stopped"] - coverage["launched"]
     if total_s > lifetime_s + SAMPLER_SLACK_S:
@@ -769,10 +784,32 @@ def cluster_activity(records, coverage):
     }
 
 
-def powermetrics_command():
-    """The adapter's sampler. It needs privilege the driver never acquires: Q1 selects and
-    authorizes any real invocation, and a refusal is an unavailable observation."""
-    return ["powermetrics", "--format", "plist", "--samplers", "cpu_power", "-i", str(POWERMETRICS_INTERVAL_MS)]
+def powermetrics_command(mode="driver-stopped"):
+    """The sampler route D6 A authorizes: the owner-installed wrapper, which runs exactly one
+    of the protocol's two powermetrics argument lists (powermetrics_wrapper.py). sudo -n
+    never prompts, so a missing grant fails at once and is recorded unavailable. The
+    driver-stopped mode stops when its standard input closes; bounded is X3's capture."""
+    return [SUDO, "-n", SAMPLER_WRAPPER, mode]
+
+
+def launch_sampler(command, stdout, stderr):
+    """Launch the sampler with a pipe as its standard input. The pipe's write end is the
+    driver's only handle on it: Popen makes that end non-inheritable, so roles launched
+    later never hold it, and the driver's exit, even by SIGKILL, closes it and stops the
+    sampler. Its own session has no controlling terminal, so sudo cannot place a terminal
+    between the pipe and the wrapper, and terminal interrupts reach only the driver."""
+    return subprocess.Popen(command, stdin=subprocess.PIPE, stdout=stdout, stderr=stderr, start_new_session=True)
+
+
+def stop_sampler(process, timeout):
+    """Close the sampler's standard input, then wait up to timeout for it to exit. Never
+    signals it: under sudo it runs as root. Returns whether it was reaped."""
+    process.stdin.close()
+    try:
+        process.wait(timeout=timeout)
+    except subprocess.TimeoutExpired:
+        return False
+    return True
 
 
 class DeferredInterrupts:
@@ -846,14 +883,14 @@ def window_bounds(start_at_unix_ns, warmup_s, window_s, monotonic=time.monotonic
 
 
 class HostSampler:
-    """One optional host sampler bracketing an observation. It is always stopped and
-    joined, and its raw output is kept as host.plist."""
+    """One optional host sampler bracketing an observation. It is stopped by closing its
+    standard input and joined within a bound, and its raw output is kept as host.plist."""
 
     def __init__(self, command, directory):
         self.command, self.directory = command, directory
         self.raw_path, self.log_path = directory / "host.plist", directory / "host.log"
         self.process, self.started, self.launch_error = None, None, None
-        self.halted = None
+        self.halted, self.reaped = None, None
 
     def start(self):
         """A sampler that cannot launch leaves the observation running, unattributed. The
@@ -861,30 +898,23 @@ class HostSampler:
         self.started = time.monotonic()
         try:
             with self.raw_path.open("wb") as raw, self.log_path.open("wb") as log:
-                self.process = subprocess.Popen(self.command, stdout=raw, stderr=log)
+                self.process = launch_sampler(self.command, stdout=raw, stderr=log)
         except OSError as error:
             self.launch_error = f"{type(error).__name__}: {error}"
 
     def stop(self):
-        """Terminate, wait, then kill; returns whether it exited before being stopped.
-        SIGINT and SIGTERM stay blocked for this bounded section, so an operator interrupt
-        is delivered after the sampler is reaped rather than between its steps."""
+        """Close standard input and wait for the sampler, bounded by SAMPLER_STOP_S; returns
+        whether it exited before being stopped. SIGINT and SIGTERM stay blocked for this
+        bounded section, so an operator interrupt is delivered after the sampler is reaped
+        rather than between its steps. Standard input closes first, so even a failed wait
+        leaves the sampler stopping on its own."""
         if self.process is None:
             return False
         interrupts = {signal.SIGINT, signal.SIGTERM}
         blocked = signal.pthread_sigmask(signal.SIG_BLOCK, interrupts)
         try:
             early = self.process.poll() is not None  # poll reaps an exited sampler
-            if not early:
-                try:
-                    self.process.terminate()
-                    self.process.wait(timeout=SAMPLER_STOP_S)
-                except BaseException:
-                    # A timeout, or any other failure of the wait, still kills and reaps it.
-                    self.process.kill()
-                    self.process.wait()
-                    if not isinstance(sys.exc_info()[1], subprocess.TimeoutExpired):
-                        raise
+            self.reaped = stop_sampler(self.process, SAMPLER_STOP_S)
         finally:
             signal.pthread_sigmask(signal.SIG_SETMASK, blocked)
         return early
@@ -909,6 +939,9 @@ class HostSampler:
         try:
             if self.process is None:
                 raise HostObservationError("unavailable", f"sampler never launched: {self.launch_error}")
+            if not self.reaped:
+                raise HostObservationError("unavailable", f"sampler not confirmed stopped within {SAMPLER_STOP_S} s "
+                                                          "after its stdin closed; it was not signaled")
             log = self.log_path.read_text(errors="replace").strip()[-500:]
             if early and self.process.returncode != 0:
                 raise HostObservationError("unavailable", f"sampler exited {self.process.returncode}: {log}")
