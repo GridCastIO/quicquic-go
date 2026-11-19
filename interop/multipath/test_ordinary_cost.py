@@ -1369,5 +1369,341 @@ class NativeExecutionTests(unittest.TestCase):
         self.exercise_sigterm_during_roles(native=True)
 
 
+def path_state(wire_id, lifecycle="live", local_use="active", primary=False, validated=True, tuple_generation=0):
+    return {"wire_id": wire_id, "tuple_generation": tuple_generation, "lifecycle": lifecycle,
+            "local_use": local_use, "primary": primary, "validated": validated}
+
+
+def lifecycle_record(controller="reno", retired="closed", heap=(4_000_000, 4_100_000, 4_010_000)):
+    """A producer-shaped lifecycle-memory record, as ordinary_cost_lifecycle_test.go writes it."""
+    states = (path_state(0, primary=True), path_state(1, local_use="backup", tuple_generation=1),
+              path_state(1, lifecycle=retired, local_use="backup", tuple_generation=1))
+    samples = []
+    for phase, state, value in zip(driver.LIFECYCLE_PHASES, states, heap):
+        samples.append({
+            "phase": phase, "role": "client", "path_id": state["wire_id"], "multipath_negotiated": True,
+            "baseline": None if phase == "negotiated-idle" else "negotiated-idle",
+            "state_before": dict(state), "state_after": dict(state),
+            "go_heap_live": metric(value, "bytes", driver.LIFECYCLE_BOUNDARY_SOURCES["go_heap_live"]),
+            "peak_rss": metric(20_000, "kB", "/proc/self/status VmHWM", bytes=20_000 * 1024),
+        })
+    joins = driver.LIFECYCLE_BOUNDARY_SOURCES["grant_joins"]
+    return {
+        "workload": driver.LIFECYCLE, "controller": controller, "platform_profile": "linux-amd64",
+        "retired_lifecycle": retired, "exit": {"server": 0, "client": 0}, "status": "succeeded",
+        "server": {"format": driver.LIFECYCLE_FORMAT, "role": "server", "controller": controller, "go": driver.GO_VERSION, "platform": identity("linux-amd64"),
+                   "multipath_negotiated": True, "peer_closed": True, "close_cause": "Application error 0x0 (remote)",
+                   "grant_joins": {"origin": True}, "grant_join_source": joins},
+        "client": {"format": driver.LIFECYCLE_FORMAT, "role": "client", "controller": controller, "go": driver.GO_VERSION, "platform": identity("linux-amd64"),
+                   "retired_lifecycle": retired, "multipath_negotiated": True, "samples": samples,
+                   "transport_detachment": {"transport": "backup", "detached": True,
+                                            "source": driver.LIFECYCLE_BOUNDARY_SOURCES["transport_detachment"]},
+                   "grant_joins": {"origin": True, "backup": True}, "grant_join_source": joins},
+    }
+
+
+class LifecycleRecordTests(unittest.TestCase):
+    def rejects(self, edit, message):
+        record = lifecycle_record()
+        edit(record)
+        with self.assertRaisesRegex(ValueError, message):
+            driver.check_lifecycle(record)
+
+    def sample(self, record, phase):
+        return next(sample for sample in record["client"]["samples"] if sample["phase"] == phase)
+
+    def test_negotiated_lifecycle_record_is_valid(self):
+        for controller in ("reno", "bbrv3"):
+            for retired in driver.LIFECYCLE_RETIRED:
+                with self.subTest(controller=controller, retired=retired):
+                    driver.check_lifecycle(lifecycle_record(controller, retired))
+
+    def test_unnegotiated_or_ordinary_backup_control_fails(self):
+        def unnegotiated(record):
+            self.sample(record, "validated-backup")["multipath_negotiated"] = False
+        self.rejects(unnegotiated, "unnegotiated connection is no lifecycle or backup control")
+        def ordinary_client(record):
+            record["client"]["multipath_negotiated"] = False
+        self.rejects(ordinary_client, "unnegotiated")
+        def ordinary_baseline(record):
+            self.sample(record, "validated-backup")["baseline"] = "ordinary-idle"
+        self.rejects(ordinary_baseline, "matched comparison is negotiated-idle")
+        def baseline_of_baseline(record):
+            self.sample(record, "negotiated-idle")["baseline"] = "negotiated-idle"
+        self.rejects(baseline_of_baseline, "matched comparison is None")
+        def no_baseline(record):
+            del self.sample(record, "retired")["baseline"]
+        self.rejects(no_baseline, "matched comparison")
+
+    def test_requested_or_detached_state_is_not_retirement(self):
+        for lifecycle in ("retiring", "live", "retained"):
+            with self.subTest(lifecycle=lifecycle):
+                def unobserved(record):
+                    sample = self.sample(record, "retired")
+                    for field in ("state_before", "state_after"):
+                        sample[field]["lifecycle"] = lifecycle
+                self.rejects(unobserved, f"needs the backup path closed, not path 1 {lifecycle}")
+
+    def test_stale_sample_fails(self):
+        def stale(record):
+            self.sample(record, "retired")["state_after"]["lifecycle"] = "retained"
+        self.rejects(stale, "stale sample")
+        def migrated(record):
+            self.sample(record, "validated-backup")["state_after"]["tuple_generation"] = 2
+        self.rejects(migrated, "stale sample")
+
+    def test_phase_path_and_role_labels(self):
+        def reordered(record):
+            samples = record["client"]["samples"]
+            samples[0], samples[1] = samples[1], samples[0]
+        self.rejects(reordered, "exactly")
+        def fourth(record):
+            record["client"]["samples"].append(copy.deepcopy(record["client"]["samples"][2]))
+        self.rejects(fourth, "exactly")
+        def server_sampled(record):
+            self.sample(record, "validated-backup")["role"] = "server"
+        self.rejects(server_sampled, "not the client role")
+        def other_path(record):
+            sample = self.sample(record, "retired")
+            sample["path_id"] = 2
+            for field in ("state_before", "state_after"):
+                sample[field]["wire_id"] = 2
+        self.rejects(other_path, "backup's path ID")
+        def mislabeled_path(record):
+            self.sample(record, "validated-backup")["path_id"] = 2
+        self.rejects(mislabeled_path, "not of the sampled path 2")
+        def idle_backup(record):
+            sample = self.sample(record, "validated-backup")
+            for field in ("state_before", "state_after"):
+                sample[field].update(local_use="active", primary=True)
+        self.rejects(idle_backup, "needs a live, validated backup")
+        def unvalidated_idle(record):
+            sample = self.sample(record, "negotiated-idle")
+            for field in ("state_before", "state_after"):
+                sample[field].update(lifecycle="validating", validated=False)
+        self.rejects(unvalidated_idle, "needs live, validated, primary path zero")
+        def swapped_role(record):
+            record["server"]["role"] = "client"
+        self.rejects(swapped_role, "server: role")
+
+    def test_heap_and_rss_readings(self):
+        def no_heap(record):
+            self.sample(record, "negotiated-idle")["go_heap_live"] = unavailable("bytes", "no runtime metric")
+        self.rejects(no_heap, "no live Go-heap reading")
+        def other_method(record):
+            self.sample(record, "retired")["go_heap_live"]["source"] = "runtime.MemStats.HeapInuse"
+        self.rejects(other_method, "no live Go-heap reading")
+        def unnormalized(record):
+            self.sample(record, "retired")["peak_rss"]["bytes"] = 20_000
+        self.rejects(unnormalized, "do not normalize")
+        def darwin_unit(record):
+            self.sample(record, "retired")["peak_rss"] = metric(20_000, "bytes", bytes=20_000)
+        self.rejects(darwin_unit, "RSS unit must be kB")
+
+    def test_detachment_and_grant_joins_are_separate(self):
+        def unjoined(record):
+            record["client"]["grant_joins"]["backup"] = False
+        self.rejects(unjoined, "every grant must join")
+        def undetached(record):
+            record["client"]["transport_detachment"]["detached"] = False
+        self.rejects(undetached, "did not detach")
+        def detachment_as_join(record):
+            record["client"]["grant_join_source"] = driver.LIFECYCLE_BOUNDARY_SOURCES["transport_detachment"]
+        self.rejects(detachment_as_join, "grant joins come from WaitMultipathIOStoppedV1")
+        def server_unjoined(record):
+            record["server"]["grant_joins"] = {}
+        self.rejects(server_unjoined, "server: its grant did not join")
+        def server_timed_out(record):
+            record["server"]["peer_closed"] = False
+        self.rejects(server_timed_out, "without the client's close")
+
+    def test_run_identity_and_qualifying_state(self):
+        def unknown_state(record):
+            record["retired_lifecycle"] = "retiring"
+        self.rejects(unknown_state, "retained or closed")
+        def client_state(record):
+            record["client"]["retired_lifecycle"] = "retained"
+        self.rejects(client_state, "not the run's")
+        def controller(record):
+            record["client"]["controller"] = "bbrv3"
+        self.rejects(controller, "client: role, controller or toolchain")
+        def platform(record):
+            record["client"]["platform"] = identity("darwin-arm64")
+        self.rejects(platform, "native identity")
+        for role in ("server", "client"):
+            def unversioned(record):
+                del record[role]["format"]
+            self.rejects(unversioned, f"{role}: unsupported lifecycle record format")
+            def revised(record):
+                record[role]["format"] = "mp-mac-c2-lifecycle-memory/2"
+            self.rejects(revised, "unsupported lifecycle record format")
+            def failed(record):
+                record["exit"][role] = 1
+            self.rejects(failed, "both roles must exit 0")
+
+    def test_json_types_stay_apart(self):
+        for label, edit in (
+                ("both roles must exit 0", lambda r: r["exit"].update(client=False)),
+                ("every grant must join", lambda r: r["client"]["grant_joins"].update(backup=1)),
+                ("did not detach", lambda r: r["client"]["transport_detachment"].update(detached=1)),
+                ("its grant did not join", lambda r: r["server"]["grant_joins"].update(origin=1)),
+                ("validated-backup state_after: malformed", lambda r: self.sample(r, "validated-backup")["state_after"].update(wire_id=True)),
+                ("validated-backup state_after: malformed", lambda r: self.sample(r, "validated-backup")["state_after"].update(validated=1)),
+                ("retired state_after: malformed", lambda r: self.sample(r, "retired")["state_after"].pop("local_use"))):
+            with self.subTest(label=label):
+                self.rejects(edit, label)
+
+    def test_path_ids_are_the_producers_uint32(self):
+        for wire_id in (-1, 2**32, True):
+            with self.subTest(wire_id=wire_id):
+                def out_of_range(record):
+                    for phase in ("validated-backup", "retired"):
+                        sample = self.sample(record, phase)
+                        sample["path_id"] = wire_id
+                        for field in ("state_before", "state_after"):
+                            sample[field]["wire_id"] = wire_id
+                self.rejects(out_of_range, "uint32")
+
+    def test_comparison_pairs_one_qualifying_state(self):
+        pairs = driver.match_lifecycle(lifecycle_record("reno"), lifecycle_record("bbrv3", heap=(5, 6, 7)))
+        self.assertEqual(pairs, {"negotiated-idle": (4_000_000, 5), "validated-backup": (4_100_000, 6), "retired": (4_010_000, 7)})
+        with self.assertRaisesRegex(ValueError, "one side retired to closed, the other to retained"):
+            driver.match_lifecycle(lifecycle_record(retired="closed"), lifecycle_record(retired="retained"))
+        relabeled = lifecycle_record()
+        relabeled["client"]["samples"][1]["path_id"] = 2
+        with self.assertRaises(ValueError):
+            driver.match_lifecycle(lifecycle_record(), relabeled)
+        for status in ("failed", "started", None):
+            failed = lifecycle_record()
+            failed["status"] = status
+            with self.subTest(status=status), self.assertRaisesRegex(ValueError, "pairs succeeded attempts"):
+                driver.match_lifecycle(lifecycle_record(), failed)
+
+    def test_native_lifecycle_is_refused_not_replaced(self):
+        record = lifecycle_record()
+        record["platform_profile"] = "darwin-arm64"
+        with self.assertRaisesRegex(ValueError, "public Darwin multipath admission"):
+            driver.check_lifecycle(record)
+        with self.assertRaisesRegex(ValueError, "public Darwin multipath admission"):
+            driver.run_lifecycle("fixture", Path("unused"), "reno", "closed", 30, {}, "darwin-arm64")
+
+
+class LifecycleExecutionTests(unittest.TestCase):
+    def invoke(self, root, failure=None, edit=None, extra=("--retired-lifecycle", "closed")):
+        binary = root / "fixture"
+        binary.write_bytes(b"fixture identity")
+        output = root / "output"
+        processes = {}
+
+        class Process:
+            returncode = None
+
+            def __init__(self, role):
+                self.role = role
+
+            def wait(self, timeout=None):
+                if failure == "timeout" and self.role == "client" and timeout is not None:
+                    raise subprocess.TimeoutExpired("fixture", timeout)
+                self.returncode = 7 if failure == "exit" and self.role == "client" else 0
+                return self.returncode
+
+            def kill(self):
+                self.returncode = -9
+
+        def launch(command, env=None, stdout=None, **kwargs):
+            spec = json.loads(env["ORDINARY_COST_LIFECYCLE_SPEC"])
+            self.assertIn("-test.run=^TestOrdinaryCostLifecycleRole$", command)
+            self.assertNotIn("ORDINARY_COST_SPEC", env)
+            if failure == "launch" and processes:
+                raise OSError("second child launch failed")
+            process = Process(spec["role"])
+            processes[spec["role"]] = (process, spec, command)
+            stdout.write("--- PASS: TestOrdinaryCostLifecycleRole (0.10s)\n")
+            record = lifecycle_record(spec["controller"], spec["retired_lifecycle"])
+            if edit:
+                edit(record)
+            Path(spec["output"]).write_text(json.dumps(record[spec["role"]]))
+            return process
+
+        with contextlib.ExitStack() as stack:
+            stack.enter_context(mock.patch.object(driver.platform, "platform", return_value="Linux-test"))
+            stack.enter_context(mock.patch.object(driver.platform, "system", return_value="Linux"))
+            stack.enter_context(mock.patch.object(driver.platform, "machine", return_value="x86_64"))
+            stack.enter_context(mock.patch.object(driver.shutil, "which", return_value="taskset"))
+            stack.enter_context(mock.patch.object(driver.subprocess, "run", return_value=mock.Mock(stdout=f"fixture: {driver.GO_VERSION}\n")))
+            stack.enter_context(mock.patch.object(driver.subprocess, "Popen", side_effect=launch))
+            stack.enter_context(contextlib.redirect_stdout(io.StringIO()))
+            code = driver.main(["--candidate", "a" * 40, "--binary", str(binary), "--output", str(output),
+                                "--remaining-instances", "1", "--remaining-host-seconds", "60",
+                                "--timeout-seconds", "40", "--lifecycle-memory", *extra])
+        return code, json.loads((output / "summary.json").read_text()), output, processes
+
+    def test_lifecycle_observation_is_charged_and_read_back(self):
+        for controller in ("reno", "bbrv3"):
+            with self.subTest(controller=controller), tempfile.TemporaryDirectory() as temporary:
+                code, summary, output, processes = self.invoke(Path(temporary), extra=("--retired-lifecycle", "retained", "--controller", controller))
+                self.assertEqual(code, 0, summary)
+                self.assertTrue(summary["passed"])
+                self.assertFalse(summary["judged"])
+                self.assertEqual(summary["retired_lifecycle"], "retained")
+                self.assertEqual(list(summary["go_heap_live"]), list(driver.LIFECYCLE_PHASES))
+                self.assertEqual(summary["instances_charged"], 1)
+                self.assertEqual(summary["attempts"][0]["status"], "succeeded")
+                self.assertEqual(sorted(processes), ["client", "server"])
+                for role, (process, spec, command) in processes.items():
+                    self.assertEqual(spec["controller"], controller)
+                    self.assertEqual(spec["retired_lifecycle"], "retained")
+                    self.assertEqual(spec["address"], driver.SERVER_ADDRESS)
+                    self.assertLess(spec["timeout_ns"], 40 * 10**9, "a role stops before the driver kills it")
+                    self.assertEqual(command[:3], ["taskset", "-c", driver.SERVER_CPUS if role == "server" else driver.CLIENT_CPUS])
+                identity_record = json.loads((output / "identity.json").read_text())
+                self.assertEqual(identity_record["workload"], driver.LIFECYCLE)
+                self.assertNotIn("comparator", identity_record)
+                self.assertEqual(identity_record["lifecycle_boundaries"], driver.LIFECYCLE_BOUNDARIES)
+                lines = (output / f"{driver.LIFECYCLE}.jsonl").read_text().splitlines()
+                self.assertEqual(len(lines), 1)
+                driver.check_lifecycle(json.loads(lines[0]))
+
+    def test_failed_role_or_record_keeps_the_charge_and_reaps_both(self):
+        def stale(record):
+            record["client"]["samples"][2]["state_after"]["lifecycle"] = "retained"
+        for failure, edit in (("launch", None), ("exit", None), ("timeout", None), ("invalid", stale)):
+            with self.subTest(failure=failure), tempfile.TemporaryDirectory() as temporary:
+                code, summary, _, processes = self.invoke(Path(temporary), failure=failure, edit=edit)
+                self.assertEqual(code, 1)
+                self.assertFalse(summary["passed"])
+                self.assertEqual(summary["instances_charged"], 1)
+                self.assertEqual(summary["attempts"][0]["status"], "failed")
+                self.assertTrue(all(process.returncode is not None for process, _, _ in processes.values()))
+                if failure in ("exit", "timeout"):
+                    self.assertEqual(processes["server"][0].returncode, -9, "the unsampled peer is killed, then reaped")
+
+    def test_lifecycle_arguments(self):
+        for extra, message in (((), "go together"),
+                               (("--retired-lifecycle", "closed", "--platform-profile", "darwin-arm64"), "public Darwin multipath admission"),
+                               (("--retired-lifecycle", "closed", "--cpu-profile"), "no CPU profile"),
+                               (("--retired-lifecycle", "retiring"), "invalid choice")):
+            with self.subTest(extra=extra), tempfile.TemporaryDirectory() as temporary:
+                stderr = io.StringIO()
+                with contextlib.redirect_stderr(stderr), self.assertRaises(SystemExit):
+                    self.invoke(Path(temporary), extra=extra)
+                self.assertIn(message, stderr.getvalue())
+                self.assertFalse((Path(temporary) / "output").exists(), "nothing ran")
+        with tempfile.TemporaryDirectory() as temporary:
+            stderr = io.StringIO()
+            with contextlib.redirect_stderr(stderr), self.assertRaises(SystemExit):
+                driver.main(["--candidate", "a" * 40, "--binary", "b", "--output", str(Path(temporary) / "o"),
+                             "--remaining-instances", "1", "--remaining-host-seconds", "60", "--timeout-seconds", "40",
+                             "--smoke-cell", "stream-gso-on", "--retired-lifecycle", "closed"])
+            self.assertIn("go together", stderr.getvalue())
+
+    def test_short_timeout_launches_nothing(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            code, summary, _, processes = self.invoke(Path(temporary), extra=("--retired-lifecycle", "closed", "--timeout-seconds", "10"))
+            self.assertEqual(code, 1)
+            self.assertEqual(processes, {})
+            self.assertIn(f"at least {driver.LIFECYCLE_TIMEOUT_S}", summary["error"])
+
+
 if __name__ == "__main__":
     unittest.main()
