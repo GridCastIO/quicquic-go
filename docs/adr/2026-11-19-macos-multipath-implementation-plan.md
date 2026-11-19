@@ -56,7 +56,7 @@ C2 observes live/retained memory at matched negotiated-connection lifecycle stat
 | E1 | New; frontier | Granted scalar socket fixture and native case receipt | None | None |
 | E2 | New; blocked | Blocked-writer deadline/borrow fixture | E1 | None |
 | E3 | New; blocked | Scalar contention and pressure-observation fixture | E1 | None |
-| P1 | New; frontier | Native pinned peer build, launch and ordinary control | None | None |
+| P1 | Complete in [#1499](https://github.com/GridCastIO/quicquic-go/pull/1499) | Native pinned peer build, launch and ordinary control | None | None |
 | P2 | New; frontier | Fresh aggregate DATAGRAM ingress witness | None | None |
 | C1 | New; frontier | Native ordinary workloads and truthful metrics | None | None |
 | C2 | New; blocked | Negotiated lifecycle-memory observation | C1 | None |

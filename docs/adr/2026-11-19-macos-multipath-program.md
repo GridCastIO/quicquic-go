@@ -10,14 +10,14 @@ Package the owner-approved macOS profile from [planning issue #1396](https://git
 
 | Track | Plan | Parent issue | Size | Current frontier | State |
 | --- | --- | --- | --- | --- | --- |
-| MP-MAC — Native macOS multipath | [Implementation plan](2026-11-19-macos-multipath-implementation-plan.md) | pending | 11 slices / intended PRs | E1, P1, P2, C1, C3 | Readiness not implemented |
+| MP-MAC — Native macOS multipath | [Implementation plan](2026-11-19-macos-multipath-implementation-plan.md) | pending | 11 slices / intended PRs | E1, P2, C1, C3 | Readiness in progress; P1 complete |
 
 | Slice | Blocked by | State |
 | --- | --- | --- |
 | E1 — Granted scalar fixture | None | FRONTIER |
 | E2 — Blocked-writer lifecycle fixture | E1 | BLOCKED |
 | E3 — Contention/pressure fixture | E1 | BLOCKED |
-| P1 — Native pinned peer and ordinary control | None | FRONTIER |
+| P1 — Native pinned peer and ordinary control | None | COMPLETE ([#1499](https://github.com/GridCastIO/quicquic-go/pull/1499)) |
 | P2 — Fresh aggregate ingress witness | None | FRONTIER |
 | C1 — Native ordinary workloads/metrics | None | FRONTIER |
 | C2 — Negotiated lifecycle memory | C1 | BLOCKED |
