@@ -656,12 +656,19 @@ func TestOrdinaryCostLifecycle(t *testing.T) {
 		t.Cleanup(func() { ordinary.Close() })
 		ln, err := ordinary.Listen(ordinaryCostServerTLS(), ordinaryCostConfig(t, false, "reno"))
 		require.NoError(t, err)
-		t.Cleanup(func() { ln.Close() })
+		peerDone := make(chan struct{})
 		go func() {
+			defer close(peerDone)
 			if conn, err := ln.Accept(context.Background()); err == nil {
 				<-conn.Context().Done()
 			}
 		}()
+		// Closing the listener and transport ends the peer, which is joined; its outcome is not asserted.
+		t.Cleanup(func() {
+			ln.Close()
+			ordinary.Close()
+			<-peerDone
+		})
 		spec := ordinaryCostLifecycleSpec{Controller: "reno", Retired: "closed", Address: ordinary.Conn.LocalAddr().String(), TimeoutNS: int64(10 * time.Second)}
 		client, err := ordinaryCostRunLifecycleClient(t.Context(), spec, ordinaryCostConfig(t, true, "bbrv3"))
 		require.ErrorContains(t, err, "runs bbrv3, not the requested reno")
@@ -689,15 +696,18 @@ func TestOrdinaryCostLifecycle(t *testing.T) {
 		require.NoError(t, err)
 		ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
 		defer cancel()
-		conn, err := peer.Dial(ctx, addr, ordinaryCostClientTLS(), ordinaryCostConfig(t, false, "reno"))
-		require.NoError(t, err)
-		select {
-		case <-conn.Context().Done():
-		case <-ctx.Done():
-			t.Fatal("the mismatched server never closed the connection")
+		// The server role's close can reach the peer before Dial returns, or after.
+		conn, cause := peer.Dial(ctx, addr, ordinaryCostClientTLS(), ordinaryCostConfig(t, false, "reno"))
+		if cause == nil {
+			select {
+			case <-conn.Context().Done():
+			case <-ctx.Done():
+				t.Fatal("the mismatched server never closed the connection")
+			}
+			cause = context.Cause(conn.Context())
 		}
 		var appErr *ApplicationError
-		require.ErrorAs(t, context.Cause(conn.Context()), &appErr)
+		require.ErrorAs(t, cause, &appErr)
 		require.True(t, appErr.Remote, "the server role closed the connection")
 		server := joinServer()
 		require.ErrorContains(t, server.err, "runs bbrv3, not the requested reno")
