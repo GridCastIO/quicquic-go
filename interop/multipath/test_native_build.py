@@ -1,7 +1,10 @@
 import importlib.util
+import os
 from pathlib import Path
+import subprocess
 import sys
 import tempfile
+import time
 import unittest
 
 
@@ -54,6 +57,42 @@ class NativeBuildTests(unittest.TestCase):
         for output in ("self-test pass\n", passing.replace("self-test pass\n", ""), passing + "self-test pass\n"):
             with self.subTest(output=output), self.assertRaisesRegex(ValueError, "self-test"):
                 build.check_self_test(output)
+
+    def test_step_timeout_kills_and_joins_the_process_group(self):
+        import fcntl
+        with tempfile.TemporaryDirectory() as temporary:
+            directory = Path(temporary)
+            # The grandchild stands in for a make or compiler worker and alone holds an exclusive lock.
+            lock, ready, child_pid = directory / "lock", directory / "ready", directory / "child-pid"
+            grandchild = ("import fcntl, time; f = open(%r, 'w'); fcntl.flock(f, fcntl.LOCK_EX); "
+                          "open(%r, 'w').close(); time.sleep(60)") % (str(lock), str(ready))
+            child = ("import os, pathlib, subprocess, sys, time; pathlib.Path(%r).write_text(str(os.getpid())); "
+                     "subprocess.Popen([sys.executable, '-c', %r]); "
+                     "[time.sleep(0.05) for _ in iter(lambda: not pathlib.Path(%r).exists(), False)]; time.sleep(60)"
+                     ) % (str(child_pid), grandchild, str(ready))
+            with (directory / "build.log").open("w") as log:
+                with self.assertRaises(subprocess.TimeoutExpired):
+                    build.run_step([sys.executable, "-c", child], log, directory, timeout=2)
+                self.assertTrue(ready.exists(), "the worker was running before the timeout")
+                # The direct child was joined, so its PID no longer exists.
+                with self.assertRaises(ProcessLookupError):
+                    os.kill(int(child_pid.read_text()), 0)
+                deadline = time.monotonic() + 10
+                with lock.open("w") as handle:
+                    while True:
+                        try:
+                            fcntl.flock(handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                            break
+                        except BlockingIOError:
+                            self.assertLess(time.monotonic(), deadline, "the timed-out step's worker still holds its lock")
+                            time.sleep(0.05)
+                with self.assertRaises(subprocess.CalledProcessError) as failed:
+                    build.run_step([sys.executable, "-c", "import sys; sys.exit(3)"], log, directory)
+                self.assertEqual(failed.exception.returncode, 3)
+                self.assertEqual(build.run_step([sys.executable, "-c", "print('built')"], log, directory), 0)
+            lines = (directory / "build.log").read_text().splitlines()
+            self.assertEqual(lines[0], f"$ {sys.executable} -c {child}")
+            self.assertEqual(lines[-2:], [f"$ {sys.executable} -c print('built')", "built"])
 
 
 if __name__ == "__main__":
