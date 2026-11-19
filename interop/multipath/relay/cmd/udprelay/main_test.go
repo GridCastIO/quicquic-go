@@ -2,8 +2,10 @@ package main
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"net"
 	"net/netip"
@@ -176,5 +178,50 @@ func TestProcessRefusesWithoutRecord(t *testing.T) {
 				require.Equal(t, "{}", string(b), "an existing record is left alone")
 			}
 		})
+	}
+}
+
+// A record that appears at the destination while the relay runs survives: publication
+// fails, the process exits nonzero and leaves no temporary file.
+func TestProcessKeepsRecordThatAppeared(t *testing.T) {
+	dir := t.TempDir()
+	recordPath := filepath.Join(dir, "relay.json")
+	p := startProcess(t, "-config", writeConfig(t, disjointConfig(netip.MustParseAddrPort("127.0.0.1:4433"))), "-record", recordPath)
+	_, err := p.stdout.ReadBytes('\n')
+	require.NoError(t, err, p.stderrText(t))
+	require.NoError(t, os.WriteFile(recordPath, []byte("sentinel"), 0o644))
+
+	require.NoError(t, p.stdin.Close())
+	var exit *exec.ExitError
+	require.ErrorAs(t, p.cmd.Wait(), &exit)
+	require.Contains(t, p.stderrText(t), "publishing record")
+	b, err := os.ReadFile(recordPath)
+	require.NoError(t, err)
+	require.Equal(t, "sentinel", string(b))
+	entries, err := os.ReadDir(dir)
+	require.NoError(t, err)
+	require.Len(t, entries, 1, "no temporary record remains")
+}
+
+type failingReader struct{}
+
+func (failingReader) Read([]byte) (int, error) { return 0, errors.New("stdin broke") }
+
+// A stdin read error is not a stop request: the relay is closed and joined, the error
+// is returned and no record is published.
+func TestRunStdinErrorPublishesNothing(t *testing.T) {
+	recordPath := filepath.Join(t.TempDir(), "relay.json")
+	var stdout bytes.Buffer
+	err := run(context.Background(), []string{
+		"-config", writeConfig(t, disjointConfig(netip.MustParseAddrPort("127.0.0.1:4433"))), "-record", recordPath,
+	}, failingReader{}, &stdout)
+	require.ErrorContains(t, err, "stdin broke")
+	require.NoFileExists(t, recordPath)
+	var ready readyLine
+	require.NoError(t, json.Unmarshal(stdout.Bytes(), &ready))
+	for _, front := range ready.Fronts {
+		conn, err := net.ListenUDP("udp4", net.UDPAddrFromAddrPort(front))
+		require.NoError(t, err, "the relay was closed")
+		conn.Close()
 	}
 }

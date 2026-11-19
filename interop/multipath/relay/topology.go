@@ -62,6 +62,15 @@ type Config struct {
 	Routes []Route        `json:"routes"`
 }
 
+// explicitUnicast4 reports whether a names one IPv4 unicast endpoint: not IPv6 or
+// IPv4-mapped IPv6, the unspecified wildcard, a multicast group or the limited
+// broadcast address. netip owns the address syntax and classification. Subnet-directed
+// broadcast addresses need interface knowledge and are outside this check; the
+// relay's bind still has to realize the exact requested address.
+func explicitUnicast4(a netip.Addr) bool {
+	return a.Is4() && !a.IsUnspecified() && !a.IsMulticast() && a != netip.AddrFrom4([4]byte{255, 255, 255, 255})
+}
+
 // routeNames returns the routes kind requires, in their canonical order.
 func (k Kind) routeNames() ([]RouteName, int, error) {
 	switch k {
@@ -80,11 +89,8 @@ func (c Config) Validate() error {
 	if err != nil {
 		return err
 	}
-	if !c.Server.IsValid() || c.Server.Port() == 0 || c.Server.Addr().IsUnspecified() {
-		return fmt.Errorf("server %q must be an explicit address and port", c.Server)
-	}
-	if !c.Server.Addr().Is4() {
-		return fmt.Errorf("server %s must be IPv4", c.Server)
+	if !explicitUnicast4(c.Server.Addr()) || c.Server.Port() == 0 {
+		return fmt.Errorf("server %q must be an explicit IPv4 unicast address and port", c.Server)
 	}
 	if len(c.Queues) != queueCount {
 		return fmt.Errorf("%s topology needs %d queues, got %d", c.Kind, queueCount, len(c.Queues))
@@ -106,8 +112,8 @@ func (c Config) Validate() error {
 	}
 	fronts := make(map[netip.AddrPort]bool)
 	for _, r := range c.Routes {
-		if !r.Front.IsValid() || !r.Front.Addr().Is4() || r.Front.Addr().IsUnspecified() {
-			return fmt.Errorf("route %s front %q must be an explicit IPv4 address and port", r.Name, r.Front)
+		if !explicitUnicast4(r.Front.Addr()) {
+			return fmt.Errorf("route %s front %q must be an explicit IPv4 unicast address", r.Name, r.Front)
 		}
 		if r.Front == c.Server {
 			return fmt.Errorf("route %s front is the server address %s", r.Name, c.Server)

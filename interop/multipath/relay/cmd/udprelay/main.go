@@ -6,9 +6,10 @@
 // The config is one JSON relay.Config. Once every route is bound, the process writes one
 // JSON line to stdout naming the bound fronts. It relays until its stdin reaches end of
 // file or it receives an interrupt or termination signal. It then closes the relay,
-// joining every worker, writes the validated record to -record by renaming a complete
-// temporary file, and exits zero. On any failure it exits nonzero, describes the
-// failure on stderr and leaves no record. It refuses to start when -record exists.
+// joining every worker, publishes the validated record by linking a complete temporary
+// file to the -record name, and exits zero. On any failure, including a stdin read
+// error or a file that appeared at -record meanwhile, it exits nonzero, describes the
+// failure on stderr and publishes no record; it never replaces an existing file.
 package main
 
 import (
@@ -94,13 +95,16 @@ func run(ctx context.Context, args []string, stdin io.Reader, stdout io.Writer) 
 		_, err = fmt.Fprintf(stdout, "%s\n", ready)
 	}
 	if err == nil {
-		eof := make(chan struct{})
+		eof := make(chan error, 1)
 		go func() {
-			io.Copy(io.Discard, stdin)
-			close(eof)
+			_, err := io.Copy(io.Discard, stdin)
+			eof <- err
 		}()
 		select {
-		case <-eof:
+		case err = <-eof:
+			if err != nil {
+				err = fmt.Errorf("reading stdin: %w", err)
+			}
 		case <-ctx.Done():
 		}
 	}
@@ -111,8 +115,8 @@ func run(ctx context.Context, args []string, stdin io.Reader, stdout io.Writer) 
 	return writeRecord(*recordPath, rec)
 }
 
-// writeRecord publishes a complete record by rename, so a reader never sees a partial
-// file under the record's name.
+// writeRecord publishes a complete record by hard-linking it to path, so a reader never
+// sees a partial file under that name and an existing file is never replaced.
 func writeRecord(path string, rec relay.Record) error {
 	tmp, err := os.CreateTemp(filepath.Dir(path), ".udprelay-*.json")
 	if err != nil {
@@ -130,5 +134,8 @@ func writeRecord(path string, rec relay.Record) error {
 	if err := tmp.Close(); err != nil {
 		return err
 	}
-	return os.Rename(tmp.Name(), path)
+	if err := os.Link(tmp.Name(), path); err != nil {
+		return fmt.Errorf("publishing record: %w", err)
+	}
+	return nil
 }

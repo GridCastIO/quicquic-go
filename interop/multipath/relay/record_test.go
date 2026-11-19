@@ -3,9 +3,11 @@ package relay
 import (
 	"bytes"
 	"encoding/json"
+	"math"
 	"net/netip"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 )
@@ -34,6 +36,12 @@ func TestRecordReadback(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, testRecord(), rec)
 
+	// Empty datagrams, idle directions and timely sends are records a relay can write.
+	idle := testRecord()
+	idle.Routes[1].Forward = Direction{Received: 2, Delivered: 2, LateOver1ms: 1, MaxLateNS: int64(2 * time.Millisecond)}
+	idle.Routes[1].Reverse = Direction{}
+	require.NoError(t, idle.Validate())
+
 	encode := func(rec Record) string {
 		b, err := json.Marshal(rec)
 		require.NoError(t, err)
@@ -57,6 +65,48 @@ func TestRecordReadback(t *testing.T) {
 		{"missing back", encode(func() Record { r := testRecord(); r.Routes[0].Back = netip.AddrPort{}; return r }()), "back"},
 		{"unaccounted datagram", encode(func() Record { r := testRecord(); r.Routes[0].Forward.Received++; return r }()), "accounted"},
 		{"bytes from nowhere", encode(func() Record { r := testRecord(); r.Routes[0].Reverse.DeliveredBytes = 401; return r }()), "bytes"},
+		{"wrapped outcomes", encode(func() Record {
+			r := testRecord()
+			r.Routes[0].Forward = Direction{Dropped: math.MaxUint64, Overflow: 1}
+			return r
+		}()), "more accounted"},
+		{"delivered bytes without a delivery", encode(func() Record {
+			r := testRecord()
+			r.Routes[0].Reverse = Direction{Received: 1, ReceivedBytes: 400, Abandoned: 1, DeliveredBytes: 400}
+			return r
+		}()), "do not fit"},
+		{"all delivered with fewer bytes", encode(func() Record { r := testRecord(); r.Routes[0].Reverse.DeliveredBytes = 399; return r }()), "do not fit"},
+		{"bytes beyond the datagram size", encode(func() Record {
+			r := testRecord()
+			r.Routes[0].Reverse = Direction{Received: 1, ReceivedBytes: 1 << 16, Delivered: 1, DeliveredBytes: 1 << 16}
+			return r
+		}()), "do not fit"},
+		{"lateness without a send", encode(func() Record {
+			r := testRecord()
+			r.Routes[2].Forward = Direction{Received: 1, ReceivedBytes: 1, Dropped: 1, MaxLateNS: 5}
+			return r
+		}()), "lateness"},
+		{"more late sends than sends", encode(func() Record {
+			r := testRecord()
+			r.Routes[0].Reverse.LateOver1ms, r.Routes[0].Reverse.MaxLateNS = 5, int64(2*time.Millisecond)
+			return r
+		}()), "lateness"},
+		{"late count without a late maximum", encode(func() Record { r := testRecord(); r.Routes[0].Reverse.LateOver1ms = 1; return r }()), "lateness"},
+		{"duplicate fronts", encode(func() Record { r := testRecord(); r.Routes[1].Front = r.Routes[0].Front; return r }()), "reuses"},
+		{"front reused as a back", encode(func() Record { r := testRecord(); r.Routes[1].Back = r.Routes[0].Front; return r }()), "reuses"},
+		{"wildcard back", encode(func() Record { r := testRecord(); r.Routes[0].Back = netip.MustParseAddrPort("0.0.0.0:6000"); return r }()), "back socket"},
+		{"front at the server", encode(func() Record { r := testRecord(); r.Routes[0].Front = r.Config.Server; return r }()), "server"},
+		{"replies without a client", encode(func() Record {
+			r := testRecord()
+			r.Routes[0].Forward = Direction{}
+			return r
+		}()), "without a client"},
+		{"reply send errors without a client are valid", encode(func() Record {
+			r := testRecord()
+			r.Routes[0].Forward = Direction{}
+			r.Routes[0].Reverse = Direction{Received: 1, ReceivedBytes: 10, SendErrors: 1}
+			return r
+		}()), ""},
 		{"reverse drop", encode(func() Record {
 			r := testRecord()
 			r.Routes[0].Reverse.Dropped, r.Routes[0].Reverse.Delivered = 1, 3
@@ -65,6 +115,10 @@ func TestRecordReadback(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			_, err := ReadRecord(strings.NewReader(tc.raw))
+			if tc.want == "" {
+				require.NoError(t, err)
+				return
+			}
 			require.ErrorContains(t, err, tc.want)
 		})
 	}

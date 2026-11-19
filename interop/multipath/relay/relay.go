@@ -95,7 +95,27 @@ func openLink(plan routePlan, front, server netip.AddrPort) (*link, error) {
 	}
 	l.frontAddr = unmapped(l.front.LocalAddr().(*net.UDPAddr).AddrPort())
 	l.backAddr = unmapped(l.back.LocalAddr().(*net.UDPAddr).AddrPort())
+	if err := realized(front, server, l.frontAddr, l.backAddr); err != nil {
+		l.closeSockets()
+		return nil, err
+	}
 	return l, nil
+}
+
+// realized reports whether the bound sockets are the explicit endpoints the
+// configuration asked for. A platform may bind some requested addresses differently,
+// and a port-zero front can land on the server's port while the server is unbound.
+func realized(front, server, boundFront, boundBack netip.AddrPort) error {
+	if boundFront.Addr() != front.Addr() || (front.Port() != 0 && boundFront.Port() != front.Port()) {
+		return fmt.Errorf("front %s was bound as %s", front, boundFront)
+	}
+	if boundFront == server {
+		return fmt.Errorf("front was bound at the server address %s", server)
+	}
+	if !explicitUnicast4(boundBack.Addr()) {
+		return fmt.Errorf("back socket was bound as %s", boundBack)
+	}
+	return nil
 }
 
 func (l *link) closeSockets() {

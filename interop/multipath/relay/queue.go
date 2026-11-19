@@ -1,6 +1,7 @@
 package relay
 
 import (
+	"math/bits"
 	"sync"
 	"time"
 )
@@ -17,35 +18,57 @@ type Queue struct {
 
 // queue is the single owner of one bottleneck's backlog. Every route that names the
 // queue admits through it, so a shared queue's routes compete for the same backlog.
+//
+// The backlog is kept exactly, in bits scaled by one second in nanoseconds, so the
+// remaining service time at the reference instant is backlog/rate nanoseconds. The
+// limit compares exact charged bits; only the returned departure time is rounded.
 type queue struct {
 	rate  uint64
-	limit time.Duration
+	limit uint64 // LimitBytes in the backlog's units
 
-	mu   sync.Mutex
-	busy time.Time // when the last admitted datagram finishes service
+	mu      sync.Mutex
+	at      time.Time // reference instant of backlog
+	backlog uint64
 }
 
 // newQueue expects a validated Queue, whose bounds keep this arithmetic in range.
 func newQueue(q Queue) *queue {
-	return &queue{rate: q.RateBPS, limit: serviceTime(q.LimitBytes, q.RateBPS)}
+	return &queue{rate: q.RateBPS, limit: scaledBits(q.LimitBytes)}
 }
 
-func serviceTime(bytes, rateBPS uint64) time.Duration {
-	return time.Duration(bytes * 8 * uint64(time.Second) / rateBPS)
+func scaledBits(bytes uint64) uint64 {
+	return bytes * 8 * uint64(time.Second)
 }
 
 // admit returns when a datagram of size payload bytes arriving at now finishes service,
-// or false when its service would push the backlog past the queue's limit.
+// or false when its charge would push the backlog past the queue's limit.
 func (q *queue) admit(now time.Time, size int) (time.Time, bool) {
-	service := serviceTime(uint64(size)+ipv4UDPOverhead, q.rate)
+	charge := scaledBits(uint64(size) + ipv4UDPOverhead)
 	q.mu.Lock()
 	defer q.mu.Unlock()
-	if q.busy.Before(now) {
-		q.busy = now
+	if d := now.Sub(q.at); d > 0 {
+		// Service drains rate scaled units per nanosecond.
+		if elapsed := uint64(d); elapsed > q.backlog/q.rate {
+			q.backlog = 0
+		} else {
+			q.backlog -= elapsed * q.rate
+		}
+		q.at = now
 	}
-	if q.busy.Sub(now)+service > q.limit {
+	// Readers sharing a queue can arrive with now slightly behind the reference
+	// instant; the backlog they see includes service not yet drained at now.
+	ahead := q.backlog
+	if d := q.at.Sub(now); d > 0 {
+		hi, lo := bits.Mul64(uint64(d), q.rate)
+		sum, carry := bits.Add64(lo, ahead, 0)
+		if hi != 0 || carry != 0 {
+			return time.Time{}, false
+		}
+		ahead = sum
+	}
+	if ahead > q.limit || charge > q.limit-ahead {
 		return time.Time{}, false
 	}
-	q.busy = q.busy.Add(service)
-	return q.busy, true
+	q.backlog += charge
+	return q.at.Add(time.Duration(q.backlog / q.rate)), true
 }

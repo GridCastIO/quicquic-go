@@ -6,7 +6,9 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math/bits"
 	"net/netip"
+	"time"
 )
 
 // RecordVersion is the version of Record this package writes and reads.
@@ -60,18 +62,40 @@ type Record struct {
 	Routes  []RouteRecord `json:"routes"`
 }
 
+// fitsDatagrams reports whether bytes can be the payload total of n datagrams.
+func fitsDatagrams(bytes, n uint64) bool {
+	hi, lo := bits.Mul64(n, maxDatagram)
+	return hi != 0 || bytes <= lo
+}
+
+// validate reports whether d is a direction a relay could have recorded: every received
+// datagram has exactly one outcome, byte totals fit their datagram counts, and lateness
+// describes only sends.
 func (d Direction) validate(queued bool) error {
-	if got := d.Dropped + d.Overflow + d.Delivered + d.SendErrors + d.Abandoned; got != d.Received {
-		return fmt.Errorf("%d datagrams received but %d accounted for", d.Received, got)
+	remaining := d.Received
+	for _, n := range []uint64{d.Dropped, d.Overflow, d.Delivered, d.SendErrors, d.Abandoned} {
+		if n > remaining {
+			return fmt.Errorf("%d datagrams received but more accounted for", d.Received)
+		}
+		remaining -= n
 	}
-	if d.DeliveredBytes > d.ReceivedBytes {
-		return fmt.Errorf("%d bytes delivered but only %d received", d.DeliveredBytes, d.ReceivedBytes)
+	if remaining != 0 {
+		return fmt.Errorf("%d datagrams received but %d unaccounted for", d.Received, remaining)
 	}
 	if !queued && d.Dropped != 0 {
 		return errors.New("a direction without a queue cannot drop")
 	}
-	if d.MaxLateNS < 0 {
-		return fmt.Errorf("negative lateness %d", d.MaxLateNS)
+	if d.DeliveredBytes > d.ReceivedBytes {
+		return fmt.Errorf("%d bytes delivered but only %d received", d.DeliveredBytes, d.ReceivedBytes)
+	}
+	if !fitsDatagrams(d.DeliveredBytes, d.Delivered) || !fitsDatagrams(d.ReceivedBytes-d.DeliveredBytes, d.Received-d.Delivered) {
+		return fmt.Errorf("byte totals %d received and %d delivered do not fit %d received and %d delivered datagrams",
+			d.ReceivedBytes, d.DeliveredBytes, d.Received, d.Delivered)
+	}
+	sends := d.Delivered + d.SendErrors
+	if d.LateOver1ms > sends || d.MaxLateNS < 0 || (sends == 0 && d.MaxLateNS != 0) ||
+		(d.LateOver1ms > 0) != (d.MaxLateNS > int64(time.Millisecond)) {
+		return fmt.Errorf("lateness (%d over 1 ms, max %d ns) does not describe %d sends", d.LateOver1ms, d.MaxLateNS, sends)
 	}
 	return nil
 }
@@ -90,23 +114,38 @@ func (rec Record) Validate() error {
 	if len(rec.Routes) != len(rec.Config.Routes) {
 		return fmt.Errorf("record has %d routes, config has %d", len(rec.Routes), len(rec.Config.Routes))
 	}
+	// Every route's front and back are distinct bound sockets, none at the server.
+	endpoints := map[netip.AddrPort]bool{rec.Config.Server: true}
 	for i, r := range rec.Routes {
 		want := rec.Config.Routes[i]
 		if r.Name != want.Name || r.Queue != want.Queue || r.DelayNS != want.DelayNS {
 			return fmt.Errorf("record route %d (%s) does not match its configuration", i, r.Name)
 		}
-		if !r.Front.IsValid() || r.Front.Port() == 0 || r.Front.Addr() != want.Front.Addr() ||
-			(want.Front.Port() != 0 && r.Front.Port() != want.Front.Port()) {
-			return fmt.Errorf("route %s front %s does not realize %s", r.Name, r.Front, want.Front)
+		if r.Front.Port() == 0 {
+			return fmt.Errorf("route %s front %s was not bound", r.Name, r.Front)
 		}
-		if !r.Back.IsValid() || r.Back.Port() == 0 {
-			return fmt.Errorf("route %s lacks its back address", r.Name)
+		if err := realized(want.Front, rec.Config.Server, r.Front, r.Back); err != nil {
+			return fmt.Errorf("route %s: %w", r.Name, err)
+		}
+		if r.Back.Port() == 0 {
+			return fmt.Errorf("route %s back %s was not bound", r.Name, r.Back)
+		}
+		for _, e := range []netip.AddrPort{r.Front, r.Back} {
+			if endpoints[e] {
+				return fmt.Errorf("route %s reuses endpoint %s", r.Name, e)
+			}
+			endpoints[e] = true
 		}
 		if err := r.Forward.validate(true); err != nil {
 			return fmt.Errorf("route %s forward: %w", r.Name, err)
 		}
 		if err := r.Reverse.validate(false); err != nil {
 			return fmt.Errorf("route %s reverse: %w", r.Name, err)
+		}
+		// A reply is delivered only to a client that has sent on the route; without
+		// one, the reply is a send error.
+		if r.Reverse.Delivered > 0 && r.Forward.Received == 0 {
+			return fmt.Errorf("route %s delivered replies without a client", r.Name)
 		}
 	}
 	return nil

@@ -100,8 +100,12 @@ func TestConfigValidate(t *testing.T) {
 		{"missing server", KindDisjoint, func(c *Config) { c.Server = netip.AddrPort{} }, "server"},
 		{"server port zero", KindDisjoint, func(c *Config) { c.Server = netip.MustParseAddrPort("127.0.0.1:0") }, "server"},
 		{"IPv6 server", KindDisjoint, func(c *Config) { c.Server = netip.MustParseAddrPort("[::1]:4433") }, "IPv4"},
+		{"multicast server", KindDisjoint, func(c *Config) { c.Server = netip.MustParseAddrPort("239.1.2.3:4433") }, "unicast"},
 		{"IPv6 front", KindDisjoint, func(c *Config) { c.Routes[1].Front = netip.MustParseAddrPort("[::1]:0") }, "IPv4"},
-		{"wildcard front", KindDisjoint, func(c *Config) { c.Routes[1].Front = netip.MustParseAddrPort("0.0.0.0:0") }, "explicit"},
+		{"mapped IPv6 front", KindDisjoint, func(c *Config) { c.Routes[1].Front = netip.MustParseAddrPort("[::ffff:127.0.0.1]:0") }, "IPv4"},
+		{"wildcard front", KindDisjoint, func(c *Config) { c.Routes[1].Front = netip.MustParseAddrPort("0.0.0.0:0") }, "unicast"},
+		{"multicast front", KindDisjoint, func(c *Config) { c.Routes[1].Front = netip.MustParseAddrPort("239.1.2.3:0") }, "unicast"},
+		{"broadcast front", KindDisjoint, func(c *Config) { c.Routes[1].Front = netip.MustParseAddrPort("255.255.255.255:0") }, "unicast"},
 		{"duplicate front", KindDisjoint, func(c *Config) {
 			c.Routes[0].Front = netip.MustParseAddrPort("127.0.0.1:5000")
 			c.Routes[1].Front = netip.MustParseAddrPort("127.0.0.1:5000")
