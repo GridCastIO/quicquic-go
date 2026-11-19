@@ -507,8 +507,19 @@ def workload_failures(record):
     return failures
 
 
-def judge_cell(cell, rounds):
-    """Judge one cell from its (control, opted-in) rounds, on medians of paired values."""
+def memory_readings(record, platform_profile=LINUX):
+    """The server's peak RSS at the sample point and at the end, in the unit the memory rule
+    compares: Linux keeps R18's VmHWM kB aliases; Darwin reads normalized bytes."""
+    server = record["server"]
+    if platform_profile == LINUX:
+        return server["rss_kb_at_20s"], server["rss_kb_end"]
+    return server["peak_rss_at_sample"]["bytes"], server["peak_rss_end"]["bytes"]
+
+
+def judge_cell(cell, rounds, platform_profile=LINUX, round_numbers=None):
+    """Judge one cell from its (control, opted-in) rounds, on medians of paired values.
+    Failures name rounds by round_numbers when given (the protocol's N), else by index."""
+    labels = list(round_numbers) if round_numbers is not None else list(range(len(rounds)))
     goodput, cpu, control_margin, send_margin = [], [], [], []
     control_p99, send_p99 = {CONTROL: [], OPTED_IN: []}, {CONTROL: [], OPTED_IN: []}
     empty = {CONTROL: [], OPTED_IN: []}
@@ -537,7 +548,7 @@ def judge_cell(cell, rounds):
             send_p99[name].append(record["server"]["application_send_call"]["ordinary"]["p99_us"])
             empty[name].append(sum(1 for value in flow["series"] if value == 0))
             background[name].append(sum(f["useful_bytes"] for f in flows(record, "background")))
-            peak[name].append(record["server"]["rss_kb_end"])
+            peak[name].append(memory_readings(record, platform_profile)[1])
             counted = [c["packets_lost_metric"]["value"] for c in record["server"]["connections"]]
             lost[name].append(None if None in counted else sum(counted))
             drops[name].append(sum(f.get("datagram_drops", 0) for f in record["client"]["flows"]))
@@ -549,13 +560,14 @@ def judge_cell(cell, rounds):
                 resets[name].append(flood["resets"] / flood["sent"])
         closes = treated["client"]["flows"] + treated["server"]["connections"]
         if any(item["timeout_close"] for item in closes):
-            timeouts.append(round_)
+            timeouts.append(labels[round_])
         if treated["server"]["write_errors"] or any(item["close_cause"] and not item["timeout_close"] for item in closes):
-            failed_sends.append(round_)
-        if treated["server"]["rss_kb_end"] > MEMORY_GROWTH_CEILING * treated["server"]["rss_kb_at_20s"]:
-            unbounded.append(round_)
+            failed_sends.append(labels[round_])
+        at_sample, end = memory_readings(treated, platform_profile)
+        if end > MEMORY_GROWTH_CEILING * at_sample:
+            unbounded.append(labels[round_])
         if any(value == 0 for flow in treated["client"]["flows"] for value in flow["series"]):
-            starved.append(round_)
+            starved.append(labels[round_])
     failures = []
     if statistics.median(goodput) < GOODPUT_FLOOR:
         failures.append(f"goodput ratio {statistics.median(goodput):.3f} below {GOODPUT_FLOOR}")
@@ -588,7 +600,7 @@ def judge_cell(cell, rounds):
         "stateless_reset_share": resets,
         "stateless_offered_packets": offered,
         "stateless_resets_received": returned,
-        "peak_rss_kb": peak,
+        ("peak_rss_kb" if platform_profile == LINUX else "peak_rss_bytes"): peak,
         "packets_lost": lost,
         "datagram_drops": drops,
         "write_errors": write_errors,
@@ -1213,7 +1225,157 @@ def binary_identity(binary):
     return {"path": str(path), "sha256": hashlib.sha256(path.read_bytes()).hexdigest(), "build_info": build}
 
 
+# MP-MAC #1569 (protocol D12 A): the Darwin X11 verdict, computed read-only from the
+# accepted attempt of each protocol round N. Only the two arm records in each attempt's
+# diagnostic.jsonl are inputs; summary.json embeds copies and is never read.
+VERDICT_SCHEMA = "mp-mac-x11-verdict/1"
+VERDICT_ROUNDS = (1, 2, 3)
+VERDICT_FILES = ("diagnostic.jsonl", "identity.json")
+DARWIN_JUDGED = ("protocol X11 (D12 A): R18's judge_cell arithmetic, unchanged, over the accepted attempt of "
+                 "rounds 1-3 paired by N; Darwin memory in normalized bytes")
+DARWIN_BBR_NOT_JUDGED = ("BBR ordinary-cost ratios are reported with judged false; the owner disposes BBR "
+                         "primary/backup and aggregate cost on the exact results")
+
+
+def read_json(path, where):
+    def reject_nonfinite(value):
+        raise ValueError(f"{where}: nonfinite JSON number {value}")
+    try:
+        return json.loads(Path(path).read_text(), parse_constant=reject_nonfinite)
+    except (OSError, json.JSONDecodeError) as error:
+        raise ValueError(f"unreadable {where}: {error}") from error
+
+
+def file_input(path):
+    return {"path": str(path), "sha256": hashlib.sha256(Path(path).read_bytes()).hexdigest()}
+
+
+def read_cost_attempt(n, directory):
+    """One round's accepted attempt: its identity and exactly one revalidated record per arm."""
+    where = f"round {n} attempt {directory}"
+    identity = read_json(directory / "identity.json", f"{where} identity.json")
+    try:
+        lines = (directory / "diagnostic.jsonl").read_text().splitlines()
+    except OSError as error:
+        raise ValueError(f"{where}: unreadable diagnostic.jsonl: {error}") from error
+    records = [read_json_line(line, f"{where} diagnostic.jsonl") for line in lines if line.strip()]
+    if sorted(record.get("profile") for record in records) != sorted((CONTROL, OPTED_IN)):
+        raise ValueError(f"{where}: diagnostic.jsonl needs exactly one unregistered and one opted-in arm record")
+    if identity.get("platform_profile") != DARWIN:
+        raise ValueError(f"{where}: the verdict reads darwin-arm64 attempts only")
+    if identity.get("mode") != "diagnostic" or not isinstance(identity.get("cells"), list) or len(identity["cells"]) != 1:
+        raise ValueError(f"{where}: not a one-cell diagnostic attempt")
+    if identity.get("cpu_profile") is not False:
+        raise ValueError(f"{where}: CPU profiling makes timings attribution-only")
+    binary, source = identity.get("binary") or {}, identity.get("source") or {}
+    if (not isinstance(binary.get("binding"), dict) or binary["binding"].get("sha256") != binary.get("sha256")
+            or source.get("commit") != identity.get("candidate")):
+        raise ValueError(f"{where}: identity lacks a #1528 binding of its binary to the candidate")
+    pair = {}
+    for record in records:
+        for key, expected in (("platform_profile", DARWIN), ("mode", "diagnostic"), ("candidate", identity.get("candidate")),
+                              ("cell", identity["cells"][0]), ("controller", identity.get("controller")),
+                              ("status", "succeeded"), ("cpu_profile", False)):
+            if record.get(key) != expected:
+                raise ValueError(f"{where}: {record.get('profile')} record {key} {record.get(key)!r} is not {expected!r}")
+        try:
+            check_observation(record)
+        except (KeyError, TypeError) as error:
+            raise ValueError(f"{where}: malformed {record.get('profile')} record: {error!r}") from error
+        pair[record["profile"]] = record
+    return identity, (pair[CONTROL], pair[OPTED_IN])
+
+
+def read_json_line(line, where):
+    def reject_nonfinite(value):
+        raise ValueError(f"{where}: nonfinite JSON number {value}")
+    try:
+        return json.loads(line, parse_constant=reject_nonfinite)
+    except json.JSONDecodeError as error:
+        raise ValueError(f"unreadable {where}: {error}") from error
+
+
+def cost_verdict(attempts):
+    """The X11 verdict record for one controller and cell, from {N: attempt directory}."""
+    if sorted(attempts) != list(VERDICT_ROUNDS):
+        raise ValueError(f"the verdict needs the accepted attempt of rounds 1, 2 and 3 exactly, not {sorted(attempts)}")
+    identities, rounds, inputs = {}, [], []
+    for n in VERDICT_ROUNDS:
+        directory = Path(attempts[n])
+        identity, pair = read_cost_attempt(n, directory)
+        identities[n] = identity
+        rounds.append(pair)
+        inputs.append({"round": n, "attempt": str(directory),
+                       "files": {name: file_input(directory / name) for name in VERDICT_FILES}})
+    first = identities[1]
+    shared = {"candidate": lambda i: i.get("candidate"), "binary sha256": lambda i: i["binary"].get("sha256"),
+              "controller": lambda i: i.get("controller"), "cell": lambda i: i["cells"][0]}
+    for name, read in shared.items():
+        values = {n: read(identity) for n, identity in identities.items()}
+        if len(set(map(json.dumps, values.values()))) != 1:
+            raise ValueError(f"the rounds do not share one {name}: {values}")
+    controller, cell = first["controller"], first["cells"][0]
+    judged = controller == "reno"
+    result = judge_cell(cell, rounds, DARWIN, round_numbers=VERDICT_ROUNDS)
+    verdict = {
+        "schema": VERDICT_SCHEMA, "platform_profile": DARWIN, "controller": controller, "cell": cell, "mode": "diagnostic",
+        "candidate": first["candidate"], "binary_sha256": first["binary"]["sha256"], "source": first["source"],
+        "inputs": inputs, "judged": judged,
+        "passed": result["passed"] if judged else None,
+        "failures": result["failures"] if judged else [],
+        "judgment": DARWIN_JUDGED if judged else DARWIN_BBR_NOT_JUDGED,
+        # Reported, not decided: attempt selection and contamination belong to Q2's receipt.
+        "host_activity": {str(n): {record["profile"]: record["host_activity"]["status"] for record in pair}
+                          for n, pair in zip(VERDICT_ROUNDS, rounds)},
+        "workload_failures": {str(n): [failure for record in pair for failure in workload_failures(record)]
+                              for n, pair in zip(VERDICT_ROUNDS, rounds)},
+    }
+    if judged:
+        verdict["diagnostic"] = result
+    else:
+        verdict["observations"] = {key: value for key, value in result.items() if key not in ("passed", "failures")}
+    return verdict
+
+
+def parse_attempts(parser, values, key):
+    attempts = {}
+    for value in values or ():
+        name, separator, directory = value.partition("=")
+        if not separator or not directory:
+            parser.error(f"--attempt takes KEY=DIR, not {value!r}")
+        try:
+            name = key(name)
+        except ValueError:
+            parser.error(f"--attempt key {name!r} is not valid")
+        if name in attempts:
+            parser.error(f"--attempt {name} is given twice")
+        attempts[name] = Path(directory)
+    return attempts
+
+
+def verdict_main(argv):
+    parser = argparse.ArgumentParser(description="Read-only Darwin X11 ordinary-cost verdict (MP-MAC #1569, protocol D12 A)")
+    parser.add_argument("--verdict", action="store_true", required=True)
+    parser.add_argument("--platform-profile", choices=sorted(PROFILES), required=True)
+    parser.add_argument("--attempt", action="append", metavar="N=DIR",
+                        help="the accepted $N/a$A attempt directory of round N; exactly N = 1, 2 and 3")
+    parser.add_argument("--output", required=True, type=Path, help="a new directory for verdict.json")
+    args = parser.parse_args(argv)
+    if args.platform_profile != DARWIN:
+        raise ValueError("the verdict mode judges darwin-arm64 attempts only; Linux keeps R18's campaign summary")
+    verdict = cost_verdict(parse_attempts(parser, args.attempt, int))
+    args.output.mkdir(parents=True, exist_ok=False)
+    (args.output / "verdict.json").write_text(json.dumps(verdict, indent=2, allow_nan=False) + "\n")
+    print(json.dumps({key: verdict[key] for key in ("controller", "cell", "judged", "passed", "failures")}))
+    if verdict["judged"]:
+        return 0 if verdict["passed"] else 1
+    return 0 if not any(verdict["workload_failures"].values()) else 1
+
+
 def main(argv=None):
+    argv = sys.argv[1:] if argv is None else argv
+    if "--verdict" in argv:
+        return verdict_main(argv)
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--controller", choices=("reno", "bbrv3"), default="reno",
                         help="BBR runs the same workloads in smoke or diagnostic mode; the campaign stays Reno")

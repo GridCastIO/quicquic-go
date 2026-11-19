@@ -13,6 +13,7 @@ import resource
 import select
 import signal
 import socket
+import statistics
 import subprocess
 import sys
 import time
@@ -358,7 +359,219 @@ def check_host(system, machine, platform_profile):
         raise RuntimeError(f"the {platform_profile} profile needs {' '.join(c1.PROFILES[platform_profile]['host'])}, not {system} {machine}")
 
 
+# MP-MAC #1569 (protocol D12 A): the Darwin X13 verdict, computed read-only from the
+# verified summary of each accepted run. B11's arithmetic: medians of round-paired ratios.
+VERDICT_SCHEMA = "mp-mac-x13-verdict/1"
+VERDICT_SEEDS = {1: 1493, 2: 1593, 3: 1693}
+VERDICT_FILES = ("identity.json", "summary.json", "observations.jsonl")
+JUDGED_TOPOLOGIES = ("disjoint", "shared")
+# Reported, never judged, each an all-or-nothing optional set at N = 1.
+REPORTED_SETS = {
+    "unequal": [("bbrv3", "unequal", arm, 1) for arm in ARMS],
+    "reno": [("reno", topology, "primary-backup", 1) for topology in JUDGED_TOPOLOGIES],
+}
+BETTER_SINGLE_GATE = ("disjoint aggregate / better single", "disjoint", "useful_bytes", 1.20)
+PAIR_GATE = ("disjoint aggregate / pair", "disjoint", "useful_bytes", 0.95)
+SHARED_GATE = ("shared competitor beside aggregate / beside pair", "shared", "competitor_stream_bytes", 0.90)
+VERDICT_JUDGMENT = ("protocol X13 (D12 A): B11's arithmetic over the accepted run of observations 1-3; "
+                    "unequal and the Reno primary/backup runs are reported, not judged")
+
+
+def verdict_key(text):
+    """TOPOLOGY/ARM/N for a BBR run, reno/TOPOLOGY/ARM/N for a Reno run."""
+    parts = text.split("/")
+    controller = "reno" if len(parts) == 4 and parts[0] == "reno" else "bbrv3"
+    parts = parts[1:] if controller == "reno" else parts
+    if len(parts) != 3 or not parts[2].isdigit():
+        raise ValueError(text)
+    return controller, parts[0], parts[1], int(parts[2])
+
+
+def key_text(key):
+    controller, topology, arm, n = key
+    return ("reno/" if controller == "reno" else "") + f"{topology}/{arm}/{n}"
+
+
+def verdict_inventory(keys):
+    required = {("bbrv3", topology, arm, n) for topology in JUDGED_TOPOLOGIES for arm in ARMS for n in VERDICT_SEEDS}
+    expected = set(required)
+    for members in REPORTED_SETS.values():
+        if set(members) & set(keys):
+            expected |= set(members)
+    if set(keys) != expected:
+        missing, extra = sorted(map(key_text, expected - set(keys))), sorted(map(key_text, set(keys) - expected))
+        raise ValueError(f"the attempts are not the X13 inventory: missing {missing}, unexpected {extra}")
+
+
+def read_run(key, directory):
+    """One accepted run's identity checks, the summary row it verified, and its digests.
+    Returns (identity, row or None, failure reason or None)."""
+    controller, topology, arm, n = key
+    where = f"{key_text(key)} ({directory})"
+    identity = c1.read_json(directory / "identity.json", f"{where} identity.json")
+    summary = c1.read_json(directory / "summary.json", f"{where} summary.json")
+    try:
+        lines = [line for line in (directory / "observations.jsonl").read_text().splitlines() if line.strip()]
+    except OSError as error:
+        raise ValueError(f"{where}: unreadable observations.jsonl: {error}") from error
+    seed = VERDICT_SEEDS[n]
+    for name, actual, expected in (("platform profile", identity.get("platform_profile"), c1.DARWIN),
+                                   ("version", identity.get("version"), VERSION), ("mode", identity.get("mode"), "diagnostic"),
+                                   ("controller", identity.get("controller"), controller),
+                                   ("topology", identity.get("topology"), topology), ("arm", identity.get("arms"), [arm]),
+                                   ("seed", identity.get("seed"), seed)):
+        if actual != expected:
+            raise ValueError(f"{where}: identity {name} {actual!r} is not {expected!r}"
+                             + (" (the verdict reads darwin-arm64 diagnostic runs only)" if name in ("platform profile", "mode") else ""))
+    binaries, source = identity.get("binaries") or {}, identity.get("source") or {}
+    if (any(not isinstance(binaries.get(name), dict) or not isinstance(binaries[name].get("binding"), dict)
+            or binaries[name]["binding"].get("sha256") != binaries[name].get("sha256") for name in ("test", "relay"))
+            or source.get("commit") != identity.get("candidate")):
+        raise ValueError(f"{where}: identity lacks a #1528 binding of its test and relay binaries to the candidate")
+    for name, actual, expected in (("version", summary.get("version"), VERSION),
+                                   ("platform profile", summary.get("platform_profile"), c1.DARWIN),
+                                   ("controller", summary.get("controller"), controller),
+                                   ("topology", summary.get("topology"), topology), ("seed", summary.get("seed"), seed)):
+        if actual != expected:
+            raise ValueError(f"{where}: summary {name} {actual!r} is not {expected!r}")
+    rows = summary.get("observations")
+    if not isinstance(rows, list) or len(rows) != 1 or len(lines) != 1 or rows[0].get("arm") != arm:
+        raise ValueError(f"{where}: the run must hold exactly its one {arm} observation")
+    row, record = rows[0], c1.read_json_line(lines[0], f"{where} observations.jsonl")
+    if record.get("status") != "succeeded" or row.get("status") != "succeeded":
+        reason = row.get("error") or record.get("error") or "the run did not succeed"
+        if record.get("status") == "succeeded" or row.get("status") == "succeeded":
+            raise ValueError(f"{where}: unverified: summary and observation record disagree on the run's status")
+        return identity, None, f"{key_text(key)} failed: {reason}"
+    # The summary is verified only if it is the driver's own reading of the checked record.
+    try:
+        observation = record["observation"]
+        check_observation(observation, {"topology": topology, "arm": arm, "controller": controller, "seed": seed,
+                                        "server": (observation.get("identity") or {}).get("server")}, c1.DARWIN)
+        check_relay_cpu(record["relay_cpu"])
+        verified = dict(summarize(record), status="succeeded")
+    except (KeyError, TypeError, AttributeError) as error:
+        raise ValueError(f"{where}: unverified: malformed observation record: {error!r}") from error
+    if verified != row:
+        raise ValueError(f"{where}: unverified: summary.json is not the driver's summary of its observation record")
+    if row["workload_failures"] or summary.get("passed") is not True:
+        return identity, row, f"{key_text(key)} failed: {'; '.join(row['workload_failures']) or 'the run did not pass'}"
+    return identity, row, None
+
+
+def ratio_gate(gate, numerators, denominators):
+    """One gate: the median of round-paired ratios; a failed run or a zero or missing
+    denominator in any round fails it, with the reason."""
+    name, topology, metric, threshold = gate
+    rounds, reasons = {}, []
+    for n in VERDICT_SEEDS:
+        (top, top_failure), (bottom, bottom_failure) = numerators[n], denominators[n]
+        failures = [reason for reason in (top_failure, bottom_failure) if reason]
+        if failures:
+            reasons += failures
+            rounds[str(n)] = None
+        elif not isinstance(bottom, (int, float)) or isinstance(bottom, bool) or not isinstance(top, (int, float)):
+            reasons.append(f"round {n}: missing {metric}")
+            rounds[str(n)] = None
+        elif bottom == 0:
+            reasons.append(f"round {n}: zero denominator")
+            rounds[str(n)] = None
+        else:
+            rounds[str(n)] = top / bottom
+    median = statistics.median(rounds.values()) if not reasons else None
+    if median is not None and median < threshold:
+        reasons.append(f"median {median:.4f} below {threshold}")
+    return {"name": name, "topology": topology, "metric": metric, "threshold": threshold, "rounds": rounds,
+            "median": median, "passed": not reasons, "reasons": reasons}
+
+
+def reported(row):
+    if row is None:
+        return None
+    figures = {key: row[key] for key in ("useful_bytes", "focal_stream_bytes", "focal_datagram_bytes", "workload_failures")}
+    figures["object_completion"] = {label: flow["object_completion"] for label, flow in row["flows"].items() if label != "competitor"}
+    if "competitor_stream_bytes" in row:
+        figures["competitor_stream_bytes"] = row["competitor_stream_bytes"]
+    return figures
+
+
+def topology_verdict(attempts):
+    """The X13 verdict record from {(controller, topology, arm, N): accepted run directory}."""
+    verdict_inventory(attempts)
+    runs, inputs, identities = {}, [], {}
+    for key in sorted(attempts, key=key_text):
+        directory = Path(attempts[key])
+        identity, row, failure = read_run(key, directory)
+        identities[key], runs[key] = identity, (row, failure)
+        inputs.append({"key": key_text(key), "attempt": str(directory),
+                       "files": {name: c1.file_input(directory / name) for name in VERDICT_FILES}})
+    for name, read in (("candidate", lambda i: i["candidate"]), ("test binary", lambda i: i["binaries"]["test"]["sha256"]),
+                       ("relay binary", lambda i: i["binaries"]["relay"]["sha256"])):
+        values = {key_text(key): read(identity) for key, identity in identities.items()}
+        if len(set(values.values())) != 1:
+            raise ValueError(f"the runs do not share one {name}: {values}")
+
+    def series(topology, arm, metric):
+        values = {}
+        for n in VERDICT_SEEDS:
+            row, failure = runs[("bbrv3", topology, arm, n)]
+            values[n] = (row.get(metric) if row else None, failure)
+        return values
+
+    # Chosen once, before any ratio, from the single arms' median useful bytes.
+    singles = {arm: series("disjoint", arm, "useful_bytes") for arm in ("single-a", "single-b")}
+    unusable = [failure or f"{arm}/{n}: missing useful_bytes" for arm, values in singles.items()
+                for n, (value, failure) in values.items() if failure or not isinstance(value, int)]
+    better = {"arm": None, "median_useful_bytes": None, "reasons": unusable}
+    if not unusable:
+        medians = {arm: statistics.median(value for value, _ in values.values()) for arm, values in singles.items()}
+        better.update(arm="single-a" if medians["single-a"] >= medians["single-b"] else "single-b", median_useful_bytes=medians)
+    aggregate = series("disjoint", "aggregate", "useful_bytes")
+    if better["arm"]:
+        best = ratio_gate(BETTER_SINGLE_GATE, aggregate, singles[better["arm"]])
+    else:
+        best = ratio_gate(BETTER_SINGLE_GATE, aggregate, {n: (None, "better single undetermined: " + "; ".join(unusable))
+                                                          for n in VERDICT_SEEDS})
+    gates = [best, ratio_gate(PAIR_GATE, aggregate, series("disjoint", "pair", "useful_bytes")),
+             ratio_gate(SHARED_GATE, series("shared", "aggregate", "competitor_stream_bytes"),
+                        series("shared", "pair", "competitor_stream_bytes"))]
+    report = {}
+    for (controller, topology, arm, n), (row, failure) in runs.items():
+        section = report.setdefault("reno" if controller == "reno" else topology, {})
+        if controller == "reno":
+            section[topology] = {"arm": arm, "1": reported(row), "failure": failure}
+        else:
+            section.setdefault(arm, {})[str(n)] = reported(row) if failure is None else {"failure": failure, **(reported(row) or {})}
+    first = identities[("bbrv3", "disjoint", "aggregate", 1)]
+    return {"schema": VERDICT_SCHEMA, "platform_profile": c1.DARWIN, "controller": "bbrv3", "judged": True,
+            "candidate": first["candidate"], "source": first["source"],
+            "binaries": {name: first["binaries"][name]["sha256"] for name in ("test", "relay")},
+            "inputs": inputs, "better_single": better, "gates": gates, "passed": all(gate["passed"] for gate in gates),
+            "judgment": VERDICT_JUDGMENT, "reported": report}
+
+
+def verdict_main(argv):
+    parser = argparse.ArgumentParser(description="Read-only Darwin X13 topology verdict (MP-MAC #1569, protocol D12 A)")
+    parser.add_argument("--verdict", action="store_true", required=True)
+    parser.add_argument("--platform-profile", choices=sorted(c1.PROFILES), required=True)
+    parser.add_argument("--attempt", action="append", metavar="[reno/]TOPOLOGY/ARM/N=DIR",
+                        help="the accepted run directory: disjoint and shared x five arms x N = 1-3, optionally "
+                             "unequal/ARM/1 for all five arms and reno/TOPOLOGY/primary-backup/1 for both topologies")
+    parser.add_argument("--output", required=True, type=Path, help="a new directory for verdict.json")
+    args = parser.parse_args(argv)
+    if args.platform_profile != c1.DARWIN:
+        raise ValueError("the verdict mode judges darwin-arm64 runs only")
+    verdict = topology_verdict(c1.parse_attempts(parser, args.attempt, verdict_key))
+    args.output.mkdir(parents=True, exist_ok=False)
+    (args.output / "verdict.json").write_text(json.dumps(verdict, indent=2, allow_nan=False) + "\n")
+    print(json.dumps({"passed": verdict["passed"], "gates": {gate["name"]: gate["passed"] for gate in verdict["gates"]}}))
+    return 0 if verdict["passed"] else 1
+
+
 def main(argv=None):
+    argv = sys.argv[1:] if argv is None else argv
+    if "--verdict" in argv:
+        return verdict_main(argv)
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--test-binary", required=True, help="the root test binary built with -tags ordinarycost")
     parser.add_argument("--relay-binary", required=True, help="the built interop/multipath/relay/cmd/udprelay executable")

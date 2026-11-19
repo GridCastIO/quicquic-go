@@ -3,6 +3,7 @@ import copy
 import io
 import json
 import os
+import shutil
 import signal
 import stat
 import sys
@@ -475,6 +476,208 @@ class NativeBindingTests(unittest.TestCase):
         with contextlib.redirect_stderr(io.StringIO()), self.assertRaises(SystemExit):
             self.run_driver(self.build("linux"), profile=c1.LINUX)
         self.assertFalse((self.root / "output").exists())
+
+
+
+VERDICT_CANDIDATE = "c" * 40
+VERDICT_SEEDS = {1: 1493, 2: 1593, 3: 1693}
+
+
+def run_record(topology, arm, controller, seed, useful, competitor=300):
+    """A succeeded observations.jsonl record as the driver writes it."""
+    rss = {"value": 2, "unit": "bytes", "source": "fixture producer", "available": True}
+    cpu = {"value": 1, "unit": "ns", "source": "fixture producer", "available": True}
+    latency = {"count": 4, "p50_us": 10.0, "p99_us": 20.0, "max_us": 30.0}
+    flows = {"focal-1": {"stream_useful_bytes": useful - 100, "datagram_useful_bytes": 100, "max_receive_gap_ns": 5,
+                         "datagram_latency": latency, "object_completion": latency}}
+    routes = ["a", "b"]
+    if topology == "shared":
+        routes.append("competitor")
+        flows["competitor"] = {"stream_useful_bytes": competitor, "datagram_useful_bytes": 0, "max_receive_gap_ns": 9,
+                               "datagram_latency": dict(latency, count=0), "object_completion": latency}
+    observation = {
+        "version": 1, "identity": {"topology": topology, "arm": arm, "controller": controller, "seed": seed, "server": "127.0.0.1:9"},
+        "platform": {"profile": c1.DARWIN, "goos": "darwin", "goarch": "arm64"},
+        "relay": {"config": {"kind": topology}, "routes": [
+            {"name": route, "forward": {"dropped": 0, "overflow": 0}, "reverse": {"overflow": 0}} for route in routes]},
+        "server": {"self_cpu": cpu, "peak_rss_end": rss, "useful_bytes": {**cpu, "value": useful, "unit": "bytes"}, "flows": flows},
+        "client": {"self_cpu": cpu}, "workload_failures": [],
+    }
+    return {"launched": {}, "status": "succeeded", "topology": topology, "arm": arm, "controller": controller, "seed": seed,
+            "platform_profile": c1.DARWIN, "occupied_s": 80.0, "process_cpu_s": {}, "exit": {},
+            "relay_cpu": {"value": 3, "unit": "ns", "source": driver.RELAY_CPU_SOURCE, "available": True},
+            "observation": observation}
+
+
+class DarwinVerdictTests(unittest.TestCase):
+    """MP-MAC #1569 (protocol D12 A): the X13 verdict from the verified summary of each
+    accepted run; medians of round-paired ratios, never ratios of medians."""
+
+    def setUp(self):
+        directory = tempfile.TemporaryDirectory()
+        self.addCleanup(directory.cleanup)
+        self.root = Path(directory.name)
+
+    def run_directory(self, key, useful=1000, competitor=300, edit=None, identity_edit=None, summary_edit=None):
+        parts = key.split("/")
+        controller, (topology, arm, n) = ("reno", parts[1:]) if parts[0] == "reno" else ("bbrv3", parts)
+        n = int(n)
+        directory = self.root / "topology" / key.replace("/", "_") / "a1"
+        directory.mkdir(parents=True)
+        record = run_record(topology, arm, controller, VERDICT_SEEDS[n], useful, competitor)
+        if edit:
+            edit(record)
+        row = dict(driver.summarize(record), status="succeeded") if record["status"] == "succeeded" else \
+            {"topology": topology, "arm": arm, "status": "failed", "error": record["error"]}
+        summary = {"version": 1, "passed": row["status"] == "succeeded" and not row.get("workload_failures"),
+                   "judged": False, "judgment": driver.NOT_JUDGED, "mode": "diagnostic", "platform_profile": c1.DARWIN,
+                   "evidence_class": driver.EVIDENCE_CLASS[c1.DARWIN], "topology": topology, "controller": controller,
+                   "seed": VERDICT_SEEDS[n], "observations": [row]}
+        identity = {"version": 1, "candidate": VERDICT_CANDIDATE, "platform_profile": c1.DARWIN, "topology": topology,
+                    "arms": [arm], "controller": controller, "mode": "diagnostic", "seed": VERDICT_SEEDS[n],
+                    "binaries": {name: {"path": f"/bin/{name}", "sha256": digit * 64,
+                                        "binding": {"method": "rebuild-from-candidate/v1", "sha256": digit * 64}}
+                                 for name, digit in (("test", "9"), ("relay", "8"))},
+                    "source": {"commit": VERDICT_CANDIDATE, "tree": "7" * 40, "head_tree": "7" * 40, "clean": True}}
+        if identity_edit:
+            identity_edit(identity)
+        if summary_edit:
+            summary_edit(summary)
+        (directory / "identity.json").write_text(json.dumps(identity))
+        (directory / "summary.json").write_text(json.dumps(summary))
+        (directory / "observations.jsonl").write_text(json.dumps(record) + "\n")
+        return directory
+
+    def inventory(self, useful=None, competitor=None, changes=None, unequal=False, reno=False):
+        """Every judged run; useful and competitor map (topology, arm) to per-N values."""
+        useful, competitor, changes = useful or {}, competitor or {}, changes or {}
+        attempts = {}
+        for topology in ("disjoint", "shared"):
+            for arm in driver.ARMS:
+                for n in (1, 2, 3):
+                    key = f"{topology}/{arm}/{n}"
+                    values = useful.get((topology, arm), (1000, 1000, 1000))
+                    rivals = competitor.get(arm, (300, 300, 300))
+                    attempts[key] = self.run_directory(key, values[n - 1], rivals[n - 1], **changes.get(key, {}))
+        extra = ([f"unequal/{arm}/1" for arm in driver.ARMS] if unequal else []) + \
+            ([f"reno/{topology}/primary-backup/1" for topology in ("disjoint", "shared")] if reno else [])
+        for key in extra:
+            attempts[key] = self.run_directory(key, **changes.get(key, {}))
+        return attempts
+
+    def verdict(self, attempts, profile=c1.DARWIN):
+        output = self.root / "verdict"
+        argv = ["--verdict", "--platform-profile", profile, "--output", str(output)]
+        for key, directory in attempts.items():
+            argv += ["--attempt", f"{key}={directory}"]
+        with contextlib.redirect_stdout(io.StringIO()):
+            code = driver.main(argv)
+        return code, json.loads((output / "verdict.json").read_text())
+
+    def refused(self, pattern, attempts, profile=c1.DARWIN):
+        with self.assertRaisesRegex(ValueError, pattern):
+            self.verdict(attempts, profile)
+        self.assertFalse((self.root / "verdict").exists(), "a refusal writes no verdict")
+
+    def gates(self, verdict):
+        return {gate["name"]: gate for gate in verdict["gates"]}
+
+    def judged(self, aggregate, single_a=(100,) * 3, single_b=(100,) * 3, pair=(100,) * 3,
+               competitor_aggregate=(90,) * 3, competitor_pair=(100,) * 3):
+        shutil.rmtree(self.root, ignore_errors=True)
+        self.root.mkdir()
+        useful = {("disjoint", "aggregate"): aggregate, ("disjoint", "single-a"): single_a,
+                  ("disjoint", "single-b"): single_b, ("disjoint", "pair"): pair}
+        return self.verdict(self.inventory(useful, {"aggregate": competitor_aggregate, "pair": competitor_pair}))
+
+    def test_gates_pass_exactly_at_their_thresholds_and_fail_just_below(self):
+        code, verdict = self.judged((120, 120, 120), pair=(126, 126, 126))
+        gates = self.gates(verdict)
+        self.assertEqual((code, verdict["passed"]), (0, True))
+        self.assertEqual(gates["disjoint aggregate / better single"]["median"], 1.2)
+        self.assertEqual(gates["shared competitor beside aggregate / beside pair"]["median"], 0.9)
+        code, verdict = self.judged((114, 114, 114), single_a=(95,) * 3, single_b=(95,) * 3, pair=(120,) * 3)
+        self.assertEqual((code, self.gates(verdict)["disjoint aggregate / pair"]["median"]), (0, 0.95))
+        for case, expected in ((dict(aggregate=(119, 119, 119)), "disjoint aggregate / better single"),
+                               (dict(aggregate=(120, 120, 120), pair=(127, 127, 127)), "disjoint aggregate / pair"),
+                               (dict(aggregate=(120, 120, 120), competitor_aggregate=(89, 89, 89)),
+                                "shared competitor beside aggregate / beside pair")):
+            with self.subTest(expected=expected):
+                code, verdict = self.judged(**case)
+                self.assertEqual((code, verdict["passed"]), (1, False))
+                self.assertEqual([name for name, gate in self.gates(verdict).items() if not gate["passed"]], [expected])
+
+    def test_better_single_is_chosen_first_and_a_tie_goes_to_single_a(self):
+        _, verdict = self.judged((120, 120, 120), single_a=(100, 90, 110), single_b=(90, 100, 105))
+        self.assertEqual(verdict["better_single"]["arm"], "single-a")
+        self.assertEqual(verdict["better_single"]["median_useful_bytes"], {"single-a": 100, "single-b": 100})
+        _, verdict = self.judged((120, 120, 120), single_a=(99, 99, 99), single_b=(100, 100, 100))
+        self.assertEqual(verdict["better_single"]["arm"], "single-b")
+        # Round-paired with the chosen arm only, never round by round with whichever is larger.
+        _, verdict = self.judged((132, 132, 132), single_a=(100, 100, 120), single_b=(110, 110, 110))
+        self.assertEqual(verdict["better_single"]["arm"], "single-b")
+        self.assertEqual(self.gates(verdict)["disjoint aggregate / better single"]["rounds"], {"1": 1.2, "2": 1.2, "3": 1.2})
+
+    def test_median_of_ratios_fails_where_a_ratio_of_medians_would_pass(self):
+        code, verdict = self.judged((120, 300, 100), single_a=(100, 300, 90), single_b=(1, 1, 1))
+        gate = self.gates(verdict)["disjoint aggregate / better single"]
+        self.assertAlmostEqual(gate["median"], 100 / 90)
+        self.assertFalse(gate["passed"])  # medians alone, 120 / 100, would read 1.20
+        self.assertEqual(code, 1)
+
+    def test_zero_denominator_or_failed_input_never_passes(self):
+        code, verdict = self.judged((120, 120, 120), pair=(0, 126, 126))
+        gate = self.gates(verdict)["disjoint aggregate / pair"]
+        self.assertEqual((code, gate["passed"], gate["median"]), (1, False, None))
+        self.assertIn("round 1: zero denominator", gate["reasons"])
+
+        def failed(record):
+            record.update(status="failed", error="ValueError: relay exit 3")
+
+        def workload(record):
+            record["observation"]["workload_failures"] = ["focal-1: no useful STREAM delivery"]
+
+        for edit, reason in ((failed, "ValueError: relay exit 3"), (workload, "no useful STREAM delivery")):
+            with self.subTest(reason=reason):
+                shutil.rmtree(self.root, ignore_errors=True)
+                self.root.mkdir()
+                code, verdict = self.verdict(self.inventory(changes={"shared/pair/2": {"edit": edit}}))
+                gate = self.gates(verdict)["shared competitor beside aggregate / beside pair"]
+                self.assertEqual((code, verdict["passed"], gate["passed"]), (1, False, False))
+                self.assertTrue(any("shared/pair/2" in item and reason in item for item in gate["reasons"]), gate["reasons"])
+                self.assertTrue(self.gates(verdict)["disjoint aggregate / pair"]["passed"])
+
+    def test_wrong_seed_or_mismatched_identity_is_refused(self):
+        for key, change, pattern in (
+                ("disjoint/aggregate/2", {"identity_edit": lambda i: i.update(seed=1493)}, "seed 1493 is not 1593"),
+                ("shared/pair/3", {"identity_edit": lambda i: i.update(candidate="d" * 40)}, "candidate"),
+                ("shared/pair/3", {"identity_edit": lambda i: i["binaries"]["relay"].update(sha256="6" * 64)}, "binding|relay"),
+                ("disjoint/single-b/1", {"identity_edit": lambda i: i.update(arms=["single-a"])}, "arm"),
+                ("disjoint/single-b/1", {"identity_edit": lambda i: i.update(mode="smoke")}, "diagnostic"),
+                ("disjoint/pair/1", {"identity_edit": lambda i: i.update(controller="reno")}, "controller"),
+                ("disjoint/pair/1", {"identity_edit": lambda i: i.update(platform_profile=c1.LINUX)}, "darwin-arm64"),
+                ("disjoint/pair/1", {"identity_edit": lambda i: i.pop("source")}, "binding"),
+                ("disjoint/pair/1", {"summary_edit": lambda s: s["observations"][0].update(useful_bytes=5000)}, "unverified")):
+            with self.subTest(key=key, pattern=pattern):
+                shutil.rmtree(self.root, ignore_errors=True)
+                self.root.mkdir()
+                self.refused(pattern, self.inventory(changes={key: change}))
+
+    def test_input_set_is_exact(self):
+        attempts = self.inventory({("disjoint", "aggregate"): (1300, 1300, 1300)}, unequal=True, reno=True)
+        code, verdict = self.verdict(attempts)
+        self.assertEqual(code, 0)
+        self.assertEqual(sorted(verdict["reported"]["unequal"]), sorted(driver.ARMS))
+        self.assertEqual(sorted(verdict["reported"]["reno"]), ["disjoint", "shared"])
+        self.assertEqual(len(verdict["inputs"]), 37)
+        self.assertEqual(verdict["reported"]["disjoint"]["aggregate"]["2"]["focal_datagram_bytes"], 100)
+        self.assertEqual(verdict["reported"]["disjoint"]["aggregate"]["2"]["object_completion"]["focal-1"]["count"], 4)
+        shutil.rmtree(self.root / "verdict")
+        for missing in ("disjoint/aggregate/3", "unequal/pair/1", "reno/shared/primary-backup/1"):
+            with self.subTest(missing=missing):
+                self.refused("inventory", {key: value for key, value in attempts.items() if key != missing})
+        self.refused("inventory", attempts | {"disjoint/aggregate/4": attempts["disjoint/aggregate/3"]})
+        self.refused("darwin-arm64", attempts, profile=c1.LINUX)
 
 
 if __name__ == "__main__":
