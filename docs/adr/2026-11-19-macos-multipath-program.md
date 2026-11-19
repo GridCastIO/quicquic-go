@@ -10,7 +10,7 @@ Package the owner-approved macOS profile from [planning issue #1396](https://git
 
 | Track | Plan | Parent issue | Size | Current frontier | State |
 | --- | --- | --- | --- | --- | --- |
-| MP-MAC — Native macOS multipath | [Implementation plan](2026-11-19-macos-multipath-implementation-plan.md) | pending | 11 slices / intended PRs | E2, E3, P2, C2, C3 | Readiness in progress |
+| MP-MAC — Native macOS multipath | [Implementation plan](2026-11-19-macos-multipath-implementation-plan.md) | pending | 11 slices / intended PRs | E2, E3, P2, C2, C4 | Readiness in progress |
 
 | Slice | Blocked by | State |
 | --- | --- | --- |
@@ -21,12 +21,12 @@ Package the owner-approved macOS profile from [planning issue #1396](https://git
 | P2 — Fresh aggregate ingress witness | None | FRONTIER |
 | C1 — Native ordinary workloads/metrics | None | COMPLETE ([PR #1501](https://github.com/GridCastIO/quicquic-go/pull/1501)) |
 | C2 — Negotiated lifecycle memory | C1 | FRONTIER |
-| C3 — UDP topology relay | None | FRONTIER |
-| C4 — Topology comparison workload | C1, C3 | BLOCKED |
+| C3 — UDP topology relay | None | COMPLETE ([PR #1497](https://github.com/GridCastIO/quicquic-go/pull/1497)) |
+| C4 — Topology comparison workload | C1, C3 | FRONTIER |
 | Q1 — Concrete execution/venue protocol | E2, E3, P1, P2, C2, C4 | BLOCKED |
 | Q2 — Qualification and public activation | Q1 | BLOCKED |
 
-There are no cross-track edges. E1, P1 and C1 are complete; E2, E3, P2, C2 and C3 can be dispatched independently in separate worktrees. P1/P2 share some files but have no behavioral dependency. E2/E3 are parallel-safe after E1; C2 depends only on C1, while C4 additionally needs C3. E1 and P1 have exposed native socket and build feasibility; priority does not create a blocking edge. Shared-host qualification coordination belongs to Q1, not to arbitrary serial task order.
+There are no cross-track edges. E1, P1, C1 and C3 are complete; E2, E3, P2, C2 and C4 can be dispatched independently in separate worktrees. P1/P2 share some files but have no behavioral dependency. E2/E3 are parallel-safe after E1; C2 depended only on C1, and C4 on both C1 and C3. E1 and P1 have exposed native socket and build feasibility; priority does not create a blocking edge. Shared-host qualification coordination belongs to Q1, not to arbitrary serial task order.
 
 Q1 cannot complete without the concrete owner-approved execution, venue, toolchain, admitted-release and selected maintained-aid decisions. It collects no native qualification campaign. Q2 cannot be ready merely because tooling compiles; its blocker binds the actual methods and authority. The implementation skill verifies those conditions again before dispatch. No implementation agent is launched by this handoff.
 
