@@ -16,6 +16,8 @@ func ordinaryCostGrant(tr *Transport) error {
 	return tr.ConfigureMultipathIOV1(ordinaryCostWriteBudget)
 }
 
+const ordinaryCostRSSSource = "/proc/self/status VmHWM"
+
 var ordinaryCostHWM = regexp.MustCompile(`VmHWM:\s+(\d+) kB`)
 
 // ordinaryCostPeakRSS reads VmHWM, in kB. getrusage's ru_maxrss would also be kB here, but
@@ -34,5 +36,5 @@ func ordinaryCostPeakRSS() (ordinaryCostMetric, error) {
 	if err != nil {
 		return ordinaryCostMetric{}, err
 	}
-	return ordinaryCostRSSMetric(kb, "kB", "/proc/self/status VmHWM")
+	return ordinaryCostRSSMetric(kb, "kB", ordinaryCostRSSSource)
 }

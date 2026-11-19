@@ -43,11 +43,20 @@ NATIVE_CELLS = {
     "stateless-pressure": {"env": {}},
 }
 LINUX, DARWIN = "linux-amd64", "darwin-arm64"
-# A platform profile owns its inventory, host tuple, RSS unit and what it can claim.
+# The collectors of the C1 metrics, as the Go producers name them. Readback admits no other
+# source for these fields; consumers that add metrics pin their own producers' sources.
+CPU_SOURCE = "getrusage(RUSAGE_SELF) user+system time, window end minus start"
+LOST_SOURCE = "ConnectionStats().PacketsLost"
+USEFUL_SOURCE = "receiver-counted application bytes in the window, every flow"
+# A platform profile owns its inventory, host tuple, RSS unit and collectors, and what it can claim.
 PROFILES = {
     LINUX: {"host": ("Linux", "x86_64"), "identity": ("linux", "amd64"), "cells": CELLS, "rss_unit": "kB",
+            "sources": {"self_cpu": CPU_SOURCE, "peak_rss": "/proc/self/status VmHWM",
+                        "packets_lost_metric": LOST_SOURCE, "useful_bytes": USEFUL_SOURCE},
             "gso": True, "negotiated_multipath": True},
     DARWIN: {"host": ("Darwin", "arm64"), "identity": ("darwin", "arm64"), "cells": NATIVE_CELLS, "rss_unit": "bytes",
+             "sources": {"self_cpu": CPU_SOURCE, "peak_rss": "getrusage(RUSAGE_SELF).ru_maxrss",
+                         "packets_lost_metric": LOST_SOURCE, "useful_bytes": USEFUL_SOURCE},
              "gso": False, "negotiated_multipath": False},
 }
 RSS_SCALE = {"kB": 1024, "bytes": 1}
@@ -165,12 +174,20 @@ def check_metric(name, metric, unit):
     return value
 
 
+def check_source(name, metric, platform_profile, field):
+    """A C1 metric names its platform profile's collector, available or not."""
+    expected = PROFILES[platform_profile]["sources"][field]
+    if metric["source"] != expected:
+        raise ValueError(f"{name}: source must be {expected!r} on {platform_profile}, not {metric['source']!r}")
+
+
 def check_rss(name, metric, platform_profile):
-    """A peak-RSS reading in the platform producer's unit, with its normalized bytes."""
+    """A peak-RSS reading from the platform's collector in its unit, with its normalized bytes."""
     unit = PROFILES[platform_profile]["rss_unit"]
     if not isinstance(metric, dict) or metric.get("unit") != unit:
         raise ValueError(f"{name}: RSS unit must be {unit} on {platform_profile}")
     value = check_metric(name, metric, unit)
+    check_source(name, metric, platform_profile, "peak_rss")
     if value is None or metric.get("bytes") != value * RSS_SCALE[unit]:
         raise ValueError(f"{name}: RSS bytes do not normalize the raw {unit} reading")
     return value
@@ -188,6 +205,7 @@ def check_metrics(record, platform_profile, controller):
     server, client = record["server"], record["client"]
     for role in (server, client):
         cpu = check_metric("self_cpu", role.get("self_cpu"), "ns")
+        check_source("self_cpu", role["self_cpu"], platform_profile, "self_cpu")
         seconds = role.get("window_cpu_s")
         # The producer marks only a negative CPU interval unavailable, and window_cpu_s is a
         # required reading of that same interval, so the window has no CPU evidence.
@@ -204,6 +222,7 @@ def check_metrics(record, platform_profile, controller):
                 raise ValueError(f"{legacy}: RSS alias does not match its {field} reading")
     for connection in server["connections"]:
         lost = check_metric("packets_lost_metric", connection.get("packets_lost_metric"), "packets")
+        check_source("packets_lost_metric", connection["packets_lost_metric"], platform_profile, "packets_lost_metric")
         if connection.get("controller") != controller:
             raise ValueError("a server connection ran another controller")
         if controller == "reno":
@@ -212,6 +231,7 @@ def check_metrics(record, platform_profile, controller):
         elif lost is not None or "packets_lost" in connection:
             raise ValueError(f"{controller} packets lost has no producer and must stay unavailable")
     delivered = check_metric("useful_bytes", client.get("useful_bytes"), "bytes")
+    check_source("useful_bytes", client["useful_bytes"], platform_profile, "useful_bytes")
     if delivered != sum(flow["useful_bytes"] for flow in client["flows"]):
         raise ValueError("useful bytes metric does not match the flows")
 
