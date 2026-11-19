@@ -13,6 +13,7 @@ SPEC = importlib.util.spec_from_file_location("native_darwin", Path(__file__).wi
 runner = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(runner)
 
+PRESSURE = runner.PROFILES["pressure"]
 IDENTITY = {"go": "go1.27.4", "goos": "darwin", "goarch": "arm64"}
 
 
@@ -34,8 +35,34 @@ def family_facts(name):
     }
 
 
+def contention_facts(participants=2, requests=3, members=2):
+    """A complete observation, as the Go fixture records one, with no pressure wait."""
+    lanes = []
+    for participant in range(participants):
+        for lane in runner.LANES:
+            lanes.append({
+                "participant": participant, "lane": lane, "offers": requests + 2, "admitted": requests, "refused": 2, "closed": 0,
+                "results": requests, "withdrawn": 0, "accepted": requests * members, "uncertain": 0, "unsubmitted": 0, "failed": 0,
+                "diagnostics": requests, "occupancy_max": 2, "native_return_to_take_max_ns": 25000,
+            })
+    return {
+        "status": "complete", "pressure_wait": "not-observed", "fault": "none", "unfinished_participants": 0, "diagnostics_dropped": 0,
+        "load": {"participants": participants, "requests": requests, "members": members, "payload": 1200, "budget_ms": 1000, "window_ms": 10000},
+        "writer": {
+            "writes": participants * 3 * requests * members, "max_write_ns": 60000, "long_writes": 0, "deadline_waits": 0,
+            "errors": {name: 0 for name in runner.ERROR_CLASSES},
+        },
+        "lanes": lanes, "participant_occupancy_max": [4] * participants,
+    }
+
+
 def record_for(name, **changes):
-    facts = family_facts(name) if name in runner.FAMILIES else dict(runner.FIXED_FACTS[name])
+    if name in runner.FAMILIES:
+        facts = family_facts(name)
+    elif name in runner.CONTENTION_CASES:
+        facts = contention_facts()
+    else:
+        facts = dict(runner.FIXED_FACTS[name])
     record = {"schema": runner.SCHEMA, "case": name, "go": "go1.27.4", "goos": "darwin", "goarch": "arm64", "facts": facts}
     record.update(changes)
     return record
@@ -108,6 +135,99 @@ class RecordTests(unittest.TestCase):
                 runner.parse_record(text)
 
 
+class ContentionTests(unittest.TestCase):
+    def check(self, facts, name="scalar-contention"):
+        profile = PRESSURE if name == "socket-pressure" else runner.SCALAR
+        runner.check_record(name, IDENTITY, record_for(name, facts=facts), profile)
+
+    def test_complete_observation_is_accepted(self):
+        for name in runner.CONTENTION_CASES:
+            with self.subTest(name=name):
+                self.check(contention_facts(), name)
+
+    def test_lane_accounting_must_add_up(self):
+        for key, value in (("offers", 4), ("refused", 3), ("withdrawn", 1), ("accepted", 5), ("failed", 4), ("admitted", 4), ("occupancy_max", 4), ("occupancy_max", 0)):
+            facts = contention_facts()
+            facts["lanes"][1][key] = value
+            with self.subTest(key=key), self.assertRaisesRegex(ValueError, "lane 1"):
+                self.check(facts, "socket-pressure")
+
+    def test_shape_is_declared(self):
+        changes = (
+            ("lanes", lambda facts: facts["lanes"].pop()),
+            ("lane 2 is", lambda facts: facts["lanes"][2].update(lane="path0")),
+            ("lane 0 fields", lambda facts: facts["lanes"][0].pop("diagnostics")),
+            ("lane 0 has invalid", lambda facts: facts["lanes"][0].update(refused=True)),
+            ("writer errors fields", lambda facts: facts["writer"]["errors"].pop("enobufs")),
+            ("participant_occupancy_max", lambda facts: facts["participant_occupancy_max"].pop()),
+            ("fault", lambda facts: facts.update(fault="unknown")),
+            ("facts", lambda facts: facts.pop("writer")),
+        )
+        for pattern, change in changes:
+            facts = contention_facts()
+            change(facts)
+            with self.subTest(pattern=pattern), self.assertRaisesRegex(ValueError, pattern):
+                self.check(facts, "socket-pressure")
+
+    def test_writer_observations_must_agree(self):
+        for key, value in (("writes", 1), ("deadline_waits", 1), ("long_writes", 100)):
+            facts = contention_facts()
+            facts["writer"][key] = value
+            with self.subTest(key=key), self.assertRaisesRegex(ValueError, "writ"):
+                self.check(facts, "socket-pressure")
+
+    def test_status_and_pressure_follow_the_counts(self):
+        # An observed wait stands in any status.
+        observed = contention_facts()
+        observed["writer"]["errors"]["deadline"] = observed["writer"]["deadline_waits"] = 1
+        observed["lanes"][0].update(accepted=5, uncertain=1, failed=1)
+        observed["pressure_wait"] = "observed"
+        self.check(observed, "socket-pressure")
+        # A wait whose timeout shows in no failed result contradicts the outcomes.
+        hidden = {**observed, "lanes": [dict(lane) for lane in observed["lanes"]]}
+        hidden["lanes"][0].update(accepted=6, uncertain=0, failed=0)
+        with self.assertRaisesRegex(ValueError, "pressure wait"):
+            self.check(hidden, "socket-pressure")
+        # A load that didn't finish in its window, or whose endpoint faulted, is
+        # interrupted even when every count is full.
+        for change in ({"unfinished_participants": 1}, {"fault": "overdue"}):
+            late = {**contention_facts(), **change}
+            with self.subTest(change=change), self.assertRaisesRegex(ValueError, "imply"):
+                self.check(late, "socket-pressure")
+            self.check({**late, "status": "interrupted", "pressure_wait": "unknown"}, "socket-pressure")
+        with self.assertRaisesRegex(ValueError, "unfinished"):
+            self.check({**contention_facts(), "unfinished_participants": 3, "status": "interrupted", "pressure_wait": "unknown"}, "socket-pressure")
+        # A dropped diagnostic or a lagging sink is missing coverage: no negative claim.
+        dropped = contention_facts()
+        dropped.update(diagnostics_dropped=3, status="incomplete-coverage", pressure_wait="unknown")
+        self.check(dropped, "socket-pressure")
+        lagging = contention_facts()
+        lagging["lanes"][4]["diagnostics"] = 2
+        lagging.update(status="incomplete-coverage", pressure_wait="unknown")
+        self.check(lagging, "socket-pressure")
+        # An interrupted load withdrew or never offered some requests.
+        interrupted = contention_facts()
+        interrupted["lanes"][3].update(results=2, withdrawn=1, accepted=4, diagnostics=2)
+        interrupted.update(status="interrupted", pressure_wait="unknown", unfinished_participants=1)
+        self.check(interrupted, "socket-pressure")
+        for facts, status, pressure in ((dropped, "incomplete-coverage", "not-observed"), (interrupted, "complete", "unknown"), (observed, "complete", "not-observed")):
+            changed = {**facts, "status": status, "pressure_wait": pressure}
+            with self.subTest(status=status, pressure=pressure), self.assertRaisesRegex(ValueError, "imply"):
+                self.check(changed, "socket-pressure")
+
+    def test_development_case_needs_complete_progress(self):
+        interrupted = contention_facts()
+        interrupted["lanes"][3].update(results=2, withdrawn=1, accepted=4, diagnostics=2)
+        interrupted.update(status="interrupted", pressure_wait="unknown")
+        faulted = {**contention_facts(), "fault": "overdue", "status": "interrupted", "pressure_wait": "unknown"}
+        stalled = contention_facts()
+        stalled["lanes"][2].update(accepted=0, unsubmitted=6, failed=3)
+        for name, facts in (("interrupted", interrupted), ("faulted", faulted), ("stalled", stalled)):
+            self.check(facts, "socket-pressure")
+            with self.subTest(name=name), self.assertRaisesRegex(ValueError, "development case"):
+                self.check(facts)
+
+
 class AccountingTests(unittest.TestCase):
     def test_each_case_exactly_once(self):
         runner.check_accounting(list(runner.CASES))
@@ -117,6 +237,22 @@ class AccountingTests(unittest.TestCase):
             runner.check_accounting([*runner.CASES, "ipv4"])
         with self.assertRaisesRegex(ValueError, "unknown.*ipv7"):
             runner.check_accounting([*runner.CASES, "ipv7"])
+
+    def test_each_profile_owns_its_cases(self):
+        runner.check_accounting(list(PRESSURE.cases), PRESSURE)
+        with self.assertRaisesRegex(ValueError, "unknown.*ipv4"):
+            runner.check_accounting([*PRESSURE.cases, "ipv4"], PRESSURE)
+        with self.assertRaisesRegex(ValueError, "unknown.*socket-pressure"):
+            runner.check_accounting([*runner.CASES, "socket-pressure"])
+        with self.assertRaisesRegex(ValueError, "not a scalar case"):
+            runner.check_record("socket-pressure", IDENTITY, record_for("socket-pressure"))
+        with self.assertRaisesRegex(ValueError, "not a pressure case"):
+            runner.check_record("scalar-contention", IDENTITY, record_for("scalar-contention"), PRESSURE)
+        self.assertIn("scalar-contention", runner.SCALAR.cases)
+        self.assertEqual("-buildvcs=false -tags=nativepressure", PRESSURE.build["GOFLAGS"])
+        for profile in (runner.SCALAR, runner.PROFILES["blocked-writer"]):
+            self.assertNotIn("nativepressure", profile.build["GOFLAGS"], "no other profile builds the pressure observation")
+        self.assertEqual("-test.run=^TestNativeDarwinPressure$/^socket-pressure$", runner.command_for("b", "socket-pressure", PRESSURE)[1])
 
 
 class IdentityTests(unittest.TestCase):
@@ -306,10 +442,10 @@ class RunTests(unittest.TestCase):
         def build(_, toolchain, output, profile):
             binary = output / "native-darwin.test"
             binary.write_text("binary")
-            return binary, {"go": "go1.27.4", "toolchain": toolchain, "mode": dict(runner.BUILD), "binary_sha256": "c" * 64}
+            return binary, {"go": "go1.27.4", "toolchain": toolchain, "mode": dict(profile.build), "binary_sha256": "c" * 64}
 
         def run_case(_, name, output, identity, timeout, profile):
-            return {"case": name, "command": runner.command_for("native-darwin.test", name), "exit": 0, "seconds": 0.01, "record": record_for(name)}, None
+            return {"case": name, "command": runner.command_for("native-darwin.test", name, profile), "exit": 0, "seconds": 0.01, "record": record_for(name)}, None
 
         native = {"system": "Darwin", "machine": "arm64", "proc_translated": "0", "product_version": "27.2.1", "build_version": "26B131", "kernel": "k", "cpu": "c"}
         originals = runner.native_identity, runner.build, runner.run_case
@@ -327,25 +463,30 @@ class RunTests(unittest.TestCase):
         self.assertIsNone(failure)
         self.assertTrue(results["source"]["clean"], "the in-tree output is not source")
         runner.validate_results(json.loads((source / "results" / "results.json").read_text()))
+        results, failure = runner.run(source, source / "pressure", "local", 1, PRESSURE)
+        self.assertIsNone(failure)
+        self.assertEqual(["socket-pressure"], [instance["case"] for instance in results["instances"]])
+        runner.validate_results(json.loads((source / "pressure" / "results.json").read_text()), "pressure")
 
 
 class ResultsTests(unittest.TestCase):
-    def results(self):
+    def results(self, profile=runner.SCALAR):
         return {
             "schema": runner.RESULTS_SCHEMA,
-            "profile": "scalar",
+            "profile": profile.name,
             "source": {"commit": "a" * 40, "tree": "b" * 40, "head_tree": "b" * 40, "clean": True},
-            "build": {"go": "go1.27.4", "toolchain": "local", "mode": dict(runner.BUILD), "binary_sha256": "c" * 64},
+            "build": {"go": "go1.27.4", "toolchain": "local", "mode": dict(profile.build), "binary_sha256": "c" * 64},
             "identity": {
                 **IDENTITY, "system": "Darwin", "machine": "arm64", "proc_translated": "0",
                 "product_version": "27.2.1", "build_version": "26B131", "kernel": "Darwin 27.2.0 arm64", "cpu": "Apple M4 Max",
             },
-            "instances": [{"case": name, "command": runner.command_for("native-darwin.test", name), "exit": 0, "seconds": 0.01, "failure": None, "record": record_for(name)} for name in runner.CASES],
-            "status": {"cases": len(runner.CASES), "status": "pass", "support_receipt": False},
+            "instances": [{"case": name, "command": runner.command_for("native-darwin.test", name, profile), "exit": 0, "seconds": 0.01, "failure": None, "record": record_for(name)} for name in profile.cases],
+            "status": {"cases": len(profile.cases), "status": "pass", "support_receipt": False},
         }
 
     def test_readback_accepts_a_complete_run(self):
         runner.validate_results(self.results())
+        runner.validate_results(self.results(PRESSURE), "pressure")
         explicit = self.results()
         explicit["build"]["toolchain"] = "go1.27.4"
         runner.validate_results(explicit)
@@ -383,7 +524,15 @@ class ResultsTests(unittest.TestCase):
         float_cases["status"]["cases"] = float(len(runner.CASES))
         unknown_field = self.results()
         unknown_field["build"]["extra"] = 1
-        cases = (("selector", selector), ("linux", linux), ("boolean exit", boolean_exit), ("unknown field", unknown_field), ("numeric support", numeric_support), ("float cases", float_cases), ("misstated clean", misstated), ("unidentified", unidentified), ("missing", missing), ("failed", failed), ("unstated", unstated), ("translated", translated), ("wrong record", wrong_record), ("unsourced", unsourced), ("other build", other_build))
+        untagged = self.results(PRESSURE)
+        untagged["build"]["mode"] = dict(runner.BUILD)
+        relabeled = self.results(PRESSURE)
+        relabeled["profile"] = "scalar"
+        recounted = self.results(PRESSURE)
+        recounted["status"]["cases"] = len(runner.CASES)
+        other_selector = self.results(PRESSURE)
+        other_selector["instances"][0]["command"] = runner.command_for("native-darwin.test", "socket-pressure")
+        cases = (("untagged", untagged), ("relabeled", relabeled), ("recounted", recounted), ("pressure selector", other_selector), ("selector", selector), ("linux", linux), ("boolean exit", boolean_exit), ("unknown field", unknown_field), ("numeric support", numeric_support), ("float cases", float_cases), ("misstated clean", misstated), ("unidentified", unidentified), ("missing", missing), ("failed", failed), ("unstated", unstated), ("translated", translated), ("wrong record", wrong_record), ("unsourced", unsourced), ("other build", other_build))
         for name, results in cases:
             with self.subTest(name=name), self.assertRaises(ValueError):
                 runner.validate_results(results)
@@ -560,7 +709,7 @@ class BlockedWriterResultsTests(unittest.TestCase):
         scalar = self.results()
         scalar["profile"] = "scalar"
         unknown = self.results()
-        unknown["profile"] = "pressure"
+        unknown["profile"] = "unknown"
         unstated = self.results()
         del unstated["profile"]
         unwitnessed = self.results()

@@ -55,7 +55,7 @@ C2 observes live/retained memory at matched negotiated-connection lifecycle stat
 | --- | --- | --- | --- | --- |
 | E1 | Complete ([PR #1498](https://github.com/GridCastIO/quicquic-go/pull/1498)) | Granted scalar socket fixture and native case receipt | None | None |
 | E2 | Complete ([PR #1533](https://github.com/GridCastIO/quicquic-go/pull/1533)) | Blocked-writer deadline/borrow fixture | E1 | None |
-| E3 | New; frontier | Scalar contention and pressure-observation fixture | E1 | None |
+| E3 | Complete ([PR #1532](https://github.com/GridCastIO/quicquic-go/pull/1532)) | Scalar contention and pressure-observation fixture | E1 | None |
 | P1 | Complete ([PR #1499](https://github.com/GridCastIO/quicquic-go/pull/1499)) | Native pinned peer build, launch and ordinary control | None | None |
 | P2 | Complete ([PR #1534](https://github.com/GridCastIO/quicquic-go/pull/1534)) | Fresh aggregate DATAGRAM ingress witness | None | None |
 | C1 | Complete ([PR #1501](https://github.com/GridCastIO/quicquic-go/pull/1501)) | Native ordinary workloads and truthful metrics | None | None |
