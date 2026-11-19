@@ -2,6 +2,7 @@
 """R18 ordinary-peer cost: a missing or misaccounted case is a failed claim, not a product result."""
 
 import argparse
+import contextlib
 import json
 import hashlib
 import math
@@ -306,9 +307,13 @@ def workload_failures(record):
     failures = []
     if record["server"]["write_errors"]:
         failures.append(f"{record['profile']}: {record['server']['write_errors']} write errors")
+    # Each cell's demanded effect: every flow delivers, and offered pressure draws resets.
     for flow in record["client"]["flows"]:
         if flow["useful_bytes"] <= 0:
             failures.append(f"{record['profile']}: {flow['label']} delivered no useful bytes")
+    flood = record["client"].get("flood")
+    if flood and flood["sent"] and not flood["resets"]:
+        failures.append(f"{record['profile']}: {flood['sent']} pressure packets drew no stateless reset")
     for item in record["client"]["flows"] + record["server"]["connections"]:
         if item["timeout_close"] or item["close_cause"]:
             failures.append(f"{record['profile']}: {item['label']} closed: {item['close_cause'] or 'timeout'}")
@@ -536,6 +541,8 @@ def cluster_activity(records, coverage):
             name = cluster.get("name") if isinstance(cluster, dict) else None
             if not isinstance(name, str) or not CLUSTER_NAME.match(name):
                 raise HostObservationError("inconclusive", f"unsupported cluster name {name!r}")
+            if name in seen:
+                raise HostObservationError("inconclusive", f"record {index} repeated cluster {name}")
             shares = [cluster.get(field) for field in ("idle_ratio", "down_ratio")]
             if any(type(share) not in (int, float) or not math.isfinite(share) or not 0 <= share <= 1
                    for share in shares) or sum(shares) > 1 + 1e-9:
@@ -569,6 +576,63 @@ def powermetrics_command():
     return ["powermetrics", "--format", "plist", "--samplers", "cpu_power", "-i", str(POWERMETRICS_INTERVAL_MS)]
 
 
+class DeferredInterrupts:
+    """SIGINT and SIGTERM during one observation. They raise only inside an interruptible
+    wait; anywhere else (child launch and registration, teardown, sampler stop and
+    attribution) they are recorded and honored once every owned child is reaped. The
+    handler disarms before raising, so a second signal cannot interrupt the cleanup the
+    first began. Children keep normal delivery: exec resets handled signals, and nothing
+    is masked."""
+
+    SIGNALS = (signal.SIGINT, signal.SIGTERM)
+
+    def __enter__(self):
+        self.pending, self.armed = [], False
+        self.previous = {number: signal.signal(number, self.handle) for number in self.SIGNALS}
+        return self
+
+    def handle(self, number, frame):
+        if self.previous[number] is signal.SIG_IGN:
+            return  # an inherited ignore stays ignored
+        self.pending.append(number)
+        if self.armed:
+            self.armed = False
+            raise KeyboardInterrupt(signal.Signals(number).name)
+
+    @contextlib.contextmanager
+    def interruptible(self):
+        self.armed = True  # armed first: a signal after this raises; one before is pending
+        try:
+            if self.pending:
+                self.armed = False
+                raise KeyboardInterrupt(signal.Signals(self.pending[0]).name)
+            yield
+        finally:
+            self.armed = False
+
+    def __exit__(self, kind, error, traceback):
+        for number, handler in self.previous.items():
+            signal.signal(number, handler)
+        if error is None and self.pending:
+            number = self.pending[0]
+            handler = self.previous[number]
+            if callable(handler):
+                handler(number, None)  # the caller's handler, such as main's SIGTERM conversion
+            raise KeyboardInterrupt(signal.Signals(number).name)
+        return False
+
+
+def window_bounds(start_at_unix_ns, warmup_s, window_s, monotonic=time.monotonic, wall_ns=time.time_ns):
+    """The roles' wall-clock window on this process's monotonic clock. The wall-clock read
+    is bracketed by monotonic reads, so the window starts no earlier than the first bound
+    and ends no later than the second, whatever preemption separated the reads."""
+    before = monotonic()
+    wall = wall_ns()
+    after = monotonic()
+    offset = (start_at_unix_ns - wall) / 1e9 + warmup_s
+    return before + offset, after + offset + window_s
+
+
 class HostSampler:
     """One optional host sampler bracketing an observation. It is always stopped and
     joined, and its raw output is kept as host.plist."""
@@ -577,6 +641,7 @@ class HostSampler:
         self.command, self.directory = command, directory
         self.raw_path, self.log_path = directory / "host.plist", directory / "host.log"
         self.process, self.started, self.launch_error = None, None, None
+        self.halted = None
 
     def start(self):
         """A sampler that cannot launch leaves the observation running, unattributed. The
@@ -612,11 +677,18 @@ class HostSampler:
             signal.pthread_sigmask(signal.SIG_SETMASK, blocked)
         return early
 
+    def halt(self):
+        """Stop and reap the sampler once, recording the stop request and reap times."""
+        if self.halted is None:
+            requested = time.monotonic()
+            early = self.stop()
+            self.halted = (requested, early, time.monotonic())  # reaped: no sample postdates it
+        return self.halted
+
     def finish(self, window_start, window_end):
-        """Stop the sampler and attribute what it recorded; monotonic window bounds."""
-        requested = time.monotonic()
-        early = self.stop()
-        stopped_at = time.monotonic()  # after the reap, so no sample can postdate it
+        """Stop the sampler if it is still running and attribute what it recorded, for
+        conservative monotonic window bounds (the earliest start and the latest end)."""
+        requested, early, stopped_at = self.halt()
         raw = self.raw_path.read_bytes() if self.raw_path.exists() else b""
         result = {"command": self.command, "exit": self.process.returncode if self.process else None,
                   "joined": self.process is not None and self.process.returncode is not None,
@@ -677,7 +749,7 @@ def run_observation(binary, directory, cell, round_, profile, seed, warmup_s=WAR
     begun = time.monotonic()
     deadline = begun + timeout_s
     # The window in this process's monotonic clock, for the sampler's coverage.
-    window_start = begun + (spec["start_at_unix_ns"] - time.time_ns()) / 1e9 + warmup_s
+    window = window_bounds(spec["start_at_unix_ns"], warmup_s, window_s)
     sampler = HostSampler(powermetrics_command(), directory) if host_sampler else None
     host = {"status": "unavailable", "reason": "no host sampler selected; Q1 selects and authorizes one"}
 
@@ -691,44 +763,48 @@ def run_observation(binary, directory, cell, round_, profile, seed, warmup_s=WAR
             usage[role] = usage.get(role, 0) + (current.ru_utime + current.ru_stime
                                                - previous.ru_utime - previous.ru_stime)
 
-    try:
-        if sampler:
-            sampler.start()
-        for role, cpus, process_env in (("server", SERVER_CPUS, dict(env, **PROFILES[platform_profile]["cells"][cell]["env"])),
-                                        ("client", CLIENT_CPUS, env)):
-            role_spec = dict(spec, role=role, output=str(directory / f"{role}.json"))
-            command = role_command(binary, directory / f"{role}.cpu.pprof" if cpu_profile else None)
-            with (directory / f"{role}.log").open("w") as log:
-                processes[role] = subprocess.Popen(
-                    ["taskset", "-c", cpus, *command] if linux else command,
-                    env=dict(process_env, ORDINARY_COST_SPEC=json.dumps(role_spec)),
-                    stdout=log, stderr=subprocess.STDOUT,
-                )
-        for role, process in processes.items():
-            reap(role, process, timeout=max(0, deadline - time.monotonic()))
-            if process.returncode != 0:
-                raise ValueError(f"{cell}/{profile} {role} exit {process.returncode}")
-    finally:
+    with DeferredInterrupts() as interrupts:
         try:
-            # Terminate both roles before waiting on either. No failed launch leaves a peer alive.
-            for process in processes.values():
-                if process.returncode is None:
-                    process.kill()
+            if sampler:
+                sampler.start()
+            for role, cpus, process_env in (("server", SERVER_CPUS, dict(env, **PROFILES[platform_profile]["cells"][cell]["env"])),
+                                            ("client", CLIENT_CPUS, env)):
+                role_spec = dict(spec, role=role, output=str(directory / f"{role}.json"))
+                command = role_command(binary, directory / f"{role}.cpu.pprof" if cpu_profile else None)
+                with (directory / f"{role}.log").open("w") as log:
+                    processes[role] = subprocess.Popen(
+                        ["taskset", "-c", cpus, *command] if linux else command,
+                        env=dict(process_env, ORDINARY_COST_SPEC=json.dumps(role_spec)),
+                        stdout=log, stderr=subprocess.STDOUT,
+                    )
             for role, process in processes.items():
-                if process.returncode is None:
-                    reap(role, process)
+                with interrupts.interruptible():  # the only point an operator interrupt raises
+                    reap(role, process, timeout=max(0, deadline - time.monotonic()))
+                if process.returncode != 0:
+                    raise ValueError(f"{cell}/{profile} {role} exit {process.returncode}")
         finally:
-            # Role facts first, so an interrupted sampler stop cannot drop them.
-            record.update(cell=cell, round=round_, profile=profile, seed=seed, controller=controller,
-                          platform_profile=platform_profile, cpu_profile=cpu_profile,
-                          timing_eligible=not cpu_profile, process_cpu_s=usage,
-                          exit={role: process.returncode for role, process in processes.items()})
+            # Not interruptible: terminate both roles before waiting on either, keep their
+            # facts, then stop the sampler. No failed launch or interrupt leaves a child alive.
             try:
-                if sampler:
-                    host = sampler.finish(window_start, window_start + window_s)
+                for process in processes.values():
+                    if process.returncode is None:
+                        process.kill()
+                for role, process in processes.items():
+                    if process.returncode is None:
+                        reap(role, process)
             finally:
-                occupied = time.monotonic() - begun
-                record["occupied_s"] = occupied
+                record.update(cell=cell, round=round_, profile=profile, seed=seed, controller=controller,
+                              platform_profile=platform_profile, cpu_profile=cpu_profile,
+                              timing_eligible=not cpu_profile, process_cpu_s=usage,
+                              exit={role: process.returncode for role, process in processes.items()})
+                try:
+                    if sampler:
+                        sampler.halt()
+                finally:
+                    occupied = time.monotonic() - begun
+                    record["occupied_s"] = occupied
+        if sampler:
+            host = sampler.finish(*window)
     if linux:
         running = schedstat_running_ns()
         foreign = (sum(running[cpu] - before[cpu] for cpu in FIXTURE_CPUS)

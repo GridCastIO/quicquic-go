@@ -988,6 +988,19 @@ class PowermetricsTests(unittest.TestCase):
                 driver.cluster_activity(case, COVERAGE)
             self.assertEqual(caught.exception.status, "inconclusive")
 
+    def test_repeated_cluster_name_is_inconclusive(self):
+        records, _ = driver.parse_powermetrics(FIXTURE.read_bytes())
+        doubled = copy.deepcopy(records)
+        for record in doubled:
+            clusters = record["processor"]["clusters"]
+            clusters.append(copy.deepcopy(clusters[0]))
+        with self.assertRaises(driver.HostObservationError) as caught:
+            driver.cluster_activity(doubled, COVERAGE)
+        self.assertEqual(caught.exception.status, "inconclusive")
+        self.assertIn("repeated", str(caught.exception))
+        by_name = {c["name"]: c for c in driver.cluster_activity(records, COVERAGE)["clusters"]}
+        self.assertAlmostEqual(by_name["E-Cluster"]["active_ratio"], 0.25)
+
     def test_down_residency_is_not_activity(self):
         records, _ = driver.parse_powermetrics(FIXTURE.read_bytes())
         for record in records:
@@ -1024,6 +1037,21 @@ class PowermetricsTests(unittest.TestCase):
         launched = sampler.started
         time.sleep(lifetime)
         return sampler.finish(launched + window[0], launched + window[1])
+
+    def test_window_bounds_bracket_the_clock_conversion(self):
+        # The driver is preempted for 0.5 s between its two monotonic reads.
+        readings = iter((10.0, 10.5))
+        start, end = driver.window_bounds(1002 * 10**9, 1, 1, monotonic=lambda: next(readings),
+                                          wall_ns=lambda: 1000 * 10**9)
+        self.assertEqual((start, end), (13.0, 14.5))
+        # 2.0005 s of samples ending at 14.2005 at the latest: past an estimate taken from
+        # the first read alone (14.0), short of the latest possible window end.
+        records, _ = driver.parse_powermetrics(FIXTURE.read_bytes())
+        coverage = {"launched": 12.2, "stopped": 14.3, "window_start": start}
+        self.assertEqual(driver.cluster_activity(records, dict(coverage, window_end=14.0))["status"], "observed")
+        with self.assertRaises(driver.HostObservationError) as caught:
+            driver.cluster_activity(records, dict(coverage, window_end=end))
+        self.assertEqual(caught.exception.status, "inconclusive")
 
     def test_privilege_failure_is_unavailable_never_quiet(self):
         with tempfile.TemporaryDirectory() as temporary:
@@ -1198,6 +1226,25 @@ class NativeExecutionTests(unittest.TestCase):
                 self.assertFalse(summary["judged"])
                 self.assertEqual(summary["workload_failures"], [failure])
 
+    def test_unjudged_pressure_smoke_fails_without_a_reset(self):
+        def silent(record):
+            if record["profile"] == driver.OPTED_IN:
+                record["client"]["flood"]["resets"] = 0
+
+        failure = "opted-in: 600000 pressure packets drew no stateless reset"
+        with tempfile.TemporaryDirectory() as temporary:
+            code, summary, _ = self.invoke(Path(temporary), ("--platform-profile", "darwin-arm64",
+                                                             "--smoke-cell", "stateless-pressure"),
+                                           edit=silent, platform="darwin-arm64")
+        self.assertEqual(code, 1, summary)
+        self.assertFalse(summary["judged"])
+        self.assertEqual(summary["workload_failures"], [failure])
+        # Still a valid record, so a judged Reno pair keeps reporting its reset share.
+        record = observation("stateless-pressure", "opted-in")
+        silent(record)
+        driver.check_observation(record)
+        self.assertEqual(driver.workload_failures(record), [failure])
+
     def test_native_campaign_launches_nothing(self):
         for extra in ((), ("--revalidate-cell", "stream", "--cause", "x")):
             with self.subTest(extra=extra), tempfile.TemporaryDirectory() as temporary:
@@ -1243,6 +1290,32 @@ class NativeExecutionTests(unittest.TestCase):
         self.assertEqual(attempt["platform_profile"], "darwin-arm64")
         self.assertEqual(set(attempt["exit"]), {"server", "client"})
         self.assertIn("process_cpu_s", attempt)
+        self.assertTrue(all(process.returncode is not None for process in processes))
+
+    def test_interrupt_before_sampler_stop_is_deferred_until_it_is_reaped(self):
+        real_stop, stopped = driver.HostSampler.stop, []
+
+        def signaled(sampler):
+            # A SIGTERM at the teardown boundary, before the sampler's own shutdown begins.
+            os.kill(os.getpid(), signal.SIGTERM)
+            stopped.append(sampler)
+            return real_stop(sampler)
+
+        with tempfile.TemporaryDirectory() as temporary, \
+                mock.patch.object(driver.HostSampler, "stop", autospec=True, side_effect=signaled):
+            code, summary, processes = self.invoke(Path(temporary), ("--platform-profile", "darwin-arm64", "--smoke-cell", "stream",
+                                                                     "--host-sampler", "powermetrics"), platform="darwin-arm64",
+                                                   sampler=[sys.executable, "-c", "import time; time.sleep(60)"])
+        self.assertEqual(code, 1, summary)
+        attempt = summary["attempts"][0]
+        self.assertEqual(attempt["status"], "failed")
+        self.assertIn("SIGTERM", attempt["error"])
+        self.assertEqual(set(attempt["exit"]), {"server", "client"})
+        self.assertIn("occupied_s", attempt)
+        self.assertEqual(len(stopped), 1)
+        self.assertIsNotNone(stopped[0].process.returncode, "the sampler was reaped before the interrupt was honored")
+        with self.assertRaises(ProcessLookupError):
+            os.kill(stopped[0].process.pid, 0)
         self.assertTrue(all(process.returncode is not None for process in processes))
 
     def test_sigterm_reaps_roles_and_sampler(self):
