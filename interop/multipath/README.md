@@ -206,7 +206,7 @@ The receipt also lists, by name only, the top-level keys beyond the adapter's an
 
 Owner install (B2), done by the owner and never by the drivers or their tests:
 
-1. Review `interop/multipath/powermetrics_wrapper.py` at the merged commit. Then resolve the interpreter that root would run, `/usr/bin/python3 -I -c 'import os, sys; print(sys.executable, os.__file__)'`, and confirm that both paths and their parent directories are owned by root and writable by no group or other user.
+1. Review `interop/multipath/powermetrics_wrapper.py` at the merged commit. Then resolve the interpreter that root would run. sudo resets the environment, so root follows the `xcode-select` choice and never a `DEVELOPER_DIR` override: run `env -u DEVELOPER_DIR /usr/bin/python3 -I -c 'import os, sys; print(sys.executable, os.__file__)'` and confirm that both paths and their parent directories are owned by root and writable by no group or other user.
 2. Install it root-owned at the fixed path:
 
    ```sh
@@ -224,7 +224,7 @@ Owner install (B2), done by the owner and never by the drivers or their tests:
    ```
 
    The `Defaults` line keeps sudo from placing a terminal or log between the driver's pipe and the wrapper, so EOF reaches it.
-4. Check the grant without launching anything: `sudo -n -l /usr/local/libexec/quicquic-powermetrics driver-stopped` and the same with `bounded` print the command. A command-specific listing reports the account's whole policy, so a general administrator rule can also list `… other`; instead, read `sudo -l` and confirm that the only `NOPASSWD` entries naming the wrapper are the two exact command lines. The drivers only ever ask for those two command lines, and `-n` keeps them from prompting.
+4. Check the grant without launching anything: `sudo -n -l /usr/local/libexec/quicquic-powermetrics driver-stopped` and the same with `bounded` print the command. A command-specific listing reports the account's whole policy, so a general administrator rule can also list `… other`; instead, read `sudo -l`, which lists the matching entries in policy order, where the last match wins. Confirm that the only `NOPASSWD` entries naming the wrapper are the two exact command lines and that no general rule listed after them (one that would demand a password) also matches the wrapper. The drivers only ever ask for those two command lines, and `-n` keeps them from prompting.
 5. To remove the grant, delete `/etc/sudoers.d/quicquic-powermetrics` and the wrapper.
 
 ## Negotiated lifecycle memory
