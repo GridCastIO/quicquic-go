@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/GridCastIO/quicquic-go/internal/monotime"
+	"github.com/GridCastIO/quicquic-go/internal/wire"
 	"go.uber.org/mock/gomock"
 )
 
@@ -16,6 +17,34 @@ func TestConnectionTimerWakesForIdleMTUProbe(t *testing.T) {
 		want    time.Duration
 	}{
 		{name: "probe due", want: 5 * time.Millisecond},
+		{name: "retry hard blocked", prepare: func(c *Conn, now monotime.Time) {
+			c.packetCeiling = 8972
+			c.peerParams = &wire.TransportParameters{MaxUDPPayloadSize: 8972}
+			c.conn = &dfTestSendConn{sendConn: c.conn, df: true}
+			c.mtuFallback.started = now
+			c.mtuRetry.deadline = now.Add(5 * time.Millisecond)
+			c.blocked = blockModeHardBlocked
+		}, want: 5 * time.Millisecond},
+		{name: "elapsed retry congestion blocked", prepare: func(c *Conn, now monotime.Time) {
+			c.packetCeiling = 8972
+			c.peerParams = &wire.TransportParameters{MaxUDPPayloadSize: 8972}
+			c.conn = &dfTestSendConn{sendConn: c.conn, df: true}
+			c.mtuFallback.started = now
+			c.mtuRetry.deadline = now.Add(-time.Second)
+			c.advancePacketSizeRetry(now)
+			c.blocked = blockModeCongestionLimited
+		}, want: time.Minute},
+		{name: "retry paced", prepare: func(c *Conn, now monotime.Time) {
+			c.packetCeiling = 8972
+			c.peerParams = &wire.TransportParameters{MaxUDPPayloadSize: 8972}
+			c.conn = &dfTestSendConn{sendConn: c.conn, df: true}
+			c.mtuFallback.started = now
+			c.mtuDiscoverer.Reset(1438, 1452)
+			c.mtuRetry.deadline = now
+			c.advancePacketSizeRetry(now)
+			c.pacingDeadline = now.Add(10 * time.Millisecond)
+		}, want: 10 * time.Millisecond},
+
 		{name: "pacing", prepare: func(c *Conn, now monotime.Time) { c.pacingDeadline = now.Add(10 * time.Millisecond) }, want: 10 * time.Millisecond},
 		{name: "in flight", prepare: func(c *Conn, now monotime.Time) { c.mtuDiscoverer.GetPing(now) }, want: 15 * time.Second},
 		{name: "not started", prepare: func(c *Conn, _ monotime.Time) { c.mtuDiscoverer = newMTUDiscoverer(c.rttStats, 1232, 1452, nil) }, want: 15 * time.Second},

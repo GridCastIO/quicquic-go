@@ -119,3 +119,48 @@ func TestPacketSizeRetryPersistentCutoff(t *testing.T) {
 		require.False(t, c.mtuRetry.running)
 	}
 }
+
+func TestPacketSizeRetryThresholdCycle(t *testing.T) {
+	c := newJumboRefusalEmission(t).conn
+	c.conn = &dfTestSendConn{sendConn: c.conn, df: true}
+	c.mtuFallback.started = monotime.Now()
+	c.mtuDiscoverer.Reset(1232, 1468)
+	now := monotime.Now()
+	c.mtuDiscoverer.Restart(1232, 1468)
+	// A cutoff can narrow the ordinary search to 1449 before jumbo confirmation.
+	for !c.mtuDiscoverer.searchDone() || !c.mtuDiscoverer.stageOneDone {
+		ping, size := c.mtuDiscoverer.GetPing(now)
+		if size > 1452 {
+			ping.Handler.OnLost(ping.Frame)
+		} else {
+			ping.Handler.OnAcked(ping.Frame)
+		}
+	}
+	require.EqualValues(t, 1449, c.mtuDiscoverer.CurrentSize())
+	for !c.mtuDiscoverer.done() {
+		ping, _ := c.mtuDiscoverer.GetPing(now)
+		ping.Handler.OnLost(ping.Frame)
+	}
+	c.mtuRetry.running = true
+	c.advancePacketSizeRetry(now)
+	require.Equal(t, 60*time.Second, c.mtuRetry.deadline.Sub(now))
+	// The next cycle reopens the candidate after cutoff removal.
+	c.advancePacketSizeRetry(c.mtuRetry.deadline)
+	ping, size := c.mtuDiscoverer.GetPing(now)
+	require.Greater(t, size, protocol.ByteCount(1452))
+	ping.Handler.OnAcked(ping.Frame)
+	require.Greater(t, c.mtuDiscoverer.CurrentSize(), protocol.ByteCount(1452))
+	// Equal-ceiling losses end one cycle and schedule exactly one next cooldown.
+	c.mtuRetry.pathCeiling = 1453
+	c.mtuDiscoverer.Restart(1449, 1453)
+	c.mtuRetry.running = true
+	for range 3 {
+		ping, _ := c.mtuDiscoverer.GetPing(now)
+		ping.Handler.OnLost(ping.Frame)
+	}
+	c.advancePacketSizeRetry(now)
+	deadline := c.mtuRetry.deadline
+	require.Equal(t, 120*time.Second, deadline.Sub(now))
+	c.advancePacketSizeRetry(now.Add(time.Second))
+	require.Equal(t, deadline, c.mtuRetry.deadline)
+}

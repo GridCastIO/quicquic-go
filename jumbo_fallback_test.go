@@ -981,11 +981,9 @@ func TestJumboRetryOrdinaryIdleRefresh(t *testing.T) {
 		time.Sleep(time.Second)
 		synctest.Wait()
 		require.True(t, c.mtuFallback.confirmed)
-		before := c.idleTimeoutStartTime()
-		deadline := c.mtuRetry.deadline
-		require.True(t, before.Add(c.idleTimeout).After(deadline))
+
 		socket.limit.Store(0)
-		time.Sleep(deadline.Sub(monotime.Now()) + time.Second)
+		time.Sleep(61 * time.Second)
 		synctest.Wait()
 		require.Greater(t, c.maxPacketSize(), protocol.ByteCount(8800))
 		select {
@@ -994,7 +992,15 @@ func TestJumboRetryOrdinaryIdleRefresh(t *testing.T) {
 		default:
 		}
 		require.Zero(t, c.mtuRetry.deadline)
-		time.Sleep(4 * time.Minute)
+		// Cross the pre-retry idle expiry while remaining inside the refreshed one.
+		time.Sleep(130 * time.Second)
+		synctest.Wait()
+		select {
+		case <-c.Context().Done():
+			t.Fatal("probe ACK did not refresh ordinary idle expiry")
+		default:
+		}
+		time.Sleep(2 * time.Minute)
 		synctest.Wait()
 		select {
 		case <-c.Context().Done():

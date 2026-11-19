@@ -185,18 +185,17 @@ func (f *mtuFinder) needsJumboCandidate() bool {
 // Restart reopens a same-path search while retaining its tested fallback report.
 func (f *mtuFinder) Restart(start, ceiling protocol.ByteCount) {
 	fallback := f.stageOneSize
-	var report uint32
-	if f.stageOneReport != nil {
-		report = f.stageOneReport.Load()
-	}
+	// Reset owns zero publication for path changes. Same-path restart must not
+	// publish either zero or a provisional stage-one value to concurrent readers.
+	report := f.stageOneReport
+	f.stageOneReport = nil
 	f.Reset(start, ceiling)
+	f.stageOneReport = report
 	f.retry = true
 	if fallback != 0 {
 		f.stageOneSize = fallback
 	}
-	if f.stageOneReport != nil && report != 0 {
-		f.stageOneReport.Store(report)
-	}
+
 	if start > protocol.MaxPacketBufferSize {
 		f.stageOneDone, f.jumboAdmitted = true, true
 		f.initSearch(start, ceiling)
