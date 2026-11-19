@@ -862,6 +862,9 @@ class BlockedWriterProtectedMemberTests(unittest.TestCase):
 
     def test_the_recorder_saw_the_claim(self):
         self.refused("native_calls", native_calls=0)
+        # The trigger's claim makes exactly one native call; a retry is not this case.
+        self.refused("fact native_calls is 2, expected 1", native_calls=2)
+        self.refused("fact native_calls is True, expected 1", native_calls=True)
         self.refused("deadline_preserved", deadline_preserved=False)
         self.refused("deadline_reset", deadline_reset=False)
         self.refused("native_returned", native_returned=False)
@@ -892,6 +895,9 @@ class BlockedWriterProtectedMemberTests(unittest.TestCase):
         # The archived 4096-byte trigger is not this case's: B is one standard-size packet.
         self.refused("send_buffer", send_buffer=4096, payload_bytes=4096)
         self.refused("control_bytes", control_bytes=1200)
+        # The trigger carries the IPv4 IP_TOS message alone.
+        self.refused("fact control_bytes is 1, expected 16", control_bytes=1)
+        self.refused("fact control_bytes is 32, expected 16", control_bytes=32)
         self.refused("successor_delivered", successor_delivered=False)
         self.refused("faulted", faulted=True)
         self.refused("close_to_join_ms", close_to_join_ms=True)

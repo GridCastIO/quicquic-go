@@ -3,6 +3,7 @@
 package quic
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -43,6 +44,8 @@ type nativeDarwinClaim struct {
 	returnedAt      time.Time
 	reset           bool
 	resetErr        error
+	// control is the length of the control data the claim's last native call forwarded.
+	control int
 }
 
 // returned reports whether every native call the claim made has returned.
@@ -156,6 +159,7 @@ func (n *nativeDarwinIO) WriteMsgUDPAddrPort(b, oob []byte, destination netip.Ad
 	claim := n.claims[number]
 	claim.calls++
 	claim.pending++
+	claim.control = len(oob)
 	n.mutex.Unlock()
 
 	if n.observe != nil {
@@ -170,6 +174,8 @@ func (n *nativeDarwinIO) WriteMsgUDPAddrPort(b, oob []byte, destination netip.Ad
 	if !injected {
 		written, oobn, err = n.native.WriteMsgUDPAddrPort(b, oob, destination)
 	}
+	// The return is timed before any observer work, so it is the native call's own.
+	returned := time.Now()
 	if n.observe != nil {
 		n.observe(number, "native-return", nil)
 	}
@@ -177,7 +183,7 @@ func (n *nativeDarwinIO) WriteMsgUDPAddrPort(b, oob []byte, destination netip.Ad
 	n.mutex.Lock()
 	defer n.mutex.Unlock()
 	claim.pending--
-	claim.returnedAt = time.Now()
+	claim.returnedAt = returned
 	if injected {
 		claim.injected++
 	}
@@ -1088,19 +1094,43 @@ func TestNativeDarwinWriterMethod(t *testing.T) {
 
 	t.Run("a protected BBR member stays borrowed through the native return and the final fence", func(t *testing.T) {
 		nativeOrdinaryTest(t, func(t *testing.T) {
-			lifetime, closed, seen, class := nativeDarwinSimulatedProtected(t, "bbrv3", true, protocol.ECT0)
+			run := nativeDarwinSimulatedProtected(t, "bbrv3", true, protocol.ECT0)
+			// The recorder saw the call before the native write began.
+			require.Len(t, run.entry.sent, nativeDarwinProtectedSendBuffer, "the whole packet at the native write's entry")
+			require.True(t, run.entry.applied, "the plan was applied before the native write")
+			// The return was sampled after the native write and before the reset.
+			require.True(t, run.fencing.returned.borrowed(), "borrowed at the native return")
+			require.False(t, run.fencing.fenced.sampled, "nothing fences while the reset is held")
+			require.True(t, run.joinOpenAtReset, "the join waits for the reset")
+			lifetime, seen := run.lifetime, run.seen
 			require.True(t, lifetime.planned, "a frozen plan the writer had yet to apply")
 			require.True(t, lifetime.bbr, "bbrv3 with its reservation credit")
 			require.True(t, seen.applied, "the writer applied the plan before the native call")
 			require.True(t, lifetime.ciphertext, "the native call carried the peer-opened ciphertext")
 			require.True(t, lifetime.call.borrowed(), "the simulated call holds the member")
-			require.True(t, closed.borrowed(), "the close returns while the member is borrowed")
+			require.True(t, run.closed.borrowed(), "the close returns while the member is borrowed")
 			require.True(t, seen.returned.borrowed(), "borrowed at the native return")
 			require.True(t, seen.fenced.borrowed(), "borrowed after the final deadline reset")
 			require.True(t, seen.joinOpenAtFence, "the join waits for the fence")
 			require.True(t, lifetime.released, "released by the join")
 			require.Equal(t, "borrowed-through-fence", lifetime.class())
-			require.Equal(t, "simulated", class, "a simulated writer is never native traversal")
+			require.Equal(t, "simulated", run.class, "a simulated writer is never native traversal")
+		})
+	})
+
+	t.Run("a native call the peer cannot open is plaintext at the native call", func(t *testing.T) {
+		nativeOrdinaryTest(t, func(t *testing.T) {
+			run := nativeDarwinSimulatedProtected(t, "bbrv3", true, protocol.ECT0)
+			for name, corrupt := range map[string]func([]byte) []byte{
+				"authentication": func(b []byte) []byte { b[len(b)-1] ^= 1; return b },
+				"short header":   func(b []byte) []byte { b[0] &^= 0x40; return b },
+				"length":         func(b []byte) []byte { return b[:len(b)-1] },
+			} {
+				seen := run.seen
+				seen.sent = corrupt(bytes.Clone(run.seen.sent))
+				lifetime := run.protected.lifetime(run.member, run.call, seen, run.released)
+				require.Equal(t, "plaintext-at-native-call", lifetime.class(), name)
+			}
 		})
 	})
 
@@ -1113,8 +1143,8 @@ func TestNativeDarwinWriterMethod(t *testing.T) {
 		}{{"bbrv3", false, "unprotected"}, {"reno", true, "not-bbr"}} {
 			t.Run(tc.class, func(t *testing.T) {
 				nativeOrdinaryTest(t, func(t *testing.T) {
-					lifetime, _, _, _ := nativeDarwinSimulatedProtected(t, tc.controller, tc.deferred, protocol.ECNNon)
-					require.Equal(t, tc.class, lifetime.class())
+					run := nativeDarwinSimulatedProtected(t, tc.controller, tc.deferred, protocol.ECNNon)
+					require.Equal(t, tc.class, run.lifetime.class())
 				})
 			})
 		}

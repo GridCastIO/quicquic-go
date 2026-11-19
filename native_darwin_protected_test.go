@@ -115,14 +115,21 @@ func (p *nativeDarwinProtected) member(t *testing.T, size int, ecn protocol.ECN,
 }
 
 // opens reports whether data is the member's ciphertext: the peer's opener
-// authenticates it and its plaintext carries the member's DATAGRAM payload.
-func (p *nativeDarwinProtected) opens(t *testing.T, m nativeDarwinProtectedMember, data []byte) bool {
-	t.Helper()
+// authenticates it and its plaintext carries the member's DATAGRAM payload. Bytes
+// that fail to parse or authenticate are not, so the lifetime still names its class.
+func (p *nativeDarwinProtected) opens(m nativeDarwinProtectedMember, data []byte) bool {
 	if p.opener == nil || m.plan == nil || len(data) != int(m.recipe.end) {
 		return false
 	}
-	plain := largeBBRPlaintext(t, p.opener, data, p.conn.connIDManager.Get().Len(), m.recipe)
-	return bytes.Contains(plain, bytes.Repeat([]byte{m.fill}, 64))
+	raw := bytes.Clone(data)
+	pnOffset := int(m.recipe.payloadOffset) - int(m.recipe.pnLen)
+	p.opener.DecryptHeader(raw[pnOffset+4:pnOffset+20], &raw[0], raw[pnOffset:m.recipe.payloadOffset])
+	_, pn, _, _, err := wire.ParseShortHeader(raw, p.conn.connIDManager.Get().Len())
+	if err != nil {
+		return false
+	}
+	plain, err := p.opener.Open(nil, raw[m.recipe.payloadOffset:], monotime.Now(), pn, protocol.KeyPhaseZero, raw[:m.recipe.payloadOffset])
+	return err == nil && bytes.Contains(plain, bytes.Repeat([]byte{m.fill}, 64))
 }
 
 // settle waits for the endpoint's result for m's record and consumes it until the
@@ -235,12 +242,11 @@ type nativeDarwinProtectedObservation struct {
 
 // lifetime derives m's lifetime from the case's own borrow sample in the call, what
 // the observer saw on the writer, and the release the case read after the join.
-func (p *nativeDarwinProtected) lifetime(t *testing.T, m nativeDarwinProtectedMember, call nativeDarwinBorrow, seen nativeDarwinProtectedObservation, released bool) nativeDarwinProtectedLifetime {
-	t.Helper()
+func (p *nativeDarwinProtected) lifetime(m nativeDarwinProtectedMember, call nativeDarwinBorrow, seen nativeDarwinProtectedObservation, released bool) nativeDarwinProtectedLifetime {
 	return nativeDarwinProtectedLifetime{
 		planned:    m.plan != nil && m.deferred,
 		bbr:        p.controller == "bbrv3" && p.conn.emission.bbr != nil && m.credit,
-		ciphertext: seen.applied && p.opens(t, m, seen.sent),
+		ciphertext: seen.applied && p.opens(m, seen.sent),
 		call:       call, returned: seen.returned, fenced: seen.fenced, released: released,
 	}
 }
@@ -325,7 +331,7 @@ func nativeDarwinBBRProtectedCloseJoin(t *testing.T, facts map[string]any) {
 	p.sender.finish()
 	payload, received := w.peer.read(t)
 	require.Equal(t, protocol.ECT0, received.ecn)
-	controlOpened := p.opens(t, control, []byte(payload))
+	controlOpened := p.opens(control, []byte(payload))
 	require.True(t, controlOpened, "the peer opens the protected control")
 	p.settle(t, control)
 
@@ -345,6 +351,11 @@ func nativeDarwinBBRProtectedCloseJoin(t *testing.T, facts map[string]any) {
 	p.sender.Close()
 	closed := nativeDarwinProtectedSample(w.e, trigger)
 	require.True(t, closed.borrowed(), "the close returns while the native call holds the member")
+	// The same native call is still in the Go poller once the close has returned.
+	before := nativeDarwinHeldMember(w.e, trigger.match)
+	waiting := nativeDarwinWriterWaiting()
+	after := nativeDarwinHeldMember(w.e, trigger.match)
+	require.True(t, before == token && waiting && after == token, "the trigger's native call is still waiting after the close returns")
 	select {
 	case <-retired:
 		require.FailNow(t, "the join preceded the native return")
@@ -362,6 +373,8 @@ func nativeDarwinBBRProtectedCloseJoin(t *testing.T, facts map[string]any) {
 	claim := w.io.claim(triggerClaim)
 	class := claim.class(trigger.deadline, true)
 	require.Equal(t, "native-traversal", class)
+	require.Equal(t, 1, claim.calls, "the trigger's claim made one native call")
+	require.Equal(t, len(trigger.oob), claim.control, "the native call forwarded the member's own control")
 	require.False(t, claim.returnedAt.Before(trigger.deadline), "the poller returned at the deadline")
 	require.True(t, claim.returnedAt.After(closing), "close began while the member was in the native call")
 	require.False(t, joined.Before(fact.returnedAt), "the join never precedes the whole borrow's return")
@@ -370,7 +383,7 @@ func nativeDarwinBBRProtectedCloseJoin(t *testing.T, facts map[string]any) {
 	require.True(t, seen.joinOpenAtFence, "the join was still open after the final deadline reset")
 	require.Len(t, seen.sent, w.trigger.capacity, "the native call carried exactly B bytes")
 	require.Less(t, len(trigger.oob), w.trigger.capacity)
-	lifetime := p.lifetime(t, trigger, call, seen, released)
+	lifetime := p.lifetime(trigger, call, seen, released)
 	require.Equal(t, "borrowed-through-fence", lifetime.class())
 
 	// The endpoint did not fault, and the trigger was never delivered: the fixture's
@@ -384,8 +397,8 @@ func nativeDarwinBBRProtectedCloseJoin(t *testing.T, facts map[string]any) {
 	require.False(t, faulted)
 
 	nativeDarwinTraversalFacts(facts, w, claim, trigger.deadline, class)
-	// The member's own control and the bytes its native call carried.
-	facts["control_bytes"] = len(trigger.oob)
+	// The control and the bytes the member's native call carried.
+	facts["control_bytes"] = claim.control
 	facts["payload_bytes"] = len(seen.sent)
 	facts["controller"] = p.controller
 	facts["bbr_credit"] = trigger.credit
@@ -405,32 +418,67 @@ func nativeDarwinBBRProtectedCloseJoin(t *testing.T, facts map[string]any) {
 	facts["close_to_join_ms"] = nativeDarwinMS(joined.Sub(closing))
 }
 
+// nativeDarwinSimulatedRun is one member's held write, active close and join over
+// the gated simulated writer: the observation at the native write's entry, while the
+// final deadline reset is held, and after the join, with the derived lifetime.
+type nativeDarwinSimulatedRun struct {
+	protected *nativeDarwinProtected
+	member    nativeDarwinProtectedMember
+	call      nativeDarwinBorrow
+	closed    nativeDarwinBorrow
+	// entry is the observation when the native write began, and fencing the one
+	// while the final deadline reset was held after the native return.
+	entry, fencing  nativeDarwinProtectedObservation
+	joinOpenAtReset bool
+	seen            nativeDarwinProtectedObservation
+	released        bool
+	lifetime        nativeDarwinProtectedLifetime
+	class           string
+}
+
 // nativeDarwinSimulatedProtected drives one member of a controller connection, with or
 // without deferred protection, through the case's held write, active close and join
-// over a gated simulated writer, and checks the ordering every path shares: nothing
-// returns or fences while the call is held, and the join waits for the return. It
-// returns the derived lifetime, the case's borrow samples and the claim's class.
-func nativeDarwinSimulatedProtected(t *testing.T, controller string, deferred bool, ecn protocol.ECN) (lifetime nativeDarwinProtectedLifetime, closed nativeDarwinBorrow, seen nativeDarwinProtectedObservation, class string) {
+// over a simulated writer whose native write and final deadline reset are each gated.
+// It checks the ordering every path shares: nothing returns or fences while the call
+// is held, nothing fences while the reset is held, and the join waits for the fence.
+func nativeDarwinSimulatedProtected(t *testing.T, controller string, deferred bool, ecn protocol.ECN) (run nativeDarwinSimulatedRun) {
 	t.Helper()
-	release := make(chan struct{})
-	var once sync.Once
-	unblock := func() { once.Do(func() { close(release) }) }
+	write, reset := make(chan struct{}), make(chan struct{})
+	var writeOnce, resetOnce sync.Once
+	releaseWrite := func() { writeOnce.Do(func() { close(write) }) }
+	releaseReset := func() { resetOnce.Do(func() { close(reset) }) }
 	observer := &nativeDarwinProtectedObserver{}
-	record := &nativeDarwinIO{native: endpointTestNative{send: func([]byte) (int, error) {
-		<-release
-		return 0, os.ErrDeadlineExceeded
-	}}, observe: observer.observe}
+	entries := make(chan nativeDarwinProtectedObservation, 1)
+	record := &nativeDarwinIO{native: endpointTestNative{
+		send: func([]byte) (int, error) {
+			entries <- observer.snapshot()
+			<-write
+			return 0, os.ErrDeadlineExceeded
+		},
+		deadline: func(deadline time.Time) error {
+			if deadline.IsZero() {
+				<-reset
+			}
+			return nil
+		},
+	}, observe: observer.observe}
 	e := startNativeEndpoint(record, nativeDarwinBudget, nil)
-	t.Cleanup(func() { unblock(); <-e.stop() })
+	t.Cleanup(func() { releaseWrite(); releaseReset(); <-e.stop() })
 	p := newNativeDarwinProtected(t, controller, e, netip.MustParseAddrPort("127.0.0.1:1234"), deferred)
 	m := p.member(t, nativeDarwinProtectedSendBuffer, ecn, 0x54)
 	retired := p.sender.participant.retired
 	observer.arm(0, e, m, retired)
 	p.sender.finish()
 	synctest.Wait()
-	call := nativeDarwinProtectedSample(e, m)
+	select {
+	case run.entry = <-entries:
+	default:
+		require.FailNow(t, "the writer never began the native write")
+	}
+	run.protected, run.member = p, m
+	run.call = nativeDarwinProtectedSample(e, m)
 	p.sender.Close()
-	closed = nativeDarwinProtectedSample(e, m)
+	run.closed = nativeDarwinProtectedSample(e, m)
 	synctest.Wait()
 	select {
 	case <-retired:
@@ -441,14 +489,25 @@ func nativeDarwinSimulatedProtected(t *testing.T, controller string, deferred bo
 	require.False(t, held.returned.sampled, "nothing has returned yet")
 	require.False(t, held.fenced.sampled)
 
-	unblock()
+	releaseWrite()
+	synctest.Wait()
+	run.fencing = observer.snapshot()
+	select {
+	case <-retired:
+	default:
+		run.joinOpenAtReset = true
+	}
+
+	releaseReset()
 	synctest.Wait()
 	select {
 	case <-retired:
 	default:
 		require.FailNow(t, "the native return and fence did not release the join")
 	}
-	released := nativeDarwinProtectedReleased(m)
-	seen = observer.snapshot()
-	return p.lifetime(t, m, call, seen, released), closed, seen, record.claim(0).class(m.deadline, true)
+	run.released = nativeDarwinProtectedReleased(m)
+	run.seen = observer.snapshot()
+	run.lifetime = p.lifetime(m, run.call, run.seen, run.released)
+	run.class = record.claim(0).class(m.deadline, true)
+	return run
 }

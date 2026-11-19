@@ -89,6 +89,11 @@ EXPIRED_CLASS = "expired-claim-unsubmitted"
 PROTECTED_CASE = "bbr-protected-close-join"
 # Its socket requests one standard-size packet's send buffer, so B is that packet.
 PROTECTED_SEND_BUFFER = 1200
+# The trigger's one native call carries the IPv4 IP_TOS control message alone: a
+# 12-byte header and a 4-byte value. The positive control used the writer's first
+# send, so the trigger's claim has no retry of its own.
+PROTECTED_CONTROL_BYTES = 16
+PROTECTED_NATIVE_CALLS = 1
 LIFETIME_CLASS = "borrowed-through-fence"
 LIFETIME_CLASSES = {
     "unprotected", "not-bbr", "plaintext-at-native-call", "released-during-call", "released-at-return",
@@ -142,7 +147,8 @@ BLOCKED_FACTS = {
         "joined_after_return": True, "transport_write_after_join": "closed", "caller_write_delivered": True, "close_to_join_ms": is_ms,
     },
     PROTECTED_CASE: {
-        **RECORDED_CLAIM_FACTS, "send_buffer": PROTECTED_SEND_BUFFER, "controller": "bbrv3", "bbr_credit": True, "protection_plan": True, "protected_by_writer": True,
+        **RECORDED_CLAIM_FACTS, "send_buffer": PROTECTED_SEND_BUFFER, "control_bytes": PROTECTED_CONTROL_BYTES,
+        "native_calls": PROTECTED_NATIVE_CALLS, "controller": "bbrv3", "bbr_credit": True, "protection_plan": True, "protected_by_writer": True,
         "native_ciphertext_opened": True, "control_opened": True, "borrowed_in_call": True, "close_returned_while_borrowed": True,
         "borrowed_at_native_return": True, "borrowed_at_fence": True, "lifetime": LIFETIME_CLASS, "released_at_join": True,
         "joined_after_return": True, "successor_delivered": True, "faulted": False, "close_to_join_ms": is_ms,
