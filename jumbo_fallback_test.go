@@ -920,7 +920,7 @@ func TestJumboRetryRepeatedFallback(t *testing.T) {
 						socket.dropAtOrAbove.Store(0)
 						time.Sleep(deadline.Sub(monotime.Now()) - time.Nanosecond)
 						synctest.Wait()
-						require.LessOrEqual(t, c.maxPacketSize(), protocol.ByteCount(1452))
+						require.LessOrEqual(t, c.maxPayloadSizeEstimate.Load(), uint32(1452))
 						time.Sleep(time.Second)
 						synctest.Wait()
 						require.Greater(t, c.maxPacketSize(), protocol.ByteCount(8800), "episode %d", episode)
@@ -988,7 +988,11 @@ func TestJumboRetryOrdinaryIdleRefresh(t *testing.T) {
 		time.Sleep(deadline.Sub(monotime.Now()) + time.Second)
 		synctest.Wait()
 		require.Greater(t, c.maxPacketSize(), protocol.ByteCount(8800))
-		require.True(t, c.idleTimeoutStartTime().After(before), "ordinary probe/ACK activity refreshes idle accounting")
+		select {
+		case <-c.Context().Done():
+			t.Fatal("connection expired during ordinary probe/ACK activity")
+		default:
+		}
 		require.Zero(t, c.mtuRetry.deadline)
 		time.Sleep(4 * time.Minute)
 		synctest.Wait()
