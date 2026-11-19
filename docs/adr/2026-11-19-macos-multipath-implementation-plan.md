@@ -128,7 +128,7 @@ The endpoint borrow invariant is materially consequential and crosses independen
 
 **Dispatch context budget:** This slice/common contract; settled socket/profile rows; native_transport.go, native_endpoint.go grant/constructor interfaces, sys_conn_helper_darwin.go and sys_conn_oob.go; native_shutdown_test.go and relevant socket tests; only the runner/fixture diff. Existing Linux qualification code is reference for record shape, not an instruction to port its entire campaign.
 
-**Slice decision audit:** Splitting the generic runner from its first scalar consumer yields an unexercised horizontal abstraction; rejected on merit. Merging E2 or E3 would mix ordinary grant/metadata behavior with blocked-write or observational-pressure semantics; keep them separate. No technical blocker exists: the private grant already supports Darwin.
+**Slice decision audit:** Splitting the generic runner from its first scalar consumer yields an unexercised horizontal abstraction; rejected on merit. Merging E2 or E3 would mix ordinary grant/metadata behavior with blocked-write or observational-pressure semantics; do not merge them. Revisit: none: rejected on merit. No technical blocker exists: the private grant already supports Darwin.
 
 **Stop conditions:** Stop if this needs a production owner/interface change, new public bypass, privileged host modification, unbounded fixture language, adjacent slice redesign or an unresolved capability that prevents the promised deliverable. Keep the child open with the concrete blocker; do not declare readiness from a skip.
 
@@ -160,7 +160,7 @@ The endpoint borrow invariant is materially consequential and crosses independen
 
 **Dispatch context budget:** This/common contract plus E1 runner/result interface, native_endpoint.go writer/expiry/result portions, native_shutdown_test.go, named endpoint tests and the archived Darwin trigger protocol section. Do not ingest the complete Linux campaign or PR #1295 implementation.
 
-**Slice decision audit:** E1 is a real blocker because the method consumes its socket/identity/case lifetime interface. Separate queued-expiry, close and deadline PRs would duplicate the same borrowed-current-write witness; rejected on merit. Merge with E3 is rejected because pressure absence can succeed observationally while missing forced traversal cannot qualify support. Native feasibility failure is an execution blocker, not permission to change the endpoint owner.
+**Slice decision audit:** E1 is a real blocker because the method consumes its socket/identity/case lifetime interface. Separate queued-expiry, close and deadline PRs would duplicate the same borrowed-current-write witness; rejected on merit. Merge with E3 is rejected because pressure absence can succeed observationally while missing forced traversal cannot qualify support. Revisit: none: rejected on merit. Native feasibility failure is an execution blocker, not permission to change the endpoint owner.
 
 **Stop conditions:** Stop if this needs a production owner/interface change, new public bypass, privileged host modification, unbounded fixture language, adjacent slice redesign or an unresolved capability that prevents the promised deliverable. Keep the child open with the concrete blocker; do not declare readiness from a skip.
 
@@ -224,7 +224,7 @@ The endpoint borrow invariant is materially consequential and crosses independen
 
 **Dispatch context budget:** This/common contract, interop/multipath/{Dockerfile,run.py,peer.c,README.md}, the launch/identity/address portions of multipath_picoquic_test.go and integrationtests/self/picoquic_control_test.go, and pinned upstream build guidance. No complete historical peer campaign.
 
-**Slice decision audit:** No blocker: ordinary peer construction does not require multipath admission or endpoint fixture readiness. A build-only or launcher-only PR lacks the usable native peer path this contract promises; keep build and ordinary control together. P2 is independent witness semantics, so shared files require merge coordination rather than a dependency or merged slice.
+**Slice decision audit:** No blocker: ordinary peer construction does not require multipath admission or endpoint fixture readiness. A build-only or launcher-only PR lacks the usable native peer path this contract promises; do not split them. Revisit: none: rejected on merit. P2 is independent witness semantics, so shared files require merge coordination rather than a dependency or merged slice. Do not merge P1/P2; revisit: none: rejected on merit.
 
 **Stop conditions:** Stop if this needs a production owner/interface change, new public bypass, privileged host modification, unbounded fixture language, adjacent slice redesign or an unresolved capability that prevents the promised deliverable. Keep the child open with the concrete blocker; do not declare readiness from a skip.
 
