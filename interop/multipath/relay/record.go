@@ -20,7 +20,8 @@ type Direction struct {
 	// Dropped datagrams would have pushed the queue's backlog past its limit. Only the
 	// client-to-server direction passes through a queue.
 	Dropped uint64 `json:"dropped"`
-	// Overflow datagrams found the route's bounded delivery backlog full.
+	// Overflow datagrams found the route's bounded delivery backlog full. They are
+	// refused before the queue, take no queue service and are not queue drops.
 	Overflow       uint64 `json:"overflow"`
 	Delivered      uint64 `json:"delivered"`
 	DeliveredBytes uint64 `json:"delivered_bytes"`

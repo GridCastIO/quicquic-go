@@ -25,8 +25,10 @@ import (
 )
 
 const (
-	// backlogPackets bounds each direction's datagrams awaiting delivery.
-	backlogPackets = 4096
+	// backlogPackets bounds each direction's datagrams awaiting delivery, as in B11. It
+	// is a memory bound, not part of the topology: a nonzero Overflow in a record means
+	// the offered traffic exceeded it.
+	backlogPackets = 1 << 16
 	socketBuffer   = 2 << 20
 	maxDatagram    = 1<<16 - 1
 )
@@ -168,17 +170,7 @@ func (r *Relay) readForward(l *link) {
 		now := time.Now()
 		from = unmapped(from)
 		l.client.Store(&from)
-		due, ok := l.plan.schedule(now, n)
-		l.mu.Lock()
-		l.forwardStats.Received++
-		l.forwardStats.ReceivedBytes += uint64(n)
-		if !ok {
-			l.forwardStats.Dropped++
-		}
-		l.mu.Unlock()
-		if ok {
-			l.enqueue(l.forward, packet{due: due, data: slices.Clone(buf[:n])}, &l.forwardStats)
-		}
+		l.acceptForward(now, buf[:n])
 	}
 }
 
@@ -198,22 +190,48 @@ func (r *Relay) readReverse(l *link) {
 			l.mu.Unlock()
 			continue
 		}
-		now := time.Now()
-		l.mu.Lock()
-		l.reverseStats.Received++
-		l.reverseStats.ReceivedBytes += uint64(n)
-		l.mu.Unlock()
-		l.enqueue(l.reverse, packet{due: now.Add(l.plan.delay), data: slices.Clone(buf[:n])}, &l.reverseStats)
+		l.acceptReverse(time.Now(), buf[:n])
 	}
 }
 
-func (l *link) enqueue(ch chan packet, p packet, stats *Direction) {
-	select {
-	case ch <- p:
-	default:
-		l.mu.Lock()
+// receive counts a datagram and reports whether ch, which only this direction's reader
+// sends on, has room for it. Because no other goroutine sends on ch, room seen here is
+// still there when the reader sends. A full backlog is the relay's memory bound, not a
+// queue decision, and is counted as Overflow.
+func (l *link) receive(ch chan packet, stats *Direction, size int) bool {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	stats.Received++
+	stats.ReceivedBytes += uint64(size)
+	if len(ch) == cap(ch) {
 		stats.Overflow++
+		return false
+	}
+	return true
+}
+
+// acceptForward handles one client-to-server datagram arriving at now. The backlog is
+// checked before the queue, so an overflowed datagram takes no queue service and the
+// queue alone decides every admission and drop it charges.
+func (l *link) acceptForward(now time.Time, data []byte) {
+	if !l.receive(l.forward, &l.forwardStats, len(data)) {
+		return
+	}
+	due, ok := l.plan.schedule(now, len(data))
+	if !ok {
+		l.mu.Lock()
+		l.forwardStats.Dropped++
 		l.mu.Unlock()
+		return
+	}
+	l.forward <- packet{due: due, data: slices.Clone(data)}
+}
+
+// acceptReverse handles one server-to-client datagram arriving at now; it is delayed but
+// not queued.
+func (l *link) acceptReverse(now time.Time, data []byte) {
+	if l.receive(l.reverse, &l.reverseStats, len(data)) {
+		l.reverse <- packet{due: now.Add(l.plan.delay), data: slices.Clone(data)}
 	}
 }
 

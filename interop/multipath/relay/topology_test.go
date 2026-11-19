@@ -101,6 +101,7 @@ func TestConfigValidate(t *testing.T) {
 		{"server port zero", KindDisjoint, func(c *Config) { c.Server = netip.MustParseAddrPort("127.0.0.1:0") }, "server"},
 		{"IPv6 server", KindDisjoint, func(c *Config) { c.Server = netip.MustParseAddrPort("[::1]:4433") }, "IPv4"},
 		{"IPv6 front", KindDisjoint, func(c *Config) { c.Routes[1].Front = netip.MustParseAddrPort("[::1]:0") }, "IPv4"},
+		{"wildcard front", KindDisjoint, func(c *Config) { c.Routes[1].Front = netip.MustParseAddrPort("0.0.0.0:0") }, "explicit"},
 		{"duplicate front", KindDisjoint, func(c *Config) {
 			c.Routes[0].Front = netip.MustParseAddrPort("127.0.0.1:5000")
 			c.Routes[1].Front = netip.MustParseAddrPort("127.0.0.1:5000")

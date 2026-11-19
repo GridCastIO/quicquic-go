@@ -106,8 +106,8 @@ func (c Config) Validate() error {
 	}
 	fronts := make(map[netip.AddrPort]bool)
 	for _, r := range c.Routes {
-		if !r.Front.IsValid() || !r.Front.Addr().Is4() {
-			return fmt.Errorf("route %s front %q must be an IPv4 address and port", r.Name, r.Front)
+		if !r.Front.IsValid() || !r.Front.Addr().Is4() || r.Front.Addr().IsUnspecified() {
+			return fmt.Errorf("route %s front %q must be an explicit IPv4 address and port", r.Name, r.Front)
 		}
 		if r.Front == c.Server {
 			return fmt.Errorf("route %s front is the server address %s", r.Name, c.Server)

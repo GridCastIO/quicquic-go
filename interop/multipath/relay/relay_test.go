@@ -204,3 +204,26 @@ func TestRelayStartFailureReleasesSockets(t *testing.T) {
 	_, err = Start(Config{Kind: "mesh"})
 	require.ErrorContains(t, err, "unknown topology kind")
 }
+
+// A full delivery backlog refuses a datagram before the queue sees it, so an overflow
+// never takes queue service: the queue alone decides what it admits and drops.
+func TestLinkOverflowBypassesQueue(t *testing.T) {
+	l := &link{
+		plan:    routePlan{name: RouteA, queue: newQueue(Queue{RateBPS: 8_000_000, LimitBytes: 20_000})},
+		forward: make(chan packet, 1),
+		reverse: make(chan packet, 1),
+	}
+	now := time.Unix(100, 0)
+	// 972 bytes plus 28 of headers take 1 ms at 8 Mbit/s.
+	payload := make([]byte, 972)
+	l.acceptForward(now, payload)
+	l.acceptForward(now, payload)
+	require.Equal(t, Direction{Received: 2, ReceivedBytes: 1944, Overflow: 1}, l.forwardStats)
+	require.Equal(t, now.Add(time.Millisecond), (<-l.forward).due)
+	l.acceptForward(now, payload)
+	require.Equal(t, now.Add(2*time.Millisecond), (<-l.forward).due, "the overflowed datagram took no service")
+
+	l.acceptReverse(now, payload)
+	l.acceptReverse(now, payload)
+	require.Equal(t, Direction{Received: 2, ReceivedBytes: 1944, Overflow: 1}, l.reverseStats)
+}

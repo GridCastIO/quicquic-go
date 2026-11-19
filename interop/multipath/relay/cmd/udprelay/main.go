@@ -75,8 +75,11 @@ func run(ctx context.Context, args []string, stdin io.Reader, stdout io.Writer) 
 	if *configPath == "" || *recordPath == "" || flags.NArg() != 0 {
 		return errors.New("-config and -record are required, and nothing else")
 	}
-	if _, err := os.Lstat(*recordPath); !errors.Is(err, os.ErrNotExist) {
-		return fmt.Errorf("record %s already exists or cannot be checked: %v", *recordPath, err)
+	switch _, err := os.Lstat(*recordPath); {
+	case err == nil:
+		return fmt.Errorf("record %s already exists", *recordPath)
+	case !errors.Is(err, os.ErrNotExist):
+		return fmt.Errorf("checking record %s: %w", *recordPath, err)
 	}
 	cfg, err := readConfig(*configPath)
 	if err != nil {
