@@ -4,13 +4,13 @@
 
 ## Purpose and source of truth
 
-Package the Windows profile from [planning issue #1397](https://github.com/GridCastIO/quicquic-go/issues/1397) and [PR #1483](https://github.com/GridCastIO/quicquic-go/pull/1483) into one track of fourteen child PRs. The [implementation plan](2026-11-19-windows-multipath-implementation-plan.md) is normative for slice contracts. This index owns stable identities and dependency pointers; issues and OmniFocus own current administrative state. The [target/evidence plan](2026-11-19-windows-multipath-plan.md) supplies settled background, while its broad W1–W6 units are replaced by the audited slices.
+Package the Windows profile from [planning issue #1397](https://github.com/GridCastIO/quicquic-go/issues/1397) and [PR #1483](https://github.com/GridCastIO/quicquic-go/pull/1483) into one track of fifteen child PRs. The [implementation plan](2026-11-19-windows-multipath-implementation-plan.md) is normative for slice contracts. This index owns stable identities and dependency pointers; issues and OmniFocus own current administrative state. The [target/evidence plan](2026-11-19-windows-multipath-plan.md) supplies settled background, while its broad W1–W6 units are replaced by the audited slices.
 
 ## Track, dependencies and frontier
 
 | Track | Plan | Parent issue | Size | Frontier | Status |
 | --- | --- | --- | --- | --- | --- |
-| MP-WIN — Native Windows multipath | [Implementation plan](2026-11-19-windows-multipath-implementation-plan.md) | pending | 14 slices / intended PRs | R1, R3, R4 | Implementation pending |
+| MP-WIN — Native Windows multipath | [Implementation plan](2026-11-19-windows-multipath-implementation-plan.md) | pending | 15 slices / intended PRs | R1, R3, R4 | Implementation pending |
 
 | Slice | Blocked by | State |
 | --- | --- | --- |
@@ -23,15 +23,16 @@ Package the Windows profile from [planning issue #1397](https://github.com/GridC
 | E2 — Establish the pending-IOCP deadline and borrow method | E1 | BLOCKED |
 | E3 — Add contention and pressure observations | E1 | BLOCKED |
 | P1 — Connect a Windows subject to the pinned Linux peer | MP-MAC-P1 (#1488) | BLOCKED |
+| P2 — Attribute fresh STREAM content to both ingress paths | MP-MAC-P2 (#1489) | BLOCKED |
 | C1 — Add Windows ordinary workloads and native metrics | R5, MP-MAC-C1 (#1490) | BLOCKED |
 | C2 — Adapt lifecycle-memory observations for Windows | C1, MP-MAC-C2 (#1491) | BLOCKED |
 | C3 — Adapt topology comparisons to native Windows subjects | C1, MP-MAC-C4 (#1493) | BLOCKED |
-| Q1 — Bind the executable protocol and operating authority | E2, E3, P1, C2, C3, MP-MAC-P2 (#1489) | BLOCKED |
+| Q1 — Bind the executable protocol and operating authority | E2, E3, P1, P2, C2, C3 | BLOCKED |
 | Q2 — Qualify and activate Windows multipath | Q1 | BLOCKED |
 
 Cross-program children retain their existing mappings: [MP-MAC-P1 (#1488)](https://github.com/GridCastIO/quicquic-go/issues/1488), [P2 (#1489)](https://github.com/GridCastIO/quicquic-go/issues/1489), [C1 (#1490)](https://github.com/GridCastIO/quicquic-go/issues/1490), [C2 (#1491)](https://github.com/GridCastIO/quicquic-go/issues/1491), [C4 (#1493)](https://github.com/GridCastIO/quicquic-go/issues/1493), transitively [relay C3 (#1492)](https://github.com/GridCastIO/quicquic-go/issues/1492). These are genuine consumed-interface blockers; open PRs are not established baselines. Verify accepted merged interfaces before dependent dispatch. This program does not dispatch, duplicate or rebaseline those tracks.
 
-R1/R3/R4 may run independently in dedicated worktrees. Prefer R1 first to expose portable build-selection work, alongside R3/R4 when capacity allows; priority does not add edges. P1 needs only its shared launch/tuple predecessor, not Windows transport implementation. E2/E3 can overlap after E1, and C2/C3 after their actual inputs merge. Shared files and shared hosts require coordination, not invented serial ordering. Q1 binds concrete operating decisions; Q2 cannot become ready from compilation or a missing-evidence receipt.
+R1/R3/R4 may run independently in dedicated worktrees. Prefer R1 first to expose the platform-operation interface and unblock R2, alongside R3/R4 when capacity allows; priority does not add edges. P1 consumes its shared launch/tuple predecessor and requires independently supplied operator development access for its native controls; Q1 cannot supply that prerequisite. P2 consumes the shared DATAGRAM phase/receipt interface and validates STREAM attribution independently of P1 on supported Linux. Missing external access keeps affected validation and the child open. E2/E3 can overlap after E1, and C2/C3 after their actual inputs merge. Shared files and shared hosts require coordination, not invented serial ordering. Q1 binds concrete operating decisions; Q2 cannot become ready from compilation or a missing-evidence receipt.
 
 ## Outcomes closed without additional implementation
 
