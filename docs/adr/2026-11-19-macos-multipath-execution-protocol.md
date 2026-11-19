@@ -107,7 +107,7 @@ This is the only place a row of the [accepted native semantic map](2026-11-18-ma
 | Map row | Native observation (step and field or test) | Deterministic on Darwin | Status |
 | --- | --- | --- | --- |
 | Grant and deadline authority | X4 grant-refusal and authority-returned-after-join cases; X7(a) public `TestMultipathExplicitGrantLifecycle` | X5 `TestNativeIOStopAndJoin`; X7(a) `TestNativeIOGrantValidation`, `TestPacketCeilingRefusesNativeMultipathIO` | Bound |
-| Expiry before dispatch | None. The blocked-writer profile records `expired-before-dispatch` only as a failure class. | X5 `TestNativeEndpointQueuedExpiry`, `TestNativeEndpointExpiredClaimAndNextDeadline` | [B6](#concrete-blockers), cleared by D15 |
+| Expiry before dispatch | X2 `expired-before-dispatch-successor` (`expired-claim-unsubmitted`): an already expired claim makes zero native writes and returns unsubmitted, and a successor is delivered on the real socket | X5 `TestNativeEndpointQueuedExpiry`, `TestNativeEndpointExpiredClaimAndNextDeadline` | Bound |
 | Local send backpressure | X2 `eagain-to-deadline` (`native-traversal`, `poller_witness: true`) with useful transfer afterward; X6 errors by class, including any `enobufs` | X7(c) `TestNativeOrdinary*` completion and injected-error tests and `TestBBRPathLocalWriteFailureIsBackpressure` (BBR path suspicion); X7(a) `TestEndpointPublicErrorCertainty` (public timeout, EAGAIN and injected ENOBUFS results) and `TestPathPolicyLocalResultsDoNotCountTowardSuspicion` (generic path policy) | Bound. UDP ENOBUFS is a residual unless X6 records it. |
 | Queued expiry behind a blocked writer | X2 `queued-expiry` (`native-traversal`, `poller_witness: true`, `queued_publication_ms` recorded) | X5 `TestNativeEndpointQueuedExpiry`, `TestEndpointPublicQueuedExpiryAndClose` | Bound |
 | Software segmentation and retry | X2 `first-send-eperm` (`simulated`), `constructed-segmentation-prefix` (`constructed`) and `scalar-emsgsize` (`native-size-feedback`), each credited only at its own class | X7(c) `TestNativeSoftware*`, `TestNativeOrdinarySegmentPrefix`, `TestNativeOrdinaryAcceptedSuffix` | Bound at the stated classes |
@@ -270,4 +270,5 @@ This approval does not activate Q2 ([#1495](https://github.com/GridCastIO/quicqu
 
 Reapprovals under the change rule in [first write-wait observation](#first-write-wait-observation):
 
-- **2026-11-19, X2 amended for D13 A (eight cases):** the owner's decision, recorded in [#1570 comment 7019402660](https://github.com/GridCastIO/quicquic-go/issues/1570#issuecomment-7019402660). Answer: "Approve + extra sentence (Recommended)".
+- **2026-11-19, X2 amended for D13 A (eight cases):** the owner's decision, recorded in [#1570 comment 7019402660](https://github.com/GridCastIO/quicquic-go/issues/1570#issuecomment-7019402660). Answer: "Approve + extra sentence (Recommended)". Revision: `c13615e6703f5864f2e69392e90fb0b015d986c4`.
+- **2026-11-19, conformance cleanup (coverage row and revision pin):** the owner's decision, recorded in [#1570 comment 7019886628](https://github.com/GridCastIO/quicquic-go/issues/1570#issuecomment-7019886628). Answer: "Approve the two edits (Recommended)".
