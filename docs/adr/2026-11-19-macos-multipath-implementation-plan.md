@@ -1,6 +1,6 @@
 # macOS multipath implementation plan
 
-**Date:** 2026-11-19. **Track:** MP-MAC, one track in [MP-MAC-20261119](2026-11-19-macos-multipath-program.md). **Status:** Accepted handoff; no implementation dispatched. **Parent issue:** pending. **Normative scope:** Current slice contracts, preserved profile, evidence, dependencies and stop conditions. **Audit history:** [Handoff audit](../audits/2026-11-19-macos-multipath-handoff/README.md); [planning PR #1479](https://github.com/GridCastIO/quicquic-go/pull/1479). The completed [planning issue #1396](https://github.com/GridCastIO/quicquic-go/issues/1396) stays closed.
+**Date:** 2026-11-19. **Track:** MP-MAC, one track in [MP-MAC-20261119](2026-11-19-macos-multipath-program.md). **Status:** Accepted handoff; readiness implementation in progress. **Parent issue:** pending. **Normative scope:** Current slice contracts, preserved profile, evidence, dependencies and stop conditions. **Audit history:** [Handoff audit](../audits/2026-11-19-macos-multipath-handoff/README.md); [planning PR #1479](https://github.com/GridCastIO/quicquic-go/pull/1479). The completed [planning issue #1396](https://github.com/GridCastIO/quicquic-go/issues/1396) stays closed.
 
 ## Outcome and authority
 
@@ -58,8 +58,8 @@ C2 observes live/retained memory at matched negotiated-connection lifecycle stat
 | E3 | New; blocked | Scalar contention and pressure-observation fixture | E1 | None |
 | P1 | New; frontier | Native pinned peer build, launch and ordinary control | None | None |
 | P2 | New; frontier | Fresh aggregate DATAGRAM ingress witness | None | None |
-| C1 | New; frontier | Native ordinary workloads and truthful metrics | None | None |
-| C2 | New; blocked | Negotiated lifecycle-memory observation | C1 | None |
+| C1 | Complete ([PR #1501](https://github.com/GridCastIO/quicquic-go/pull/1501)) | Native ordinary workloads and truthful metrics | None | None |
+| C2 | New; frontier | Negotiated lifecycle-memory observation | C1 | None |
 | C3 | New; frontier | Scoped UDP queue/topology relay | None | None |
 | C4 | New; blocked | Topology/control comparison workload | C1, C3 | None |
 | Q1 | New; blocked | Concrete approved execution/venue protocol | E2, E3, P1, P2, C2, C4 | None |
