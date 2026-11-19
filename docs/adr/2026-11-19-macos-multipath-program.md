@@ -10,7 +10,7 @@ Package the owner-approved macOS profile from [planning issue #1396](https://git
 
 | Track | Plan | Parent issue | Size | Current frontier | State |
 | --- | --- | --- | --- | --- | --- |
-| MP-MAC — Native macOS multipath | [Implementation plan](2026-11-19-macos-multipath-implementation-plan.md) | pending | 11 slices / intended PRs | None: Q1 awaits the owner decision | Readiness in progress |
+| MP-MAC — Native macOS multipath | [Implementation plan](2026-11-19-macos-multipath-implementation-plan.md) | pending | 11 slices / intended PRs | Q2, once the owner grants activation authority | Readiness complete; protocol approved |
 
 | Slice | Blocked by | State |
 | --- | --- | --- |
@@ -23,10 +23,10 @@ Package the owner-approved macOS profile from [planning issue #1396](https://git
 | C2 — Negotiated lifecycle memory | C1 | COMPLETE ([PR #1554](https://github.com/GridCastIO/quicquic-go/pull/1554)) |
 | C3 — UDP topology relay | None | COMPLETE ([PR #1497](https://github.com/GridCastIO/quicquic-go/pull/1497)) |
 | C4 — Topology comparison workload | C1, C3 | COMPLETE ([PR #1557](https://github.com/GridCastIO/quicquic-go/pull/1557)) |
-| Q1 — Concrete execution/venue protocol | E2, E3, P1, P2, C2, C4 | BLOCKED |
-| Q2 — Qualification and public activation | Q1 | BLOCKED |
+| Q1 — Concrete execution/venue protocol | E2, E3, P1, P2, C2, C4 | COMPLETE ([PR #1567](https://github.com/GridCastIO/quicquic-go/pull/1567); [execution protocol](2026-11-19-macos-multipath-execution-protocol.md)) |
+| Q2 — Qualification and public activation | Q1 | FRONTIER (dispatch also needs the owner's activation authority) |
 
-There are no cross-track edges. E1, E2, E3, P1, P2, C1, C2, C3 and C4 are complete; no slice can be dispatched until Q1's owner decision. P1/P2 shared some files but had no behavioral dependency. E2/E3 were parallel-safe after E1; C2 depended only on C1, and C4 on both C1 and C3. E1 and P1 have exposed native socket and build feasibility; priority does not create a blocking edge. Shared-host qualification coordination belongs to Q1, not to arbitrary serial task order.
+There are no cross-track edges. E1, E2, E3, P1, P2, C1, C2, C3, C4 and Q1 are complete, and the owner approved the [execution protocol](2026-11-19-macos-multipath-execution-protocol.md). Q2 is the only remaining slice; its dispatch also needs the owner's separate activation authority. P1/P2 shared some files but had no behavioral dependency. E2/E3 were parallel-safe after E1; C2 depended only on C1, and C4 on both C1 and C3. E1 and P1 have exposed native socket and build feasibility; priority does not create a blocking edge. Shared-host qualification coordination belongs to Q1, not to arbitrary serial task order.
 
 Q1 cannot complete without the concrete owner-approved execution, venue, toolchain, admitted-release and selected maintained-aid decisions. It collects no native qualification campaign. Q2 cannot be ready merely because tooling compiles; its blocker binds the actual methods and authority. The implementation skill verifies those conditions again before dispatch. No implementation agent is launched by this handoff.
 
