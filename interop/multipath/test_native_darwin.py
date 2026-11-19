@@ -15,11 +15,21 @@ SPEC.loader.exec_module(runner)
 IDENTITY = {"go": "go1.27.4", "goos": "darwin", "goarch": "arm64"}
 
 
+# What the producer records for each family, as printed by Go's UDP addresses.
+TUPLES = {
+    "ipv4": ("0.0.0.0:5000", "127.0.0.1:6000", "127.0.0.1:6000", "127.0.0.1:5000"),
+    "ipv6": ("[::]:5000", "[::1]:6000", "[::1]:6000", "[::1]:5000"),
+    "dual-stack-mapped-ipv4": ("[::]:5000", "127.0.0.1:6000", "[::ffff:127.0.0.1]:6000", "127.0.0.1:5000"),
+    "dual-stack-native-ipv6": ("[::]:5000", "[::1]:6000", "[::1]:6000", "[::1]:5000"),
+}
+
+
 def family_facts(name):
+    granted, peer, inbound, outbound = TUPLES[name]
     return {
-        "family": name, "granted_local": "[::]:5000", "peer": "127.0.0.1:6000", "inbound_source": "127.0.0.1:6000",
+        "family": name, "granted_local": granted, "peer": peer, "inbound_source": inbound,
         "inbound_destination": runner.FAMILIES[name], "inbound_interface": 1, "inbound_ecn": "CE", "outbound_accepted": 1,
-        "outbound_source": "127.0.0.1:5000", "outbound_ecn": "ECT(0)", "joined": True,
+        "outbound_source": outbound, "outbound_ecn": "ECT(0)", "joined": True,
     }
 
 
@@ -76,6 +86,20 @@ class RecordTests(unittest.TestCase):
         changed = {**runner.FIXED_FACTS["grant-refusal"], "held_socket": "accepted"}
         with self.assertRaisesRegex(ValueError, "held_socket"):
             runner.check_record("grant-refusal", IDENTITY, record_for("grant-refusal", facts=changed))
+
+    def test_recorded_tuples_match_the_family(self):
+        contradictions = {
+            "ipv6": {"peer": "127.0.0.1:6000", "inbound_source": "127.0.0.1:6000", "outbound_source": "127.0.0.1:5000"},
+            "ipv4": {"peer": None},
+            "dual-stack-mapped-ipv4": {"outbound_source": "127.0.0.1:5001"},
+            "dual-stack-native-ipv6": {"inbound_source": "[::1]:6001"},
+        }
+        for name, changes in contradictions.items():
+            for key, value in changes.items():
+                with self.subTest(name=name, key=key), self.assertRaisesRegex(ValueError, key):
+                    runner.check_record(name, IDENTITY, record_for(name, facts={**family_facts(name), key: value}))
+        with self.assertRaisesRegex(ValueError, "inbound_source"):
+            runner.check_record("dual-stack-mapped-ipv4", IDENTITY, record_for("dual-stack-mapped-ipv4", facts={**family_facts("dual-stack-mapped-ipv4"), "inbound_source": "127.0.0.1:6000"}))
 
     def test_malformed_record_fails(self):
         for text in ("", "{", "[]", '"record"'):
@@ -150,6 +174,31 @@ class RunCaseTests(unittest.TestCase):
         self.assertEqual("exit 3", failure)
         self.assertEqual(3, record["exit"])
 
+    def test_timeout_after_the_leader_exits_kills_the_pipe_holder(self):
+        directory = tempfile.TemporaryDirectory()
+        self.addCleanup(directory.cleanup)
+        marker = Path(directory.name) / "holder.pid"
+        # The leader exits at once; its child inherits stdout and keeps the pipe open.
+        body = (
+            "child = subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(60)'])\n"
+            f"open({str(marker)!r}, 'w').write(str(child.pid))"
+        )
+        binary = fake_binary(directory.name, body)
+        started = time.monotonic()
+        _, failure = runner.run_case(binary, "ipv4", Path(directory.name) / "out", IDENTITY, 1)
+        self.assertLess(time.monotonic() - started, 30)
+        self.assertRegex(failure, "timeout")
+        holder = int(marker.read_text())
+        deadline = time.monotonic() + 5
+        while time.monotonic() < deadline:
+            try:
+                os.kill(holder, 0)
+            except ProcessLookupError:
+                break
+            time.sleep(0.05)
+        else:
+            self.fail("the pipe holder survived the timeout")
+
     def test_timeout_kills_and_reaps_the_process_group(self):
         directory = tempfile.TemporaryDirectory()
         self.addCleanup(directory.cleanup)
@@ -198,6 +247,37 @@ class SourceTests(unittest.TestCase):
         self.assertEqual("?? b.go", runner.capture("git", "status", "--porcelain", cwd=source), "the real index is untouched")
 
 
+class RunTests(unittest.TestCase):
+    def test_source_is_snapshot_before_in_tree_output(self):
+        directory = tempfile.TemporaryDirectory()
+        self.addCleanup(directory.cleanup)
+        source = Path(directory.name)
+        git = ("git", "-c", "user.name=t", "-c", "user.email=t@example.invalid")
+        runner.capture(*git, "init", "-q", cwd=source)
+        (source / "a.go").write_text("package a\n")
+        runner.capture(*git, "add", "a.go", cwd=source)
+        runner.capture(*git, "commit", "-q", "-m", "a", cwd=source)
+
+        def build(_, toolchain, output):
+            binary = output / "native-darwin.test"
+            binary.write_text("binary")
+            return binary, {"go": "go1.27.4", "toolchain": toolchain, "mode": dict(runner.BUILD), "binary_sha256": "c" * 64}
+
+        def run_case(_, name, output, identity, timeout):
+            return {"case": name, "command": ["native-darwin.test"], "exit": 0, "seconds": 0.01, "record": record_for(name)}, None
+
+        native = {"system": "Darwin", "machine": "arm64", "proc_translated": "0", "product_version": "27.2.1", "build_version": "26B131", "kernel": "k", "cpu": "c"}
+        originals = runner.native_identity, runner.build, runner.run_case
+        runner.native_identity, runner.build, runner.run_case = (lambda: dict(native)), build, run_case
+        self.addCleanup(setattr, runner, "native_identity", originals[0])
+        self.addCleanup(setattr, runner, "build", originals[1])
+        self.addCleanup(setattr, runner, "run_case", originals[2])
+        results, failure = runner.run(source, source / "results", "local", 1)
+        self.assertIsNone(failure)
+        self.assertTrue(results["source"]["clean"], "the in-tree output is not source")
+        runner.validate_results(json.loads((source / "results" / "results.json").read_text()))
+
+
 class ResultsTests(unittest.TestCase):
     def results(self):
         return {
@@ -208,12 +288,15 @@ class ResultsTests(unittest.TestCase):
                 **IDENTITY, "system": "Darwin", "machine": "arm64", "proc_translated": "0",
                 "product_version": "27.2.1", "build_version": "26B131", "kernel": "Darwin 27.2.0 arm64", "cpu": "Apple M4 Max",
             },
-            "instances": [{"case": name, "exit": 0, "failure": None, "record": record_for(name)} for name in runner.CASES],
+            "instances": [{"case": name, "command": ["native-darwin.test"], "exit": 0, "seconds": 0.01, "failure": None, "record": record_for(name)} for name in runner.CASES],
             "status": {"cases": len(runner.CASES), "status": "pass", "support_receipt": False},
         }
 
     def test_readback_accepts_a_complete_run(self):
         runner.validate_results(self.results())
+        explicit = self.results()
+        explicit["build"]["toolchain"] = "go1.27.4"
+        runner.validate_results(explicit)
 
     def test_readback_rejects_incomplete_or_failed_runs(self):
         missing = self.results()
@@ -234,7 +317,17 @@ class ResultsTests(unittest.TestCase):
         misstated["source"]["tree"] = "d" * 40
         unidentified = self.results()
         del unidentified["identity"]["build_version"]
-        cases = (("misstated clean", misstated), ("unidentified", unidentified), ("missing", missing), ("failed", failed), ("unstated", unstated), ("translated", translated), ("wrong record", wrong_record), ("unsourced", unsourced), ("other build", other_build))
+        selector = self.results()
+        selector["build"]["toolchain"] = "go1.26.11"
+        linux = self.results()
+        linux["identity"]["goos"] = "linux"
+        for instance in linux["instances"]:
+            instance["record"]["goos"] = "linux"
+        boolean_exit = self.results()
+        boolean_exit["instances"][2]["exit"] = False
+        unknown_field = self.results()
+        unknown_field["build"]["extra"] = 1
+        cases = (("selector", selector), ("linux", linux), ("boolean exit", boolean_exit), ("unknown field", unknown_field), ("misstated clean", misstated), ("unidentified", unidentified), ("missing", missing), ("failed", failed), ("unstated", unstated), ("translated", translated), ("wrong record", wrong_record), ("unsourced", unsourced), ("other build", other_build))
         for name, results in cases:
             with self.subTest(name=name), self.assertRaises(ValueError):
                 runner.validate_results(results)

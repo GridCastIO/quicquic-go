@@ -189,8 +189,9 @@ func (f nativeDarwinFamily) run(t *testing.T, facts map[string]any) {
 	require.Equal(t, loopback, in.info.ifIndex, "the receiving interface from packet info")
 	require.Equal(t, protocol.ECNCE, in.ecn)
 
-	// Back through the granted writer to the address the packet came from, with the
-	// received packet info as its source.
+	// Back through the granted writer to the address the packet came from. The writer
+	// gets the received packet info as control data; loopback routing can pick the
+	// same source without it, so the peer's view shows the expected tuple only.
 	result := nativeDarwinSend(t, tr, source, in.info, protocol.ECT0, "from granted")
 	require.NoError(t, result.failure())
 	require.Len(t, result.members, 1)
@@ -198,7 +199,7 @@ func (f nativeDarwinFamily) run(t *testing.T, facts map[string]any) {
 	require.Equal(t, [3]int{1, 0, 0}, [3]int{member.accepted, member.uncertain, member.unsubmitted}, "accepted, uncertain, unsubmitted")
 	payload, out := peer.read(t)
 	require.Equal(t, "from granted", payload)
-	require.Equal(t, target, out.remoteAddr.(*net.UDPAddr).AddrPort(), "the source chosen from packet info")
+	require.Equal(t, target, out.remoteAddr.(*net.UDPAddr).AddrPort(), "the peer sees the granted address and port")
 	require.Equal(t, protocol.ECT0, out.ecn)
 
 	nativeDarwinJoin(t, tr)

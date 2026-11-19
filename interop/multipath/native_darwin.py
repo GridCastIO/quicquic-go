@@ -8,6 +8,7 @@ is local smoke evidence for the granted endpoint method, never a support receipt
 
 import argparse
 import hashlib
+import ipaddress
 import json
 import os
 from pathlib import Path
@@ -26,6 +27,9 @@ RECORD_ENV = "NATIVE_DARWIN_RECORD"
 RECORD_FIELDS = {"schema", "case", "go", "goos", "goarch", "facts"}
 # Each family's expected local destination, from packet info on the granted socket.
 FAMILIES = {"ipv4": "127.0.0.1", "ipv6": "::1", "dual-stack-mapped-ipv4": "127.0.0.1", "dual-stack-native-ipv6": "::1"}
+# The granted socket's wildcard and the form the granted socket reports the peer's source in.
+GRANTED_WILDCARD = {"ipv4": "0.0.0.0", "ipv6": "::", "dual-stack-mapped-ipv4": "::", "dual-stack-native-ipv6": "::"}
+INBOUND_FORM = {"ipv4": "127.0.0.1", "ipv6": "::1", "dual-stack-mapped-ipv4": "::ffff:127.0.0.1", "dual-stack-native-ipv6": "::1"}
 FAMILY_FACTS = {
     "family", "granted_local", "peer", "inbound_source", "inbound_destination", "inbound_interface",
     "inbound_ecn", "outbound_accepted", "outbound_source", "outbound_ecn", "joined",
@@ -41,7 +45,6 @@ FIXED_FACTS = {
     },
 }
 CASES = (*FAMILIES, *FIXED_FACTS)
-SOURCE_FIELDS = {"commit", "tree", "head_tree", "clean"}
 NATIVE_FIELDS = ("product_version", "build_version", "kernel", "cpu")
 BUILD = {"CGO_ENABLED": "0", "GOOS": "darwin", "GOARCH": "arm64", "GOFLAGS": "-buildvcs=false"}
 
@@ -76,6 +79,30 @@ def check_family_facts(name, facts):
     interface = facts["inbound_interface"]
     if isinstance(interface, bool) or not isinstance(interface, int) or interface <= 0:
         raise ValueError(f"{name}: fact inbound_interface is {interface!r}, expected a positive index")
+    granted, peer = parse_tuple(name, "granted_local", facts), parse_tuple(name, "peer", facts)
+    expected = {
+        "granted_local": (ipaddress.ip_address(GRANTED_WILDCARD[name]), granted[1]),
+        "peer": (ipaddress.ip_address(FAMILIES[name]), peer[1]),
+        "inbound_source": (ipaddress.ip_address(INBOUND_FORM[name]), peer[1]),
+        "outbound_source": (ipaddress.ip_address(FAMILIES[name]), granted[1]),
+    }
+    for key, value in expected.items():
+        if parse_tuple(name, key, facts) != value:
+            raise ValueError(f"{name}: fact {key} is {facts[key]!r}, expected {value[0]} port {value[1]}")
+
+
+def parse_tuple(name, key, facts):
+    """Parses a Go UDP address string; the standard ipaddress module owns the address syntax."""
+    text = facts[key]
+    host, _, port = text.rpartition(":") if isinstance(text, str) else ("", "", "")
+    try:
+        address = ipaddress.ip_address(host[1:-1] if host.startswith("[") and host.endswith("]") else host)
+        number = int(port)
+    except ValueError:
+        raise ValueError(f"{name}: fact {key} is not a UDP address: {text!r}") from None
+    if not 0 < number < 65536 or not port.isdigit():
+        raise ValueError(f"{name}: fact {key} has no valid port: {text!r}")
+    return address, number
 
 
 def check_record(name, identity, record):
@@ -153,8 +180,9 @@ def build(source, toolchain, output):
 
 def stop_group(process):
     """Kill the case's process group while its leader is unreaped, so the group ID
-    cannot have been reused. Its descendants share the group."""
-    if process.poll() is None:
+    cannot have been reused. Its descendants share the group. It never polls: that
+    could reap a leader that exited while a descendant still holds the pipe."""
+    if process.returncode is None:
         try:
             os.killpg(process.pid, signal.SIGKILL)
         except ProcessLookupError:
@@ -202,28 +230,97 @@ def status():
     return {"cases": len(CASES), "status": "pass", "support_receipt": False}
 
 
+def is_text(value):
+    return isinstance(value, str) and value != ""
+
+
+def is_hex(length):
+    return lambda value: isinstance(value, str) and re.fullmatch(f"[0-9a-f]{{{length}}}", value) is not None
+
+
+def is_integer(value):
+    return type(value) is int
+
+
+# The declared results shape: every section has exactly these fields, each with its
+# type. Cross-field consistency follows in validate_results; nothing else is read.
+RESULTS_SHAPE = {
+    "source": {"commit": is_hex(40), "tree": is_hex(40), "head_tree": is_hex(40), "clean": lambda value: type(value) is bool},
+    "build": {"go": is_text, "toolchain": is_text, "mode": lambda value: value == BUILD, "binary_sha256": is_hex(64)},
+    "identity": {key: is_text for key in ("system", "machine", "proc_translated", *NATIVE_FIELDS, "go", "goos", "goarch")},
+    "instance": {
+        "case": is_text, "command": lambda value: isinstance(value, list) and all(map(is_text, value)),
+        "exit": lambda value: is_integer(value) and value == 0, "seconds": lambda value: type(value) in (int, float) and value >= 0,
+        "record": lambda value: isinstance(value, dict), "failure": lambda value: value is None,
+    },
+}
+RESULTS_FIELDS = {"schema", "source", "build", "identity", "instances", "status"}
+
+
+def check_shape(section, value, shape):
+    if not isinstance(value, dict) or set(value) != set(shape):
+        raise ValueError(f"results {section} fields {sorted(value) if isinstance(value, dict) else value!r} are not {sorted(shape)}")
+    invalid = sorted(key for key, valid in shape.items() if not valid(value[key]))
+    if invalid:
+        raise ValueError(f"results {section} has invalid {invalid}")
+
+
 def validate_results(results):
     """Read-back validation of a results file: a complete passing run, or an error."""
-    if results.get("schema") != RESULTS_SCHEMA:
-        raise ValueError(f"results schema {results.get('schema')!r} is not {RESULTS_SCHEMA}")
-    identity = results.get("identity") or {}
+    if not isinstance(results, dict) or set(results) != RESULTS_FIELDS:
+        raise ValueError(f"results fields {sorted(results) if isinstance(results, dict) else results!r} are not {sorted(RESULTS_FIELDS)}")
+    if results["schema"] != RESULTS_SCHEMA:
+        raise ValueError(f"results schema {results['schema']!r} is not {RESULTS_SCHEMA}")
+    source, build_identity, identity = results["source"], results["build"], results["identity"]
+    check_shape("source", source, RESULTS_SHAPE["source"])
+    check_shape("build", build_identity, RESULTS_SHAPE["build"])
+    check_shape("identity", identity, RESULTS_SHAPE["identity"])
+    if source["clean"] != (source["tree"] == source["head_tree"]):
+        raise ValueError(f"results source clean flag contradicts its trees: {source!r}")
+    if build_identity["toolchain"] not in ("local", build_identity["go"]):
+        raise ValueError(f"results build toolchain {build_identity['toolchain']!r} is not local or the built {build_identity['go']!r}")
+    expected = {"go": build_identity["go"], "goos": BUILD["GOOS"], "goarch": BUILD["GOARCH"]}
+    if {key: identity[key] for key in expected} != expected:
+        raise ValueError(f"results run identity contradicts the build: {expected!r}")
     check_native(identity)
-    source, build_identity = results.get("source") or {}, results.get("build") or {}
-    if set(source) != SOURCE_FIELDS or not all(isinstance(source[key], str) and source[key] for key in SOURCE_FIELDS - {"clean"}) or source["clean"] != (source["tree"] == source["head_tree"]):
-        raise ValueError(f"results source identity is incomplete or inconsistent: {source!r}")
-    if build_identity.get("go") != identity.get("go") or build_identity.get("mode") != BUILD or not all(build_identity.get(key) for key in ("toolchain", "binary_sha256")):
-        raise ValueError(f"results build identity is incomplete or inconsistent: {build_identity!r}")
-    missing = [key for key in NATIVE_FIELDS if not isinstance(identity.get(key), str) or not identity[key]]
-    if missing:
-        raise ValueError(f"results native identity is missing {missing}")
-    instances = results.get("instances") or []
-    check_accounting([instance.get("case") for instance in instances])
+    instances = results["instances"]
+    if not isinstance(instances, list):
+        raise ValueError("results instances are not a list")
     for instance in instances:
-        if instance.get("failure") is not None or instance.get("exit") != 0:
-            raise ValueError(f"{instance.get('case')}: did not pass")
-        check_record(instance["case"], identity, instance.get("record") or {})
-    if results.get("status") != status():
-        raise ValueError(f"results status {results.get('status')!r} is not {status()!r}")
+        check_shape("instance", instance, RESULTS_SHAPE["instance"])
+    check_accounting([instance["case"] for instance in instances])
+    for instance in instances:
+        check_record(instance["case"], identity, instance["record"])
+    if results["status"] != status():
+        raise ValueError(f"results status {results['status']!r} is not {status()!r}")
+
+
+def run(source, output, toolchain, case_timeout):
+    """Runs every case once and returns the results; stops at the first failure."""
+    identity = native_identity()
+    check_native(identity)
+    if shutil.which("go") is None:
+        raise SystemExit("missing prerequisite: go")
+    # Snapshot the source before creating output, which may lie inside the tree.
+    source_snapshot = source_identity(source)
+    output.mkdir(parents=True, exist_ok=False)
+    binary, build_identity = build(source, toolchain, output)
+    identity |= {"go": build_identity["go"], "goos": BUILD["GOOS"], "goarch": BUILD["GOARCH"]}
+    results = {"schema": RESULTS_SCHEMA, "source": source_snapshot, "build": build_identity, "identity": identity, "instances": []}
+    # There is no repeat-until-pass.
+    failure = None
+    for name in CASES:
+        instance, failure = run_case(binary, name, output, identity, case_timeout)
+        instance["failure"] = failure
+        results["instances"].append(instance)
+        if failure is not None:
+            break
+    if failure is None:
+        check_accounting([instance["case"] for instance in results["instances"]])
+        # Only a complete passing run records a status, so a stopped run claims nothing.
+        results["status"] = status()
+    (output / "results.json").write_text(json.dumps(results, indent=2) + "\n")
+    return results, failure
 
 
 def main():
@@ -240,31 +337,10 @@ def main():
         return
     if args.output is None:
         parser.error("--output is required")
-    identity = native_identity()
-    check_native(identity)
-    if shutil.which("go") is None:
-        raise SystemExit("missing prerequisite: go")
-    args.output.mkdir(parents=True, exist_ok=False)
-    binary, build_identity = build(args.source, args.toolchain, args.output)
-    identity |= {"go": build_identity["go"], "goos": BUILD["GOOS"], "goarch": BUILD["GOARCH"]}
-    results = {"schema": RESULTS_SCHEMA, "source": source_identity(args.source), "build": build_identity, "identity": identity, "instances": []}
-    # Stop at the first failure; there is no repeat-until-pass.
-    failure = None
-    for name in CASES:
-        instance, failure = run_case(binary, name, args.output, identity, args.case_timeout)
-        instance["failure"] = failure
-        results["instances"].append(instance)
-        if failure is not None:
-            break
-    path = args.output / "results.json"
-    if failure is None:
-        check_accounting([instance["case"] for instance in results["instances"]])
-        # Only a complete passing run records a status, so a stopped run claims nothing.
-        results["status"] = status()
-    path.write_text(json.dumps(results, indent=2) + "\n")
+    results, failure = run(args.source, args.output, args.toolchain, args.case_timeout)
     if failure is not None:
         raise SystemExit(f"stopped: {failure}")
-    validate_results(json.loads(path.read_text()))
+    validate_results(json.loads((args.output / "results.json").read_text()))
     print(json.dumps(results["status"]))
 
 
