@@ -649,39 +649,60 @@ func TestOrdinaryCostLifecycle(t *testing.T) {
 	}
 
 	// A test-local Config makes one role's connection run bbrv3 where the run requested reno.
-	for _, mismatched := range []string{"client", "server"} {
-		t.Run("a "+mismatched+" whose connection runs another controller fails", func(t *testing.T) {
-			spec := ordinaryCostLifecycleSpec{Controller: "reno", Retired: "closed", Address: address(), TimeoutNS: int64(10 * time.Second)}
-			clientConf, serverConf := ordinaryCostConfig(t, true, "reno"), ordinaryCostConfig(t, true, "reno")
-			if mismatched == "client" {
-				clientConf = ordinaryCostConfig(t, true, "bbrv3")
-			} else {
-				serverConf = ordinaryCostConfig(t, true, "bbrv3")
+	// Each role's peer is an ordinary test-local endpoint on a socket held from the start, so
+	// no address is released before it is bound and no peer role can finish first.
+	t.Run("a client whose connection runs another controller fails", func(t *testing.T) {
+		ordinary := &Transport{Conn: newUDPConnLocalhost(t)}
+		t.Cleanup(func() { ordinary.Close() })
+		ln, err := ordinary.Listen(ordinaryCostServerTLS(), ordinaryCostConfig(t, false, "reno"))
+		require.NoError(t, err)
+		t.Cleanup(func() { ln.Close() })
+		go func() {
+			if conn, err := ln.Accept(context.Background()); err == nil {
+				<-conn.Context().Done()
 			}
-			type served struct {
-				result *ordinaryCostLifecycleServerResult
-				err    error
-			}
-			servers := make(chan served, 1)
-			go func() {
-				result, err := ordinaryCostRunLifecycleServer(t.Context(), spec, serverConf)
-				servers <- served{result, err}
-			}()
-			joinServer := sync.OnceValue(func() served { return <-servers })
-			t.Cleanup(func() { joinServer() })
-			client, err := ordinaryCostRunLifecycleClient(t.Context(), spec, clientConf)
-			if mismatched == "client" {
-				require.ErrorContains(t, err, "runs bbrv3, not the requested reno")
-				require.Equal(t, "bbrv3", client.Controller, "the result names what the connection ran")
-				require.Empty(t, client.Samples)
-				return
-			}
-			require.Error(t, err, "the server closed the connection")
-			server := joinServer()
-			require.ErrorContains(t, server.err, "runs bbrv3, not the requested reno")
-			require.Equal(t, "bbrv3", server.result.Controller)
-		})
-	}
+		}()
+		spec := ordinaryCostLifecycleSpec{Controller: "reno", Retired: "closed", Address: ordinary.Conn.LocalAddr().String(), TimeoutNS: int64(10 * time.Second)}
+		client, err := ordinaryCostRunLifecycleClient(t.Context(), spec, ordinaryCostConfig(t, true, "bbrv3"))
+		require.ErrorContains(t, err, "runs bbrv3, not the requested reno")
+		require.Equal(t, "bbrv3", client.Controller, "the result names what the connection ran")
+		require.Empty(t, client.Samples)
+	})
+
+	t.Run("a server whose connection runs another controller fails", func(t *testing.T) {
+		peer := &Transport{Conn: newUDPConnLocalhost(t)}
+		t.Cleanup(func() { peer.Close() })
+		spec := ordinaryCostLifecycleSpec{Controller: "reno", Retired: "closed", Address: address(), TimeoutNS: int64(10 * time.Second)}
+		type served struct {
+			result *ordinaryCostLifecycleServerResult
+			err    error
+		}
+		servers := make(chan served, 1)
+		serverConf := ordinaryCostConfig(t, true, "bbrv3")
+		go func() {
+			result, err := ordinaryCostRunLifecycleServer(t.Context(), spec, serverConf)
+			servers <- served{result, err}
+		}()
+		joinServer := sync.OnceValue(func() served { return <-servers })
+		t.Cleanup(func() { joinServer() })
+		addr, err := net.ResolveUDPAddr("udp", spec.Address)
+		require.NoError(t, err)
+		ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+		defer cancel()
+		conn, err := peer.Dial(ctx, addr, ordinaryCostClientTLS(), ordinaryCostConfig(t, false, "reno"))
+		require.NoError(t, err)
+		select {
+		case <-conn.Context().Done():
+		case <-ctx.Done():
+			t.Fatal("the mismatched server never closed the connection")
+		}
+		var appErr *ApplicationError
+		require.ErrorAs(t, context.Cause(conn.Context()), &appErr)
+		require.True(t, appErr.Remote, "the server role closed the connection")
+		server := joinServer()
+		require.ErrorContains(t, server.err, "runs bbrv3, not the requested reno")
+		require.Equal(t, "bbrv3", server.result.Controller)
+	})
 
 	t.Run("an unnegotiated connection is no control", func(t *testing.T) {
 		ordinary := &Transport{Conn: newUDPConnLocalhost(t)}
