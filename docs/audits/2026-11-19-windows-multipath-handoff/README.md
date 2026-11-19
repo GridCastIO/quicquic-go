@@ -1,0 +1,66 @@
+# Windows multipath handoff audit
+
+**Date:** 2026-11-19. **Program:** MP-WIN-20261119. **Auditor:** Codex. **Source baseline:** `4f462bce79dab0cd9786da259bd3097d6720211f`, fetched from remote main. **Artifacts:** Process/traceability metadata only. [Current implementation contract](../../adr/2026-11-19-windows-multipath-implementation-plan.md) and [program index](../../adr/2026-11-19-windows-multipath-program.md) own the outcome and graph. This audit records source, existing-work and slice-decision evidence; PR review/certification/merge receipts belong to the publishing PR discussion.
+
+## Source and authority inspected
+
+The user explicitly invoked architecture-handoff on the empty Windows multipath OmniFocus group `hx63LcXBcq-`, beneath the existing multipath OS-support parent. The request authorizes a Windows package and its mirrors, not dispatch or changes to sibling programs. The initiating checkout was left read-only with its user-owned changes; documentation was drafted in a dedicated `codex/windows-multipath-handoff` worktree.
+
+The [approved Windows plan and PR #1483](https://github.com/GridCastIO/quicquic-go/pull/1483), its [final review/certification receipt for PR #1483](https://github.com/GridCastIO/quicquic-go/pull/1483#issuecomment-7003162855), [planning issue #1397](https://github.com/GridCastIO/quicquic-go/issues/1397), glossary, endpoint/Reno/BBR plans, Windows datapath and managed ECN plans, and repository review overlay supply settled context. No new runtime implementation was made. Existing Windows toolchain/build/guest identities are historical candidates requiring Q1 verification, not claims of current capacity.
+
+Source inspection followed the actual endpoint factory/writer/public response, ordinary/protection/staging, transport wrapping/grant, Windows metadata/ECN/URO, DF/PMTU, recovery path creation, negotiated tuple commit and ordinary path-switch owners. Notable anchors are recorded in the plan. The private endpoint factory takes an exact `*net.UDPConn`, while its injectable start seam is separate; that supports putting native success normalization and preset inspection at the concrete Windows factory without normalizing arbitrary callback results. The endpoint's protection-plan dependency can be built independently from ordinary construction/staging, making R2 coherent before R5. The reader's actual scalar path currently bypasses the checked managed/URO path, so a build-tag-only transport port is insufficient.
+
+Official representation references corroborating the accepted design are Microsoft's [UDP socket options](https://learn.microsoft.com/en-us/windows/win32/winsock/ipproto-udp-socket-options), [GetProcessTimes](https://learn.microsoft.com/en-us/windows/win32/api/processthreadsapi/nf-processthreadsapi-getprocesstimes) and [process memory counters](https://learn.microsoft.com/en-us/windows/win32/api/psapi/ns-psapi-process_memory_counters). Nonzero socket presets affect framing, CPU durations use 100 ns units, and current/peak working set and commit are distinct memory observations. Runtime qualification must inspect the selected Go toolchain's Windows poller rather than infer versioned behavior from a moving webpage.
+
+## Existing work evaluated before graph adoption
+
+| Work and inspected state | Disposition and gate assessment |
+| --- | --- |
+| Merged planning PR #1483 and closed planning issue #1397 | Retain target/ownership/evidence decisions. Replace broad W1–W6 dispatch granularity with fourteen current contracts. No implementation result or campaign is inferred from planning. |
+| [PR #1295](https://github.com/GridCastIO/quicquic-go/pull/1295), head `6f3192a596c069007ac2fb7b470a0c4b45dba813`; body/diff and [issue #1285 disposition](https://github.com/GridCastIO/quicquic-go/issues/1285#issuecomment-6788620596) | Retain as excluded historical evidence. Linux-only deferred-deadline/raw-write design, terminal inconclusive retention decision and exhausted operational scope do not satisfy the Windows runtime contract. No edge, merge, closure or new attempt allocation. |
+| Shared peer [issue #1488](https://github.com/GridCastIO/quicquic-go/issues/1488), [PR #1499](https://github.com/GridCastIO/quicquic-go/pull/1499), inspected head `e3878bba260bb5ec29c7fd5d23792dc29763d9b7` | Retain accepted tuple/launch interface as an unfinished blocker for Windows P1. Bodies, comments, relevant diff and preparation dispositions inspected. Native local Darwin launch is not remote Windows orchestration. The noted same-IP tuple distinction must be checked using exact address and port in Windows P1; no assumption that a native smoke closes remote custody or tuple identity. |
+| Shared aggregate ingress [issue #1489](https://github.com/GridCastIO/quicquic-go/issues/1489), no implementation PR at inspection | Retain current audited contract as Q1 blocker: fresh phase/payload/actual-ingress identity in both roles. No code baseline inferred; no duplicate Windows witness implementation. |
+| Shared ordinary metrics [issue #1490](https://github.com/GridCastIO/quicquic-go/issues/1490), [PR #1501](https://github.com/GridCastIO/quicquic-go/pull/1501), inspected head `4314e9e616d11523b846e1cc0963ad98a22d52d9` | Retain accepted workload/units/availability interface as unfinished C1 blocker. Bodies, comments and relevant diff inspected: missing sampler is unavailable; BBR loss is not fabricated; Darwin host fixture is producer-shaped, not captured. No Darwin host attribution or Linux threshold becomes Windows evidence. Windows supplies its own producer/cleanup adapter after merge. |
+| Shared lifecycle [issue #1491](https://github.com/GridCastIO/quicquic-go/issues/1491), no implementation PR at inspection | Retain exact observed-state contract as unfinished C2 blocker; Windows adds its approved active-aggregate phase and native metrics. Ordinary controls, detachment and requested retirement cannot substitute for observed negotiated states. |
+| Shared relay [issue #1492](https://github.com/GridCastIO/quicquic-go/issues/1492), [PR #1497](https://github.com/GridCastIO/quicquic-go/pull/1497), inspected head `01da26e0fc5ccf1116e866234f960f02fdef83fa`; shared comparison [issue #1493](https://github.com/GridCastIO/quicquic-go/issues/1493) | Retain audited relay/comparison as unfinished C3 dependency through #1493. Bodies/comments and relay's queue/topology/process-lifetime diff inspected. The preparation correction moves overflow before queue service; queue identity remains one owner. No production import or qualification timing claim is inferred. Future consuming slice must check actual merged interface and unresolved findings; an open PR is never a baseline. |
+
+No existing Windows implementation slice required rework or closure. Shared-program scopes and mirrors are unchanged. They were created under the current bounded policy, so no scoped legacy rebaseline is triggered. Open shared PRs must still satisfy their own reviews, validation and merge gates. This audit chooses reuse of accepted interfaces; it is not a claim to certify those live PR heads.
+
+## Precise-root history handling
+
+Planning PR #1483's accepted findings and independent dispositions are linked in its discussion rather than copied into the normative plan. They do not authorize another review cycle or widen the runtime target. No automatic repeated-root finding is asserted here. The relevant comparisons retain different concrete owners:
+
+| Earlier case | Later case | Exact distinction |
+| --- | --- | --- |
+| Active URO fails to disable; reader must retain its coalescing guard | Caller preset offload options exist before a grant | Reader fallback state versus concrete exact-socket admission/setup; neither fixes the other's invariant. R2 owns preset refusal, R3 owns reader fallback. |
+| Constructor receives a qualified ECN send capability | Reader publishes a valid received mark after partial setup left one family active | Constructor capability consumption versus `windowsConn` receive publication; the latter must suppress marks when unqualified. R3/R5 cover both seams explicitly. |
+| Negotiated `admitPath`/`commitTuple` transition uses the target socket | Ordinary `Conn.switchToNewPath` resets its separate recovery route | Distinct entrypoints and transition owners, not one shared “migration bug” by naming alone. R4 now explicitly accepts the common target-capability invariant and traces each actual call into recovery. |
+
+Any later repeated-root conclusion must compare its exact invariant, central enforcement seam, semantic classes and why an earlier accepted family necessarily covered the later case. This table is not a declaration that all ECN or lifecycle findings share one root.
+
+## Slice decision audit before publication
+
+The auditor judged the graph against vertical completeness, independent green merges, one-owner authority, bounded transition seams, TDD, blast radius, representation and finite evidence. The plan records each slice's strongest further-split and adjacent-merge alternatives and reasons. The table below records the disposition, not a duplicate contract.
+
+| Slice | Audit conclusion |
+| --- | --- |
+| R1 | Accept inert prefactor through existing real consumers. Unix result/error and OOB behavior is characterized before Windows code is introduced. |
+| R2 | Accept direct endpoint behavior with response/protection members. Concrete exact-socket setup owns native normalization/preset checks; ordinary route remains safely synchronous/uninstalled. |
+| R3 | Accept inert completed reader expansion with direct socket interface tests. No authority until R5 selects it; R5 is the explicit removal edge for the unwired interface. |
+| R4 | Accept portable transition repair in one context. Creation, two negotiated migration classes and ordinary switch all feed the recovery owner; MTU-only resets preserve capability. |
+| R5 | Accept integration only after the three completed owners exist. No half-active producer, reader or grant lifetime; public support remains refused. |
+| E1 | Accept real integrated native case/runner interface; metadata family and PMTU evidence is distinct from compilation. |
+| E2 | Accept method-development slice with a hard feasibility stop. True pending write, deadline on an open socket, return/reset, successor and separate close witness are inseparable. |
+| E3 | Accept bounded contention observation independently from IOCP trigger attribution; missing pressure stays reported. |
+| P1 | Accept Windows/remote launch extension after shared tuple interface, independently of runtime integration. Cleanup owns remote child lifetime, not merely local launcher exit. |
+| C1 | Accept workload plus Windows collector consumption after shared metric interface and private transport. No parallel collector/schema. |
+| C2 | Accept phase-observation adapter after existing lifecycle/metric interfaces; aggregate phase is explicit Windows scope. |
+| C3 | Accept comparison adapter after shared topology/metric interfaces; no duplicate relay. |
+| Q1 | Accept metadata/authority binding after concrete methods. Missing method or approval keeps the child open; no campaign runs. |
+| Q2 | Accept one gate/evidence/continuing-CI/support PR. Runtime repair or profile reduction stops for rescoping. |
+
+R1/R3/R4 have no actual input dependencies. External blockers consume specific interfaces; no ordering was added for shared files, presumed host load or convenience. E2/E3 and C2/C3 remain parallel-safe once their genuine blockers complete. Every universal metadata claim has the finite fourteen-slice domain; runtime universal statements are limited to exact sockets and typed state with the named enforcement owners. No additional proof/mutation product or speculative campaign budget is created.
+
+## Publishing evidence
+
+The documentation PR supplies independent full-panel RAS review with the handoff criteria and ceilings, dispositions, exact-head source/link/graph/whitespace certification and applicable hosted checks. Review chronology, run IDs and candidate/base/merge receipts stay in that PR. After merge, child issues use the verified reachable default-branch commit, and the final report records the complete issue/task mapping and readback. No implementation agent is launched by this handoff.
