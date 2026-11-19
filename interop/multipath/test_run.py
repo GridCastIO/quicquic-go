@@ -394,6 +394,13 @@ class NativeProfileTests(unittest.TestCase):
                 "settings": {"-tags": "picoquic", "GOOS": "darwin", "GOARCH": "arm64"}, "sha256": digest,
                 "rebuild": "byte-identical"}
 
+    def test_native_receipts_read_the_binding_through_its_owner(self):
+        # #1576: one binding schema, candidate_binding's, for this runner and the verdicts.
+        owner = binding_fixture.binding
+        self.assertIs(runner.BINDING_SCHEMA["source"], owner.SOURCE_SCHEMA)
+        self.assertIs(runner.BINDING_SCHEMA["test_binary_binding"], owner.BINDING_SCHEMA)
+        self.assertIs(runner.NATIVE_IDENTITY_SCHEMA["test_binary_binding"], owner.BINDING_SCHEMA)
+
     def test_native_receipts_require_their_candidate_binding(self):
         for receipt in ("ordinary-control", "matrix-discovery"):
             for change, message in (
