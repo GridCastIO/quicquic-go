@@ -250,6 +250,7 @@ func TestTopologyComparisonSmoke(t *testing.T) {
 // identity, metric, demand, receiver count or route is refused, and file readback
 // accepts only the strict records.
 func topologyRefusals(t *testing.T, run topologySmokeRun) {
+	t.Helper()
 	require.Equal(t, uint64(0), run.rec.Routes[1].Forward.Received, "single-a sends nothing through route b")
 	focal := run.client.Flows[0].Label
 	for name, mutate := range map[string]func(*topologySmokeRun){

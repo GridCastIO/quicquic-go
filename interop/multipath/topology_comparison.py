@@ -43,10 +43,16 @@ ROLE_SLACK_S = 30
 RELAY_READY_S = 10
 RELAY_CPU_SOURCE = ("udprelay process user+system time, RUSAGE_CHILDREN across its reap; "
                     "its whole lifetime including setup and drain, not window CPU")
+# What each profile's observations are evidence of; neither qualifies Darwin.
+EVIDENCE_CLASS = {
+    c1.LINUX: "linux public-profile functional control: every arm through public interfaces",
+    c1.DARWIN: "darwin ordinary-arm smoke: multipath arms refused until public Darwin admission (Q2)",
+}
 NOT_JUDGED = ("topology comparison observations are apparatus records; no throughput, fairness or "
               "statistical criterion applies, and Q1 selects any comparison protocol")
 METRIC_BOUNDARIES = {
     "useful_bytes": "receiver-counted focal STREAM bytes read in the window plus first-copy DATAGRAM bytes sent in the window",
+    "object_completion": "receiver time from an object's send-start timestamp to its last byte, completed in the window",
     "max_receive_gap_ns": "longest part of the window in which a flow's receiver got nothing useful",
     "relay_drops": "relay queue drops and backlog overflow per route, as its record counts them",
     "relay_cpu": RELAY_CPU_SOURCE,
@@ -259,6 +265,7 @@ def summarize(record):
         "useful_bytes": observation["server"]["useful_bytes"]["value"],
         "max_receive_gap_ns": max((flow["max_receive_gap_ns"] for flow in focal.values()), default=None),
         "datagram_latency_p99_us": max((flow["datagram_latency"]["p99_us"] for flow in focal.values()), default=None),
+        "object_completion_p99_us": max((flow["object_completion"]["p99_us"] for flow in focal.values()), default=None),
         "relay_drops": {route["name"]: {"dropped": route["forward"]["dropped"],
                                         "overflow": route["forward"]["overflow"] + route["reverse"]["overflow"]}
                         for route in observation["relay"]["routes"]},
@@ -316,6 +323,7 @@ def main(argv=None):
         "warmup_s": warmup, "window_s": window, "per_observation_timeout_s": args.timeout_seconds,
         "kernel": platform.platform(), "uname": " ".join(platform.uname()), "go": c1.GO_VERSION,
         "pinning": "none: Q1 selects any CPU placement", "metric_boundaries": METRIC_BOUNDARIES,
+        "evidence_class": EVIDENCE_CLASS[args.platform_profile],
     }
     if args.platform_profile == c1.DARWIN:
         identity["macos"] = platform.mac_ver()[0]
@@ -326,7 +334,8 @@ def main(argv=None):
 
     previous_sigterm = signal.signal(signal.SIGTERM, interrupt_on_sigterm)
     summary = {"version": VERSION, "passed": False, "judged": False, "judgment": NOT_JUDGED, "mode": args.mode,
-               "platform_profile": args.platform_profile, "topology": args.topology, "observations": []}
+               "platform_profile": args.platform_profile, "evidence_class": EVIDENCE_CLASS[args.platform_profile],
+               "topology": args.topology, "observations": []}
     try:
         for arm in args.arm:
             record = {"status": "started"}

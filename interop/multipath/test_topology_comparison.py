@@ -67,7 +67,7 @@ elif role == "verify":
         "server": {"self_cpu": metric(5, "ns"), "peak_rss_end": metric(9, os.environ["FAKE_RSS_UNIT"]),
                    "useful_bytes": metric(1000, "bytes"),
                    "flows": {"focal-1": {"stream_useful_bytes": 800, "datagram_useful_bytes": 200, "max_receive_gap_ns": 7,
-                                         "datagram_latency": {"p99_us": 3.0}}}},
+                                         "datagram_latency": {"p99_us": 3.0}, "object_completion": {"p99_us": 9.0}}}},
         "client": {"self_cpu": metric(4, "ns")},
         "workload_failures": [],
     }
@@ -140,6 +140,7 @@ class ExecutionTests(unittest.TestCase):
             self.assertEqual(code, 0, summary)
             self.assertTrue(summary["passed"])
             self.assertFalse(summary["judged"])
+            self.assertEqual(summary["evidence_class"], driver.EVIDENCE_CLASS[c1.DARWIN])
             self.assertEqual([o["arm"] for o in summary["observations"]], ["pair", "single-a"])
             for record, observation in zip(records, summary["observations"]):
                 self.assertEqual(record["status"], "succeeded")
