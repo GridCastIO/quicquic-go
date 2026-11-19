@@ -302,12 +302,12 @@ class RunTests(unittest.TestCase):
         runner.capture(*git, "add", "a.go", cwd=source)
         runner.capture(*git, "commit", "-q", "-m", "a", cwd=source)
 
-        def build(_, toolchain, output):
+        def build(_, toolchain, output, profile):
             binary = output / "native-darwin.test"
             binary.write_text("binary")
             return binary, {"go": "go1.27.4", "toolchain": toolchain, "mode": dict(runner.BUILD), "binary_sha256": "c" * 64}
 
-        def run_case(_, name, output, identity, timeout):
+        def run_case(_, name, output, identity, timeout, profile):
             return {"case": name, "command": ["native-darwin.test"], "exit": 0, "seconds": 0.01, "record": record_for(name)}, None
 
         native = {"system": "Darwin", "machine": "arm64", "proc_translated": "0", "product_version": "27.2.1", "build_version": "26B131", "kernel": "k", "cpu": "c"}
@@ -317,7 +317,7 @@ class RunTests(unittest.TestCase):
         self.addCleanup(setattr, runner, "build", originals[1])
         self.addCleanup(setattr, runner, "run_case", originals[2])
         selected = runner.selected_sources
-        runner.selected_sources = lambda source, toolchain: {source / "a.go"}
+        runner.selected_sources = lambda source, toolchain, profile: {source / "a.go"}
         self.addCleanup(setattr, runner, "selected_sources", selected)
         which = runner.shutil.which
         runner.shutil.which = lambda tool: f"/usr/bin/{tool}"
@@ -332,6 +332,7 @@ class ResultsTests(unittest.TestCase):
     def results(self):
         return {
             "schema": runner.RESULTS_SCHEMA,
+            "profile": "scalar",
             "source": {"commit": "a" * 40, "tree": "b" * 40, "head_tree": "b" * 40, "clean": True},
             "build": {"go": "go1.27.4", "toolchain": "local", "mode": dict(runner.BUILD), "binary_sha256": "c" * 64},
             "identity": {
@@ -385,6 +386,191 @@ class ResultsTests(unittest.TestCase):
         for name, results in cases:
             with self.subTest(name=name), self.assertRaises(ValueError):
                 runner.validate_results(results)
+
+
+BLOCKED = runner.PROFILES["blocked-writer"]
+TRIGGER = {
+    "evidence": "native-traversal", "send_buffer": 4096, "control_bytes": 12, "payload_bytes": 4096, "poller_witness": True,
+    "injected": 0, "traced": False, "result": "deadline-exceeded", "uncertain": 1, "native_return_after_deadline_ms": 0.41,
+}
+CLAIM = {**TRIGGER, "positive_control": "ECT(0)", "native_calls": 2, "deadline_preserved": True, "deadline_reset": True, "native_returned": True}
+# What the Go fixture records for each blocked-writer case on a passing run.
+BLOCKED_FACTS = {
+    "first-send-eperm": {
+        "evidence": "simulated", "injected": 2, "first_send_retry": "accepted", "retry_delivered": True,
+        "later_send": "uncertain-eperm", "faulted": False,
+    },
+    "constructed-segmentation-prefix": {
+        "evidence": "constructed", "segments": 3, "whole_accepted": 3, "whole_delivered": 3, "prefix_injected": "EAGAIN",
+        "prefix_accepted": 1, "prefix_uncertain": 1, "prefix_unsubmitted": 1, "prefix_delivered": 1,
+    },
+    "scalar-emsgsize": {
+        "evidence": "native-size-feedback", "send_buffer": 4096, "payload_bytes": 4097, "errno": "EMSGSIZE", "unsubmitted": 1,
+        "backpressure": False, "injected": 0, "successor_delivered": True, "faulted": False,
+    },
+    "eagain-to-deadline": {**CLAIM, "publication_ms": 0.02, "successor_deadline_preserved": True, "successor_delivered": True, "faulted": False},
+    "queued-expiry": {
+        **CLAIM, "queued_result": "deadline-exceeded", "queued_unsubmitted": 1, "queued_claimed": False,
+        "queued_before_current_deadline": True, "writer_waiting_at_queued_expiry": True, "queued_expiry_ms": 0.3,
+    },
+    "active-close-join": {
+        **TRIGGER, "close_returned_while_borrowed": True, "canceled_wait": "canceled", "returned_after_close_began": True,
+        "joined_after_return": True, "transport_write_after_join": "closed", "caller_write_delivered": True, "close_to_join_ms": 180.5,
+    },
+}
+
+
+def blocked_record(name, **changes):
+    return {"schema": runner.SCHEMA, "case": name, "go": "go1.27.4", "goos": "darwin", "goarch": "arm64", "facts": {**BLOCKED_FACTS[name], **changes}}
+
+
+class BlockedWriterProfileTests(unittest.TestCase):
+    def test_profile_selects_its_test_cases_and_tagged_build(self):
+        self.assertEqual(tuple(BLOCKED_FACTS), BLOCKED.cases)
+        self.assertEqual("-buildvcs=false -tags=nativequal", BLOCKED.build["GOFLAGS"])
+        self.assertNotIn("nativequal", runner.SCALAR.build["GOFLAGS"], "ordinary selection never builds the traversal cases")
+        self.assertIn(f"-test.run=^{runner.BLOCKED_TEST}$/^queued-expiry$", runner.command_for("bin", "queued-expiry", BLOCKED))
+        output = f"--- PASS: {runner.BLOCKED_TEST} (0.20s)\n    --- PASS: {runner.BLOCKED_TEST}/queued-expiry (0.20s)\nPASS\n"
+        runner.check_output("queued-expiry", output, BLOCKED)
+        with self.assertRaisesRegex(ValueError, "exactly once"):
+            runner.check_output("queued-expiry", output, runner.SCALAR)
+
+    def test_an_untagged_build_cannot_pass_a_traversal_case(self):
+        # Without the tag the case is not registered: the test passes, the case does not.
+        output = f"=== RUN   {runner.BLOCKED_TEST}\n--- PASS: {runner.BLOCKED_TEST} (0.00s)\nPASS\n"
+        with self.assertRaisesRegex(ValueError, "exactly once"):
+            runner.check_output("eagain-to-deadline", output, BLOCKED)
+
+    def test_each_case_once_per_profile(self):
+        runner.check_accounting(list(BLOCKED.cases), BLOCKED)
+        with self.assertRaisesRegex(ValueError, "missing.*active-close-join"):
+            runner.check_accounting(list(BLOCKED.cases[:-1]), BLOCKED)
+        with self.assertRaisesRegex(ValueError, "unknown.*ipv4"):
+            runner.check_accounting([*BLOCKED.cases, "ipv4"], BLOCKED)
+        with self.assertRaisesRegex(ValueError, "not a blocked-writer case"):
+            runner.check_record("ipv4", IDENTITY, record_for("ipv4"), BLOCKED)
+
+    def test_every_case_accepts_its_record(self):
+        for name in BLOCKED.cases:
+            with self.subTest(name=name):
+                runner.check_record(name, IDENTITY, blocked_record(name), BLOCKED)
+
+
+class BlockedWriterClassificationTests(unittest.TestCase):
+    def refused(self, name, pattern, **changes):
+        with self.assertRaisesRegex(ValueError, pattern):
+            runner.check_record(name, IDENTITY, blocked_record(name, **changes), BLOCKED)
+
+    def test_an_absent_stack_witness_is_not_traversal(self):
+        for name in runner.TRAVERSAL_CASES:
+            with self.subTest(name=name):
+                self.refused(name, "no-witness is not native traversal", evidence="no-witness")
+                self.refused(name, "poller_witness", poller_witness=False)
+
+    def test_expiry_before_dispatch_is_not_a_blocked_native_call(self):
+        self.refused("eagain-to-deadline", "expired-before-dispatch is not native traversal", evidence="expired-before-dispatch")
+        self.refused("queued-expiry", "native_calls", native_calls=0)
+
+    def test_a_missing_native_return_is_refused(self):
+        self.refused("eagain-to-deadline", "missing-native-return is not native traversal", evidence="missing-native-return")
+        self.refused("queued-expiry", "native_returned", native_returned=False)
+        self.refused("active-close-join", "native_return_after_deadline_ms", native_return_after_deadline_ms=-1.0)
+
+    def test_a_final_reset_failure_is_refused(self):
+        self.refused("eagain-to-deadline", "reset-failure is not native traversal", evidence="reset-failure")
+        self.refused("queued-expiry", "deadline_reset", deadline_reset=False)
+
+    def test_injected_or_stale_observations_are_never_traversal(self):
+        self.refused("eagain-to-deadline", "simulated is not native traversal", evidence="simulated")
+        self.refused("eagain-to-deadline", "injected", injected=1)
+        self.refused("queued-expiry", "stale-deadline is not native traversal", evidence="stale-deadline")
+        self.refused("queued-expiry", "deadline_preserved", deadline_preserved=False)
+        self.refused("active-close-join", "unknown class", evidence="native")
+        self.refused("eagain-to-deadline", "traced", traced=True)
+
+    def test_separately_classified_cases_keep_their_class(self):
+        self.refused("first-send-eperm", "evidence", evidence="native-traversal")
+        self.refused("constructed-segmentation-prefix", "evidence", evidence="native")
+        self.refused("scalar-emsgsize", "backpressure", backpressure=True)
+        self.refused("scalar-emsgsize", "payload_bytes", payload_bytes=4096)
+        self.refused("eagain-to-deadline", "payload_bytes", payload_bytes=4097)
+        self.refused("queued-expiry", "control_bytes", control_bytes=4096)
+        self.refused("queued-expiry", "queued_claimed", queued_claimed=True)
+        self.refused("active-close-join", "canceled_wait", canceled_wait="joined")
+        self.refused("active-close-join", "joined_after_return", joined_after_return=False)
+
+    def test_bool_is_not_a_count_or_duration(self):
+        self.refused("eagain-to-deadline", "send_buffer", send_buffer=True)
+        self.refused("eagain-to-deadline", "publication_ms", publication_ms=True)
+        self.refused("scalar-emsgsize", "send_buffer", send_buffer=60000)
+
+
+class BlockedWriterRunCaseTests(unittest.TestCase):
+    def test_interrupted_observation_is_killed_and_claims_nothing(self):
+        directory = tempfile.TemporaryDirectory()
+        self.addCleanup(directory.cleanup)
+        marker = Path(directory.name) / "observer.pid"
+        # The case wrote its record, then its observation hung with a child observer.
+        body = (
+            f"json.dump({blocked_record('queued-expiry')!r}, open(os.environ['{runner.RECORD_ENV}'], 'w'))\n"
+            "child = subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(60)'])\n"
+            f"open({str(marker)!r}, 'w').write(str(child.pid))\n"
+            "time.sleep(60)"
+        )
+        binary = fake_binary(directory.name, body)
+        instance, failure = runner.run_case(binary, "queued-expiry", Path(directory.name) / "out", IDENTITY, 1, BLOCKED)
+        self.assertRegex(failure, "timeout")
+        self.assertIsNone(instance["record"], "a record from an interrupted case is not read")
+        observer = int(marker.read_text())
+        deadline = time.monotonic() + 5
+        while time.monotonic() < deadline:
+            try:
+                os.kill(observer, 0)
+            except ProcessLookupError:
+                break
+            time.sleep(0.05)
+        else:
+            self.fail("the case's observer survived the timeout")
+
+
+class BlockedWriterResultsTests(unittest.TestCase):
+    def results(self):
+        results = ResultsTests.results(self)
+        results["profile"] = "blocked-writer"
+        results["build"]["mode"] = dict(BLOCKED.build)
+        results["instances"] = [{"case": name, "command": ["native-darwin.test"], "exit": 0, "seconds": 0.2, "failure": None, "record": blocked_record(name)} for name in BLOCKED.cases]
+        results["status"]["cases"] = len(BLOCKED.cases)
+        return results
+
+    def test_readback_accepts_a_complete_run(self):
+        runner.validate_results(self.results())
+
+    def test_readback_binds_the_profile(self):
+        untagged = self.results()
+        untagged["build"]["mode"] = dict(runner.BUILD)
+        scalar = self.results()
+        scalar["profile"] = "scalar"
+        unknown = self.results()
+        unknown["profile"] = "pressure"
+        unstated = self.results()
+        del unstated["profile"]
+        unwitnessed = self.results()
+        unwitnessed["instances"][3]["record"]["facts"]["evidence"] = "no-witness"
+        for name, results in (("untagged", untagged), ("scalar", scalar), ("unknown", unknown), ("unstated", unstated), ("unwitnessed", unwitnessed)):
+            with self.subTest(name=name), self.assertRaises(ValueError):
+                runner.validate_results(results)
+
+
+class RaceSelectionTests(unittest.TestCase):
+    def test_selected_race_tests_exist_once_in_the_root_package(self):
+        root = Path(__file__).resolve().parents[2]
+        sources = "".join(path.read_text() for path in sorted(root.glob("*_test.go")))
+        for name in runner.RACE_TESTS:
+            with self.subTest(name=name):
+                self.assertEqual(1, sources.count(f"func {name}(t *testing.T)"))
+        command = runner.race_command()
+        self.assertEqual(["go", "test", "-race", "-count=1"], command[:4])
+        self.assertEqual(f"-run=^({'|'.join(runner.RACE_TESTS)})$", command[4])
 
 
 if __name__ == "__main__":

@@ -133,6 +133,34 @@ python3 interop/multipath/native_darwin.py --output /path/to/new/results
 
 A passing run is ordinary local smoke evidence for the endpoint method (`support_receipt: false`), not qualification or a support receipt. Native timing, pressure and exact-candidate family/metadata/ECN receipts are bound by later MP-MAC slices. The transport test suite owns the fixture and runner; retire them with equivalent replacement or removal of the Darwin support profile, preserving accepted receipts.
 
+## Native Darwin blocked-writer method
+
+[MP-MAC E2 (#1486)](https://github.com/GridCastIO/quicquic-go/issues/1486) adds `TestNativeDarwinBlockedWriter` (`native_darwin_writer_test.go`, `//go:build darwin`) and the runner's `blocked-writer` profile. The runner's default `scalar` profile is E1's case set. `results.json` (`native-darwin-run/v2`) records its profile, and readback checks the build mode and cases against that profile. Each E2 case runs the production endpoint writer over a recorder that forwards to a real loopback socket. The recorder notes each claim's installed deadline, native calls, injected errors, native return and final deadline reset.
+
+The forced-traversal cases adapt the [archived Darwin trigger](../../docs/audits/2026-09-22-darwin27-errors/protocol.md). Each requests a 4096-byte send buffer on a fresh socket, reads back its capacity B and checks an ordinary ECT(0) positive control. It then offers one raw datagram of exactly B bytes, in typed storage of that size, with valid ECT(0) control. Each part fits B and together they exceed it, so the nonblocking `sendmsg` returns EAGAIN and the Go poller waits until the request's absolute deadline. A case counts the wait only when a goroutine stack shows the endpoint's writer in `internal/poll.(*pollDesc).waitWrite` while it still holds that request's unpublished borrow. That one current write serves three cases:
+
+- `eagain-to-deadline`: the request's own deadline is installed, and the call returns at it as uncertain. The deadline is reset, and the successor gets its own deadline and is the next datagram the peer sees.
+- `queued-expiry`: a queued request with an earlier deadline expires unsubmitted and unclaimed while the writer still waits.
+- `active-close-join`: `Transport.Close` returns while the borrow is held, a canceled `waitNativeIOStopped` is not the join, and the join follows the native return. Afterward the caller's untouched write succeeds, which shows the writer reset its expired deadline.
+
+The fixture labels each forced-traversal observation `native-traversal`, or the class that stops it: `expired-before-dispatch`, `stale-deadline`, `missing-native-return`, `reset-failure`, `simulated` or `no-witness`. An injected error or a non-socket writer is always `simulated`. The runner refuses every class except `native-traversal` for these cases, and checks that each record's witness, deadline, call, return, reset and injection facts agree. Records carry `traced: false`, because their timing is untraced. Timing is recorded but never judged here.
+
+The other three cases stay separately classified:
+
+- `first-send-eperm` injects EPERM before a native retry and is `simulated`.
+- `constructed-segmentation-prefix` sends a constructed segmented member as scalar UDP, then its prefix after an injected EAGAIN. It is `constructed`, not Darwin packet construction.
+- `scalar-emsgsize` is native size feedback: a B+1-byte datagram is unsubmitted and is not backpressure.
+
+`TestNativeDarwinWriterMethod` checks the recorder and classes with simulated I/O. It covers the unchanged request deadline, injected errors, expiry before dispatch, an interrupted observation whose cleanup waits for the native return, and a failed final reset.
+
+Ordinary Darwin test runs include only the three separately classified cases. The forced-traversal cases build only with the `nativequal` tag, which only the `blocked-writer` profile selects. Running that profile is separately authorized native work under Q1, not readiness execution:
+
+```sh
+python3 interop/multipath/native_darwin.py --profile blocked-writer --output /path/to/new/results
+```
+
+The profile records `support_receipt: false`, and a missing witness never counts as safe native deadline behavior. E2 also selects existing endpoint tests for focused race runs on return before deadline reset, queued expiry, the borrow and shutdown: `TestNativeEndpointMemberReturnPrecedesDeadlineReset`, `TestNativeEndpointQueuedExpiry`, `TestNativeEndpointOverdueBorrow`, `TestNativeEndpointExpiredClaimAndNextDeadline`, `TestEndpointPublicQueuedExpiryAndClose`, `TestEndpointPublicOverdueBorrow`, `TestNativeIOStopAndJoin` and `TestNativeLiveCloseDuringCurrentWrite`. Q1 binds the command and Q2 runs it on its exact candidate; `--print-race-command` prints it. Native BBR protected-member evidence stays with the plan's BBR coverage row and the Q1 protocol.
+
 ## Aggregation comparison and BBR revalidation (retired)
 
 [B5 (#1044)](https://github.com/the-sarge/quic-go-fast/issues/1044) measured the [controller-matched aggregation arms](../../docs/adr/2026-10-24-multipath-bbr-plan.md#controller-matched-aggregation-arms) and revalidated BBR primary/backup; its [receipt](../../docs/audits/2026-11-14-multipath-b5-receipt.md) records the results. [B6 (#1045)](https://github.com/the-sarge/quic-go-fast/issues/1045) published the outcome in the [support record](../../docs/audits/2026-11-14-multipath-b6-support.md) and retired these fixtures with the private evidence selection they ran through. The aggregation workload and driver (`aggregation_test.go`, `aggregation.py`) and the `--controller bbrv3` options of `run.py` and `ordinary_cost.py` remain at [`e048181a6`](https://github.com/the-sarge/quic-go-fast/tree/e048181a680f07dc7560f7df1667d8c065513583/interop/multipath). A later qualification adds its own fixture under its accepted plan.
