@@ -40,6 +40,14 @@ BUILD_IDENTITY_KEYS = {"version", "profile", "platform", "picoquic", "picotls", 
 TOOLCHAIN_KEYS = {"cc", "sdk_version", "sdk_path", "cmake", "cmake_sha256", "pkg_config", "pkg_config_sha256",
                   "openssl", "openssl_root", "openssl_static_sha256"}
 PEER_BINARIES = ("picoquicdemo", "qgf-r17-peer")
+NATIVE_IDENTITY_KEYS = {"candidate", "tree", "go", "kernel", "build_identity_sha256", "runner_sha256",
+                        "peer_driver_sha256", "test_binary_sha256"}
+NATIVE_RECEIPT_KEYS = {
+    "ordinary-control": ({"profile", "mode", "policy", "controller", "executed", "status", "identity", "command",
+                          "started", "duration_seconds"}, NATIVE_IDENTITY_KEYS | {"peer_binary_sha256"}),
+    "matrix-discovery": ({"profile", "mode", "status", "listed", "executed", "identity", "command", "started",
+                          "duration_seconds"}, NATIVE_IDENTITY_KEYS),
+}
 
 
 BBR_SCENARIOS = ("useful-transfer", "abandon-reopen-late-feedback", "same-id-migration-rebinding")
@@ -203,10 +211,17 @@ def load_build_identity(path, system, machine, binary=None):
     return record
 
 
-def check_test_binary_settings(build_info, goos, goarch):
-    """Require `go version -m` build settings of a picoquic-tagged native test binary."""
+def check_test_binary_settings(build_info, goos, goarch, toolchain=None):
+    """Require `go version -m` build settings of a picoquic-tagged native test binary.
+
+    When toolchain is given (such as "go1.27.4"), the binary must have been built by it.
+    """
+    lines = build_info.splitlines()
+    built_by = lines[0].rpartition(": ")[2].strip() if lines else ""
+    if toolchain is not None and built_by != toolchain:
+        raise ValueError(f"test binary was built by {built_by or 'an unknown toolchain'}, not {toolchain}")
     settings = {}
-    for line in build_info.splitlines():
+    for line in lines:
         fields = line.strip().split("\t")
         if len(fields) == 2 and fields[0] == "build":
             key, _, value = fields[1].partition("=")
@@ -228,7 +243,7 @@ def native_identity(build_identity, binary, test_binary):
     if not version.endswith(" darwin/arm64"):
         raise ValueError(f"native profile requires a darwin/arm64 toolchain: {version}")
     info = subprocess.check_output(["go", "version", "-m", str(test_binary)], text=True, timeout=10)
-    check_test_binary_settings(info, "darwin", "arm64")
+    check_test_binary_settings(info, "darwin", "arm64", version.split()[2])
     identity = {"candidate": candidate, "tree": tree, "go": version,
                 "kernel": {"system": system, "release": platform.release(), "version": platform.version(), "machine": machine},
                 "build_identity_sha256": digest(build_identity), "runner_sha256": digest(__file__),
@@ -271,6 +286,20 @@ def run_bounded(command, env, log_path, timeout):
             raise
 
 
+def read_native_receipt(path, mode):
+    """Parse one native receipt; unknown, missing or non-object fields fail rather than count."""
+    keys, identity_keys = NATIVE_RECEIPT_KEYS[mode]
+    try:
+        receipt = json.loads(path.read_text())
+    except json.JSONDecodeError as error:
+        raise ValueError(f"malformed native {mode} receipt: {error}") from error
+    if not isinstance(receipt, dict) or set(receipt) != keys:
+        raise ValueError(f"malformed native {mode} receipt fields")
+    if not isinstance(receipt["identity"], dict) or set(receipt["identity"]) != identity_keys:
+        raise ValueError(f"malformed native {mode} receipt identity")
+    return receipt
+
+
 def check_native(root):
     """Read back the native ordinary-control and discovery receipts; neither substitutes for the other."""
     control, discovery = root / "ordinary-control", root / "matrix-discovery"
@@ -278,12 +307,12 @@ def check_native(root):
     if not all(path.is_file() for path in paths):
         raise ValueError(f"missing native receipt: {[str(path) for path in paths if not path.is_file()]}")
     check_cases((control / "go-test.jsonl").read_text().splitlines(), PACKAGE, EXPECTED)
-    ordinary = json.loads((control / "result.json").read_text())
+    ordinary = read_native_receipt(control / "result.json", "ordinary-control")
     if (ordinary.get("profile") != NATIVE_PROFILE or ordinary.get("mode") != "ordinary-control"
             or ordinary.get("status") != "pass" or ordinary.get("executed") != EXPECTED):
         raise ValueError("invalid native ordinary-control receipt")
     listed = check_listing((discovery / "list.txt").read_text().splitlines())
-    found = json.loads((discovery / "result.json").read_text())
+    found = read_native_receipt(discovery / "result.json", "matrix-discovery")
     if (found.get("profile") != NATIVE_PROFILE or found.get("mode") != "matrix-discovery" or found.get("status") != "pass"
             or found.get("listed") != listed or found.get("executed") != []):
         raise ValueError("invalid native matrix-discovery receipt")
@@ -403,6 +432,7 @@ def main():
         result = {"profile": args.profile, "mode": "ordinary-control"} | result
     (args.output / "result.json").write_text(json.dumps(result, indent=2) + "\n")
     print(json.dumps(result))
+
 
 if __name__ == "__main__":
     main()

@@ -216,8 +216,10 @@ class NativeProfileTests(unittest.TestCase):
                 runner.load_build_identity(Path(temporary) / "absent.json", "Darwin", "arm64", __file__)
 
     def test_test_binary_must_be_a_tagged_native_build(self):
-        settings = runner.check_test_binary_settings(GO_BUILD_INFO, "darwin", "arm64")
+        settings = runner.check_test_binary_settings(GO_BUILD_INFO, "darwin", "arm64", "go1.27.4")
         self.assertEqual(settings["GOOS"], "darwin")
+        with self.assertRaisesRegex(ValueError, "built by go1.27.4, not go1.26.11"):
+            runner.check_test_binary_settings(GO_BUILD_INFO, "darwin", "arm64", "go1.26.11")
         for wrong in (GO_BUILD_INFO.replace("-tags=picoquic", "-tags=other"),
                       GO_BUILD_INFO.replace("GOOS=darwin", "GOOS=linux"),
                       GO_BUILD_INFO.replace("\tbuild\tGOARCH=arm64\n", "")):
@@ -262,18 +264,22 @@ class NativeProfileTests(unittest.TestCase):
     def native_root(self, temporary):
         root = Path(temporary)
         core = {"candidate": "a" * 40, "tree": "b" * 40, "go": "go version go1.27.4 darwin/arm64",
-                "build_identity_sha256": "c" * 64}
+                "build_identity_sha256": "c" * 64, "kernel": {"system": "Darwin"}, "runner_sha256": "1" * 64,
+                "peer_driver_sha256": "2" * 64, "test_binary_sha256": "3" * 64}
+        run = {"command": ["go"], "started": "2026-11-19T00:00:00+00:00", "duration_seconds": 1.0}
         control = root / "ordinary-control"
         control.mkdir()
         (control / "go-test.jsonl").write_text("\n".join(
             json.dumps({"Action": "pass", "Package": runner.PACKAGE, "Test": case}) for case in runner.EXPECTED))
-        (control / "result.json").write_text(json.dumps({"profile": "darwin-native", "mode": "ordinary-control", "status": "pass",
-                                                         "executed": runner.EXPECTED, "identity": core | {"peer_binary_sha256": "d" * 64}}))
+        (control / "result.json").write_text(json.dumps(run | {
+            "profile": "darwin-native", "mode": "ordinary-control", "policy": "primary-backup", "controller": "reno",
+            "status": "pass", "executed": runner.EXPECTED, "identity": core | {"peer_binary_sha256": "d" * 64}}))
         discovery = root / "matrix-discovery"
         discovery.mkdir()
         (discovery / "list.txt").write_text("TestPicoquicMultipathMatrix\n")
-        (discovery / "result.json").write_text(json.dumps({"profile": "darwin-native", "mode": "matrix-discovery", "status": "pass",
-                                                           "listed": runner.DISCOVERY_EXPECTED, "executed": [], "identity": core}))
+        (discovery / "result.json").write_text(json.dumps(run | {
+            "profile": "darwin-native", "mode": "matrix-discovery", "status": "pass",
+            "listed": runner.DISCOVERY_EXPECTED, "executed": [], "identity": core}))
         return root
 
     def test_native_receipts_require_both_roles_and_discovery_separately(self):
@@ -290,6 +296,11 @@ class NativeProfileTests(unittest.TestCase):
             (root / "matrix-discovery" / "result.json").write_text(json.dumps(discovery | {"executed": runner.MATRIX_EXPECTED}))
             with self.assertRaisesRegex(ValueError, "discovery"):
                 runner.check_native(root)
+            for malformed in (discovery | {"unexpected": 1}, discovery | {"identity": discovery["identity"] | {"unexpected": 1}}, ["list"]):
+                with self.subTest(malformed=malformed):
+                    (root / "matrix-discovery" / "result.json").write_text(json.dumps(malformed))
+                    with self.assertRaisesRegex(ValueError, "malformed"):
+                        runner.check_native(root)
             (root / "matrix-discovery" / "result.json").unlink()
             with self.assertRaisesRegex(ValueError, "missing"):
                 runner.check_native(root)

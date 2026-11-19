@@ -22,7 +22,10 @@ class NativeBuildTests(unittest.TestCase):
                 (root / relative).write_text("")
             with self.assertRaisesRegex(ValueError, "pkg-config"):
                 build.check_tools(Path(sys.executable), root / "pkg-config", root)
-            build.check_tools(Path(sys.executable), Path(sys.executable), root)
+            build.check_tools(Path(sys.executable), Path(sys.executable), root, which=lambda name: f"/usr/bin/{name}")
+            with self.assertRaisesRegex(ValueError, "otool"):
+                build.check_tools(Path(sys.executable), Path(sys.executable), root,
+                                  which=lambda name: None if name == "otool" else f"/usr/bin/{name}")
 
     def test_peer_binaries_must_not_load_openssl_dynamically(self):
         build.check_static("qgf-r17-peer:\n\t/usr/lib/libSystem.B.dylib (compatibility version 1.0.0)\n")

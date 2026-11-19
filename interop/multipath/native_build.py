@@ -22,14 +22,14 @@ PEER_SOURCE = Path(__file__).resolve().with_name("peer.c")
 SELF_TEST_IPS = ("127.0.0.1", "127.0.0.1", "127.0.0.1")
 
 
-def check_tools(cmake, pkg_config, openssl_root):
+def check_tools(cmake, pkg_config, openssl_root, which=shutil.which):
     """Require every named build input before any fetch or configure step."""
     missing = [str(tool) for tool in (cmake, pkg_config) if not tool.is_file() or not os.access(tool, os.X_OK)]
     for relative in ("include/openssl/ssl.h", "lib/libcrypto.a", "lib/libssl.a", "bin/openssl"):
         if not (openssl_root / relative).is_file():
             missing.append(str(openssl_root / relative))
     for executable in ("git", "xcrun", "otool"):
-        if shutil.which(executable) is None:
+        if which(executable) is None:
             missing.append(executable)
     if missing:
         raise ValueError(f"missing native build prerequisites: {missing}")
