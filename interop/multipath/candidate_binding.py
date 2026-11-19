@@ -177,6 +177,9 @@ def bind(source, candidate, binaries, tree=None):
     source = Path(source).resolve()
     before = snapshot(source)
     if not before["clean"]:
+        if before["tree"] == before["head_tree"]:
+            raise ValueError(f"the source checkout {source} is not clean: git status --porcelain reports changes "
+                             "(for example a staged change) although its working tree matches HEAD's")
         raise ValueError(f"the source checkout {source} is not clean: its working tree {before['tree']} "
                          f"is not HEAD's tree {before['head_tree']}")
     if before["commit"] != candidate:

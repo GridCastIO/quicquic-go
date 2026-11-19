@@ -1348,13 +1348,18 @@ def cost_verdict(attempts):
     if sorted(attempts) != list(VERDICT_ROUNDS):
         raise ValueError(f"the verdict needs the accepted attempt of rounds 1, 2 and 3 exactly, not {sorted(attempts)}")
     # Every diagnostic invocation records internal round 0, so only the directory tells
-    # one round's attempt from another's.
+    # one round's attempt from another's. Its identity is the file system's, not its
+    # spelling: a case-insensitive volume names one directory many ways.
     seen = {}
     for n in VERDICT_ROUNDS:
-        resolved = Path(attempts[n]).resolve()
-        if resolved in seen:
-            raise ValueError(f"round {n} attempt {attempts[n]} is round {seen[resolved]}'s attempt; each round needs its own")
-        seen[resolved] = n
+        try:
+            status = os.stat(attempts[n])
+        except OSError as error:
+            raise ValueError(f"round {n} attempt {attempts[n]} is unreadable: {error}") from error
+        if (status.st_dev, status.st_ino) in seen:
+            raise ValueError(f"round {n} attempt {attempts[n]} is round {seen[status.st_dev, status.st_ino]}'s attempt; "
+                             "each round needs its own")
+        seen[status.st_dev, status.st_ino] = n
     identities, rounds, inputs = {}, [], []
     for n in VERDICT_ROUNDS:
         directory = Path(attempts[n])

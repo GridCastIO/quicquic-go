@@ -2152,6 +2152,10 @@ class DarwinVerdictTests(unittest.TestCase):
         attempts = self.rounds()
         self.refused("round 2.* is round 1's attempt", attempts | {2: attempts[1]})
         self.refused("round 3.* is round 1's attempt", attempts | {3: attempts[1].parent / "." / "a1"})
+        # A case-insensitive volume (the APFS default) names one directory many ways.
+        alias = attempts[1].parent / "A1"
+        if alias.exists() and os.path.samefile(alias, attempts[1]):
+            self.refused("round 3.* is round 1's attempt", attempts | {3: alias})
 
     def test_malformed_input_shapes_name_their_file(self):
         for n, name, malform in ((2, "identity.json", lambda text: "[]"), (3, "diagnostic.jsonl", lambda text: "[]\n[]\n"),
