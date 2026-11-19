@@ -152,6 +152,7 @@ class ExecutionTests(unittest.TestCase):
             self.assertEqual([o["arm"] for o in summary["observations"]], ["pair", "single-a"])
             for record, observation in zip(records, summary["observations"]):
                 self.assertEqual(record["status"], "succeeded")
+                self.assertEqual(observation["status"], "succeeded", "both outputs carry the terminal status")
                 self.assertEqual(record["exit"], {"relay": 0, "server": 0, "client": 0})
                 self.assertTrue(record["relay_cpu"]["available"])
                 self.assertEqual(record["relay_cpu"]["source"], driver.RELAY_CPU_SOURCE)
@@ -214,6 +215,26 @@ class ExecutionTests(unittest.TestCase):
             self.assertEqual(observation["focal_stream_bytes"], 800)
             self.assertEqual(observation["workload_failures"], ["competitor: no useful STREAM delivery"])
             self.assertEqual(records[0]["status"], "succeeded", "a valid observation with a workload failure")
+
+    def test_cancellation_during_publication_is_honored_after_it(self):
+        written = []
+        real = driver.json.dumps
+
+        def interrupted(value, *args, **kwargs):
+            # A SIGTERM as the ledger row is serialized, outside any wait.
+            if isinstance(value, dict) and value.get("arm") == "single-a" and "status" in value and not written:
+                written.append(True)
+                os.kill(os.getpid(), signal.SIGTERM)
+            return real(value, *args, **kwargs)
+        with tempfile.TemporaryDirectory() as temporary:
+            fixture = Fixture(Path(temporary), c1.DARWIN)
+            with mock.patch.object(driver.json, "dumps", side_effect=interrupted):
+                code, summary, records = fixture.run("--topology", "disjoint", "--arm", "single-a", "--arm", "pair",
+                                                     env={"FAKE_ROLE": "relay-config:exit"})
+            self.assertEqual(code, 1)
+            self.assertEqual([(r["arm"], r["status"]) for r in records], [("single-a", "failed")], "the row is published")
+            self.assertEqual([o["arm"] for o in summary["observations"]], ["single-a"], "no later arm runs")
+            self.assertIn("SIGTERM", summary["error"])
 
     def test_cancellation_during_failed_cleanup_still_cancels(self):
         with self.assertRaises(KeyboardInterrupt) as raised:

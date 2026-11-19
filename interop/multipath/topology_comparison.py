@@ -422,14 +422,15 @@ def main(argv=None):
                 run_observation(binaries["test"]["path"], binaries["relay"]["path"], args.output / args.topology / arm, args.topology, arm,
                                 args.controller, args.seed, args.platform_profile, warmup, window, args.timeout_seconds, record)
                 record["status"] = "succeeded"
-                summary["observations"].append(summarize(record))
+                summary["observations"].append(dict(summarize(record), status=record["status"]))
             except Exception as error:
                 failed(error)
             except KeyboardInterrupt as error:
                 failed(error)
                 raise  # cancellation stops the run: no later arm launches
             finally:
-                with (args.output / "observations.jsonl").open("a") as file:
+                # Publication completes before a cancellation that arrives during it stops the run.
+                with c1.DeferredInterrupts(), (args.output / "observations.jsonl").open("a") as file:
                     file.write(json.dumps(record) + "\n")
         summary["passed"] = (len(summary["observations"]) == len(args.arm)
                              and all("error" not in o and not o["workload_failures"] for o in summary["observations"]))
@@ -437,7 +438,8 @@ def main(argv=None):
         summary.update(passed=False, error=f"KeyboardInterrupt: {error}")
     finally:
         signal.signal(signal.SIGTERM, previous_sigterm)
-        (args.output / "summary.json").write_text(json.dumps(summary, indent=2, allow_nan=False) + "\n")
+        with c1.DeferredInterrupts():
+            (args.output / "summary.json").write_text(json.dumps(summary, indent=2, allow_nan=False) + "\n")
     print(f"done: {args.topology} {' '.join(args.arm)}, passed {summary['passed']}", flush=True)
     return 0 if summary["passed"] else 1
 
