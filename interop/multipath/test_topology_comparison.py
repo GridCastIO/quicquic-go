@@ -3,6 +3,7 @@ import copy
 import io
 import json
 import os
+import re
 import shutil
 import signal
 import stat
@@ -536,9 +537,12 @@ class DarwinVerdictTests(unittest.TestCase):
                     "arms": [arm], "controller": controller, "mode": "diagnostic", "seed": VERDICT_SEEDS[n],
                     "warmup_s": 10, "window_s": 60,
                     "binaries": {name: {"path": f"/bin/{name}", "sha256": digit * 64,
-                                        "binding": {"method": "rebuild-from-candidate/v1", "sha256": digit * 64}}
-                                 for name, digit in (("test", "9"), ("relay", "8"))},
-                    "source": {"commit": VERDICT_CANDIDATE, "tree": "7" * 40, "head_tree": "7" * 40, "clean": True}}
+                                        "binding": binding_fixture.binding_record(digit * 64, package, form)}
+                                 for name, digit, package, form in (
+                                     ("test", "9", "github.com/GridCastIO/quicquic-go", "test"),
+                                     ("relay", "8", "github.com/GridCastIO/quicquic-go/interop/multipath/relay/cmd/udprelay",
+                                      "build"))},
+                    "source": binding_fixture.source_record(VERDICT_CANDIDATE, "7" * 40)}
         if identity_edit:
             identity_edit(identity)
         if summary_edit:
@@ -666,6 +670,26 @@ class DarwinVerdictTests(unittest.TestCase):
                 shutil.rmtree(self.root, ignore_errors=True)
                 self.root.mkdir()
                 self.refused(pattern, self.inventory(changes={key: change}))
+
+    def test_an_incomplete_or_foreign_binding_is_refused_before_output(self):
+        # #1576: both binaries' full #1528 records, through candidate_binding's one validator.
+        def edited(name, edit):
+            return {"identity_edit": lambda identity: edit(identity["source"], identity["binaries"][name]["binding"])}
+
+        extra = [("another commit", lambda source, record: source.update(commit="d" * 40)),
+                 ("another binary", lambda source, record: record.update(sha256="6" * 64))]
+        table = binding_fixture.refusals() + extra
+        representatives = [("test", label, edit) for label, edit in table
+                           if label in ("digest-only binding", "unclean source", "missing binding method")]
+        self.assertEqual(len(representatives), 3, "the test binary's representative cases are in the table")
+        cases = [("relay", label, edit) for label, edit in table] + representatives
+        for name, label, edit in cases:
+            with self.subTest(binary=name, label=label):
+                shutil.rmtree(self.root, ignore_errors=True)
+                self.root.mkdir()
+                attempts = self.inventory(changes={"shared/pair/3": edited(name, edit)})
+                directory = re.escape(str(attempts["shared/pair/3"]))
+                self.refused(rf"^shared/pair/3 \({directory}\) identity\.json: .*(binding|candidate)", attempts)
 
     def test_a_missing_digest_is_not_a_binding(self):
         def unbound(identity):

@@ -11,12 +11,14 @@ one. The drivers call bind before they create output or launch anything.
 """
 
 import hashlib
+import json
 import os
 from pathlib import Path
 import subprocess
 import tempfile
 
-from native_darwin import Profile, check_build_sources, selected_sources, source_identity, tree_paths
+from native_darwin import (GO_LIST_FILE_FIELDS, Profile, build_env, check_build_sources, selected_sources, source_identity,
+                           tree_paths)
 
 METHOD = "rebuild-from-candidate/v1"
 # The go command's output depends on which flags were given, not only on the settings it
@@ -39,6 +41,54 @@ UNRECORDED = ("GOFLAGS", "GOEXPERIMENT")
 ISOLATED = {"GOENV": "off", "GOWORK": "off"}
 # Git modes of regular files: the tree holds their bytes, not a link to bytes it omits.
 REGULAR_MODES = ("100644", "100755")
+FORMS = ("test", "build")
+REBUILD = "byte-identical"
+
+
+def hex_text(length):
+    return lambda value: isinstance(value, str) and len(value) == length and all(c in "0123456789abcdef" for c in value)
+
+
+def text(value):
+    return isinstance(value, str) and value != ""
+
+
+def exactly(expected):
+    return lambda value: value == expected and type(value) is type(expected)
+
+
+# The binding record (#1528, #1576): the snapshot bind() takes and one binary's binding.
+# Every reader validates it here; run.py composes these into its receipt schema.
+SOURCE_SCHEMA = {"commit": hex_text(40), "tree": hex_text(40), "head_tree": hex_text(40), "clean": exactly(True)}
+BINDING_SCHEMA = {
+    "method": exactly(METHOD), "package": text, "form": lambda value: value in FORMS, "toolchain": text,
+    "sha256": hex_text(64), "rebuild": exactly(REBUILD),
+    "settings": lambda value: isinstance(value, dict) and all(isinstance(item, str) for pair in value.items() for item in pair),
+}
+
+
+def check_schema(value, schema, where, label):
+    if not isinstance(value, dict):
+        raise ValueError(f"{where}: malformed #1528 binding: {label} is {value!r}, not a record")
+    missing, unexpected = sorted(set(schema) - set(value)), sorted(set(value) - set(schema))
+    if missing or unexpected:
+        raise ValueError(f"{where}: malformed #1528 binding: {label} lacks {missing} or has unexpected {unexpected}")
+    for key, check in schema.items():
+        if not check(value[key]):
+            raise ValueError(f"{where}: malformed #1528 binding: {label}.{key} is {value[key]!r}")
+
+
+def check_binding(source, binding, digest, candidate, where, name, tree=None):
+    """Refuse, naming where, a snapshot and binding that are not bind()'s record of the
+    named binary, whose sha256 is digest, at the clean candidate (and tree, if given)."""
+    check_schema(source, SOURCE_SCHEMA, where, "source")
+    check_schema(binding, BINDING_SCHEMA, where, f"{name} binding")
+    if source["commit"] != candidate:
+        raise ValueError(f"{where}: source commit {source['commit']} is not the candidate {candidate}")
+    if tree is not None and source["tree"] != tree:
+        raise ValueError(f"{where}: source tree {source['tree']} is not the recorded tree {tree}")
+    if binding["sha256"] != digest:
+        raise ValueError(f"{where}: the binding names {binding['sha256']}, not the {name} {digest}")
 
 
 def run(command, cwd=None, env=None):
@@ -139,16 +189,41 @@ def rebuild_plan(binary, info, module):
     return package, form, flags, environment
 
 
+def build_sources(directory, toolchain, profile):
+    """The main-module files `go build` of the package in directory reads (#1577): E1's
+    package build-input fields of every main-module package in its production dependency
+    graph, and go.mod and go.sum. Unlike E1's test-build selector, it lists without -test
+    and never reads a test-file field, which go list reports even then."""
+    listed = subprocess.run(["go", "list", "-deps", "-json", "."], cwd=directory, env=build_env(toolchain, profile),
+                            check=True, capture_output=True, text=True).stdout
+    decoder, index, files = json.JSONDecoder(), 0, set()
+    while True:
+        while index < len(listed) and listed[index].isspace():
+            index += 1
+        if index == len(listed):
+            return files
+        package, index = decoder.raw_decode(listed, index)
+        module = package.get("Module") or {}
+        if package.get("Standard") or not module.get("Main"):
+            continue
+        root, package_directory = Path(module["GoMod"]).resolve().parent, Path(package["Dir"]).resolve()
+        for field in GO_LIST_FILE_FIELDS:
+            files.update(path for path in (package_directory / name for name in package.get(field) or ()) if path.is_relative_to(root))
+        files.update(path for path in (root / "go.mod", root / "go.sum") if path.exists())
+
+
 def bind_one(source, tree, regular, module, binary):
     info = build_info(binary)
     package, form, flags, environment = rebuild_plan(binary, info, module)
     toolchain = info["toolchain"]
     directory = source / package[len(module) + 1:] if package != module else source
     # The source check lists the package as the build reads it, with no workspace outside
-    # the module; native_darwin passes build settings through the environment.
-    listing = environment | {"GOFLAGS": " ".join(flags)} | ISOLATED
+    # the module; native_darwin passes build settings through the environment. A go test
+    # binary reads its package's test files too, so it keeps E1's test-build selector.
+    profile = Profile("candidate-binding", "", (), environment | {"GOFLAGS": " ".join(flags)} | ISOLATED)
     try:
-        selected = selected_sources(directory, toolchain, Profile("candidate-binding", "", (), listing))
+        selected = selected_sources(directory, toolchain, profile) if form == "test" else \
+            build_sources(directory, toolchain, profile)
     except (OSError, subprocess.CalledProcessError) as error:
         raise ValueError(f"{binary}: cannot list the build sources of {package}: {error}") from error
     check_build_sources(selected, tree)
@@ -167,7 +242,7 @@ def bind_one(source, tree, regular, module, binary):
         raise ValueError(f"{binary} (sha256 {digest}) is not the candidate's build of {package}: "
                          f"a rebuild from the recorded tree has sha256 {rebuilt}")
     return {"method": METHOD, "package": package, "form": form, "toolchain": toolchain,
-            "settings": dict(info["settings"]), "sha256": digest, "rebuild": "byte-identical"}
+            "settings": dict(info["settings"]), "sha256": digest, "rebuild": REBUILD}
 
 
 def bind(source, candidate, binaries, tree=None):

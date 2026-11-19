@@ -170,15 +170,10 @@ BUILD_IDENTITY_SCHEMA = {
     "binaries": {name: {"sha256": SHA256} for name in PEER_BINARIES},
     "self_test": exactly("pass"),
 }
-# The candidate snapshot and the byte-identical rebuild that bind the test binary (#1528).
+# The candidate snapshot and the byte-identical rebuild that bind the test binary (#1528),
+# in candidate_binding's schema, which every binding reader shares (#1576).
 BINDING_FIELDS = ("source", "test_binary_binding")
-BINDING_SCHEMA = {
-    "source": {"commit": hex_text(40), "tree": hex_text(40), "head_tree": hex_text(40), "clean": exactly(True)},
-    "test_binary_binding": {
-        "method": exactly(candidate_binding.METHOD), "package": text, "form": lambda value: value in ("test", "build"),
-        "toolchain": text, "sha256": SHA256, "rebuild": exactly("byte-identical"),
-        "settings": lambda value: isinstance(value, dict) and all(isinstance(item, str) for pair in value.items() for item in pair)},
-}
+BINDING_SCHEMA = {"source": candidate_binding.SOURCE_SCHEMA, "test_binary_binding": candidate_binding.BINDING_SCHEMA}
 NATIVE_IDENTITY_SCHEMA = {
     "candidate": hex_text(40), "tree": hex_text(40),
     "go": lambda value: text(value) and GO_RELEASE.fullmatch(value) is not None,
@@ -403,13 +398,8 @@ def read_native_receipt(path, mode, where):
                          "its test binary was never proven to be the candidate's build")
     receipt = read_record(path, NATIVE_RECEIPT_SCHEMAS[mode], where)
     identity = receipt["identity"]
-    if identity["source"]["commit"] != identity["candidate"]:
-        raise ValueError(f"{where} identity: source commit {identity['source']['commit']} is not the candidate {identity['candidate']}")
-    if identity["source"]["tree"] != identity["tree"]:
-        raise ValueError(f"{where} identity: source tree {identity['source']['tree']} is not the recorded tree {identity['tree']}")
-    if identity["test_binary_binding"]["sha256"] != identity["test_binary_sha256"]:
-        raise ValueError(f"{where} identity: the binding names {identity['test_binary_binding']['sha256']}, "
-                         f"not the test binary {identity['test_binary_sha256']}")
+    candidate_binding.check_binding(identity["source"], identity["test_binary_binding"], identity["test_binary_sha256"],
+                                    identity["candidate"], f"{where} identity", "test binary", tree=identity["tree"])
     return receipt
 
 
