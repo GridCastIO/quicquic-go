@@ -1193,11 +1193,11 @@ class PowermetricsTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary:
             activity = self.run_sampler(Path(temporary),
                 "import sys; sys.stderr.write('sudo: a password is required\\n'); sys.exit(1)")
+            self.assert_confirmed_record(activity, Path(temporary))
         self.assertEqual(activity["status"], "unavailable")
         self.assertIn("a password is required", activity["reason"])
         self.assertEqual(activity["exit"], 1)
         self.assertTrue(activity["joined"])
-        self.assertConfirmedRecord(activity, Path(temporary))
 
     def test_sampler_output_is_preserved_and_parsed(self):
         with tempfile.TemporaryDirectory() as temporary:
@@ -1215,9 +1215,9 @@ class PowermetricsTests(unittest.TestCase):
             self.assertEqual((root / "host.plist").read_bytes(), FIXTURE.read_bytes())
             self.assertEqual(activity["raw_sha256"], hashlib.sha256(FIXTURE.read_bytes()).hexdigest())
             self.assertTrue(activity["joined"])
-            self.assertConfirmedRecord(activity, root)
+            self.assert_confirmed_record(activity, root)
 
-    def assertConfirmedRecord(self, activity, root):
+    def assert_confirmed_record(self, activity, root):
         """A confirmed stop keeps its digest on host.plist and writes no snapshot."""
         self.assertEqual(activity["raw_path"], str(root / "host.plist"))
         self.assertNotIn("live_raw_path", activity)
