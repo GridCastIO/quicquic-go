@@ -24,13 +24,13 @@ The `v0.62.1-fast.N` series ended at fast.10. Inherited tags, including upstream
 
 Carry the following into the selected release's notes:
 
-- `PathMTUFallbackV1` reports the first size drop once, with the same channel identity; later recovery episodes do not signal again. `PathMTUSettledV1` still reports only the first path's search completion.
+- `PathMTUFallbackV1` reports the first size drop once, with the same channel identity; later recovery episodes do not signal again. `PathMTUSettledV1` closes once when the first-path search concludes, discovery cannot run, the connection leaves that path or the connection ends; closure alone does not establish that a size was validated.
 - Live probe acknowledgments can restore jumbo packetization and transport DATAGRAM admission after confirmed fallback. Retry backoff is 60/120/240/480/900 seconds, capped at 900, retained across growth and migration; ordinary loss and send eligibility still apply, so it is not a recovery deadline.
 - A later shrink can repeat fallback. The consumer's published application DATAGRAM limit stays fixed despite changing transport admission.
 - Probe traffic and ACKs refresh ordinary idle timers and can extend otherwise idle connections, including with keepalive disabled. Applications with an inactivity deadline must base it on their own activity policy.
 - JR1 changes no module path, public signatures, dependencies or Go minimum; Go 1.26.0 remains the minimum. Connections at the default ceiling or capped by the peer to standard sizes keep their existing behavior, and existing experimental/qualification limits remain. No new physical-link performance or interruption guarantee follows.
 
-Inventory any other changes included since the chosen previous release. The implementation's CI and certification receipts do not replace the selected candidate's existing release checks, vulnerability/advisory review, fresh-consumer verification or immutable-tag/publication verification below. Keep the published v0.63.0 release record and historical evidence unchanged, and keep installation examples on a real published version until the new release exists.
+Inventory any other changes included since the chosen previous release. The implementation's CI and certification receipts do not replace the selected candidate's existing release checks, vulnerability/advisory review, fresh-consumer verification or immutable-tag/publication verification below. Keep the published v0.63.0 release record and historical evidence unchanged, and keep installation examples on a real published version until the new release exists. If the Unreleased heading changes during preparation, retarget its links from the usage guide and this handoff. If this handoff moves or is retired, update its changelog and usage links. After successful publication, update the usage guide's availability statement to the published version.
 
 ## Prepare and validate
 
