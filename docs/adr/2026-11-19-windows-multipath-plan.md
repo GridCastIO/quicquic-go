@@ -1,5 +1,7 @@
 # Windows multipath implementation and qualification plan
 
+**Dispatch successor:** The [current implementation plan](2026-11-19-windows-multipath-implementation-plan.md) and [Windows program index](2026-11-19-windows-multipath-program.md) retain this target/evidence context and replace the proposed W1–W6 work units with audited child contracts. Issue #1397 remains the completed planning deliverable; implementation and qualification use the successor package.
+
 **Date:** 2026-11-19. **Identity:** MP-WIN-1397, revision 3. **Status:** owner-approved planning scope; implementation and qualification pending. **Issue:** [Plan multipath support for Windows (#1397)](https://github.com/GridCastIO/quicquic-go/issues/1397). The owner approved one documentation PR through review and merge, targeting Windows amd64 with Reno primary/backup, experimental BBRv3 primary/backup and experimental BBRv3 aggregate, including the initial native-USO deferral. Completing this plan does not enable Windows multipath, authorize its implementation slices, provision infrastructure, run a qualification campaign or allocate campaign capacity.
 
 ## Outcome and source authority

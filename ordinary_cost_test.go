@@ -1,4 +1,4 @@
-//go:build ordinarycost && linux && amd64
+//go:build ordinarycost && ((linux && amd64) || (darwin && arm64))
 
 package quic
 
@@ -8,15 +8,15 @@ import (
 	"encoding/binary"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"math"
 	"math/bits"
 	"math/rand/v2"
 	"net"
 	"os"
-	"regexp"
 	"runtime"
-	"strconv"
+	"slices"
 	"sync"
 	"sync/atomic"
 	"syscall"
@@ -30,7 +30,9 @@ import (
 
 // This is R18's paired workload: interop/multipath/ordinary_cost.py runs one role per
 // process on its own cores, and judges the results. Both roles take one shared wall-clock
-// timeline, so no start message crosses the path being measured.
+// timeline, so no start message crosses the path being measured. MP-MAC C1 (#1490) adds
+// the native Darwin arm64 profile and matched Reno/BBR workloads; ordinary_cost_linux_test.go
+// and ordinary_cost_darwin_test.go hold each platform's grant and RSS collector.
 const (
 	ordinaryCostALPN = "ordinary-cost"
 	// ordinaryCostWriteBudget is the grant's native request duration, the default of a
@@ -87,18 +89,135 @@ func (s ordinaryCostSpec) controller() string {
 	return s.Controller
 }
 
-func (s ordinaryCostSpec) validateController() error {
+// ordinaryCostPlatformProfile is one platform's execution profile: its cell inventory and
+// what its public admission and ordinary emission can do there.
+type ordinaryCostPlatformProfile struct {
+	name, goos, goarch string
+	cells              []string
+	// negotiatedMultipath reports public multipath admission, which the opted-in mixed-bulk
+	// cell needs. No other cell stands in for it.
+	negotiatedMultipath bool
+	// gso reports segmentation offload in ordinary emission; Darwin emits scalar packets.
+	gso bool
+	// legacyRSSKB keeps the Linux rss_kb_* fields that the Reno thresholds read.
+	legacyRSSKB bool
+	grantSeam   string
+}
+
+var (
+	ordinaryCostLinuxAMD64 = ordinaryCostPlatformProfile{
+		name: "linux-amd64", goos: "linux", goarch: "amd64",
+		cells:               []string{"stream-gso-on", "stream-gso-off", "datagram-batch-on", "datagram-batch-off", "mixed-bulk", "stateless-pressure"},
+		negotiatedMultipath: true, gso: true, legacyRSSKB: true,
+		grantSeam: "public Transport.ConfigureMultipathIOV1",
+	}
+	ordinaryCostDarwinARM64 = ordinaryCostPlatformProfile{
+		name: "darwin-arm64", goos: "darwin", goarch: "arm64",
+		cells:     []string{"stream", "datagram", "mixed-bulk", "stateless-pressure"},
+		grantSeam: "private Transport.configureNativeIO, root tests only; never negotiates multipath",
+	}
+)
+
+// ordinaryCostWorkload names the wiring a cell runs. Acceleration arms share a wiring.
+func ordinaryCostWorkload(cell string) string {
+	switch cell {
+	case "stream-gso-on", "stream-gso-off", "stream":
+		return "stream"
+	case "datagram-batch-on", "datagram-batch-off", "datagram":
+		return "datagram"
+	case "mixed-bulk":
+		return "mixed"
+	case "stateless-pressure":
+		return "pressure"
+	}
+	return ""
+}
+
+// validateFor admits Reno and BBR on every workload of the platform's inventory.
+func (s ordinaryCostSpec) validateFor(platform ordinaryCostPlatformProfile) error {
 	switch s.controller() {
-	case "reno":
-		return nil
-	case "bbrv3":
-		if s.Cell == "stateless-pressure" {
-			return nil
-		}
-		return errors.New("BBR ordinary-cost diagnosis only supports stateless-pressure")
+	case "reno", "bbrv3":
 	default:
 		return errors.New("unknown ordinary-cost controller")
 	}
+	if !slices.Contains(platform.cells, s.Cell) {
+		return fmt.Errorf("cell %q is not in the %s inventory", s.Cell, platform.name)
+	}
+	if s.Cell == "mixed-bulk" && s.granted() && !platform.negotiatedMultipath {
+		return fmt.Errorf("opted-in mixed-bulk needs negotiated multipath, which %s does not admit publicly", platform.name)
+	}
+	return nil
+}
+
+// ordinaryCostIdentity names the platform profile a role ran under.
+type ordinaryCostIdentity struct {
+	Profile string `json:"profile"`
+	GOOS    string `json:"goos"`
+	GOARCH  string `json:"goarch"`
+}
+
+func (p ordinaryCostPlatformProfile) identity() ordinaryCostIdentity {
+	return ordinaryCostIdentity{Profile: p.name, GOOS: runtime.GOOS, GOARCH: runtime.GOARCH}
+}
+
+// ordinaryCostMetric is one observed value with its unit and producer. An unavailable
+// metric has no value: it is never a zero.
+type ordinaryCostMetric struct {
+	Value     *uint64 `json:"value"`
+	Unit      string  `json:"unit"`
+	Bytes     *uint64 `json:"bytes,omitempty"`
+	Source    string  `json:"source"`
+	Available bool    `json:"available"`
+	Reason    string  `json:"reason,omitempty"`
+}
+
+func ordinaryCostObserved(value uint64, unit, source string) ordinaryCostMetric {
+	return ordinaryCostMetric{Value: &value, Unit: unit, Source: source, Available: true}
+}
+
+func ordinaryCostUnavailable(unit, source, reason string) ordinaryCostMetric {
+	return ordinaryCostMetric{Unit: unit, Source: source, Reason: reason}
+}
+
+const ordinaryCostCPUSource = "getrusage(RUSAGE_SELF) user+system time, window end minus start"
+
+// ordinaryCostCPUMetric is the role process's own CPU over the measurement window.
+func ordinaryCostCPUMetric(window ordinaryCostWindowRusage) ordinaryCostMetric {
+	cpu := window.Delta.cpu()
+	if cpu < 0 {
+		return ordinaryCostUnavailable("ns", ordinaryCostCPUSource, "negative CPU interval")
+	}
+	return ordinaryCostObserved(uint64(cpu), "ns", ordinaryCostCPUSource)
+}
+
+// ordinaryCostRSSMetric keeps a peak-RSS reading in its producer's unit and adds bytes.
+func ordinaryCostRSSMetric(raw uint64, unit, source string) (ordinaryCostMetric, error) {
+	var scale uint64
+	switch unit {
+	case "kB":
+		scale = 1024
+	case "bytes":
+		scale = 1
+	default:
+		return ordinaryCostMetric{}, fmt.Errorf("unknown RSS unit %q", unit)
+	}
+	high, normalized := bits.Mul64(raw, scale)
+	if high != 0 {
+		return ordinaryCostMetric{}, fmt.Errorf("RSS %d %s overflows bytes", raw, unit)
+	}
+	metric := ordinaryCostObserved(raw, unit, source)
+	metric.Bytes = &normalized
+	return metric, nil
+}
+
+// ordinaryCostLostMetric reports ConnectionStats().PacketsLost only where its producer is:
+// the Reno/CUBIC sender increments it, and BBR never does.
+func ordinaryCostLostMetric(controller string, lost uint64) ordinaryCostMetric {
+	const source = "ConnectionStats().PacketsLost"
+	if controller != "reno" {
+		return ordinaryCostUnavailable("packets", source, "only the Reno/CUBIC sender counts lost packets; "+controller+" leaves the counter at zero")
+	}
+	return ordinaryCostObserved(lost, "packets", source)
 }
 
 func (s ordinaryCostSpec) timeline() ordinaryCostTimeline {
@@ -262,20 +381,6 @@ func ordinaryCostRusage() ordinaryCostUsage {
 	}
 }
 
-var ordinaryCostHWM = regexp.MustCompile(`VmHWM:\s+(\d+) kB`)
-
-func ordinaryCostRSSHighWater() (uint64, error) {
-	status, err := os.ReadFile("/proc/self/status")
-	if err != nil {
-		return 0, err
-	}
-	match := ordinaryCostHWM.FindSubmatch(status)
-	if match == nil {
-		return 0, errors.New("no VmHWM")
-	}
-	return strconv.ParseUint(string(match[1]), 10, 64)
-}
-
 func ordinaryCostHeapInuse() uint64 {
 	var stats runtime.MemStats
 	runtime.ReadMemStats(&stats)
@@ -318,7 +423,7 @@ func ordinaryCostTransport(t testing.TB, address string, granted bool) *Transpor
 	t.Cleanup(func() { socket.Close() })
 	tr := &Transport{Conn: socket, ConnectionIDLength: 4}
 	if granted {
-		require.NoError(t, tr.ConfigureMultipathIOV1(ordinaryCostWriteBudget))
+		require.NoError(t, ordinaryCostGrant(tr))
 	}
 	return tr
 }
@@ -488,24 +593,35 @@ func (s *ordinaryCostServer) handle(entry *ordinaryCostServerConn) {
 }
 
 type ordinaryCostServerConnResult struct {
-	Label        string `json:"label"`
-	Multipath    bool   `json:"multipath_negotiated"`
-	PacketsSent  uint64 `json:"packets_sent"`
-	PacketsLost  uint64 `json:"packets_lost"`
-	BytesSent    uint64 `json:"bytes_sent"`
-	CloseCause   string `json:"close_cause"`
-	TimeoutClose bool   `json:"timeout_close"`
+	Label     string `json:"label"`
+	Multipath bool   `json:"multipath_negotiated"`
+	// Controller is the connection's own congestion controller.
+	Controller  string `json:"controller"`
+	PacketsSent uint64 `json:"packets_sent"`
+	// PacketsLost is the legacy Reno field; Lost says whether the counter has a producer.
+	PacketsLost  *uint64            `json:"packets_lost,omitempty"`
+	Lost         ordinaryCostMetric `json:"packets_lost_metric"`
+	BytesSent    uint64             `json:"bytes_sent"`
+	CloseCause   string             `json:"close_cause"`
+	TimeoutClose bool               `json:"timeout_close"`
 }
 
 type ordinaryCostServerResult struct {
-	Controller                  string                          `json:"controller"`
-	Go                          string                          `json:"go"`
-	Granted                     bool                            `json:"granted"`
-	GSOCapable                  bool                            `json:"gso_capable"`
-	WindowCPU                   float64                         `json:"window_cpu_s"`
-	WindowRusage                ordinaryCostWindowRusage        `json:"window_rusage"`
-	RSSAt20S                    uint64                          `json:"rss_kb_at_20s"`
-	RSSEnd                      uint64                          `json:"rss_kb_end"`
+	Controller          string                   `json:"controller"`
+	Go                  string                   `json:"go"`
+	Platform            ordinaryCostIdentity     `json:"platform"`
+	Granted             bool                     `json:"granted"`
+	GrantSeam           string                   `json:"grant_seam,omitempty"`
+	MultipathAdvertised bool                     `json:"multipath_advertised"`
+	GSOCapable          bool                     `json:"gso_capable"`
+	WindowCPU           float64                  `json:"window_cpu_s"`
+	WindowRusage        ordinaryCostWindowRusage `json:"window_rusage"`
+	SelfCPU             ordinaryCostMetric       `json:"self_cpu"`
+	PeakRSSAtSample     ordinaryCostMetric       `json:"peak_rss_at_sample"`
+	PeakRSSEnd          ordinaryCostMetric       `json:"peak_rss_end"`
+	// The Linux VmHWM readings in kB that the Reno memory threshold reads.
+	RSSAt20S                    *uint64                         `json:"rss_kb_at_20s,omitempty"`
+	RSSEnd                      *uint64                         `json:"rss_kb_end,omitempty"`
 	HeapInuseEnd                uint64                          `json:"heap_inuse_end"`
 	WriteErrors                 uint64                          `json:"write_errors"`
 	Joined                      bool                            `json:"joined"`
@@ -516,14 +632,15 @@ type ordinaryCostServerResult struct {
 
 func ordinaryCostRunServer(t testing.TB, spec ordinaryCostSpec) *ordinaryCostServerResult {
 	t.Helper()
-	require.NoError(t, spec.validateController())
+	require.NoError(t, spec.validateFor(ordinaryCostHost))
 	line := spec.timeline()
 	var key StatelessResetKey
 	binary.BigEndian.PutUint64(key[:], spec.Seed)
 	tr := ordinaryCostTransport(t, spec.Address, spec.granted())
 	tr.StatelessResetKey = &key
-	// The BBR diagnostic exercises the endpoint grant without advertising multipath.
-	listener, err := tr.Listen(ordinaryCostServerTLS(), ordinaryCostConfig(t, spec.granted() && spec.controller() == "reno", spec.controller()))
+	// Both controllers advertise where public admission exists, so their workloads match.
+	advertised := spec.granted() && ordinaryCostHost.negotiatedMultipath
+	listener, err := tr.Listen(ordinaryCostServerTLS(), ordinaryCostConfig(t, advertised, spec.controller()))
 	require.NoError(t, err)
 	s := &ordinaryCostServer{line: line, histograms: map[string]*ordinaryCostHistogram{}}
 	s.workers.Add(1)
@@ -545,21 +662,29 @@ func ordinaryCostRunServer(t testing.TB, spec ordinaryCostSpec) *ordinaryCostSer
 	}()
 
 	result := &ordinaryCostServerResult{
-		Go: runtime.Version(), Controller: spec.controller(), Granted: tr.responses != nil, ApplicationSendCall: map[string]*ordinaryCostLatency{},
+		Go: runtime.Version(), Controller: spec.controller(), Platform: ordinaryCostHost.identity(),
+		Granted: tr.responses != nil, MultipathAdvertised: advertised, ApplicationSendCall: map[string]*ordinaryCostLatency{},
 		ApplicationSendCallBoundary: "elapsed Stream.Write / SendDatagram call time; neither native return nor peer delivery",
+	}
+	if result.Granted {
+		result.GrantSeam = ordinaryCostHost.grantSeam
 	}
 	time.Sleep(time.Until(line.window))
 	usageStart := ordinaryCostRusage()
 	sampleAt := min(ordinaryCostMemorySample, line.end.Sub(line.window)/3)
 	time.Sleep(time.Until(line.window.Add(sampleAt)))
-	result.RSSAt20S, err = ordinaryCostRSSHighWater()
+	result.PeakRSSAtSample, err = ordinaryCostPeakRSS()
 	require.NoError(t, err)
 	time.Sleep(time.Until(line.end))
 	usageEnd := ordinaryCostRusage()
 	result.WindowCPU = (usageEnd.cpu() - usageStart.cpu()).Seconds()
 	result.WindowRusage = ordinaryCostWindowRusage{Start: usageStart, End: usageEnd, Delta: usageEnd.since(usageStart)}
-	result.RSSEnd, err = ordinaryCostRSSHighWater()
+	result.SelfCPU = ordinaryCostCPUMetric(result.WindowRusage)
+	result.PeakRSSEnd, err = ordinaryCostPeakRSS()
 	require.NoError(t, err)
+	if ordinaryCostHost.legacyRSSKB {
+		result.RSSAt20S, result.RSSEnd = result.PeakRSSAtSample.Value, result.PeakRSSEnd.Value
+	}
 	result.HeapInuseEnd = ordinaryCostHeapInuse()
 
 	// The client holds its connections past the end, so any close seen here is the run's.
@@ -571,9 +696,10 @@ func ordinaryCostRunServer(t testing.TB, spec ordinaryCostSpec) *ordinaryCostSer
 		label, _ := entry.label.Load().(string)
 		negotiated, err := entry.conn.MultipathNegotiatedV1()
 		require.NoError(t, err)
+		lost := ordinaryCostLostMetric(entry.conn.CongestionControlV1(), stats.PacketsLost)
 		result.Connections = append(result.Connections, ordinaryCostServerConnResult{
-			Label: label, Multipath: negotiated,
-			PacketsSent: stats.PacketsSent, PacketsLost: stats.PacketsLost, BytesSent: stats.BytesSent,
+			Label: label, Multipath: negotiated, Controller: entry.conn.CongestionControlV1(),
+			PacketsSent: stats.PacketsSent, PacketsLost: lost.Value, Lost: lost, BytesSent: stats.BytesSent,
 			CloseCause: cause, TimeoutClose: timedOut,
 		})
 	}
@@ -621,8 +747,11 @@ type ordinaryCostFloodResult struct {
 type ordinaryCostClientResult struct {
 	Controller   string                    `json:"controller"`
 	Go           string                    `json:"go"`
+	Platform     ordinaryCostIdentity      `json:"platform"`
 	WindowCPU    float64                   `json:"window_cpu_s"`
 	WindowRusage ordinaryCostWindowRusage  `json:"window_rusage"`
+	SelfCPU      ordinaryCostMetric        `json:"self_cpu"`
+	UsefulBytes  ordinaryCostMetric        `json:"useful_bytes"`
 	Flows        []*ordinaryCostFlowResult `json:"flows"`
 	Flood        *ordinaryCostFloodResult  `json:"flood,omitempty"`
 }
@@ -755,7 +884,7 @@ func ordinaryCostFlood(t testing.TB, line ordinaryCostTimeline, address *net.UDP
 
 func ordinaryCostRunClient(t testing.TB, spec ordinaryCostSpec) *ordinaryCostClientResult {
 	t.Helper()
-	require.NoError(t, spec.validateController())
+	require.NoError(t, spec.validateFor(ordinaryCostHost))
 	line := spec.timeline()
 	address, err := net.ResolveUDPAddr("udp", spec.Address)
 	require.NoError(t, err)
@@ -776,11 +905,11 @@ func ordinaryCostRunClient(t testing.TB, spec ordinaryCostSpec) *ordinaryCostCli
 	var bulks []bulkFlow
 	var multipathConn *Conn
 	var paths []*Path
-	switch spec.Cell {
-	case "stream-gso-on", "stream-gso-off", "stateless-pressure":
+	switch ordinaryCostWorkload(spec.Cell) {
+	case "stream", "pressure":
 		bulks = append(bulks, bulkFlow{ordinary, 0})
-	case "datagram-batch-on", "datagram-batch-off":
-	case "mixed-bulk":
+	case "datagram":
+	case "mixed":
 		bulks = append(bulks, bulkFlow{ordinary, 0})
 		if spec.granted() {
 			_, conn := dial(true, true)
@@ -859,9 +988,12 @@ func ordinaryCostRunClient(t testing.TB, spec ordinaryCostSpec) *ordinaryCostCli
 	goVersion := runtime.Version()
 	usageEnd := ordinaryCostRusage()
 	result := &ordinaryCostClientResult{
-		Go: goVersion, Controller: spec.controller(), WindowCPU: (usageEnd.cpu() - usageStart.cpu()).Seconds(),
+		Go: goVersion, Controller: spec.controller(), Platform: ordinaryCostHost.identity(),
+		WindowCPU:    (usageEnd.cpu() - usageStart.cpu()).Seconds(),
 		WindowRusage: ordinaryCostWindowRusage{Start: usageStart, End: usageEnd, Delta: usageEnd.since(usageStart)},
 	}
+	result.SelfCPU = ordinaryCostCPUMetric(result.WindowRusage)
+	var delivered uint64
 
 	// Stay connected through the server's end-of-run reading, then close.
 	for i, flow := range flows {
@@ -877,6 +1009,7 @@ func ordinaryCostRunClient(t testing.TB, spec ordinaryCostSpec) *ordinaryCostCli
 			CloseCause: cause, TimeoutClose: timedOut,
 		}
 		result.Flows = append(result.Flows, flow.result)
+		delivered += useful
 		if flow.conn == multipathConn {
 			flow.result.Negotiated, err = flow.conn.MultipathNegotiatedV1()
 			require.NoError(t, err)
@@ -887,6 +1020,7 @@ func ordinaryCostRunClient(t testing.TB, spec ordinaryCostSpec) *ordinaryCostCli
 			}
 		}
 	}
+	result.UsefulBytes = ordinaryCostObserved(delivered, "bytes", "receiver-counted application bytes in the window, every flow")
 	time.Sleep(ordinaryCostDrain)
 	for _, flow := range flows {
 		require.NoError(t, flow.conn.CloseWithError(0, ""))
@@ -922,15 +1056,87 @@ func TestOrdinaryCostRole(t *testing.T) {
 	require.NoError(t, os.WriteFile(spec.Output, data, 0o644))
 }
 
-func TestOrdinaryCostController(t *testing.T) {
-	for _, controller := range []string{"", "reno", "bbrv3"} {
-		spec := ordinaryCostSpec{Controller: controller, Cell: "stateless-pressure"}
-		require.NoError(t, spec.validateController())
-		conf := ordinaryCostConfig(t, false, spec.controller())
-		require.Equal(t, spec.controller(), conf.CongestionControlV1())
+// TestOrdinaryCostAdmission checks both platform inventories on any host: Reno and BBR
+// run the same workloads, and only a platform with public admission negotiates mixed bulk.
+func TestOrdinaryCostAdmission(t *testing.T) {
+	for _, platform := range []ordinaryCostPlatformProfile{ordinaryCostLinuxAMD64, ordinaryCostDarwinARM64} {
+		for _, controller := range []string{"", "reno", "bbrv3"} {
+			for _, cell := range platform.cells {
+				for _, profile := range []string{"unregistered", "opted-in"} {
+					spec := ordinaryCostSpec{Controller: controller, Cell: cell, Profile: profile}
+					err := spec.validateFor(platform)
+					if cell == "mixed-bulk" && profile == "opted-in" && !platform.negotiatedMultipath {
+						require.ErrorContains(t, err, "negotiated multipath", "%s %s", platform.name, cell)
+						continue
+					}
+					require.NoError(t, err, "%s %s %s %s", platform.name, controller, cell, profile)
+				}
+			}
+		}
+		require.ErrorContains(t, (ordinaryCostSpec{Controller: "unknown", Cell: "stateless-pressure"}).validateFor(platform), "controller")
+		require.ErrorContains(t, (ordinaryCostSpec{Cell: "no-such-cell"}).validateFor(platform), "inventory")
 	}
-	require.Error(t, (ordinaryCostSpec{Controller: "bbrv3", Cell: "mixed-bulk"}).validateController())
-	require.Error(t, (ordinaryCostSpec{Controller: "unknown", Cell: "stateless-pressure"}).validateController())
+	// Each inventory names its own wirings; neither borrows the other's acceleration arms.
+	require.ErrorContains(t, (ordinaryCostSpec{Cell: "stream-gso-on"}).validateFor(ordinaryCostDarwinARM64), "inventory")
+	require.ErrorContains(t, (ordinaryCostSpec{Cell: "stream"}).validateFor(ordinaryCostLinuxAMD64), "inventory")
+	require.NoError(t, (ordinaryCostSpec{Cell: "mixed-bulk", Profile: "opted-in"}).validateFor(ordinaryCostLinuxAMD64))
+	for cell, workload := range map[string]string{
+		"stream-gso-on": "stream", "stream-gso-off": "stream", "stream": "stream",
+		"datagram-batch-on": "datagram", "datagram-batch-off": "datagram", "datagram": "datagram",
+		"mixed-bulk": "mixed", "stateless-pressure": "pressure",
+	} {
+		require.Equal(t, workload, ordinaryCostWorkload(cell), cell)
+	}
+	for _, controller := range []string{"", "reno", "bbrv3"} {
+		spec := ordinaryCostSpec{Controller: controller}
+		require.Equal(t, spec.controller(), ordinaryCostConfig(t, false, spec.controller()).CongestionControlV1())
+	}
+}
+
+func TestOrdinaryCostMetrics(t *testing.T) {
+	window := ordinaryCostWindowRusage{
+		Start: ordinaryCostUsage{UserCPUNS: 2e9, SystemCPUNS: 3e9},
+		End:   ordinaryCostUsage{UserCPUNS: 5e9, SystemCPUNS: 7e9},
+	}
+	window.Delta = window.End.since(window.Start)
+	cpu := ordinaryCostCPUMetric(window)
+	require.True(t, cpu.Available)
+	require.Equal(t, uint64(7e9), *cpu.Value, "user and system time over the window")
+	require.Equal(t, "ns", cpu.Unit)
+	require.NotEmpty(t, cpu.Source)
+	backwards := ordinaryCostWindowRusage{Start: window.End, End: window.Start}
+	backwards.Delta = backwards.End.since(backwards.Start)
+	cpu = ordinaryCostCPUMetric(backwards)
+	require.False(t, cpu.Available, "a negative interval is no CPU reading")
+	require.Nil(t, cpu.Value)
+	require.NotEmpty(t, cpu.Reason)
+
+	kb, err := ordinaryCostRSSMetric(1500, "kB", "VmHWM")
+	require.NoError(t, err)
+	require.Equal(t, uint64(1500), *kb.Value, "the raw reading is kept")
+	require.Equal(t, uint64(1_536_000), *kb.Bytes)
+	require.Equal(t, "kB", kb.Unit)
+	bytes, err := ordinaryCostRSSMetric(1_536_000, "bytes", "ru_maxrss")
+	require.NoError(t, err)
+	require.Equal(t, uint64(1_536_000), *bytes.Value)
+	require.Equal(t, uint64(1_536_000), *bytes.Bytes)
+	_, err = ordinaryCostRSSMetric(1, "pages", "unknown")
+	require.Error(t, err)
+	_, err = ordinaryCostRSSMetric(math.MaxUint64/1000, "kB", "VmHWM")
+	require.Error(t, err, "a reading too large to normalize is refused, not wrapped")
+
+	zero := ordinaryCostLostMetric("reno", 0)
+	require.True(t, zero.Available, "Reno's zero is a counted zero")
+	require.Equal(t, uint64(0), *zero.Value)
+	for _, lost := range []uint64{0, 9} {
+		bbr := ordinaryCostLostMetric("bbrv3", lost)
+		require.False(t, bbr.Available, "BBR never increments the counter")
+		require.Nil(t, bbr.Value)
+		require.NotEmpty(t, bbr.Reason)
+	}
+	encoded, err := json.Marshal(ordinaryCostLostMetric("bbrv3", 0))
+	require.NoError(t, err)
+	require.Contains(t, string(encoded), `"value":null`, "unavailable is not zero")
 }
 
 func TestOrdinaryCostHistogram(t *testing.T) {
@@ -1012,87 +1218,133 @@ func TestOrdinaryCostAccounting(t *testing.T) {
 	require.False(t, ordinaryCostTimeoutClose(nil))
 }
 
-// TestOrdinaryCostCells runs both roles of every cell in one process for a moment. It
-// checks the workload's wiring, and its numbers mean nothing: only the driver's separate
-// processes and pinned cores measure.
+// TestOrdinaryCostCells runs both roles of every workload wiring in one process for a
+// moment, for Reno and BBR on this host's inventory. It checks the wiring and the metric
+// records, and its numbers mean nothing: only the driver's separate processes measure.
+// BBR skips the acceleration-off arms, which repeat a wiring it already runs.
 func TestOrdinaryCostCells(t *testing.T) {
-	for _, profile := range []string{"unregistered", "opted-in"} {
-		for _, cell := range []string{"stream-gso-on", "stream-gso-off", "datagram-batch-on", "datagram-batch-off", "mixed-bulk", "stateless-pressure"} {
-			t.Run(profile+"/"+cell, func(t *testing.T) {
+	for _, controller := range []string{"reno", "bbrv3"} {
+		for _, profile := range []string{"unregistered", "opted-in"} {
+			for _, cell := range ordinaryCostHost.cells {
 				off := cell == "stream-gso-off" || cell == "datagram-batch-off"
-				if off {
-					t.Setenv("QUIC_GO_DISABLE_GSO", "true")
+				name := controller + "/" + profile + "/" + cell
+				spec := ordinaryCostSpec{Controller: controller, Cell: cell, Profile: profile, Seed: 1}
+				if err := spec.validateFor(ordinaryCostHost); err != nil {
+					// Only a refused negotiated workload is absent, never replaced.
+					require.True(t, cell == "mixed-bulk" && profile == "opted-in" && !ordinaryCostHost.negotiatedMultipath, name)
+					continue
 				}
-				probe := newUDPConnLocalhost(t)
-				address := probe.LocalAddr().String()
-				require.NoError(t, probe.Close())
-				spec := ordinaryCostSpec{
-					Cell: cell, Profile: profile, Seed: 1, Address: address,
-					StartAt: time.Now().Add(time.Second).UnixNano(), WarmupNS: int64(200 * time.Millisecond), WindowNS: int64(time.Second),
+				if controller == "bbrv3" && off {
+					continue
 				}
-				servers := make(chan *ordinaryCostServerResult, 1)
-				go func() {
-					defer close(servers)
-					servers <- ordinaryCostRunServer(t, spec)
-				}()
-				client := ordinaryCostRunClient(t, spec)
-				server := <-servers
-				require.NotNil(t, server)
-				for _, result := range []struct {
-					cpu   float64
-					usage ordinaryCostWindowRusage
-				}{{server.WindowCPU, server.WindowRusage}, {client.WindowCPU, client.WindowRusage}} {
-					for _, usage := range []ordinaryCostUsage{result.usage.Start, result.usage.End, result.usage.Delta} {
-						require.GreaterOrEqual(t, usage.UserCPUNS, int64(0))
-						require.GreaterOrEqual(t, usage.SystemCPUNS, int64(0))
-						require.GreaterOrEqual(t, usage.VoluntaryContextSwitches, int64(0))
-						require.GreaterOrEqual(t, usage.InvoluntaryContextSwitches, int64(0))
-					}
-					require.Equal(t, result.usage.End.since(result.usage.Start), result.usage.Delta)
-					require.Equal(t, result.cpu, result.usage.Delta.cpu().Seconds())
-				}
-
-				require.Equal(t, profile == "opted-in", server.Granted)
-				require.Equal(t, profile == "opted-in", server.Joined)
-				require.Equal(t, !off, server.GSOCapable)
-				require.Zero(t, server.WriteErrors)
-				require.NotZero(t, server.ApplicationSendCall[ordinaryCostOrdinary].Count)
-				require.NotZero(t, server.WindowCPU)
-				require.NotZero(t, server.RSSEnd)
-
-				background := 0
-				for _, flow := range client.Flows {
-					require.Len(t, flow.Series, 1)
-					require.NotZero(t, flow.UsefulBytes, flow.Label)
-					require.Empty(t, flow.CloseCause)
-					if flow.Label == ordinaryCostOrdinary {
-						require.NotZero(t, flow.Control.Count)
-						continue
-					}
-					background++
-					if profile == "opted-in" {
-						require.True(t, flow.Negotiated)
-						require.Equal(t, []string{"live", "live"}, flow.Paths)
-					}
-				}
-				switch {
-				case cell != "mixed-bulk":
-					require.Zero(t, background)
-				case profile == "opted-in":
-					require.Equal(t, 1, background)
-				default:
-					require.Equal(t, 2, background)
-				}
-				for _, conn := range server.Connections {
-					require.Empty(t, conn.CloseCause)
-				}
-				if cell == "stateless-pressure" {
-					require.NotZero(t, client.Flood.Sent)
-					require.NotZero(t, client.Flood.Resets, "unknown connection IDs draw stateless resets")
-				} else {
-					require.Nil(t, client.Flood)
-				}
-			})
+				t.Run(name, func(t *testing.T) { ordinaryCostSmoke(t, spec, off) })
+			}
 		}
+	}
+}
+
+func ordinaryCostSmoke(t *testing.T, spec ordinaryCostSpec, off bool) {
+	if off {
+		t.Setenv("QUIC_GO_DISABLE_GSO", "true")
+	}
+	probe := newUDPConnLocalhost(t)
+	spec.Address = probe.LocalAddr().String()
+	require.NoError(t, probe.Close())
+	spec.StartAt = time.Now().Add(time.Second).UnixNano()
+	spec.WarmupNS, spec.WindowNS = int64(200*time.Millisecond), int64(time.Second)
+	cell, profile, controller := spec.Cell, spec.Profile, spec.controller()
+	servers := make(chan *ordinaryCostServerResult, 1)
+	go func() {
+		defer close(servers)
+		servers <- ordinaryCostRunServer(t, spec)
+	}()
+	client := ordinaryCostRunClient(t, spec)
+	server := <-servers
+	require.NotNil(t, server)
+	for _, result := range []struct {
+		cpu      float64
+		usage    ordinaryCostWindowRusage
+		self     ordinaryCostMetric
+		platform ordinaryCostIdentity
+	}{{server.WindowCPU, server.WindowRusage, server.SelfCPU, server.Platform}, {client.WindowCPU, client.WindowRusage, client.SelfCPU, client.Platform}} {
+		for _, usage := range []ordinaryCostUsage{result.usage.Start, result.usage.End, result.usage.Delta} {
+			require.GreaterOrEqual(t, usage.UserCPUNS, int64(0))
+			require.GreaterOrEqual(t, usage.SystemCPUNS, int64(0))
+			require.GreaterOrEqual(t, usage.VoluntaryContextSwitches, int64(0))
+			require.GreaterOrEqual(t, usage.InvoluntaryContextSwitches, int64(0))
+		}
+		require.Equal(t, result.usage.End.since(result.usage.Start), result.usage.Delta)
+		require.Equal(t, result.cpu, result.usage.Delta.cpu().Seconds())
+		require.True(t, result.self.Available)
+		require.Equal(t, uint64(result.usage.Delta.cpu()), *result.self.Value)
+		require.Equal(t, ordinaryCostIdentity{Profile: ordinaryCostHost.name, GOOS: ordinaryCostHost.goos, GOARCH: ordinaryCostHost.goarch}, result.platform)
+	}
+	require.Equal(t, controller, server.Controller)
+	require.Equal(t, controller, client.Controller)
+
+	granted := profile == "opted-in"
+	require.Equal(t, granted, server.Granted)
+	require.Equal(t, granted, server.Joined)
+	require.Equal(t, granted && ordinaryCostHost.negotiatedMultipath, server.MultipathAdvertised)
+	if granted {
+		require.Equal(t, ordinaryCostHost.grantSeam, server.GrantSeam)
+	}
+	require.Equal(t, !off && ordinaryCostHost.gso, server.GSOCapable)
+	require.Zero(t, server.WriteErrors)
+	require.NotZero(t, server.ApplicationSendCall[ordinaryCostOrdinary].Count)
+	require.NotZero(t, server.WindowCPU)
+	for _, peak := range []ordinaryCostMetric{server.PeakRSSAtSample, server.PeakRSSEnd} {
+		require.True(t, peak.Available)
+		require.NotZero(t, *peak.Bytes)
+	}
+	// No ordering between the two reads is asserted: Linux updates VmHWM lazily from
+	// approximate counters, so a later read can be lower.
+	if ordinaryCostHost.legacyRSSKB {
+		require.Equal(t, "kB", server.PeakRSSEnd.Unit)
+		require.Equal(t, server.PeakRSSEnd.Value, server.RSSEnd)
+		require.NotZero(t, *server.RSSEnd)
+	} else {
+		require.Equal(t, "bytes", server.PeakRSSEnd.Unit)
+		require.Nil(t, server.RSSEnd, "no Linux counter is fabricated")
+	}
+
+	background := 0
+	var delivered uint64
+	for _, flow := range client.Flows {
+		require.Len(t, flow.Series, 1)
+		require.NotZero(t, flow.UsefulBytes, flow.Label)
+		require.Empty(t, flow.CloseCause)
+		delivered += flow.UsefulBytes
+		if flow.Label == ordinaryCostOrdinary {
+			require.NotZero(t, flow.Control.Count)
+			continue
+		}
+		background++
+		if granted {
+			require.True(t, flow.Negotiated)
+			require.Equal(t, []string{"live", "live"}, flow.Paths)
+		}
+	}
+	require.Equal(t, delivered, *client.UsefulBytes.Value)
+	switch {
+	case cell != "mixed-bulk":
+		require.Zero(t, background)
+	case granted:
+		require.Equal(t, 1, background)
+	default:
+		require.Equal(t, 2, background)
+	}
+	for _, conn := range server.Connections {
+		require.Empty(t, conn.CloseCause)
+		require.Equal(t, controller, conn.Controller)
+		require.Equal(t, controller == "reno", conn.Lost.Available, "only Reno's counter has a producer")
+		require.Equal(t, conn.Lost.Value, conn.PacketsLost)
+		require.Equal(t, granted && cell == "mixed-bulk" && conn.Label == ordinaryCostBackground, conn.Multipath)
+	}
+	if cell == "stateless-pressure" {
+		require.NotZero(t, client.Flood.Sent)
+		require.NotZero(t, client.Flood.Resets, "unknown connection IDs draw stateless resets")
+	} else {
+		require.Nil(t, client.Flood)
 	}
 }
