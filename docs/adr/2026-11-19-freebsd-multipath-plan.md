@@ -2,6 +2,8 @@
 
 **Date:** 2026-11-19. **Identity:** MP-FBSD-1398, revision 2. **Status:** owner-approved planning scope; implementation and qualification pending. **Issue:** [Plan multipath support for FreeBSD (#1398)](https://github.com/GridCastIO/quicquic-go/issues/1398). The owner approved this documentation-only work through review and merge after confirming the infrastructure controller on m4mini. Completion publishes a plan; it neither enables FreeBSD multipath nor dispatches the future slices, provisions infrastructure, runs qualification, or allocates campaign capacity.
 
+The [implementation handoff](2026-11-19-freebsd-multipath-implementation-plan.md) and [program index](2026-11-19-freebsd-multipath-program.md) refine the proposed F0–F4 units into audited child contracts. They preserve this target/profile and its explicit native-evidence and applicability decisions.
+
 ## Outcome and source authority
 
 Plan equivalent supported public behavior and ownership guarantees to the existing Linux amd64 profile on both `freebsd/amd64` and `freebsd/arm64`. The [maintainer decision on issue #1398](https://github.com/GridCastIO/quicquic-go/issues/1398#issuecomment-7001061738) makes both architectures initial targets, including Reno primary/backup, experimental BBRv3 primary/backup and experimental BBRv3 aggregate. Different kernel mechanisms, syscall counts and performance are allowed; missing access or an unrun test is an evidence gap, not proof that a feature is impossible. A reduced feature profile requires concrete technical evidence, alternatives and an explicit maintainer decision. Defer `freebsd/386` and `freebsd/arm` from initial support because they are outside that selected qualification domain; preserve their existing build coverage.
