@@ -99,6 +99,7 @@ func (c *Conn) startPacketSizeFallback(now monotime.Time) {
 	c.mtuFallback.started, c.mtuFallback.generation = now, c.pathGeneration
 	c.mtuFallback.confirmed, c.mtuFallback.lost = false, 0
 	c.mtuRetry.deadline, c.mtuRetry.pending, c.mtuRetry.running = 0, false, false
+	c.mtuRetry.awaitingStandard = false
 	c.mtuFallback.active = true
 	c.mtuWatch = packetSizeWatch{}
 	c.reducePacketSizeForRecovery(now, fallback)
@@ -140,6 +141,7 @@ func (c *Conn) confirmPacketSizeFallback(context ackhandler.PacketContext, size 
 		f.confirmed, f.active, f.probe = true, false, nil
 		c.schedulePacketSizeRetry(monotime.Now())
 		if size == c.effectiveInitialPacketSize {
+			c.mtuRetry.awaitingStandard = true
 			c.mtuDiscoverer.Reset(size, c.discoveryPacketCeiling())
 			c.startMTUDiscovery(monotime.Now())
 		}

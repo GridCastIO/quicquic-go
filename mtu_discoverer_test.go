@@ -5,7 +5,6 @@ import (
 	"math/rand/v2"
 	"sync/atomic"
 	"testing"
-
 	"time"
 
 	"github.com/GridCastIO/quicquic-go/internal/ackhandler"

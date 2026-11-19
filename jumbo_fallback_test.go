@@ -231,34 +231,6 @@ func TestJumboRefusalStream(t *testing.T) {
 	}
 }
 
-func newJumboRefusalEmission(t *testing.T, controller ...string) *testConnection {
-	t.Helper()
-	config := &Config{InitialPacketSize: 1232, EnableDatagrams: true}
-	tc := newConfiguredEmissionTestConnection(t, false, config)
-	c := tc.conn
-	c.packetCeiling = 8972
-	if len(controller) > 0 {
-		require.Equal(t, "bbrv3", controller[0])
-		require.NoError(t, c.config.SetCongestionControlV1(controller[0]))
-		c.emission.enableBBR(monotime.Now(), 8972)
-		c.emission.enableBBRECN()
-	}
-	c.packetSizeFeedback.wakeup = make(chan struct{}, 1)
-	c.mtuFallback.dropped = make(chan struct{})
-	c.emission.refusals = &c.packetSizeFeedback
-	c.emission.queue.(*sendQueue).refusals = &c.packetSizeFeedback
-	c.peerParams = &wire.TransportParameters{MaxUDPPayloadSize: 8972}
-	c.pathGeneration = 9
-	c.mtuDiscoverer = c.newPathMTUFinder(1232, 8972)
-	for !c.mtuDiscoverer.done() {
-		ping, _ := c.mtuDiscoverer.GetPing(monotime.Now())
-		ping.Handler.OnAcked(ping.Frame)
-	}
-	c.sentPacketHandler.SetMaxDatagramSize(c.maxPacketSize())
-	c.maxPayloadSizeEstimate.Store(uint32(estimateMaxPayloadSize(c.maxPacketSize())))
-	return tc
-}
-
 func TestJumboRefusalDiscoveryProbe(t *testing.T) {
 	tc := newJumboRefusalEmission(t)
 	c := tc.conn
@@ -1007,5 +979,29 @@ func TestJumboRetryOrdinaryIdleRefresh(t *testing.T) {
 		default:
 			t.Fatal("idle connection did not expire after probe traffic stopped")
 		}
+	})
+}
+
+func TestJumboRetryMigrationBeforeFirstFallback(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		c, _, _, migration := newJumboRefusalPair(t, "reno", "ordinary")
+		synctest.Wait()
+		socket := &jumboRefusingConn{basicConn: migration.Conn.(*basicConn)}
+		migration.Conn, migration.packetCeiling = socket, 0
+		ctx, cancel := context.WithTimeout(t.Context(), time.Second)
+		defer cancel()
+		path, err := c.AddPath(migration)
+		require.NoError(t, err)
+		require.NoError(t, path.Probe(ctx))
+		require.NoError(t, path.Switch())
+		c.scheduleSending()
+		synctest.Wait()
+		time.Sleep(time.Second)
+		synctest.Wait()
+		require.EqualValues(t, 1452, c.mtuRetry.pathCeiling)
+		require.Zero(t, c.mtuFallback.started)
+		ceiling, _ := c.PathMTUInfoV1()
+		require.EqualValues(t, 8972, ceiling)
+		require.NoError(t, c.CloseWithError(0, "done"))
 	})
 }

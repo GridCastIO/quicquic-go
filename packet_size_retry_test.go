@@ -1,10 +1,12 @@
-//go:build linux || darwin || windows
-
 package quic
 
 import (
 	"testing"
+	"testing/synctest"
 	"time"
+
+	"github.com/GridCastIO/quicquic-go/internal/ackhandler"
+	"go.uber.org/mock/gomock"
 
 	"github.com/GridCastIO/quicquic-go/internal/monotime"
 	"github.com/GridCastIO/quicquic-go/internal/protocol"
@@ -126,6 +128,7 @@ func TestPacketSizeRetryThresholdCycle(t *testing.T) {
 	c := newJumboRefusalEmission(t).conn
 	c.conn = &dfTestSendConn{sendConn: c.conn, df: true}
 	c.mtuFallback.started = monotime.Now()
+	c.mtuRetry.pathCeiling = 1468
 	c.mtuDiscoverer.Reset(1232, 1468)
 	now := monotime.Now()
 	c.mtuDiscoverer.Restart(1232, 1468)
@@ -149,9 +152,10 @@ func TestPacketSizeRetryThresholdCycle(t *testing.T) {
 	// The next cycle reopens the candidate after cutoff removal.
 	c.advancePacketSizeRetry(c.mtuRetry.deadline)
 	ping, size := c.mtuDiscoverer.GetPing(now)
-	require.Greater(t, size, protocol.ByteCount(1452))
+	require.EqualValues(t, 1453, size)
+	require.EqualValues(t, 1449, c.mtuDiscoverer.CurrentSize())
 	ping.Handler.OnAcked(ping.Frame)
-	require.Greater(t, c.mtuDiscoverer.CurrentSize(), protocol.ByteCount(1452))
+	require.EqualValues(t, 1453, c.mtuDiscoverer.CurrentSize())
 	// Equal-ceiling losses end one cycle and schedule exactly one next cooldown.
 	c.mtuRetry.pathCeiling = 1453
 	c.mtuDiscoverer.Restart(1449, 1453)
@@ -175,4 +179,92 @@ func TestPacketSizeRetryCeilingCapturedBeforeFallback(t *testing.T) {
 	require.EqualValues(t, 8972, c.currentPathPacketCeiling())
 	c.mtuFallback.started = monotime.Now()
 	require.EqualValues(t, 1452, c.currentPathPacketCeiling())
+}
+
+func TestPacketSizeRetryNarrowedMigratedStandardSearch(t *testing.T) {
+	c := newJumboRefusalEmission(t).conn
+	c.conn = &dfTestSendConn{sendConn: c.conn, df: true}
+	now := monotime.Now()
+	c.mtuFallback.started = now
+	c.schedulePacketSizeRetry(now)
+	c.resetPathPacketSize(now.Add(59 * time.Second))
+	c.advancePacketSizeRetry(now.Add(60 * time.Second))
+	require.True(t, c.mtuRetry.pending)
+	for !c.mtuDiscoverer.done() {
+		ping, size := c.mtuDiscoverer.GetPing(now)
+		if size > 1392 {
+			ping.Handler.OnLost(ping.Frame)
+		} else {
+			ping.Handler.OnAcked(ping.Frame)
+		}
+	}
+	require.EqualValues(t, 1390, c.mtuDiscoverer.CurrentSize())
+	completion := now.Add(61 * time.Second)
+	c.advancePacketSizeRetry(completion)
+	require.False(t, c.mtuRetry.pending)
+	require.False(t, c.mtuRetry.running)
+	require.Equal(t, 120*time.Second, c.mtuRetry.deadline.Sub(completion))
+	c.advancePacketSizeRetry(c.mtuRetry.deadline)
+	require.True(t, c.mtuRetry.running)
+	require.False(t, c.mtuDiscoverer.done())
+}
+
+// The timer seam supplies a definitive discovery loss. Recovery storage and
+// emission remain real; only the alarm's time and loss fact are controlled.
+type retryLossAlarm struct {
+	ackhandler.SentPacketHandler
+	deadline monotime.Time
+	ping     ackhandler.Frame
+}
+
+func (h *retryLossAlarm) GetLossDetectionTimeout() monotime.Time { return h.deadline }
+func (h *retryLossAlarm) OnLossDetectionTimeout(monotime.Time) (ackhandler.TimeoutOutcome, error) {
+	h.deadline = 0
+	h.ping.Handler.OnLost(h.ping.Frame)
+	return ackhandler.TimeoutOutcome{}, nil
+}
+
+func TestPacketSizeRetryLossCompletionWhileQueueFull(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		tc := newJumboRefusalEmission(t)
+		c := tc.conn
+		c.conn = &dfTestSendConn{sendConn: c.conn, df: true}
+		c.config.MaxIdleTimeout = 5 * time.Minute
+		c.idleTimeout = 5 * time.Minute
+		c.mtuFallback.started = monotime.Now()
+		c.mtuRetry.running = true
+		c.mtuDiscoverer.Restart(1449, 1453)
+		now := monotime.Now()
+		for range 2 {
+			ping, _ := c.mtuDiscoverer.GetPing(now)
+			ping.Handler.OnLost(ping.Frame)
+		}
+		ping, _ := c.mtuDiscoverer.GetPing(now)
+		lossTime := now.Add(time.Second)
+		c.sentPacketHandler = &retryLossAlarm{SentPacketHandler: c.sentPacketHandler, deadline: lossTime, ping: ping}
+		ctrl := gomock.NewController(t)
+		sender := NewMockSender(ctrl)
+		c.emission.queue = sender
+		blocked := true
+		available := make(chan struct{})
+		sender.EXPECT().Run()
+		sender.EXPECT().Close()
+		sender.EXPECT().WouldBlock().DoAndReturn(func() bool { return blocked }).AnyTimes()
+		sender.EXPECT().Available().Return(available).AnyTimes()
+		tc.connRunner.EXPECT().Remove(gomock.Any()).AnyTimes()
+		done := make(chan error, 1)
+		defer func() { c.destroy(nil); synctest.Wait(); require.NoError(t, <-done) }()
+		go func() { done <- c.run() }()
+		c.scheduleSending()
+		synctest.Wait()
+		time.Sleep(time.Second)
+		c.scheduleSending() // process the due ordinary loss alarm while capacity is blocked
+		synctest.Wait()
+		require.True(t, c.mtuDiscoverer.done())
+		require.Equal(t, lossTime.Add(time.Minute), c.mtuRetry.deadline)
+		blocked = false
+		close(available)
+		synctest.Wait()
+		require.Equal(t, lossTime.Add(time.Minute), c.mtuRetry.deadline)
+	})
 }

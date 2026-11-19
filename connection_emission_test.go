@@ -266,3 +266,31 @@ func TestEmissionFatalCallerBuffer(t *testing.T) {
 		}
 	}
 }
+
+func newJumboRefusalEmission(t *testing.T, controller ...string) *testConnection {
+	t.Helper()
+	config := &Config{InitialPacketSize: 1232, EnableDatagrams: true}
+	tc := newConfiguredEmissionTestConnection(t, false, config)
+	c := tc.conn
+	c.packetCeiling = 8972
+	if len(controller) > 0 {
+		require.Equal(t, "bbrv3", controller[0])
+		require.NoError(t, c.config.SetCongestionControlV1(controller[0]))
+		c.emission.enableBBR(monotime.Now(), 8972)
+		c.emission.enableBBRECN()
+	}
+	c.packetSizeFeedback.wakeup = make(chan struct{}, 1)
+	c.mtuFallback.dropped = make(chan struct{})
+	c.emission.refusals = &c.packetSizeFeedback
+	c.emission.queue.(*sendQueue).refusals = &c.packetSizeFeedback
+	c.peerParams = &wire.TransportParameters{MaxUDPPayloadSize: 8972}
+	c.pathGeneration = 9
+	c.mtuDiscoverer = c.newPathMTUFinder(1232, 8972)
+	for !c.mtuDiscoverer.done() {
+		ping, _ := c.mtuDiscoverer.GetPing(monotime.Now())
+		ping.Handler.OnAcked(ping.Frame)
+	}
+	c.sentPacketHandler.SetMaxDatagramSize(c.maxPacketSize())
+	c.maxPayloadSizeEstimate.Store(uint32(estimateMaxPayloadSize(c.maxPacketSize())))
+	return tc
+}

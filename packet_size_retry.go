@@ -12,6 +12,7 @@ import (
 type packetSizeRetry struct {
 	deadline         monotime.Time
 	pending, running bool
+	awaitingStandard bool
 	next             uint8
 	pathCeiling      protocol.ByteCount
 }
@@ -52,6 +53,19 @@ func (c *Conn) advancePacketSizeRetry(now monotime.Time) {
 	if !c.packetSizeRetryPermitted() || c.mtuFallback.active {
 		return
 	}
+	if r.deadline != 0 && !now.Before(r.deadline) {
+		r.deadline, r.pending = 0, true
+	}
+	if r.awaitingStandard && c.mtuDiscoverer.done() {
+		r.awaitingStandard = false
+		// Elapsed eligibility does not authorize an immediate second search after
+		// this path's standard search failed admission. Observe that result once.
+		if r.pending && c.mtuDiscoverer.max() < c.mtuDiscoverer.stageOneMax {
+			r.pending = false
+			c.schedulePacketSizeRetry(now)
+			return
+		}
+	}
 	if r.running {
 		if !c.mtuDiscoverer.done() {
 			return
@@ -62,9 +76,6 @@ func (c *Conn) advancePacketSizeRetry(now monotime.Time) {
 			return
 		}
 		c.schedulePacketSizeRetry(now)
-	}
-	if r.deadline != 0 && !now.Before(r.deadline) {
-		r.deadline, r.pending = 0, true
 	}
 	if !r.pending || !c.mtuDiscoverer.done() {
 		return

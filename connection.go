@@ -818,6 +818,10 @@ runLoop:
 			}
 		}
 
+		// Ordinary loss callbacks may complete discovery even when send capacity
+		// prevents emission preparation. Anchor the next cooldown at this event.
+		c.advancePacketSizeRetry(now)
+
 		if keepAliveTime := c.nextKeepAliveTime(); !keepAliveTime.IsZero() && !now.Before(keepAliveTime) {
 			// send a PING frame since there is no activity in the connection
 			c.logger.Debugf("Sending a keep-alive PING to keep the connection alive.")
@@ -1145,6 +1149,7 @@ func (c *Conn) switchToNewPath(tr *Transport, now monotime.Time) {
 func (c *Conn) resetPathPacketSize(now monotime.Time) {
 	size := c.effectiveInitialPacketSize
 	c.mtuRetry.running = false
+	c.mtuRetry.awaitingStandard = c.mtuFallback.started != 0
 	if c.mtuFallback.started != 0 {
 		c.schedulePacketSizeRetry(now)
 	}
