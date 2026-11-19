@@ -30,6 +30,39 @@ def sha256(path):
     return hashlib.sha256(Path(path).read_bytes()).hexdigest()
 
 
+def source_record(commit, tree="8" * 40):
+    """A clean snapshot as bind() records it."""
+    return {"commit": commit, "tree": tree, "head_tree": tree, "clean": True}
+
+
+def binding_record(digest, package=MODULE, form="test"):
+    """A binding record shaped as bind() produces it, for driver fixtures."""
+    settings = {"-tags": "picoquic", "GOOS": "darwin", "GOARCH": "arm64", "CGO_ENABLED": "0"}
+    return {"method": binding.METHOD, "package": package, "form": form, "toolchain": GO_VERSION,
+            "settings": settings, "sha256": digest, "rebuild": "byte-identical"}
+
+
+def refusals():
+    """(label, edit(source, record)) pairs, each making a bind() snapshot and record one
+    that every #1528 binding reader refuses: the digest-only binding, the wrong method,
+    rebuild or cleanliness, and every schema field missing or mistyped."""
+    cases = [("digest-only binding", lambda source, record: [record.pop(key) for key in list(record) if key != "sha256"]),
+             ("unclean source", lambda source, record: source.update(clean=False)),
+             ("wrong method", lambda source, record: record.update(method="rebuild-from-candidate/v0")),
+             ("wrong rebuild", lambda source, record: record.update(rebuild="assumed")),
+             ("wrong form", lambda source, record: record.update(form="exe"))]
+    for part, fields in (("source", source_record("a" * 40)), ("binding", binding_record("9" * 64))):
+        for field in fields:
+            def missing(source, record, part=part, field=field):
+                (source if part == "source" else record).pop(field)
+
+            def mistyped(source, record, part=part, field=field):
+                (source if part == "source" else record)[field] = 0
+
+            cases += [(f"missing {part} {field}", missing), (f"mistyped {part} {field}", mistyped)]
+    return cases
+
+
 class FixtureRepo:
     """A git checkout of a tiny Go module: a library package with a test and a command."""
 
@@ -56,6 +89,11 @@ class FixtureRepo:
         path = self.root / name
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(text)
+
+    def ignore(self, *patterns):
+        """Ignore paths through the fixture's own exclude file, which no tree records."""
+        with (self.root / ".git" / "info" / "exclude").open("a") as exclude:
+            exclude.write("".join(pattern + "\n" for pattern in patterns))
 
     def commit(self, message):
         self.git("add", "--all")
@@ -137,6 +175,29 @@ class BindTests(unittest.TestCase):
         self.assertEqual(self.repo.git("status", "--porcelain"), "")
         test_binary = self.repo.build("fixture.test")
         self.refused("recorded tree omits.*extra_ignored.go", {"test": test_binary})
+
+    def test_go_build_binary_ignores_test_only_sources(self):
+        # #1577: go build never compiles a _test.go or a package only tests import.
+        self.repo.ignore("cmd/tool/scratch_test.go", "scratchdep/")
+        self.repo.write("scratchdep/dep.go", "package scratchdep\n\nconst Dep = 1\n")
+        self.repo.write("cmd/tool/scratch_test.go", f'package main\n\nimport (\n\t"testing"\n\n\t"{MODULE}/scratchdep"\n)\n\n'
+                        'func TestScratch(t *testing.T) { _ = scratchdep.Dep }\n')
+        self.assertEqual(self.repo.git("status", "--porcelain"), "")
+        tool = self.repo.build("tool", test=False, package="./cmd/tool")
+        bound = binding.bind(self.repo.root, self.repo.head(), {"tool": tool}, tree=self.repo.tree())
+        self.assertEqual((bound["bindings"]["tool"]["form"], bound["bindings"]["tool"]["sha256"]), ("build", sha256(tool)))
+
+    def test_go_build_binary_reading_an_ignored_file_is_refused(self):
+        self.repo.write("cmd/tool/extra_ignored.go", "package main\n\nconst Extra = 1\n")
+        self.assertEqual(self.repo.git("status", "--porcelain"), "")
+        tool = self.repo.build("tool", test=False, package="./cmd/tool")
+        self.refused("recorded tree omits.*cmd/tool/extra_ignored.go", {"tool": tool})
+
+    def test_go_test_binary_reading_an_ignored_test_file_is_refused(self):
+        self.repo.ignore("scratch_test.go")
+        self.repo.write("scratch_test.go", 'package bindingfixture\n\nimport "testing"\n\nfunc TestScratch(t *testing.T) {}\n')
+        self.assertEqual(self.repo.git("status", "--porcelain"), "")
+        self.refused("recorded tree omits.*scratch_test.go", {"test": self.repo.build("fixture.test")})
 
     def test_staged_change_is_refused_even_when_the_working_file_matches_head(self):
         test_binary = self.repo.build("fixture.test")
@@ -224,6 +285,50 @@ class BindTests(unittest.TestCase):
         with mock.patch.object(binding, "source_identity", side_effect=changing):
             self.refused("changed while", {"test": test_binary})
         self.assertEqual(len(calls), 2)
+
+
+class CheckBindingTests(unittest.TestCase):
+    """MP-MAC #1576: one validator of the binding record, shared by every reader."""
+
+    def check(self, source, record, digest="9" * 64, candidate="a" * 40, tree=None):
+        binding.check_binding(source, record, digest, candidate, "round 1 attempt /x identity.json", "binary", tree=tree)
+
+    def test_records_bind_produced_validate(self):
+        with tempfile.TemporaryDirectory() as directory:
+            repo = FixtureRepo(directory)
+            binaries = {"test": repo.build("fixture.test", tags="picoquic"),
+                        "tool": repo.build("tool", test=False, package="./cmd/tool")}
+            bound = binding.bind(repo.root, repo.head(), binaries, tree=repo.tree())
+            for name, path in binaries.items():
+                with self.subTest(name=name):
+                    binding.check_binding(bound["source"], bound["bindings"][name], sha256(path), repo.head(),
+                                          "fixture", name, tree=repo.tree())
+        self.check(source_record("a" * 40), binding_record("9" * 64))
+
+    def test_incomplete_or_wrong_records_are_refused(self):
+        for label, edit in refusals():
+            with self.subTest(label=label):
+                source, record = source_record("a" * 40), binding_record("9" * 64)
+                edit(source, record)
+                with self.assertRaisesRegex(ValueError, r"^round 1 attempt /x identity\.json: malformed #1528 binding"):
+                    self.check(source, record)
+        for source, record in ((None, binding_record("9" * 64)), (source_record("a" * 40), None),
+                               (source_record("a" * 40), [])):
+            with self.subTest(source=source, record=record), self.assertRaisesRegex(ValueError, "malformed #1528 binding"):
+                self.check(source, record)
+
+    def test_a_record_of_another_commit_tree_or_binary_is_refused(self):
+        where = "native ordinary-control receipt identity"
+        for change, message in (
+                ({"candidate": "d" * 40}, f"{where}: source commit {'a' * 40} is not the candidate {'d' * 40}"),
+                ({"tree": "e" * 40}, f"{where}: source tree {'8' * 40} is not the recorded tree {'e' * 40}"),
+                ({"digest": "e" * 64}, f"{where}: the binding names {'9' * 64}, not the test binary {'e' * 64}")):
+            with self.subTest(change=change):
+                arguments = {"digest": "9" * 64, "candidate": "a" * 40, "tree": "8" * 40} | change
+                with self.assertRaises(ValueError) as caught:
+                    binding.check_binding(source_record("a" * 40), binding_record("9" * 64), arguments["digest"],
+                                          arguments["candidate"], where, "test binary", tree=arguments["tree"])
+                self.assertEqual(str(caught.exception), message)
 
 
 if __name__ == "__main__":

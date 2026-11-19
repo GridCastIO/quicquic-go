@@ -424,10 +424,10 @@ def read_run(key, directory):
         if actual != expected:
             raise ValueError(f"{where}: identity {name} {actual!r} is not {expected!r}"
                              + (" (the verdict reads darwin-arm64 diagnostic runs only)" if name in ("platform profile", "mode") else ""))
-    binaries, source = identity.get("binaries"), identity.get("source")
-    if (not isinstance(binaries, dict) or any(c1.bound_digest(binaries.get(name)) is None for name in ("test", "relay"))
-            or not isinstance(source, dict) or source.get("commit") != identity.get("candidate")):
-        raise ValueError(f"{where}: identity.json lacks a #1528 binding of its test and relay binaries to the candidate")
+    binaries = identity.get("binaries") if isinstance(identity.get("binaries"), dict) else {}
+    for name in ("test", "relay"):
+        c1.check_bound(binaries.get(name), identity.get("source"), identity.get("candidate"), f"{where} identity.json",
+                       f"{name} binary")
     for name, actual, expected in (("version", summary.get("version"), VERSION), ("mode", summary.get("mode"), "diagnostic"),
                                    ("platform profile", summary.get("platform_profile"), c1.DARWIN),
                                    ("controller", summary.get("controller"), controller),

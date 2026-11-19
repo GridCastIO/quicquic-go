@@ -1270,9 +1270,6 @@ DARWIN_BBR_NOT_JUDGED = ("BBR ordinary-cost ratios are reported with judged fals
                          "primary/backup and aggregate cost on the exact results")
 
 
-HEX_DIGEST = re.compile(r"[0-9a-f]{64}")
-
-
 def read_json_line(text, where):
     """One verdict input: a finite JSON object, or a refusal naming where it was read."""
     def reject_nonfinite(value):
@@ -1294,14 +1291,11 @@ def read_json(path, where):
     return read_json_line(text, where)
 
 
-def bound_digest(binary):
-    """The binary's digest when its #1528 binding names that same, well-formed digest."""
-    if not isinstance(binary, dict) or not isinstance(binary.get("binding"), dict):
-        return None
-    digest = binary.get("sha256")
-    if not isinstance(digest, str) or not HEX_DIGEST.fullmatch(digest) or binary["binding"].get("sha256") != digest:
-        return None
-    return digest
+def check_bound(binary, source, candidate, where, name):
+    """Refuse, naming where, a recorded binary ({path, sha256, build_info, binding}) whose
+    #1528 binding and source snapshot are not bind()'s record of it at the candidate (#1576)."""
+    binary = binary if isinstance(binary, dict) else {}
+    candidate_binding.check_binding(source, binary.get("binding"), binary.get("sha256"), candidate, where, name)
 
 
 def file_input(path):
@@ -1325,9 +1319,7 @@ def read_cost_attempt(n, directory):
         raise ValueError(f"{where}: not a one-cell diagnostic attempt")
     if identity.get("cpu_profile") is not False:
         raise ValueError(f"{where}: CPU profiling makes timings attribution-only")
-    source = identity.get("source")
-    if bound_digest(identity.get("binary")) is None or not isinstance(source, dict) or source.get("commit") != identity.get("candidate"):
-        raise ValueError(f"{where}: identity.json lacks a #1528 binding of its binary to the candidate")
+    check_bound(identity.get("binary"), identity.get("source"), identity.get("candidate"), f"{where} identity.json", "binary")
     pair = {}
     for record in records:
         for key, expected in (("platform_profile", DARWIN), ("mode", "diagnostic"), ("candidate", identity.get("candidate")),

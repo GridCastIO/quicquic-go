@@ -1993,8 +1993,8 @@ class DarwinVerdictTests(unittest.TestCase):
             "candidate": VERDICT_CANDIDATE, "controller": controller, "platform_profile": driver.DARWIN,
             "mode": "diagnostic", "cells": [cell], "cpu_profile": False,
             "binary": {"path": "/bin/ordinary-cost-T27.test", "sha256": "9" * 64,
-                       "binding": {"method": "rebuild-from-candidate/v1", "sha256": "9" * 64, "rebuild": "byte-identical"}},
-            "source": {"commit": VERDICT_CANDIDATE, "tree": "8" * 40, "head_tree": "8" * 40, "clean": True},
+                       "binding": binding_fixture.binding_record("9" * 64, "github.com/GridCastIO/quicquic-go")},
+            "source": binding_fixture.source_record(VERDICT_CANDIDATE),
         }
         if identity_edit:
             identity_edit(identity_record)
@@ -2123,7 +2123,7 @@ class DarwinVerdictTests(unittest.TestCase):
             "record_edit": lambda record: record.update(candidate="d" * 40)}}}
         for attempt, pattern in (
                 (other_candidate, "do not share one candidate"),
-                (identity(binary={"sha256": "7" * 64, "binding": {"sha256": "7" * 64}}), "do not share one binary"),
+                (identity(binary={"sha256": "7" * 64, "binding": binding_fixture.binding_record("7" * 64)}), "do not share one binary"),
                 (identity(controller="bbrv3"), "controller"),
                 (identity(cells=["datagram"]), "cell"),
                 (identity(mode="smoke"), "diagnostic"),
@@ -2147,6 +2147,21 @@ class DarwinVerdictTests(unittest.TestCase):
         shutil.rmtree(self.root)
         self.root.mkdir()
         self.refused("binding", self.rounds(identity_edit=lambda record: record["binary"].update(sha256="9" * 63)))
+
+    def test_an_incomplete_or_foreign_binding_is_refused_before_output(self):
+        # #1576: the full #1528 record, through candidate_binding's one validator.
+        def edited(edit):
+            return lambda record: edit(record["source"], record["binary"]["binding"])
+
+        cases = binding_fixture.refusals() + [
+            ("another commit", lambda source, record: source.update(commit="d" * 40)),
+            ("another binary", lambda source, record: record.update(sha256="7" * 64))]
+        for label, edit in cases:
+            with self.subTest(label=label):
+                shutil.rmtree(self.root, ignore_errors=True)
+                self.root.mkdir()
+                attempts = self.rounds(per_round={2: {"identity_edit": edited(edit)}})
+                self.refused(rf"^round 2 attempt {re.escape(str(attempts[2]))} identity\.json: .*(binding|candidate)", attempts)
 
     def test_one_attempt_cannot_stand_for_two_rounds(self):
         attempts = self.rounds()
