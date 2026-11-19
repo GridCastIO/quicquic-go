@@ -8,6 +8,19 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// matrixPathsLiveActive reports whether every observed path is live with local
+// use active. Otherwise it also returns the first path that is not. The live
+// matrix's aggregate phase decides eligibility with it; it lives here so the
+// fixture cases build wherever the picoquic tag does.
+func matrixPathsLiveActive(states []MultipathPathStateV1) (MultipathPathStateV1, bool) {
+	for _, state := range states {
+		if state.Lifecycle != "live" || state.LocalUse != "active" {
+			return state, false
+		}
+	}
+	return MultipathPathStateV1{}, true
+}
+
 // These fixture-semantic cases exercise the aggregate DATAGRAM ingress
 // witness's accounting with recorded peer receipts. They make no live
 // scheduling or platform claim.

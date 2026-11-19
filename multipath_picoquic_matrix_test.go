@@ -388,17 +388,6 @@ func (s *matrixSession) bothActive(paths []*Path) bool {
 	return ok
 }
 
-// matrixPathsLiveActive reports whether every observed path is live with local
-// use active. Otherwise it also returns the first path that is not.
-func matrixPathsLiveActive(states []MultipathPathStateV1) (MultipathPathStateV1, bool) {
-	for _, state := range states {
-		if state.Lifecycle != "live" || state.LocalUse != "active" {
-			return state, false
-		}
-	}
-	return MultipathPathStateV1{}, true
-}
-
 func (s *matrixSession) mtuComplete(id protocol.PathID) bool {
 	s.t.Helper()
 	var complete bool
