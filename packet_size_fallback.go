@@ -115,7 +115,7 @@ func (c *Conn) reducePacketSizeForRecovery(now monotime.Time, fallback protocol.
 	c.mtuFallback.firstPacketNumber, _ = c.sentPacketHandler.PeekPacketNumber(protocol.Encryption1RTT)
 	c.mtuFallback.probe = nil
 	// Reset the finder first, so loss callbacks from retired probes are stale.
-	// A settled finder at the tested size prevents any further search on this path.
+	// Pin discovery at the tested size while fallback awaits confirmation.
 	c.mtuDiscoverer.Reset(fallback, fallback)
 	ackhandler.ResetForMTUReduction(c.sentPacketHandler, now, fallback, c.confirmPacketSizeFallback)
 	c.maxPayloadSizeEstimate.Store(uint32(estimateMaxPayloadSize(fallback)))
