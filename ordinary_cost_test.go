@@ -179,7 +179,14 @@ func ordinaryCostUnavailable(unit, source, reason string) ordinaryCostMetric {
 	return ordinaryCostMetric{Unit: unit, Source: source, Reason: reason}
 }
 
+// The collectors of the platform-independent C1 metrics. Each platform file names its
+// peak-RSS collector as ordinaryCostRSSSource. ordinary_cost.py's PROFILES expect exactly
+// these strings, and its tests read them from these declarations.
 const ordinaryCostCPUSource = "getrusage(RUSAGE_SELF) user+system time, window end minus start"
+
+const ordinaryCostLostSource = "ConnectionStats().PacketsLost"
+
+const ordinaryCostUsefulSource = "receiver-counted application bytes in the window, every flow"
 
 // ordinaryCostCPUMetric is the role process's own CPU over the measurement window.
 func ordinaryCostCPUMetric(window ordinaryCostWindowRusage) ordinaryCostMetric {
@@ -213,11 +220,10 @@ func ordinaryCostRSSMetric(raw uint64, unit, source string) (ordinaryCostMetric,
 // ordinaryCostLostMetric reports ConnectionStats().PacketsLost only where its producer is:
 // the Reno/CUBIC sender increments it, and BBR never does.
 func ordinaryCostLostMetric(controller string, lost uint64) ordinaryCostMetric {
-	const source = "ConnectionStats().PacketsLost"
 	if controller != "reno" {
-		return ordinaryCostUnavailable("packets", source, "only the Reno/CUBIC sender counts lost packets; "+controller+" leaves the counter at zero")
+		return ordinaryCostUnavailable("packets", ordinaryCostLostSource, "only the Reno/CUBIC sender counts lost packets; "+controller+" leaves the counter at zero")
 	}
-	return ordinaryCostObserved(lost, "packets", source)
+	return ordinaryCostObserved(lost, "packets", ordinaryCostLostSource)
 }
 
 func (s ordinaryCostSpec) timeline() ordinaryCostTimeline {
@@ -1020,7 +1026,7 @@ func ordinaryCostRunClient(t testing.TB, spec ordinaryCostSpec) *ordinaryCostCli
 			}
 		}
 	}
-	result.UsefulBytes = ordinaryCostObserved(delivered, "bytes", "receiver-counted application bytes in the window, every flow")
+	result.UsefulBytes = ordinaryCostObserved(delivered, "bytes", ordinaryCostUsefulSource)
 	time.Sleep(ordinaryCostDrain)
 	for _, flow := range flows {
 		require.NoError(t, flow.conn.CloseWithError(0, ""))
@@ -1103,13 +1109,14 @@ func TestOrdinaryCostMetrics(t *testing.T) {
 	require.True(t, cpu.Available)
 	require.Equal(t, uint64(7e9), *cpu.Value, "user and system time over the window")
 	require.Equal(t, "ns", cpu.Unit)
-	require.NotEmpty(t, cpu.Source)
+	require.Equal(t, ordinaryCostCPUSource, cpu.Source)
 	backwards := ordinaryCostWindowRusage{Start: window.End, End: window.Start}
 	backwards.Delta = backwards.End.since(backwards.Start)
 	cpu = ordinaryCostCPUMetric(backwards)
 	require.False(t, cpu.Available, "a negative interval is no CPU reading")
 	require.Nil(t, cpu.Value)
 	require.NotEmpty(t, cpu.Reason)
+	require.Equal(t, ordinaryCostCPUSource, cpu.Source, "an unavailable reading still names its collector")
 
 	kb, err := ordinaryCostRSSMetric(1500, "kB", "VmHWM")
 	require.NoError(t, err)
@@ -1128,12 +1135,17 @@ func TestOrdinaryCostMetrics(t *testing.T) {
 	zero := ordinaryCostLostMetric("reno", 0)
 	require.True(t, zero.Available, "Reno's zero is a counted zero")
 	require.Equal(t, uint64(0), *zero.Value)
+	require.Equal(t, ordinaryCostLostSource, zero.Source)
 	for _, lost := range []uint64{0, 9} {
 		bbr := ordinaryCostLostMetric("bbrv3", lost)
 		require.False(t, bbr.Available, "BBR never increments the counter")
 		require.Nil(t, bbr.Value)
 		require.NotEmpty(t, bbr.Reason)
+		require.Equal(t, ordinaryCostLostSource, bbr.Source)
 	}
+	peak, err := ordinaryCostPeakRSS()
+	require.NoError(t, err)
+	require.Equal(t, ordinaryCostRSSSource, peak.Source, "the host profile's collector")
 	encoded, err := json.Marshal(ordinaryCostLostMetric("bbrv3", 0))
 	require.NoError(t, err)
 	require.Contains(t, string(encoded), `"value":null`, "unavailable is not zero")
@@ -1276,6 +1288,7 @@ func ordinaryCostSmoke(t *testing.T, spec ordinaryCostSpec, off bool) {
 		require.Equal(t, result.usage.End.since(result.usage.Start), result.usage.Delta)
 		require.Equal(t, result.cpu, result.usage.Delta.cpu().Seconds())
 		require.True(t, result.self.Available)
+		require.Equal(t, ordinaryCostCPUSource, result.self.Source)
 		require.Equal(t, uint64(result.usage.Delta.cpu()), *result.self.Value)
 		require.Equal(t, ordinaryCostIdentity{Profile: ordinaryCostHost.name, GOOS: ordinaryCostHost.goos, GOARCH: ordinaryCostHost.goarch}, result.platform)
 	}
@@ -1296,6 +1309,7 @@ func ordinaryCostSmoke(t *testing.T, spec ordinaryCostSpec, off bool) {
 	for _, peak := range []ordinaryCostMetric{server.PeakRSSAtSample, server.PeakRSSEnd} {
 		require.True(t, peak.Available)
 		require.NotZero(t, *peak.Bytes)
+		require.Equal(t, ordinaryCostRSSSource, peak.Source)
 	}
 	// No ordering between the two reads is asserted: Linux updates VmHWM lazily from
 	// approximate counters, so a later read can be lower.
@@ -1326,6 +1340,7 @@ func ordinaryCostSmoke(t *testing.T, spec ordinaryCostSpec, off bool) {
 		}
 	}
 	require.Equal(t, delivered, *client.UsefulBytes.Value)
+	require.Equal(t, ordinaryCostUsefulSource, client.UsefulBytes.Source)
 	switch {
 	case cell != "mixed-bulk":
 		require.Zero(t, background)
@@ -1338,6 +1353,7 @@ func ordinaryCostSmoke(t *testing.T, spec ordinaryCostSpec, off bool) {
 		require.Empty(t, conn.CloseCause)
 		require.Equal(t, controller, conn.Controller)
 		require.Equal(t, controller == "reno", conn.Lost.Available, "only Reno's counter has a producer")
+		require.Equal(t, ordinaryCostLostSource, conn.Lost.Source)
 		require.Equal(t, conn.Lost.Value, conn.PacketsLost)
 		require.Equal(t, granted && cell == "mixed-bulk" && conn.Label == ordinaryCostBackground, conn.Multipath)
 	}

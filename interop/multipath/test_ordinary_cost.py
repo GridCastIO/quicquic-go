@@ -12,6 +12,7 @@ import signal
 import sys
 import textwrap
 import json
+import re
 from pathlib import Path
 from unittest import mock
 
@@ -34,8 +35,15 @@ def metric(value, unit, source="fixture producer", **extra):
     return {"value": value, "unit": unit, "source": source, "available": True, **extra}
 
 
-def unavailable(unit, reason="no producer"):
-    return {"value": None, "unit": unit, "source": "fixture producer", "available": False, "reason": reason}
+def unavailable(unit, reason="no producer", source="fixture producer"):
+    return {"value": None, "unit": unit, "source": source, "available": False, "reason": reason}
+
+
+# The collector strings the C1 Go producers emit, written out independently of the driver.
+CPU_SOURCE = "getrusage(RUSAGE_SELF) user+system time, window end minus start"
+LOST_SOURCE = "ConnectionStats().PacketsLost"
+USEFUL_SOURCE = "receiver-counted application bytes in the window, every flow"
+RSS_SOURCE = {"linux-amd64": "/proc/self/status VmHWM", "darwin-arm64": "getrusage(RUSAGE_SELF).ru_maxrss"}
 
 
 def identity(platform):
@@ -44,7 +52,9 @@ def identity(platform):
 
 
 def lost(controller):
-    return metric(0, "packets") if controller == "reno" else unavailable("packets", "only Reno/CUBIC counts lost packets")
+    if controller == "reno":
+        return metric(0, "packets", LOST_SOURCE)
+    return unavailable("packets", "only Reno/CUBIC counts lost packets", LOST_SOURCE)
 
 
 def observation(cell="stream-gso-on", profile="unregistered", round_=0, platform="linux-amd64", controller="reno", **changes):
@@ -72,9 +82,9 @@ def observation(cell="stream-gso-on", profile="unregistered", round_=0, platform
             "multipath_advertised": linux and profile == "opted-in",
             "gso_capable": linux and cell not in ("stream-gso-off", "datagram-batch-off"),
             "window_cpu_s": 60.0,
-            "self_cpu": metric(60 * 10**9, "ns"),
-            "peak_rss_at_sample": metric(rss, rss_unit, bytes=rss * scale),
-            "peak_rss_end": metric(rss, rss_unit, bytes=rss * scale),
+            "self_cpu": metric(60 * 10**9, "ns", CPU_SOURCE),
+            "peak_rss_at_sample": metric(rss, rss_unit, RSS_SOURCE[platform], bytes=rss * scale),
+            "peak_rss_end": metric(rss, rss_unit, RSS_SOURCE[platform], bytes=rss * scale),
             "write_errors": 0,
             "joined": profile == "opted-in",
             "application_send_call_boundary": driver.METRIC_BOUNDARIES["application_send_call"],
@@ -82,7 +92,7 @@ def observation(cell="stream-gso-on", profile="unregistered", round_=0, platform
             "connections": [connection],
         },
         "client": {"go": driver.GO_VERSION, "controller": controller, "platform": identity(platform),
-                   "window_cpu_s": 30.0, "self_cpu": metric(30 * 10**9, "ns"), "flows": [flow()]},
+                   "window_cpu_s": 30.0, "self_cpu": metric(30 * 10**9, "ns", CPU_SOURCE), "flows": [flow()]},
     }
     if linux:
         record["contaminated"] = False
@@ -99,7 +109,7 @@ def observation(cell="stream-gso-on", profile="unregistered", round_=0, platform
             record["client"]["flows"] += [flow("background"), flow("background")]
     if cell == "stateless-pressure":
         record["client"]["flood"] = {"sent": 600000, "resets": 300000}
-    record["client"]["useful_bytes"] = metric(sum(f["useful_bytes"] for f in record["client"]["flows"]), "bytes")
+    record["client"]["useful_bytes"] = metric(sum(f["useful_bytes"] for f in record["client"]["flows"]), "bytes", USEFUL_SOURCE)
     record.update(changes)
     return record
 
@@ -784,7 +794,7 @@ class MetricRecordTests(unittest.TestCase):
 
     def test_fabricated_or_missing_loss_fails(self):
         record = observation(controller="bbrv3")
-        record["server"]["connections"][0]["packets_lost_metric"] = metric(0, "packets")
+        record["server"]["connections"][0]["packets_lost_metric"] = metric(0, "packets", LOST_SOURCE)
         with self.assertRaisesRegex(ValueError, "lost"):
             driver.check_observation(record)
         record = observation(controller="bbrv3")
@@ -792,7 +802,7 @@ class MetricRecordTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "lost"):
             driver.check_observation(record)
         record = observation()
-        record["server"]["connections"][0]["packets_lost_metric"] = unavailable("packets")
+        record["server"]["connections"][0]["packets_lost_metric"] = unavailable("packets", source=LOST_SOURCE)
         with self.assertRaisesRegex(ValueError, "lost"):
             driver.check_observation(record)
 
@@ -800,7 +810,7 @@ class MetricRecordTests(unittest.TestCase):
         cases = {
             "missing": lambda r: r["server"].pop("self_cpu"),
             "value without availability": lambda r: r["server"]["self_cpu"].update(available=False),
-            "unavailable without reason": lambda r: r["server"].update(self_cpu=unavailable("ns", "")),
+            "unavailable without reason": lambda r: r["server"].update(self_cpu=unavailable("ns", "", CPU_SOURCE)),
             "no source": lambda r: r["client"]["self_cpu"].update(source=""),
             "negative": lambda r: r["client"]["self_cpu"].update(value=-1),
             "float": lambda r: r["client"]["self_cpu"].update(value=1.5),
@@ -837,7 +847,7 @@ class MetricRecordTests(unittest.TestCase):
             for role in ("server", "client"):
                 for seconds in (60.0, -0.5):
                     record = observation("stream" if platform == "darwin-arm64" else "stream-gso-on", platform=platform)
-                    record[role]["self_cpu"] = unavailable("ns", "negative CPU interval")
+                    record[role]["self_cpu"] = unavailable("ns", "negative CPU interval", CPU_SOURCE)
                     record[role]["window_cpu_s"] = seconds
                     with self.subTest(platform=platform, role=role, seconds=seconds), \
                             self.assertRaisesRegex(ValueError, "self_cpu is unavailable"):
@@ -861,6 +871,70 @@ class MetricRecordTests(unittest.TestCase):
                 edit(record)
                 with self.subTest(platform=platform), self.assertRaisesRegex(ValueError, "RSS"):
                     driver.check_observation(record)
+
+    def test_c1_sources_are_the_profile_collectors(self):
+        def first_cell(platform):
+            return next(iter(driver.PROFILES[platform]["cells"]))
+        for platform in ("linux-amd64", "darwin-arm64"):
+            for controller in ("reno", "bbrv3"):
+                driver.check_observation(observation(first_cell(platform), platform=platform, controller=controller))
+
+        def rejects(record, field, expected):
+            with self.assertRaisesRegex(ValueError, f"{field}: source must be {re.escape(repr(expected))}"):
+                driver.check_observation(record)
+
+        # Each profile names its own RSS collector; the other profile's is no reading here.
+        foreign = {"linux-amd64": RSS_SOURCE["darwin-arm64"], "darwin-arm64": RSS_SOURCE["linux-amd64"]}
+        for platform, other in foreign.items():
+            for field in ("peak_rss_at_sample", "peak_rss_end"):
+                record = observation(first_cell(platform), platform=platform)
+                record["server"][field]["source"] = other
+                with self.subTest(platform=platform, field=field):
+                    rejects(record, field, RSS_SOURCE[platform])
+        fields = {
+            "server self_cpu": (lambda r: r["server"]["self_cpu"], "self_cpu", CPU_SOURCE),
+            "client self_cpu": (lambda r: r["client"]["self_cpu"], "self_cpu", CPU_SOURCE),
+            "packets_lost_metric": (lambda r: r["server"]["connections"][0]["packets_lost_metric"], "packets_lost_metric", LOST_SOURCE),
+            "useful_bytes": (lambda r: r["client"]["useful_bytes"], "useful_bytes", USEFUL_SOURCE),
+        }
+        for platform in ("linux-amd64", "darwin-arm64"):
+            # BBR's loss metric is unavailable, and is pinned all the same.
+            for controller in ("reno", "bbrv3"):
+                for name, (get, field, expected) in fields.items():
+                    record = observation(first_cell(platform), platform=platform, controller=controller)
+                    get(record)["source"] = "fixture producer"
+                    with self.subTest(platform=platform, controller=controller, metric=name):
+                        rejects(record, field, expected)
+            for role in ("server", "client"):
+                record = observation(first_cell(platform), platform=platform)
+                record[role]["self_cpu"] = unavailable("ns", "negative CPU interval", "fixture producer")
+                with self.subTest(platform=platform, unavailable=role):
+                    rejects(record, "self_cpu", CPU_SOURCE)
+
+    def test_generic_metric_check_keeps_consumer_sources(self):
+        """Consumers with their own producers pin their own sources; the shared check does not."""
+        self.assertEqual(driver.check_metric("relay_cpu", metric(5, "ns", "a consumer-owned producer"), "ns"), 5)
+        self.assertIsNone(driver.check_metric("relay_cpu", unavailable("ns", "not sampled", "another producer"), "ns"))
+
+
+class ProducerSourceTests(unittest.TestCase):
+    """The readback's expected sources are the named constants the Go producers emit."""
+
+    ROOT = Path(__file__).resolve().parents[2]
+
+    def go_const(self, file, name):
+        found = re.findall(rf'^const {name} = ("(?:[^"\\]|\\.)*")$', (self.ROOT / file).read_text(), re.M)
+        self.assertEqual(len(found), 1, f"{file} declares const {name} once")
+        return json.loads(found[0])
+
+    def test_readback_expects_what_the_producers_emit(self):
+        common = {"self_cpu": "ordinaryCostCPUSource", "packets_lost_metric": "ordinaryCostLostSource",
+                  "useful_bytes": "ordinaryCostUsefulSource"}
+        for platform, file in (("linux-amd64", "ordinary_cost_linux_test.go"), ("darwin-arm64", "ordinary_cost_darwin_test.go")):
+            expected = {field: self.go_const("ordinary_cost_test.go", name) for field, name in common.items()}
+            expected["peak_rss"] = self.go_const(file, "ordinaryCostRSSSource")
+            with self.subTest(platform=platform):
+                self.assertEqual(driver.PROFILES[platform]["sources"], expected)
 
 
 class NativeRecordTests(unittest.TestCase):
@@ -1499,6 +1573,9 @@ class LifecycleRecordTests(unittest.TestCase):
         def darwin_unit(record):
             self.sample(record, "retired")["peak_rss"] = metric(20_000, "bytes", bytes=20_000)
         self.rejects(darwin_unit, "RSS unit must be kB")
+        def foreign_collector(record):
+            self.sample(record, "validated-backup")["peak_rss"]["source"] = "getrusage(RUSAGE_SELF).ru_maxrss"
+        self.rejects(foreign_collector, re.escape("validated-backup peak_rss: source must be '/proc/self/status VmHWM'"))
 
     def test_detachment_and_grant_joins_are_separate(self):
         def unjoined(record):
@@ -1527,6 +1604,10 @@ class LifecycleRecordTests(unittest.TestCase):
         def controller(record):
             record["client"]["controller"] = "bbrv3"
         self.rejects(controller, "client: role, controller or toolchain")
+        for role in ("server", "client"):
+            def unobserved(record):
+                record[role]["controller"] = ""
+            self.rejects(unobserved, f"{role}: role, controller or toolchain")
         def platform(record):
             record["client"]["platform"] = identity("darwin-arm64")
         self.rejects(platform, "native identity")

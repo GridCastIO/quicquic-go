@@ -12,6 +12,8 @@ func ordinaryCostGrant(tr *Transport) error {
 	return tr.configureNativeIO(ordinaryCostWriteBudget)
 }
 
+const ordinaryCostRSSSource = "getrusage(RUSAGE_SELF).ru_maxrss"
+
 // ordinaryCostPeakRSS reads ru_maxrss, which Darwin reports in bytes and does not carry
 // across exec or spawn.
 func ordinaryCostPeakRSS() (ordinaryCostMetric, error) {
@@ -19,5 +21,5 @@ func ordinaryCostPeakRSS() (ordinaryCostMetric, error) {
 	if err := syscall.Getrusage(syscall.RUSAGE_SELF, &usage); err != nil {
 		return ordinaryCostMetric{}, err
 	}
-	return ordinaryCostRSSMetric(uint64(usage.Maxrss), "bytes", "getrusage(RUSAGE_SELF).ru_maxrss")
+	return ordinaryCostRSSMetric(uint64(usage.Maxrss), "bytes", ordinaryCostRSSSource)
 }
