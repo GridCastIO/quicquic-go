@@ -13,10 +13,12 @@ import sys
 import textwrap
 import json
 import re
+import shutil
 from pathlib import Path
 from unittest import mock
 
 import ordinary_cost as driver
+import test_candidate_binding as binding_fixture
 import powermetrics_wrapper
 from test_powermetrics_wrapper import alive, fake_powermetrics, wait_gone, wrapper_command
 
@@ -478,6 +480,10 @@ class ExecutionTests(unittest.TestCase):
             stack.enter_context(mock.patch.object(driver.platform, "machine", return_value=machine))
             if sampler is not None:
                 stack.enter_context(mock.patch.object(driver, "powermetrics_command", return_value=sampler))
+            # Stand-in binaries: the binding itself is exercised by NativeBindingTests, and a
+            # Linux profile must never reach it.
+            stack.enter_context(mock.patch.object(driver.candidate_binding, "bind", side_effect=(
+                stub_binding if platform == driver.DARWIN else AssertionError("bound off Darwin"))))
             stack.enter_context(mock.patch.object(driver.shutil, "which", return_value="taskset"))
             stack.enter_context(mock.patch.object(driver.subprocess, "run", return_value=mock.Mock(stdout=f"fixture: {driver.GO_VERSION}\n")))
             stack.enter_context(mock.patch.object(driver.subprocess, "Popen", side_effect=launch))
@@ -526,6 +532,9 @@ class ExecutionTests(unittest.TestCase):
                 driver.wait_quiet = lambda _: {}
                 driver.schedstat_running_ns = lambda: dict.fromkeys(driver.FIXTURE_CPUS, 0)
                 driver.softirqd_ns = lambda: 0
+                driver.candidate_binding.bind = lambda source, candidate, binaries, tree=None: {
+                    "source": {"commit": candidate, "tree": "b" * 40, "head_tree": "b" * 40, "clean": True},
+                    "bindings": {name: {"method": "stub"} for name in binaries}}
                 extra = ["--platform-profile", "darwin-arm64", "--smoke-cell", "stream", "--host-sampler", "powermetrics"] if native else []
                 sys.exit(driver.main([
                     "--candidate", "a" * 40, "--binary", str(root / "fixture"), "--output", str(root / "output"),
@@ -1855,6 +1864,326 @@ class LifecycleExecutionTests(unittest.TestCase):
             self.assertEqual(code, 1)
             self.assertEqual(processes, {})
             self.assertIn(f"at least {driver.LIFECYCLE_TIMEOUT_S}", summary["error"])
+
+
+def stub_binding(source, candidate, binaries, tree=None):
+    """A binding record for stand-in binaries; real bindings are tested below and in
+    test_candidate_binding."""
+    return {"source": {"commit": candidate, "tree": "b" * 40, "head_tree": "b" * 40, "clean": True},
+            "bindings": {name: {"method": "stub", "sha256": hashlib.sha256(Path(path).read_bytes()).hexdigest()}
+                         for name, path in binaries.items()}}
+
+
+class NativeBindingTests(unittest.TestCase):
+    """MP-MAC #1528: on darwin-arm64 the driver refuses a test binary that is not a
+    byte-identical rebuild of the clean candidate, before any output or launch."""
+
+    def setUp(self):
+        directory = tempfile.TemporaryDirectory()
+        self.addCleanup(directory.cleanup)
+        self.root = Path(directory.name)
+        self.repo = binding_fixture.FixtureRepo(self.root)
+
+    def run_driver(self, binary, candidate=None, profile="darwin-arm64"):
+        """Run main against the fixture checkout; any role launch is recorded and fails."""
+        launches, real_popen = [], subprocess.Popen
+
+        def popen(command, *args, env=None, **kwargs):
+            if env is not None and "ORDINARY_COST_SPEC" in env:
+                launches.append(command)
+                raise OSError("launch spy: no role runs in a binding test")
+            return real_popen(command, *args, env=env, **kwargs)
+
+        system, machine = driver.PROFILES[profile]["host"]
+        with contextlib.ExitStack() as stack:
+            stack.enter_context(mock.patch.object(driver, "GO_VERSION", binding_fixture.GO_VERSION))
+            stack.enter_context(mock.patch.object(driver.platform, "system", return_value=system))
+            stack.enter_context(mock.patch.object(driver.platform, "machine", return_value=machine))
+            stack.enter_context(mock.patch.object(driver.shutil, "which", return_value="taskset"))
+            stack.enter_context(mock.patch.object(driver.subprocess, "Popen", side_effect=popen))
+            stack.enter_context(contextlib.redirect_stdout(io.StringIO()))
+            code = driver.main(["--platform-profile", profile, "--controller", "reno", "--diagnostic-cell", "stream",
+                                "--candidate", candidate or self.repo.head(), "--binary", str(binary),
+                                "--source", str(self.repo.root), "--output", str(self.root / "output"),
+                                "--remaining-instances", "56", "--remaining-host-seconds", "7560", "--timeout-seconds", "135"])
+        return code, launches
+
+    def refused(self, pattern, binary, candidate=None):
+        with self.assertRaisesRegex(ValueError, pattern):
+            self.run_driver(binary, candidate)
+        self.assertFalse((self.root / "output").exists(), "refused before any output")
+
+    def test_candidate_build_is_accepted_and_recorded(self):
+        binary = self.repo.build("ordinary-cost-T27.test", tags="ordinarycost")
+        code, launches = self.run_driver(binary)
+        self.assertEqual(code, 1)
+        self.assertEqual(len(launches), 1, "the bound binary reached its first role launch")
+        identity = json.loads((self.root / "output" / "identity.json").read_text())
+        self.assertEqual(identity["source"], {"commit": self.repo.head(), "tree": self.repo.tree(),
+                                              "head_tree": self.repo.tree(), "clean": True})
+        bound = identity["binary"]["binding"]
+        self.assertEqual((bound["sha256"], bound["rebuild"]), (identity["binary"]["sha256"], "byte-identical"))
+        self.assertEqual(bound["settings"]["-tags"], "ordinarycost")
+
+    def test_stale_dirty_mismatched_or_ignored_builds_are_refused(self):
+        first = self.repo.head()
+        self.refused("is not the candidate's build", self.repo.stale("stale.test", tags="ordinarycost"))
+        self.refused("not the candidate", self.repo.build("current.test", tags="ordinarycost"), candidate=first)
+        self.repo.write("extra_ignored.go", "package bindingfixture\n\nconst Extra = 1\n")
+        self.refused("recorded tree omits", self.repo.build("ignored.test", tags="ordinarycost"))
+        (self.repo.root / "extra_ignored.go").unlink()
+        binary = self.repo.build("dirty.test", tags="ordinarycost")
+        self.repo.write("fixture.go", 'package bindingfixture\n\nconst Version = "edited"\n')
+        self.refused("not clean", binary)
+
+    def test_linux_profile_never_binds(self):
+        with tempfile.TemporaryDirectory() as temporary, \
+                mock.patch.object(driver.candidate_binding, "bind", side_effect=AssertionError("bound on Linux")):
+            code, summary, _ = ExecutionTests().invoke(Path(temporary), ("--smoke-cell", "stream-gso-on"))
+        self.assertEqual(code, 0, summary)
+        with contextlib.redirect_stderr(io.StringIO()), self.assertRaises(SystemExit):
+            self.run_driver(self.repo.build("linux.test"), profile="linux-amd64")
+
+
+VERDICT_CANDIDATE = "c" * 40
+
+
+def set_cpu(record, seconds):
+    record["server"]["window_cpu_s"] = seconds
+    record["server"]["self_cpu"]["value"] = int(seconds * 10**9)
+
+
+def empty_second(record):
+    ordinary = flows(record, "ordinary")[0]
+    ordinary["series"][7] = 0
+    ordinary["useful_bytes"] = sum(ordinary["series"])
+    resync_useful(record)
+
+
+def flows(record, label):
+    return [item for item in record["client"]["flows"] if item["label"] == label]
+
+
+class DarwinVerdictTests(unittest.TestCase):
+    """MP-MAC #1569 (protocol D12 A): the X11 verdict over the accepted attempt of rounds
+    1-3, read only from each attempt's diagnostic.jsonl and identity.json."""
+
+    def setUp(self):
+        directory = tempfile.TemporaryDirectory()
+        self.addCleanup(directory.cleanup)
+        self.root = Path(directory.name)
+
+    def attempt(self, n, controller="reno", cell="stream", opted=None, record_edit=None, identity_edit=None):
+        """One accepted $N/a1 directory as the driver writes it: two arm records, identity
+        and a summary.json whose embedded figures contradict them."""
+        directory = self.root / "cost" / controller / cell / str(n) / "a1"
+        directory.mkdir(parents=True)
+        records = []
+        for profile in (driver.CONTROL, driver.OPTED_IN):
+            record = observation(cell, profile, platform=driver.DARWIN, controller=controller)
+            record.update(mode="diagnostic", candidate=VERDICT_CANDIDATE, attempt=0, round=0, seed=driver.BASE_SEED,
+                          status="succeeded", occupied_s=80.0, cpu_profile=False, timing_eligible=True)
+            if profile == driver.OPTED_IN and opted:
+                opted(record)
+            if record_edit:
+                record_edit(record)
+            records.append(record)
+        (directory / "diagnostic.jsonl").write_text("".join(json.dumps(record) + "\n" for record in records))
+        identity_record = {
+            "candidate": VERDICT_CANDIDATE, "controller": controller, "platform_profile": driver.DARWIN,
+            "mode": "diagnostic", "cells": [cell], "cpu_profile": False,
+            "binary": {"path": "/bin/ordinary-cost-T27.test", "sha256": "9" * 64,
+                       "binding": {"method": "rebuild-from-candidate/v1", "sha256": "9" * 64, "rebuild": "byte-identical"}},
+            "source": {"commit": VERDICT_CANDIDATE, "tree": "8" * 40, "head_tree": "8" * 40, "clean": True},
+        }
+        if identity_edit:
+            identity_edit(identity_record)
+        (directory / "identity.json").write_text(json.dumps(identity_record))
+        (directory / "summary.json").write_text(json.dumps({"passed": False, "attempts": [{"server": {"window_cpu_s": 1e9}}]}))
+        return directory
+
+    def verdict(self, attempts, extra=()):
+        output = self.root / "verdict"
+        argv = ["--verdict", "--platform-profile", driver.DARWIN, "--output", str(output), *extra]
+        for n, directory in attempts.items():
+            argv += ["--attempt", f"{n}={directory}"]
+        with contextlib.redirect_stdout(io.StringIO()):
+            code = driver.main(argv)
+        return code, json.loads((output / "verdict.json").read_text())
+
+    def rounds(self, **attempt):
+        per_round = attempt.pop("per_round", {})
+        return {n: self.attempt(n, **(attempt | per_round.get(n, {}))) for n in (1, 2, 3)}
+
+    def refused(self, pattern, attempts, extra=()):
+        with self.assertRaisesRegex(ValueError, pattern):
+            self.verdict(attempts, extra)
+        self.assertFalse((self.root / "verdict").exists(), "a refusal writes no verdict")
+
+    def test_reno_cell_passes_and_names_its_inputs(self):
+        attempts = self.rounds()
+        before = {path: path.read_bytes() for directory in attempts.values() for path in directory.iterdir()}
+        code, verdict = self.verdict(attempts)
+        self.assertEqual(code, 0)
+        self.assertEqual(verdict["schema"], "mp-mac-x11-verdict/1")
+        self.assertEqual((verdict["judged"], verdict["passed"], verdict["failures"]), (True, True, []))
+        self.assertEqual((verdict["controller"], verdict["cell"], verdict["candidate"], verdict["binary_sha256"]),
+                         ("reno", "stream", VERDICT_CANDIDATE, "9" * 64))
+        self.assertEqual(verdict["diagnostic"]["goodput_ratio"]["rounds"], [1.0, 1.0, 1.0])
+        self.assertEqual([item["round"] for item in verdict["inputs"]], [1, 2, 3])
+        for item, directory in zip(verdict["inputs"], attempts.values()):
+            self.assertEqual(set(item["files"]), {"diagnostic.jsonl", "identity.json"})
+            for name, entry in item["files"].items():
+                self.assertEqual(entry, {"path": str(directory / name),
+                                         "sha256": hashlib.sha256((directory / name).read_bytes()).hexdigest()})
+        self.assertEqual(verdict["host_activity"]["2"], {driver.CONTROL: "unavailable", driver.OPTED_IN: "unavailable"})
+        self.assertEqual(before, {path: path.read_bytes() for directory in attempts.values() for path in directory.iterdir()},
+                         "the verdict never rewrites an input")
+
+    def test_summary_json_is_not_an_input(self):
+        attempts = self.rounds()
+        _, expected = self.verdict(attempts)
+        shutil.rmtree(self.root / "verdict")
+        for directory in attempts.values():
+            (directory / "summary.json").write_text("{not json")
+        _, verdict = self.verdict(attempts)
+        self.assertEqual(verdict, expected)
+
+    def test_each_reno_rule_fails_on_its_own(self):
+        def slower(record):
+            scale_goodput(record, 0.9)
+            set_cpu(record, 54.0)  # the same CPU per useful byte
+
+        def control_latency(record):
+            flows(record, "ordinary")[0]["control"]["p99_us"] = 2001.0
+
+        def send_latency(record):
+            record["server"]["application_send_call"]["ordinary"]["p99_us"] = 2001.0
+
+        def timeout_close(record):
+            record["client"]["flows"][0]["timeout_close"] = True
+
+        def write_error(record):
+            record["server"]["write_errors"] = 1
+
+        def memory(record):
+            end = record["server"]["peak_rss_end"]
+            end["value"] = end["bytes"] = 1_126_401  # just above 1.10 × 1,024,000 bytes
+
+        every = lambda edit: {"opted": edit}
+        once = lambda edit: {"per_round": {2: {"opted": edit}}}
+        for edit, failure in ((every(slower), "goodput ratio 0.900 below 0.95"),
+                              (every(lambda record: set_cpu(record, 66.6)), "CPU per useful byte ratio 1.110 above 1.1"),
+                              (every(control_latency), "control p99 1 us over its limit"),
+                              (every(send_latency), "application send-call p99 1 us over its limit"),
+                              (once(timeout_close), "timeout-only close in rounds [2]"),
+                              (once(write_error), "write error or non-timeout close in rounds [2]"),
+                              (once(empty_second), "fair progress: an empty second in rounds [2]"),
+                              (once(memory), "memory kept growing in rounds [2]")):
+            with self.subTest(failure=failure):
+                shutil.rmtree(self.root, ignore_errors=True)
+                self.root.mkdir()
+                code, verdict = self.verdict(self.rounds(**edit))
+                self.assertEqual(code, 1)
+                self.assertEqual((verdict["judged"], verdict["passed"], verdict["failures"]), (True, False, [failure]))
+
+    def test_darwin_memory_rule_reads_normalized_peak_rss_bytes(self):
+        def at_ceiling(record):
+            end = record["server"]["peak_rss_end"]
+            end["value"] = end["bytes"] = 1_126_400  # exactly 1.10 × the sample: bounded
+
+        code, verdict = self.verdict(self.rounds(opted=at_ceiling))
+        self.assertEqual((code, verdict["failures"]), (0, []))
+        self.assertEqual(verdict["diagnostic"]["peak_rss_bytes"][driver.OPTED_IN], [1_126_400] * 3)
+        self.assertNotIn("peak_rss_kb", verdict["diagnostic"])
+
+    def test_bbr_is_reported_unjudged_on_every_cell(self):
+        for cell in driver.NATIVE_CELLS:
+            if cell == "mixed-bulk":
+                continue  # its opted-in arm needs the D14 lifts
+            with self.subTest(cell=cell):
+                shutil.rmtree(self.root, ignore_errors=True)
+                self.root.mkdir()
+                code, verdict = self.verdict(self.rounds(controller="bbrv3", cell=cell, opted=lambda r: set_cpu(r, 90.0)))
+                self.assertEqual(code, 0)
+                self.assertEqual((verdict["judged"], verdict["passed"]), (False, None))
+                self.assertNotIn("diagnostic", verdict)
+                self.assertEqual(verdict["observations"]["cpu_per_useful_byte_ratio"]["median"], 1.5)
+
+    def test_identity_that_differs_across_rounds_is_refused(self):
+        def identity(**changes):
+            return {"per_round": {3: {"identity_edit": lambda record: record.update(changes)}}}
+
+        def records(**changes):
+            return {"per_round": {3: {"record_edit": lambda record: record.update(changes)}}}
+
+        # Round 3 is self-consistent and bound; it differs from rounds 1 and 2 only.
+        other_candidate = {"per_round": {3: {
+            "identity_edit": lambda record: record.update(candidate="d" * 40, source=dict(record["source"], commit="d" * 40)),
+            "record_edit": lambda record: record.update(candidate="d" * 40)}}}
+        for attempt, pattern in (
+                (other_candidate, "do not share one candidate"),
+                (identity(binary={"sha256": "7" * 64, "binding": {"sha256": "7" * 64}}), "do not share one binary"),
+                (identity(controller="bbrv3"), "controller"),
+                (identity(cells=["datagram"]), "cell"),
+                (identity(mode="smoke"), "diagnostic"),
+                (identity(cpu_profile=True), "CPU profil"),
+                (identity(platform_profile=driver.LINUX), "darwin-arm64"),
+                (records(candidate="d" * 40), "candidate"),
+                ({"per_round": {3: {"controller": "bbrv3"}}}, "controller"),
+                ({"per_round": {3: {"cell": "datagram"}}}, "cell"),
+                (identity(binary={"sha256": "9" * 64}), "binding"),
+                (identity(source={"commit": "d" * 40}), "binding")):
+            with self.subTest(pattern=pattern, attempt=attempt):
+                shutil.rmtree(self.root, ignore_errors=True)
+                self.root.mkdir()
+                self.refused(pattern, self.rounds(**attempt))
+
+    def test_a_missing_digest_is_not_a_binding(self):
+        def unbound(record):
+            record["binary"] = {"path": "/bin/ordinary-cost-T27.test", "sha256": None, "binding": {}}
+
+        self.refused("binding", self.rounds(identity_edit=unbound))
+        shutil.rmtree(self.root)
+        self.root.mkdir()
+        self.refused("binding", self.rounds(identity_edit=lambda record: record["binary"].update(sha256="9" * 63)))
+
+    def test_one_attempt_cannot_stand_for_two_rounds(self):
+        attempts = self.rounds()
+        self.refused("round 2.* is round 1's attempt", attempts | {2: attempts[1]})
+        self.refused("round 3.* is round 1's attempt", attempts | {3: attempts[1].parent / "." / "a1"})
+        # A case-insensitive volume (the APFS default) names one directory many ways.
+        alias = attempts[1].parent / "A1"
+        if alias.exists() and os.path.samefile(alias, attempts[1]):
+            self.refused("round 3.* is round 1's attempt", attempts | {3: alias})
+
+    def test_malformed_input_shapes_name_their_file(self):
+        for n, name, malform in ((2, "identity.json", lambda text: "[]"), (3, "diagnostic.jsonl", lambda text: "[]\n[]\n"),
+                                 (1, "identity.json", lambda text: json.dumps(json.loads(text) | {"binary": []}))):
+            with self.subTest(n=n, name=name):
+                shutil.rmtree(self.root, ignore_errors=True)
+                self.root.mkdir()
+                attempts = self.rounds()
+                path = attempts[n] / name
+                path.write_text(malform(path.read_text()))
+                self.refused(f"round {n} attempt .*{name}", attempts)
+
+    def test_malformed_input_sets_are_refused(self):
+        attempts = self.rounds()
+        self.refused("rounds 1, 2 and 3", {1: attempts[1], 2: attempts[2]})
+        self.refused("rounds 1, 2 and 3", attempts | {4: attempts[3]})
+        self.refused("darwin-arm64", attempts, ("--platform-profile", driver.LINUX))
+        lines = (attempts[2] / "diagnostic.jsonl").read_text().splitlines()
+        (attempts[2] / "diagnostic.jsonl").write_text(lines[0] + "\n")
+        self.refused("exactly one unregistered and one opted-in", attempts)
+        (attempts[2] / "diagnostic.jsonl").write_text("\n".join(lines + lines[:1]) + "\n")
+        self.refused("exactly one unregistered and one opted-in", attempts)
+        record = json.loads(lines[1])
+        record["server"]["granted"] = False  # fails the existing readback
+        (attempts[2] / "diagnostic.jsonl").write_text(lines[0] + "\n" + json.dumps(record) + "\n")
+        self.refused("grant does not match", attempts)
+        (attempts[2] / "diagnostic.jsonl").unlink()
+        self.refused("diagnostic.jsonl", attempts)
 
 
 if __name__ == "__main__":
