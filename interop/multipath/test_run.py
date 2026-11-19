@@ -511,6 +511,38 @@ class NativeProfileTests(unittest.TestCase):
                 "test_binary_binding": self.binding("4" * 64, "github.com/GridCastIO/quicquic-go"),
                 "peer_binary_sha256": "d" * 64}
 
+    def test_build_identity_names_the_peer_each_mode_launches(self):
+        # The matrix and negotiated-zero receipts carry qgf-r17-peer; the ordinary control, picoquicdemo.
+        with tempfile.TemporaryDirectory() as temporary:
+            path, record = self.build_identity(temporary, __file__)
+            self.assertEqual(runner.load_build_identity(path, "Darwin", "arm64", __file__, "picoquicdemo"), record)
+            with self.assertRaisesRegex(ValueError, "not the qgf-r17-peer"):
+                runner.load_build_identity(path, "Darwin", "arm64", __file__, "qgf-r17-peer")
+        self.assertEqual(runner.NATIVE_PEERS, {"ordinary-control": "picoquicdemo", "matrix-discovery": None,
+                                               "matrix": "qgf-r17-peer", "negotiated-zero": "qgf-r17-peer"})
+        for argv, peer in ((["--matrix", "--scenario", "useful-transfer", "--role", "client"], "qgf-r17-peer"),
+                           (["--zero-vectors"], "qgf-r17-peer"), ([], "picoquicdemo")):
+            with self.subTest(argv=argv), tempfile.TemporaryDirectory() as temporary:
+                root = Path(temporary)
+                self.native_case(root, *argv, "--output", str(root / "out"))
+                self.assertEqual(self.native_identity_mock.call_args.kwargs.get("peer"), peer)
+
+    def test_default_validator_refuses_native_receipts(self):
+        # Without --profile darwin-native, a native root fails before matrix-result.json exists.
+        for controller, policy in (("reno", "primary-backup"), ("bbrv3", "aggregate")):
+            with self.subTest(controller=controller), tempfile.TemporaryDirectory() as temporary:
+                root = self.native_matrix_root(Path(temporary), controller, policy)
+                for directory in [*root.glob("*/*"), root / "negotiated-zero"]:
+                    receipt = directory / "result.json"
+                    if receipt.is_file():
+                        data = json.loads(receipt.read_text())
+                        data["identity"] = {k: v for k, v in data["identity"].items() if k not in ("source", "test_binary_binding")}
+                        receipt.write_text(json.dumps(data))
+                argv = ["run.py", "--validate-matrix", "--controller", controller, "--policy", policy, "--output", str(root)]
+                with mock.patch.object(sys, "argv", argv), self.assertRaisesRegex(ValueError, "--profile darwin-native"):
+                    runner.main()
+                self.assertFalse((root / "matrix-result.json").exists())
+
     def run_native(self, argv, identity=None, status=0):
         """main() under darwin-native with the host, toolchain and #1528 binding stubbed:
         native_identity returns identity, and each launch passes the cases its command selects."""
@@ -535,7 +567,8 @@ class NativeProfileTests(unittest.TestCase):
             stack.enter_context(mock.patch.object(runner.platform, "system", return_value="Darwin"))
             stack.enter_context(mock.patch.object(runner.platform, "machine", return_value="arm64"))
             stack.enter_context(mock.patch.object(runner.shutil, "which", return_value="/usr/bin/stand-in"))
-            stack.enter_context(mock.patch.object(runner, "native_identity", return_value=identity or self.case_identity()))
+            self.native_identity_mock = stack.enter_context(
+                mock.patch.object(runner, "native_identity", return_value=identity or self.case_identity()))
             stack.enter_context(mock.patch.object(runner, "run_bounded", side_effect=run_bounded))
             stack.enter_context(contextlib.redirect_stdout(io.StringIO()))
             runner.main()

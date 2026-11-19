@@ -377,6 +377,18 @@ func TestMultipathServerSelectedConfig(t *testing.T) {
 		require.NoError(t, err)
 		require.False(t, negotiated, "the client never offered it")
 	})
+	t.Run("granted transport refuses a selected config listing v2", func(t *testing.T) {
+		v2 := multipathConfig(t)
+		v2.Versions = []Version{Version1, Version2}
+		srv := grantedTransport(t)
+		ln, err := srv.Listen(nativeServerTLS(), &Config{GetConfigForClient: func(*ClientInfo) (*Config, error) { return v2, nil }})
+		require.NoError(t, err)
+		defer ln.Close()
+		_, err = dial(t, srv)
+		var transportErr *TransportError
+		require.ErrorAs(t, err, &transportErr)
+		require.Equal(t, ConnectionRefused, transportErr.ErrorCode)
+	})
 	t.Run("a late request on an address listener can't retrofit", func(t *testing.T) {
 		ln, err := ListenAddr("127.0.0.1:0", nativeServerTLS(), &Config{GetConfigForClient: getConfig})
 		require.NoError(t, err)

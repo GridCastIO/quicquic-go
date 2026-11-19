@@ -78,6 +78,12 @@ def check_case_logs(root, expected):
         raise ValueError(f"missing or unexpected matrix case logs: {actual_paths ^ expected_paths}")
 
 
+def refuse_native_receipt(result, case):
+    """Linux receipts carry no profile or mode; a darwin-native one belongs to check_native_matrix."""
+    if "profile" in result or "mode" in result:
+        raise ValueError(f"{case}: a {result.get('profile', 'native')} receipt; validate it with --profile darwin-native")
+
+
 def check_matrix(root, controller="reno", policy="primary-backup"):
     expected = matrix_expected(controller)
     identity = None
@@ -87,6 +93,7 @@ def check_matrix(root, controller="reno", policy="primary-backup"):
         directory = root / scenario / role
         check_cases((directory / "go-test.jsonl").read_text().splitlines(), SMOKE_PACKAGE, [case])
         result = json.loads((directory / "result.json").read_text())
+        refuse_native_receipt(result, case)
         if result.get("status") != "pass" or result.get("executed") != [case] or not result.get("identity"):
             raise ValueError(f"invalid case receipt: {case}")
         if result.get("controller", "reno") != controller:
@@ -105,6 +112,7 @@ def check_matrix(root, controller="reno", policy="primary-backup"):
             raise ValueError("missing negotiated-zero normative/controlled evidence")
         check_cases((zero / "go-test.jsonl").read_text().splitlines(), SMOKE_PACKAGE, ZERO_EXPECTED)
         zero_result = json.loads((zero / "result.json").read_text())
+        refuse_native_receipt(zero_result, "negotiated-zero")
         if zero_result.get("status") != "pass" or zero_result.get("executed") != ZERO_EXPECTED or zero_result.get("identity") != identity:
             raise ValueError("negotiated-zero receipt identity/accounting mismatch")
         result["negotiated_zero"] = {"executed": ZERO_EXPECTED, "independent_peer": False}
@@ -270,8 +278,9 @@ def required_executables(profile):
     return ("go", "stdbuf") if profile == "linux-docker" else ("go",)
 
 
-def load_build_identity(path, system, machine, binary=None):
-    """Read back the native build recipe's record; unknown or malformed fields fail."""
+def load_build_identity(path, system, machine, binary=None, peer=None):
+    """Read back the native build recipe's record; unknown or malformed fields fail. With peer,
+    the binary must be the one the record names for that peer."""
     record = read_record(path, BUILD_IDENTITY_SCHEMA, "build identity")
     if record["platform"]["system"] != system or record["platform"]["machine"] != machine:
         raise ValueError(f"build identity platform does not match {system}/{machine}")
@@ -279,6 +288,8 @@ def load_build_identity(path, system, machine, binary=None):
         raise ValueError("build identity was produced from a different peer.c")
     if binary is not None and digest(binary) not in {entry["sha256"] for entry in record["binaries"].values()}:
         raise ValueError(f"peer binary is not one recorded by the build identity: {binary}")
+    if binary is not None and peer is not None and digest(binary) != record["binaries"][peer]["sha256"]:
+        raise ValueError(f"peer binary is not the {peer} the build identity records: {binary}")
     return record
 
 
@@ -303,13 +314,13 @@ def check_test_binary_settings(build_info, goos, goarch, toolchain=None):
     return settings
 
 
-def native_identity(build_identity, binary, test_binary, source=SOURCE):
+def native_identity(build_identity, binary, test_binary, source=SOURCE, peer=None):
     candidate = os.environ.get("QGF_SOURCE_COMMIT", "")
     tree = os.environ.get("QGF_SOURCE_TREE", "")
     if not is_hex(candidate, 40) or not is_hex(tree, 40):
         raise ValueError("native execution requires exact QGF_SOURCE_COMMIT and QGF_SOURCE_TREE")
     system, machine = platform.system(), platform.machine()
-    load_build_identity(build_identity, system, machine, binary)
+    load_build_identity(build_identity, system, machine, binary, peer)
     version = subprocess.check_output(["go", "version"], text=True, timeout=10).strip()
     if not version.endswith(" darwin/arm64"):
         raise ValueError(f"native profile requires a darwin/arm64 toolchain: {version}")
@@ -475,6 +486,12 @@ def check_native_matrix(root, controller="reno", policy="primary-backup"):
     return result
 
 
+# The peer each native mode's receipt names: the matrix and negotiated-zero share the R17
+# adapter's identity (negotiated-zero launches none), the ordinary control runs the demo.
+NATIVE_PEERS = {"ordinary-control": "picoquicdemo", "matrix-discovery": None,
+                "matrix": "qgf-r17-peer", "negotiated-zero": "qgf-r17-peer"}
+
+
 def native_mode(args):
     """The label a native receipt carries, one per mode."""
     if args.discover_matrix:
@@ -556,7 +573,8 @@ def main():
     if args.test_binary and (not args.test_binary.is_file() or not os.access(args.test_binary, os.X_OK)):
         raise ValueError(f"missing executable test binary: {args.test_binary}")
     if native:
-        identity = native_identity(args.build_identity, args.binary, args.test_binary, args.source or SOURCE)
+        identity = native_identity(args.build_identity, args.binary, args.test_binary, args.source or SOURCE,
+                                   peer=NATIVE_PEERS[native_mode(args)])
     else:
         identity = execution_identity(args.binary, args.test_binary) if args.matrix or args.zero_vectors else None
     args.output.mkdir(parents=True, exist_ok=False)
