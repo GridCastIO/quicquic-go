@@ -1390,11 +1390,11 @@ def lifecycle_record(controller="reno", retired="closed", heap=(4_000_000, 4_100
     joins = driver.LIFECYCLE_BOUNDARY_SOURCES["grant_joins"]
     return {
         "workload": driver.LIFECYCLE, "controller": controller, "platform_profile": "linux-amd64",
-        "retired_lifecycle": retired,
-        "server": {"role": "server", "controller": controller, "go": driver.GO_VERSION, "platform": identity("linux-amd64"),
+        "retired_lifecycle": retired, "exit": {"server": 0, "client": 0}, "status": "succeeded",
+        "server": {"format": driver.LIFECYCLE_FORMAT, "role": "server", "controller": controller, "go": driver.GO_VERSION, "platform": identity("linux-amd64"),
                    "multipath_negotiated": True, "peer_closed": True, "close_cause": "Application error 0x0 (remote)",
                    "grant_joins": {"origin": True}, "grant_join_source": joins},
-        "client": {"role": "client", "controller": controller, "go": driver.GO_VERSION, "platform": identity("linux-amd64"),
+        "client": {"format": driver.LIFECYCLE_FORMAT, "role": "client", "controller": controller, "go": driver.GO_VERSION, "platform": identity("linux-amd64"),
                    "retired_lifecycle": retired, "multipath_negotiated": True, "samples": samples,
                    "transport_detachment": {"transport": "backup", "detached": True,
                                             "source": driver.LIFECYCLE_BOUNDARY_SOURCES["transport_detachment"]},
@@ -1530,6 +1530,27 @@ class LifecycleRecordTests(unittest.TestCase):
         def platform(record):
             record["client"]["platform"] = identity("darwin-arm64")
         self.rejects(platform, "native identity")
+        for role in ("server", "client"):
+            def unversioned(record):
+                del record[role]["format"]
+            self.rejects(unversioned, f"{role}: unsupported lifecycle record format")
+            def revised(record):
+                record[role]["format"] = "mp-mac-c2-lifecycle-memory/2"
+            self.rejects(revised, "unsupported lifecycle record format")
+            def failed(record):
+                record["exit"][role] = 1
+            self.rejects(failed, "both roles must exit 0")
+
+    def test_path_ids_are_the_producers_uint32(self):
+        for wire_id in (-1, 2**32, True):
+            with self.subTest(wire_id=wire_id):
+                def out_of_range(record):
+                    for phase in ("validated-backup", "retired"):
+                        sample = self.sample(record, phase)
+                        sample["path_id"] = wire_id
+                        for field in ("state_before", "state_after"):
+                            sample[field]["wire_id"] = wire_id
+                self.rejects(out_of_range, "uint32")
 
     def test_comparison_pairs_one_qualifying_state(self):
         pairs = driver.match_lifecycle(lifecycle_record("reno"), lifecycle_record("bbrv3", heap=(5, 6, 7)))
@@ -1540,6 +1561,11 @@ class LifecycleRecordTests(unittest.TestCase):
         relabeled["client"]["samples"][1]["path_id"] = 2
         with self.assertRaises(ValueError):
             driver.match_lifecycle(lifecycle_record(), relabeled)
+        for status in ("failed", "started", None):
+            failed = lifecycle_record()
+            failed["status"] = status
+            with self.subTest(status=status), self.assertRaisesRegex(ValueError, "pairs succeeded attempts"):
+                driver.match_lifecycle(lifecycle_record(), failed)
 
     def test_native_lifecycle_is_refused_not_replaced(self):
         record = lifecycle_record()

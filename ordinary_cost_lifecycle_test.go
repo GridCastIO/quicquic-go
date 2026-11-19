@@ -11,6 +11,7 @@ import (
 	"os"
 	"runtime"
 	"runtime/metrics"
+	"sync"
 	"testing"
 	"time"
 
@@ -26,6 +27,9 @@ const (
 	ordinaryCostIdle    = "negotiated-idle"
 	ordinaryCostBackup  = "validated-backup"
 	ordinaryCostRetired = "retired"
+
+	// ordinaryCostLifecycleFormat versions both role records; readback admits only it.
+	ordinaryCostLifecycleFormat = "mp-mac-c2-lifecycle-memory/1"
 
 	ordinaryCostHeapSource   = "runtime/metrics /gc/heap/live:bytes after a forced runtime.GC()"
 	ordinaryCostDetachSource = "Conn.WaitTransportDetachedV1"
@@ -270,6 +274,7 @@ type ordinaryCostDetachment struct {
 }
 
 type ordinaryCostLifecycleClientResult struct {
+	Format           string                        `json:"format"`
 	Role             string                        `json:"role"`
 	Controller       string                        `json:"controller"`
 	Go               string                        `json:"go"`
@@ -283,6 +288,7 @@ type ordinaryCostLifecycleClientResult struct {
 }
 
 type ordinaryCostLifecycleServerResult struct {
+	Format     string               `json:"format"`
 	Role       string               `json:"role"`
 	Controller string               `json:"controller"`
 	Go         string               `json:"go"`
@@ -299,7 +305,7 @@ type ordinaryCostLifecycleServerResult struct {
 // qualifying state, and its transport detached. conf is the C1 multipath Config.
 func ordinaryCostRunLifecycleClient(ctx context.Context, spec ordinaryCostLifecycleSpec, conf *Config) (result *ordinaryCostLifecycleClientResult, err error) {
 	result = &ordinaryCostLifecycleClientResult{
-		Role: "client", Controller: spec.Controller, Go: runtime.Version(), Platform: ordinaryCostHost.identity(),
+		Format: ordinaryCostLifecycleFormat, Role: "client", Controller: spec.Controller, Go: runtime.Version(), Platform: ordinaryCostHost.identity(),
 		RetiredLifecycle: spec.Retired, Samples: []ordinaryCostLifecycleSample{}, GrantJoins: map[string]bool{},
 		JoinSource: ordinaryCostJoinSource,
 		Detachment: ordinaryCostDetachment{Transport: "backup", Source: ordinaryCostDetachSource},
@@ -376,7 +382,7 @@ func ordinaryCostRunLifecycleClient(ctx context.Context, spec ordinaryCostLifecy
 // until the client closes it.
 func ordinaryCostRunLifecycleServer(ctx context.Context, spec ordinaryCostLifecycleSpec, conf *Config) (result *ordinaryCostLifecycleServerResult, err error) {
 	result = &ordinaryCostLifecycleServerResult{
-		Role: "server", Controller: spec.Controller, Go: runtime.Version(), Platform: ordinaryCostHost.identity(),
+		Format: ordinaryCostLifecycleFormat, Role: "server", Controller: spec.Controller, Go: runtime.Version(), Platform: ordinaryCostHost.identity(),
 		GrantJoins: map[string]bool{}, JoinSource: ordinaryCostJoinSource,
 	}
 	ctx, cancel := context.WithTimeout(ctx, spec.timeout())
@@ -560,14 +566,20 @@ func TestOrdinaryCostLifecycle(t *testing.T) {
 			}
 			servers := make(chan served, 1)
 			serverConf := ordinaryCostConfig(t, true, controller)
+			// A failed client ends the test's context, which stops a server still accepting;
+			// cleanup then joins it, so its socket and grant never outlive the subtest.
 			go func() {
-				result, err := ordinaryCostRunLifecycleServer(context.Background(), spec, serverConf)
+				result, err := ordinaryCostRunLifecycleServer(t.Context(), spec, serverConf)
 				servers <- served{result, err}
 			}()
+			joinServer := sync.OnceValue(func() served { return <-servers })
+			t.Cleanup(func() { joinServer() })
 			client, err := ordinaryCostRunLifecycleClient(t.Context(), spec, ordinaryCostConfig(t, true, controller))
 			require.NoError(t, err)
-			server := <-servers
+			server := joinServer()
 			require.NoError(t, server.err)
+			require.Equal(t, ordinaryCostLifecycleFormat, client.Format)
+			require.Equal(t, ordinaryCostLifecycleFormat, server.result.Format)
 
 			require.True(t, client.Negotiated)
 			require.Equal(t, controller, client.Controller)
@@ -643,8 +655,16 @@ func TestOrdinaryCostLifecycle(t *testing.T) {
 		require.NoError(t, path.AbandonV1(0))
 		state, err = path.StateV1()
 		require.NoError(t, err)
-		require.Contains(t, []string{"retiring", "retained"}, state.Lifecycle, "AbandonV1 returns before reclamation")
-		require.Error(t, ordinaryCostPhaseAdmits(ordinaryCostRetired, id, ordinaryCostPathStateOf(state), "closed"), "the returned command is not the observed state")
+		// AbandonV1 returns once the connection accepts the retirement. Reclamation can
+		// still publish closed before this read, which then rightly qualifies.
+		switch state.Lifecycle {
+		case "retiring", "retained":
+			require.Error(t, ordinaryCostPhaseAdmits(ordinaryCostRetired, id, ordinaryCostPathStateOf(state), "closed"), "the returned command is not the observed state")
+		case "closed":
+			require.NoError(t, ordinaryCostPhaseAdmits(ordinaryCostRetired, id, ordinaryCostPathStateOf(state), "closed"))
+		default:
+			t.Fatalf("unexpected lifecycle %q after AbandonV1", state.Lifecycle)
+		}
 		require.NoError(t, ordinaryCostAwaitLifecycle(ctx, path, "closed"))
 		state, err = path.StateV1()
 		require.NoError(t, err)

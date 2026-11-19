@@ -63,6 +63,9 @@ BBR_NOT_JUDGED = ("BBR smoke/diagnostic ratios are observations; the accepted th
 # qualifying state the run names, retained or closed; Q1 binds one for both sides of a
 # comparison. Backup and retirement compare with this connection's negotiated idle.
 LIFECYCLE = "lifecycle-memory"
+# Both role records carry this format; readback admits no other revision.
+LIFECYCLE_FORMAT = "mp-mac-c2-lifecycle-memory/1"
+PATH_ID_LIMIT = 2**32  # the producer's uint32 path and wire IDs
 LIFECYCLE_PHASES = ("negotiated-idle", "validated-backup", "retired")
 LIFECYCLE_RETIRED = ("retained", "closed")
 LIFECYCLE_TIMEOUT_S = 30
@@ -306,7 +309,8 @@ def check_mixed(record):
 
 def lifecycle_phase_admits(phase, path_id, state, retired):
     """The sampled path's observed state is the phase; mirrors ordinaryCostPhaseAdmits."""
-    if not isinstance(state, dict) or state.get("wire_id") != path_id:
+    if (type(path_id) is not int or not 0 <= path_id < PATH_ID_LIMIT
+            or not isinstance(state, dict) or type(state.get("wire_id")) is not int or state["wire_id"] != path_id):
         raise ValueError(f"{phase}: the observation is not of the sampled path {path_id}")
     lifecycle = state.get("lifecycle")
     if phase == "negotiated-idle":
@@ -342,7 +346,11 @@ def check_lifecycle(record):
         raise ValueError(f"the qualifying retirement state is retained or closed, not {retired}")
     check_identity(record, platform_profile)
     server, client = record["server"], record["client"]
+    if record.get("exit") != {"server": 0, "client": 0}:
+        raise ValueError(f"both roles must exit 0, not {record.get('exit')}")
     for role, result in (("server", server), ("client", client)):
+        if result.get("format") != LIFECYCLE_FORMAT:
+            raise ValueError(f"{role}: unsupported lifecycle record format {result.get('format')}")
         if result.get("role") != role or result.get("controller") != controller or result.get("go") != GO_VERSION:
             raise ValueError(f"{role}: role, controller or toolchain does not match the run")
         if result.get("multipath_negotiated") is not True:
@@ -373,8 +381,8 @@ def check_lifecycle(record):
         if sample.get("baseline", "missing") != expected:
             raise ValueError(f"{phase}: its matched comparison is {expected}, not {sample.get('baseline', 'missing')}")
         path_id = sample.get("path_id")
-        if type(path_id) is not int:
-            raise ValueError(f"{phase}: no sampled path ID")
+        if type(path_id) is not int or not 0 <= path_id < PATH_ID_LIMIT:
+            raise ValueError(f"{phase}: no uint32 sampled path ID")
         if sample.get("state_before") != sample.get("state_after"):
             raise ValueError(f"{phase}: stale sample; the path left the phase during the reading")
         lifecycle_phase_admits(phase, path_id, sample.get("state_before"), retired)
@@ -391,6 +399,9 @@ def match_lifecycle(first, second):
     state on both sides, with the same phase, role and path labels. Returns per-phase heap
     pairs. Which records a comparison pairs, and how it judges them, is Q1's protocol."""
     for record in (first, second):
+        # Only a completed attempt is evidence; a failed one can still carry its payloads.
+        if record.get("status") != "succeeded":
+            raise ValueError(f"a comparison pairs succeeded attempts, not {record.get('status')}")
         check_lifecycle(record)
     if first["retired_lifecycle"] != second["retired_lifecycle"]:
         raise ValueError(f"one side retired to {first['retired_lifecycle']}, the other to {second['retired_lifecycle']}")
