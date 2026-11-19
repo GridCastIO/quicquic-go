@@ -115,17 +115,24 @@ type matrixIngressResult struct {
 }
 
 // member reports a receipt's sequence when it carries this phase's nonce. A
-// current-nonce receipt that does not match an offered payload is an error.
+// current-nonce receipt that does not match an offered payload on path zero or
+// one is an error.
 func (w *matrixIngressWitness) member(r matrixIngressReceipt) (uint16, bool, error) {
-	if len(r.Head) < 11 || r.Head[0] != matrixWitnessTag[0] || !bytes.Equal(r.Head[1:9], w.nonce[:]) {
+	if len(r.Head) < 9 || r.Head[0] != matrixWitnessTag[0] || !bytes.Equal(r.Head[1:9], w.nonce[:]) {
 		return 0, false, nil
+	}
+	if r.Length != matrixWitnessLength {
+		return 0, false, fmt.Errorf("current-nonce payload has length %d", r.Length)
 	}
 	seq := binary.BigEndian.Uint16(r.Head[9:11])
 	if _, ok := w.offered[seq]; !ok {
 		return 0, false, fmt.Errorf("witness sequence %d was never offered", seq)
 	}
-	if r.Length != matrixWitnessLength || !bytes.Equal(r.Head, w.payload(seq)[:matrixIngressHead]) {
+	if !bytes.Equal(r.Head, w.payload(seq)[:matrixIngressHead]) {
 		return 0, false, fmt.Errorf("witness sequence %d has a different payload", seq)
+	}
+	if r.Path > 1 {
+		return 0, false, fmt.Errorf("witness sequence %d arrived on unknown path %d", seq, r.Path)
 	}
 	return seq, true, nil
 }

@@ -116,4 +116,11 @@ func TestPicoquicMatrixIngressRecord(t *testing.T) {
 	unoffered := other.offerRound(true)[1]
 	_, err = w.accept([]string{matrixIngressRecordLine(0, unoffered)}, nil)
 	require.ErrorContains(t, err, "never offered")
+	// So is a current-nonce payload of another length, or one on a path the
+	// phase does not have.
+	offered := w.payload(0)
+	_, err = w.accept([]string{matrixIngressRecordLine(0, offered[:9])}, nil)
+	require.ErrorContains(t, err, "length 9")
+	_, err = w.accept([]string{matrixIngressRecordLine(2, offered)}, nil)
+	require.ErrorContains(t, err, "unknown path 2")
 }

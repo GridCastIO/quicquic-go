@@ -354,9 +354,14 @@ func (s *matrixSession) characterizeIngress(id byte) {
 	before0, _ := s.trace.traffic(0)
 	before1, _ := s.trace.traffic(1)
 	payload := s.datagram(id)
-	after0, _ := s.trace.traffic(0)
-	after1, _ := s.trace.traffic(1)
-	moved0, moved1 := after0.Datagram > before0.Datagram, after1.Datagram > before1.Datagram
+	// The recorder consumes PacketSent asynchronously; await the send.
+	var moved0, moved1 bool
+	require.NoError(s.t, s.trace.wait(s.ctx, func() bool {
+		after0, _ := s.trace.traffic(0)
+		after1, _ := s.trace.traffic(1)
+		moved0, moved1 = after0.Datagram > before0.Datagram, after1.Datagram > before1.Datagram
+		return moved0 || moved1
+	}))
 	require.NotEqual(s.t, moved0, moved1, "exactly one path sent the DATAGRAM")
 	sender := uint64(0)
 	if moved1 {
@@ -471,7 +476,7 @@ func matrixUsefulTransfer(s *matrixSession) {
 		before0, _ := s.trace.traffic(0)
 		before1, _ := s.trace.traffic(1)
 		progressed, received := false, false
-		for round := 0; round < 64 && !(progressed && received); round++ {
+		for round := 0; round < 64 && (!progressed || !received); round++ {
 			// Keep both routes active throughout this bounded offered-work phase.
 			eligible := s.bothActive(paths)
 			offered := witness.offerRound(eligible)
@@ -489,6 +494,21 @@ func matrixUsefulTransfer(s *matrixSession) {
 			received = tally.Fresh[0] > 0 && tally.Fresh[1] > 0
 		}
 		require.True(s.t, progressed, "new useful STREAM traffic on both simultaneously active paths")
+		// The last round's receipts may still be in the peer output scanner.
+		// Wait for them without offering more work, within the role deadline.
+		for waiting := !received; waiting; {
+			select {
+			case <-s.peer.recorded:
+			case <-s.peer.done:
+				waiting = false
+			case <-s.ctx.Done():
+				waiting = false
+			}
+			tally, err := witness.tally(s.peer.ingressRecords())
+			require.NoError(s.t, err)
+			received = tally.Fresh[0] > 0 && tally.Fresh[1] > 0
+			waiting = waiting && !received
+		}
 		// Only receipts read before the phase-end observation count, so every
 		// counted ingress lies between eligible observations.
 		records := s.peer.ingressRecords()
