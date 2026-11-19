@@ -61,7 +61,7 @@ C2 observes live/retained memory at matched negotiated-connection lifecycle stat
 | C1 | Complete ([PR #1501](https://github.com/GridCastIO/quicquic-go/pull/1501)) | Native ordinary workloads and truthful metrics | None | None |
 | C2 | New; frontier | Negotiated lifecycle-memory observation | C1 | None |
 | C3 | Complete ([PR #1497](https://github.com/GridCastIO/quicquic-go/pull/1497)) | Scoped UDP queue/topology relay | None | None |
-| C4 | New; frontier | Topology/control comparison workload | C1, C3 | None |
+| C4 | Complete ([PR #1557](https://github.com/GridCastIO/quicquic-go/pull/1557)) | Topology/control comparison workload | C1, C3 | None |
 | Q1 | New; blocked | Concrete approved execution/venue protocol | E2, E3, P1, P2, C2, C4 | None |
 | Q2 | New; blocked | Qualified public activation, continuing coverage and support | Q1 | None |
 
