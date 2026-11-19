@@ -113,8 +113,9 @@ var (
 	}
 	ordinaryCostDarwinARM64 = ordinaryCostPlatformProfile{
 		name: "darwin-arm64", goos: "darwin", goarch: "arm64",
-		cells:     []string{"stream", "datagram", "mixed-bulk", "stateless-pressure"},
-		grantSeam: "private Transport.configureNativeIO, root tests only; never negotiates multipath",
+		cells:               []string{"stream", "datagram", "mixed-bulk", "stateless-pressure"},
+		negotiatedMultipath: true,
+		grantSeam:           "public Transport.ConfigureMultipathIOV1",
 	}
 )
 
@@ -1063,9 +1064,12 @@ func TestOrdinaryCostRole(t *testing.T) {
 }
 
 // TestOrdinaryCostAdmission checks both platform inventories on any host: Reno and BBR
-// run the same workloads, and only a platform with public admission negotiates mixed bulk.
+// run the same workloads, and both platforms admit multipath publicly, so both negotiate
+// mixed bulk. A profile without public admission would refuse it rather than replace it.
 func TestOrdinaryCostAdmission(t *testing.T) {
-	for _, platform := range []ordinaryCostPlatformProfile{ordinaryCostLinuxAMD64, ordinaryCostDarwinARM64} {
+	unadmitted := ordinaryCostDarwinARM64
+	unadmitted.name, unadmitted.negotiatedMultipath = "unadmitted", false
+	for _, platform := range []ordinaryCostPlatformProfile{ordinaryCostLinuxAMD64, ordinaryCostDarwinARM64, unadmitted} {
 		for _, controller := range []string{"", "reno", "bbrv3"} {
 			for _, cell := range platform.cells {
 				for _, profile := range []string{"unregistered", "opted-in"} {
@@ -1086,6 +1090,7 @@ func TestOrdinaryCostAdmission(t *testing.T) {
 	require.ErrorContains(t, (ordinaryCostSpec{Cell: "stream-gso-on"}).validateFor(ordinaryCostDarwinARM64), "inventory")
 	require.ErrorContains(t, (ordinaryCostSpec{Cell: "stream"}).validateFor(ordinaryCostLinuxAMD64), "inventory")
 	require.NoError(t, (ordinaryCostSpec{Cell: "mixed-bulk", Profile: "opted-in"}).validateFor(ordinaryCostLinuxAMD64))
+	require.NoError(t, (ordinaryCostSpec{Cell: "mixed-bulk", Profile: "opted-in"}).validateFor(ordinaryCostDarwinARM64))
 	for cell, workload := range map[string]string{
 		"stream-gso-on": "stream", "stream-gso-off": "stream", "stream": "stream",
 		"datagram-batch-on": "datagram", "datagram-batch-off": "datagram", "datagram": "datagram",
@@ -1241,11 +1246,8 @@ func TestOrdinaryCostCells(t *testing.T) {
 				off := cell == "stream-gso-off" || cell == "datagram-batch-off"
 				name := controller + "/" + profile + "/" + cell
 				spec := ordinaryCostSpec{Controller: controller, Cell: cell, Profile: profile, Seed: 1}
-				if err := spec.validateFor(ordinaryCostHost); err != nil {
-					// Only a refused negotiated workload is absent, never replaced.
-					require.True(t, cell == "mixed-bulk" && profile == "opted-in" && !ordinaryCostHost.negotiatedMultipath, name)
-					continue
-				}
+				// Both host profiles admit multipath publicly, so no workload is absent.
+				require.NoError(t, spec.validateFor(ordinaryCostHost), name)
 				if controller == "bbrv3" && off {
 					continue
 				}

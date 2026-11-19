@@ -47,10 +47,11 @@ ROLE_SLACK_S = 30
 RELAY_READY_S = 10
 RELAY_CPU_SOURCE = ("udprelay process user+system time, RUSAGE_CHILDREN across its reap; "
                     "its whole lifetime including setup and drain, not window CPU")
-# What each profile's observations are evidence of; neither qualifies Darwin.
+# What each profile's observations are evidence of. Neither run alone qualifies Darwin: its
+# runs are example-level native observations that protocol X13 reads.
 EVIDENCE_CLASS = {
     c1.LINUX: "linux public-profile functional control: every arm through public interfaces",
-    c1.DARWIN: "darwin ordinary-arm smoke: multipath arms refused until public Darwin admission (Q2)",
+    c1.DARWIN: "darwin public-profile native observation: every arm through public interfaces; example-level",
 }
 NOT_JUDGED = ("topology comparison observations are apparatus records; no throughput, fairness or "
               "statistical criterion applies, and Q1 selects any comparison protocol")

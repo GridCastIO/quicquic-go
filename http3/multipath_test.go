@@ -17,8 +17,20 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// multipathProfileSupported names the one qualified platform of the public profile.
-const multipathProfileSupported = runtime.GOOS == "linux" && runtime.GOARCH == "amd64"
+// expectedMultipathProfile states the qualified public profile independently of the quic
+// package's gate: Linux amd64, and Darwin arm64 running Darwin 27 (macOS 27), read through
+// sysctl. A wrong production gate fails these tests instead of skipping them.
+func expectedMultipathProfile(t *testing.T) bool {
+	t.Helper()
+	switch runtime.GOOS + "/" + runtime.GOARCH {
+	case "linux/amd64":
+		return true
+	case "darwin/arm64":
+		return testDarwinKernelMajor(t) == 27
+	default:
+		return false
+	}
+}
 
 func multipathQUICConfig(t *testing.T) *quic.Config {
 	t.Helper()
@@ -31,13 +43,13 @@ func multipathQUICConfig(t *testing.T) *quic.Config {
 // isn't qualified. TestMultipathHTTP3PublicRefusal covers those builds.
 func requireMultipathProfile(t *testing.T) {
 	t.Helper()
-	if !multipathProfileSupported {
-		t.Skipf("multipath is qualified only on linux/amd64, not %s/%s", runtime.GOOS, runtime.GOARCH)
+	if !expectedMultipathProfile(t) {
+		t.Skipf("multipath is qualified only on linux/amd64 and darwin/arm64 with Darwin 27, not %s/%s", runtime.GOOS, runtime.GOARCH)
 	}
 }
 
 func TestMultipathHTTP3PublicRefusal(t *testing.T) {
-	if multipathProfileSupported {
+	if expectedMultipathProfile(t) {
 		t.Skip("the qualified platform accepts the profile; the lifecycle tests cover it")
 	}
 	conf := multipathQUICConfig(t)

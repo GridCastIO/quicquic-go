@@ -322,8 +322,8 @@ class ExecutionTests(unittest.TestCase):
             self.assertGreaterEqual(records[0]["occupied_s"], 10**6, "readback is charged")
 
     def test_refused_arms_launch_nothing(self):
-        for profile, extra in ((c1.DARWIN, ("--arm", "primary-backup")),
-                               (c1.DARWIN, ("--arm", "aggregate")),
+        for profile, extra in ((c1.DARWIN, ("--arm", "aggregate", "--controller", "reno")),
+                               (c1.DARWIN, ("--arm", "pair", "--arm", "aggregate", "--controller", "reno")),
                                (c1.LINUX, ("--arm", "aggregate", "--controller", "reno")),
                                (c1.LINUX, ("--arm", "pair", "--arm", "pair")),
                                (c1.LINUX, ("--arm", "pair", "--mode", "diagnostic"))):
@@ -333,11 +333,28 @@ class ExecutionTests(unittest.TestCase):
                     fixture.run("--topology", "disjoint", *extra, timeout="30")
                 self.assertEqual(fixture.launched(), [])
 
-    def test_linux_admits_every_public_arm(self):
-        for arm in driver.ARMS:
-            for controller in driver.CONTROLLERS:
-                reason = driver.refusal(c1.LINUX, arm, controller)
-                self.assertEqual(reason is not None, arm == "aggregate" and controller == "reno", (arm, controller))
+    def test_both_profiles_admit_every_public_arm(self):
+        # D14: Darwin admits multipath publicly, so only Reno aggregate is refused on either profile.
+        for profile in (c1.LINUX, c1.DARWIN):
+            for arm in driver.ARMS:
+                for controller in driver.CONTROLLERS:
+                    reason = driver.refusal(profile, arm, controller)
+                    self.assertEqual(reason is not None, arm == "aggregate" and controller == "reno", (profile, arm, controller))
+
+    def test_darwin_runs_multipath_arms_as_public_profile_evidence(self):
+        self.assertNotIn("refused", driver.EVIDENCE_CLASS[c1.DARWIN])
+        self.assertIn("public interfaces", driver.EVIDENCE_CLASS[c1.DARWIN])
+        with tempfile.TemporaryDirectory() as temporary:
+            fixture = Fixture(Path(temporary), c1.DARWIN)
+            code, summary, records = fixture.run("--topology", "disjoint", "--arm", "primary-backup", "--arm", "aggregate",
+                                                 "--controller", "bbrv3")
+            self.assertEqual(code, 0, summary)
+            self.assertTrue(summary["passed"])
+            self.assertEqual(summary["evidence_class"], driver.EVIDENCE_CLASS[c1.DARWIN])
+            self.assertEqual([o["arm"] for o in summary["observations"]], ["primary-backup", "aggregate"])
+            self.assertEqual([record["status"] for record in records], ["succeeded", "succeeded"])
+            identity = json.loads((Path(temporary) / "output" / "identity.json").read_text())
+            self.assertEqual(identity["evidence_class"], driver.EVIDENCE_CLASS[c1.DARWIN])
 
 
 def observation(profile=c1.LINUX):

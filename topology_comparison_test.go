@@ -21,7 +21,7 @@ import (
 
 // Every arm offers the same total demand, and each arm's connections use exactly its
 // routes and policy. Both platform inventories are checked on any host: a multipath arm
-// needs public admission, and aggregate needs BBR.
+// needs public admission, which both admit, and aggregate needs BBR.
 func TestTopologyComparisonArms(t *testing.T) {
 	var names []string
 	for _, arm := range topologyArms {
@@ -44,7 +44,9 @@ func TestTopologyComparisonArms(t *testing.T) {
 	require.Equal(t, []relay.RouteName{relay.RouteCompetitor}, topologyCompetitorPlan.Routes)
 	require.Zero(t, topologyCompetitorPlan.DatagramRate, "the competitor offers STREAM objects only")
 
-	for _, platform := range []ordinaryCostPlatformProfile{ordinaryCostLinuxAMD64, ordinaryCostDarwinARM64} {
+	unadmitted := ordinaryCostDarwinARM64
+	unadmitted.name, unadmitted.negotiatedMultipath = "unadmitted", false
+	for _, platform := range []ordinaryCostPlatformProfile{ordinaryCostLinuxAMD64, ordinaryCostDarwinARM64, unadmitted} {
 		for _, kind := range []relay.Kind{relay.KindDisjoint, relay.KindUnequal, relay.KindShared} {
 			for _, arm := range topologyArms {
 				for _, controller := range []string{"reno", "bbrv3"} {
@@ -100,10 +102,11 @@ func TestTopologyComparisonRelayConfigs(t *testing.T) {
 }
 
 // The fixture refuses exactly what the public constructor refuses on this host, so a
-// refused arm is never replaced and an admitted arm is really public. Darwin refuses
-// every multipath arm until its support switch; Linux refuses only Reno aggregate.
+// refused arm is never replaced and an admitted arm is really public. Both host profiles
+// admit multipath publicly and refuse only Reno aggregate; a host whose public gate is
+// closed, such as Darwin before 27, fails here rather than in a smoke.
 func TestTopologyComparisonAdmission(t *testing.T) {
-	require.Equal(t, multipathProfileSupported, ordinaryCostHost.negotiatedMultipath,
+	require.Equal(t, multipathProfileSupported(), ordinaryCostHost.negotiatedMultipath,
 		"the host profile follows the public platform gate")
 	for _, arm := range topologyArms {
 		if !arm.Multipath {
@@ -113,18 +116,14 @@ func TestTopologyComparisonAdmission(t *testing.T) {
 			refused := topologySpec{Topology: relay.KindDisjoint, Arm: arm.Name, Controller: controller}.validate(ordinaryCostHost) != nil
 			tr := &Transport{Conn: newUDPConnLocalhost(t), ConnectionIDLength: 4}
 			t.Cleanup(func() { tr.Close() })
-			if multipathProfileSupported {
-				require.NoError(t, tr.ConfigureMultipathIOV1(topologyWriteBudget))
-				// Runs before the socket's cleanup: the writer returns authority first.
-				t.Cleanup(func() {
-					tr.Close()
-					ctx, cancel := context.WithTimeout(context.Background(), ordinaryCostStopTimeout)
-					defer cancel()
-					require.NoError(t, tr.WaitMultipathIOStoppedV1(ctx), "%s %s", arm.Name, controller)
-				})
-			} else {
-				require.ErrorIs(t, tr.ConfigureMultipathIOV1(topologyWriteBudget), ErrMultipathUnsupportedV1)
-			}
+			require.NoError(t, tr.ConfigureMultipathIOV1(topologyWriteBudget))
+			// Runs before the socket's cleanup: the writer returns authority first.
+			t.Cleanup(func() {
+				tr.Close()
+				ctx, cancel := context.WithTimeout(context.Background(), ordinaryCostStopTimeout)
+				defer cancel()
+				require.NoError(t, tr.WaitMultipathIOStoppedV1(ctx), "%s %s", arm.Name, controller)
+			})
 			if !refused {
 				continue // an admitted combination is exercised by the smoke
 			}
@@ -206,9 +205,9 @@ func (run topologySmokeRun) check() error {
 
 // The functional comparison smoke runs real public QUIC through the relay: every arm on
 // the disjoint topology, aggregate on the unequal one, and on the shared bottleneck an
-// ordinary arm and Reno primary/backup beside the Reno competitor. Linux runs each case;
-// Darwin runs the ordinary arms and refuses the multipath ones, which need public admission.
-// No throughput, fairness or statistical result follows from it.
+// ordinary arm and Reno primary/backup beside the Reno competitor. Both host profiles run
+// each case through public admission. No throughput, fairness or statistical result
+// follows from it.
 func TestTopologyComparisonSmoke(t *testing.T) {
 	cases := []struct {
 		kind       relay.Kind
@@ -226,12 +225,7 @@ func TestTopologyComparisonSmoke(t *testing.T) {
 	}
 	for _, c := range cases {
 		t.Run(string(c.kind)+"/"+c.arm+"/"+c.controller, func(t *testing.T) {
-			spec := topologySpec{Topology: c.kind, Arm: c.arm, Controller: c.controller}
-			arm, _ := topologyArmNamed(c.arm)
-			if arm.Multipath && !ordinaryCostHost.negotiatedMultipath {
-				require.ErrorContains(t, spec.validate(ordinaryCostHost), "negotiated multipath")
-				return
-			}
+			require.NoError(t, topologySpec{Topology: c.kind, Arm: c.arm, Controller: c.controller}.validate(ordinaryCostHost))
 			run := topologySmoke(t, c.kind, c.arm, c.controller)
 			require.NoError(t, run.check())
 			require.Empty(t, topologyFailures(run.spec, run.server, run.client))

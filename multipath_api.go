@@ -50,8 +50,8 @@ type multipathSelection struct {
 // ignored when disabling, which is the default. On error the Config is unchanged.
 //
 // Multipath is experimental and opt-in. Its one supported profile is draft-21 QUIC v1
-// with Reno or experimental BBR on Linux amd64, over a socket granted with
-// [Transport.ConfigureMultipathIOV1]. BBR retains its documented cost exceptions and
+// with Reno or experimental BBR on Linux amd64, or on Darwin 27 (macOS 27) arm64, over a
+// socket granted with [Transport.ConfigureMultipathIOV1]. BBR retains its documented cost exceptions and
 // unqualified controller status; Reno remains the default. Aggregate requires BBR and uses
 // uncoupled paced byte round-robin. It makes no general performance or fairness guarantee.
 // Additional validated paths start as local backups. Each sending endpoint must call
@@ -97,9 +97,9 @@ func (c *Config) MultipathEnabledV1() bool {
 // bounds one native request, and is between 1 ms and 1 s. It takes neither read deadlines
 // nor close ownership.
 //
-// Off Linux amd64 it returns [ErrMultipathUnsupportedV1].
+// Off Linux amd64 and Darwin 27 (macOS 27) arm64 it returns [ErrMultipathUnsupportedV1].
 func (t *Transport) ConfigureMultipathIOV1(maxWriteDuration time.Duration) error {
-	if !multipathProfileSupported {
+	if !multipathProfileSupported() {
 		return errMultipathPlatform
 	}
 	return t.configureNativeIO(maxWriteDuration)
@@ -113,11 +113,34 @@ func (t *Transport) WaitMultipathIOStoppedV1(ctx context.Context) error {
 	return t.waitNativeIOStopped(ctx)
 }
 
-// multipathProfileSupported names the one qualified platform of the public profile. Every
-// other build keeps refusing before any grant or advertisement.
-const multipathProfileSupported = runtime.GOOS == "linux" && runtime.GOARCH == "amd64"
+// multipathDarwinKernelMajor is the one qualified Darwin kernel major: Darwin 27 is macOS 27.
+const multipathDarwinKernelMajor = 27
 
-var errMultipathPlatform = fmt.Errorf("%w: multipath is qualified only on linux/amd64", ErrMultipathUnsupportedV1)
+// multipathPlatformAdmitted is the typed platform partition of the public profile: Linux
+// amd64, and Darwin arm64 whose kernel major is multipathDarwinKernelMajor. A Darwin kernel
+// release that can't be read is refused, as are iOS, Darwin amd64, other majors and every
+// other target. It reads no configuration; the controller, policy, version and socket
+// checks keep their own owners.
+func multipathPlatformAdmitted(goos, goarch string, kernelMajor int, kernelErr error) bool {
+	switch {
+	case goos == "linux" && goarch == "amd64":
+		return true
+	case goos == "darwin" && goarch == "arm64":
+		return kernelErr == nil && kernelMajor == multipathDarwinKernelMajor
+	default:
+		return false
+	}
+}
+
+// multipathProfileSupported reports whether this process runs on a qualified platform of the
+// public profile. The kernel release is read once, on first use, so ordinary connections never
+// read it. Every other platform keeps refusing before any grant or advertisement.
+var multipathProfileSupported = sync.OnceValue(func() bool {
+	major, err := multipathKernelMajor()
+	return multipathPlatformAdmitted(runtime.GOOS, runtime.GOARCH, major, err)
+})
+
+var errMultipathPlatform = fmt.Errorf("%w: multipath is qualified only on linux/amd64 and on darwin/arm64 with Darwin 27 (macOS 27)", ErrMultipathUnsupportedV1)
 
 // admitMultipath is the one capability gate. Every constructor and every server-selected
 // configuration passes it before advertisement or attachment, with the Config as the
@@ -126,7 +149,7 @@ func (t *Transport) admitMultipath(conf *Config) error {
 	if !conf.MultipathEnabledV1() {
 		return nil
 	}
-	if !multipathProfileSupported {
+	if !multipathProfileSupported() {
 		return errMultipathPlatform
 	}
 	if controller := conf.CongestionControlV1(); controller != "reno" && controller != "bbrv3" {

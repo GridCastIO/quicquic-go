@@ -501,6 +501,204 @@ class NativeProfileTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "skip"):
                 runner.check_native(root)
 
+    def case_identity(self):
+        """A darwin-native identity for the matrix test binary and the recorded peer."""
+        return {"candidate": "a" * 40, "tree": "b" * 40, "go": "go version go1.27.4 darwin/arm64",
+                "build_identity_sha256": "c" * 64,
+                "kernel": {"system": "Darwin", "release": "27.2.0", "version": "Darwin Kernel Version 27.2.0", "machine": "arm64"},
+                "runner_sha256": "1" * 64, "peer_driver_sha256": "2" * 64, "test_binary_sha256": "4" * 64,
+                "source": {"commit": "a" * 40, "tree": "b" * 40, "head_tree": "b" * 40, "clean": True},
+                "test_binary_binding": self.binding("4" * 64, "github.com/GridCastIO/quicquic-go"),
+                "peer_binary_sha256": "d" * 64}
+
+    def run_native(self, argv, identity=None, status=0):
+        """main() under darwin-native with the host, toolchain and #1528 binding stubbed:
+        native_identity returns identity, and each launch passes the cases its command selects."""
+        launches = []
+
+        def run_bounded(command, env, log_path, timeout):
+            launches.append((command, env, timeout))
+            selected = next(argument for argument in command if argument.startswith("-test.run="))
+            if "TestPicoquicMultipathMatrix" in selected:
+                scenario, role = re.fullmatch(r"-test\.run=\^TestPicoquicMultipathMatrix\$/\^(.+)\$/\^(.+)\$", selected).groups()
+                cases, package = [f"TestPicoquicMultipathMatrix/{scenario}/{role}"], runner.SMOKE_PACKAGE
+            elif "NegotiatedZero" in selected:
+                cases, package = runner.ZERO_EXPECTED, runner.SMOKE_PACKAGE
+            else:
+                cases, package = runner.EXPECTED, runner.PACKAGE
+            Path(log_path).write_text("\n".join(json.dumps({"Action": "pass", "Package": package, "Test": case}) for case in cases))
+            return status
+
+        with contextlib.ExitStack() as stack:
+            stack.enter_context(mock.patch.dict(os.environ, {"QGF_SOURCE_COMMIT": "a" * 40, "QGF_SOURCE_TREE": "b" * 40}))
+            stack.enter_context(mock.patch.object(sys, "argv", ["run.py", "--profile", "darwin-native", *argv]))
+            stack.enter_context(mock.patch.object(runner.platform, "system", return_value="Darwin"))
+            stack.enter_context(mock.patch.object(runner.platform, "machine", return_value="arm64"))
+            stack.enter_context(mock.patch.object(runner.shutil, "which", return_value="/usr/bin/stand-in"))
+            stack.enter_context(mock.patch.object(runner, "native_identity", return_value=identity or self.case_identity()))
+            stack.enter_context(mock.patch.object(runner, "run_bounded", side_effect=run_bounded))
+            stack.enter_context(contextlib.redirect_stdout(io.StringIO()))
+            runner.main()
+        return launches
+
+    def native_case(self, root, *mode, identity=None):
+        """One native execution with the protocol's binaries; mode selects the case."""
+        return self.run_native([*mode, "--binary", sys.executable, "--test-binary", sys.executable,
+                                "--build-identity", str(root / "build-identity.json")], identity)
+
+    def test_native_matrix_zero_vectors_and_validation_are_admitted(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            for case in runner.matrix_expected("reno"):
+                _, scenario, role = case.split("/")
+                output = root / "reno" / scenario / role
+                launches = self.native_case(root, "--matrix", "--scenario", scenario, "--role", role, "--output", str(output))
+                command, env, timeout = launches[0]
+                self.assertEqual(command, runner.matrix_invocation(scenario, role, Path(sys.executable).resolve())[0])
+                self.assertEqual((env["PICOQUIC_CONTROLLER"], env["PICOQUIC_POLICY"], timeout), ("reno", "primary-backup", 120))
+                self.assertEqual(env["PICOQUIC_BINARY"], str(Path(sys.executable).resolve()))
+                for name in ("attempt.json", "result.json"):
+                    receipt = json.loads((output / name).read_text())
+                    self.assertEqual((receipt["profile"], receipt["mode"]), ("darwin-native", "matrix"), name)
+                    self.assertEqual(receipt["identity"], self.case_identity())
+                self.assertEqual(json.loads((output / "result.json").read_text())["executed"], [case])
+            zero = root / "reno" / "negotiated-zero"
+            command, _, _ = self.native_case(root, "--zero-vectors", "--output", str(zero))[0]
+            self.assertEqual(command[:7], ["go", "tool", "test2json", "-t", "-p", runner.SMOKE_PACKAGE, str(Path(sys.executable).resolve())])
+            self.assertIn("-test.run=^TestMultipathNegotiatedZero(Vectors|ControlledPeer)$", command)
+            receipt = json.loads((zero / "result.json").read_text())
+            self.assertEqual((receipt["mode"], receipt["executed"]), ("negotiated-zero", runner.ZERO_EXPECTED))
+            self.run_native(["--validate-matrix", "--output", str(root / "reno")])
+            result = json.loads((root / "reno" / "matrix-result.json").read_text())
+            self.assertEqual((result["profile"], result["status"], result["controller"], result["policy"]),
+                             ("darwin-native", "pass", "reno", "primary-backup"))
+            self.assertEqual(result["executed"], runner.MATRIX_EXPECTED)
+            self.assertEqual(result["identity"], self.case_identity())
+            self.assertEqual(result["negotiated_zero"], {"executed": runner.ZERO_EXPECTED, "independent_peer": False})
+            # The BBR aggregate root: six cases, no negotiated-zero receipt.
+            for case in runner.matrix_expected("bbrv3"):
+                _, scenario, role = case.split("/")
+                self.native_case(root, "--matrix", "--scenario", scenario, "--role", role, "--controller", "bbrv3",
+                                 "--policy", "aggregate", "--output", str(root / "aggregate" / scenario / role))
+            self.run_native(["--validate-matrix", "--controller", "bbrv3", "--policy", "aggregate", "--output", str(root / "aggregate")])
+            result = json.loads((root / "aggregate" / "matrix-result.json").read_text())
+            self.assertEqual((result["profile"], result["controller"], result["policy"]), ("darwin-native", "bbrv3", "aggregate"))
+            self.assertNotIn("negotiated_zero", result)
+            with self.assertRaisesRegex(ValueError, "policy"):
+                self.run_native(["--validate-matrix", "--controller", "bbrv3", "--output", str(root / "aggregate")])
+
+    def test_native_modes_have_distinct_labels(self):
+        self.assertEqual(set(runner.NATIVE_RECEIPT_SCHEMAS), {"ordinary-control", "matrix-discovery", "matrix", "negotiated-zero"})
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            self.native_case(root, "--output", str(root / "ordinary-control"),
+                             identity=self.case_identity() | {"test_binary_sha256": "3" * 64,
+                                                              "test_binary_binding": self.binding("3" * 64, runner.PACKAGE)})
+            for name in ("attempt.json", "result.json"):
+                self.assertEqual(json.loads((root / "ordinary-control" / name).read_text())["mode"], "ordinary-control")
+            matrix = self.native_matrix_root(root / "matrix")
+            runner.check_native_matrix(matrix)
+            # A receipt read as another mode's evidence is refused by its label.
+            for path, label in ((matrix / "path-zero-ack" / "server" / "result.json", "ordinary-control"),
+                                (matrix / "path-zero-ack" / "server" / "result.json", "negotiated-zero"),
+                                (matrix / "negotiated-zero" / "result.json", "matrix")):
+                with self.subTest(path=path, label=label):
+                    original = path.read_text()
+                    path.write_text(json.dumps(json.loads(original) | {"mode": label}))
+                    with self.assertRaisesRegex(ValueError, "malformed .*mode"):
+                        runner.check_native_matrix(matrix)
+                    path.write_text(original)
+
+    def native_matrix_root(self, root, controller="reno", policy="primary-backup"):
+        """Native case receipts as the darwin-native matrix writes them, plus negotiated-zero for Reno."""
+        run = {"profile": "darwin-native", "status": "pass", "command": ["go"], "started": "2026-11-19T00:00:00+00:00",
+               "duration_seconds": 1.0, "identity": self.case_identity()}
+        for case in runner.matrix_expected(controller):
+            _, scenario, role = case.split("/")
+            directory = root / scenario / role
+            directory.mkdir(parents=True)
+            (directory / "go-test.jsonl").write_text(json.dumps({"Action": "pass", "Package": runner.SMOKE_PACKAGE, "Test": case}) + "\n")
+            (directory / "result.json").write_text(json.dumps(run | {"mode": "matrix", "policy": policy, "controller": controller,
+                                                                     "executed": [case]}))
+        if controller == "reno":
+            zero = root / "negotiated-zero"
+            zero.mkdir()
+            (zero / "go-test.jsonl").write_text("\n".join(
+                json.dumps({"Action": "pass", "Package": runner.SMOKE_PACKAGE, "Test": case}) for case in runner.ZERO_EXPECTED))
+            (zero / "result.json").write_text(json.dumps(run | {"mode": "negotiated-zero", "policy": "primary-backup",
+                                                                "controller": "reno", "executed": runner.ZERO_EXPECTED}))
+        return root
+
+    def test_native_matrix_readback_refuses_foreign_or_unbound_receipts(self):
+        case = Path("same-id-migration-rebinding") / "client"
+        for path, change, message in (
+                (case, lambda identity: identity.update(runner_sha256="9" * 64), "do not share one candidate/toolchain/build identity"),
+                (case, lambda identity: identity["kernel"].update(release="27.3.0"), "do not share"),
+                (case, lambda identity: identity.update(peer_binary_sha256="9" * 64), "do not share"),
+                (case, lambda identity: identity.pop("test_binary_binding"), "lacks the #1528 candidate binding"),
+                (case, lambda identity: identity.pop("source"), "lacks the #1528 candidate binding"),
+                (case, lambda identity: identity["test_binary_binding"].update(sha256="e" * 64), "binding names"),
+                (case, lambda identity: identity["source"].update(commit="e" * 40), "source commit"),
+                (case, lambda identity: identity.pop("peer_binary_sha256"), "malformed"),
+                (Path("negotiated-zero"), lambda identity: identity.update(test_binary_sha256="9" * 64,
+                                                                          test_binary_binding=self.binding("9" * 64, runner.SMOKE_PACKAGE)),
+                 "negotiated-zero receipt identity"),
+                (Path("negotiated-zero"), lambda identity: identity.pop("test_binary_binding"), "lacks the #1528 candidate binding")):
+            with self.subTest(path=str(path), message=message), tempfile.TemporaryDirectory() as temporary:
+                root = self.native_matrix_root(Path(temporary))
+                receipt = root / path / "result.json"
+                data = json.loads(receipt.read_text())
+                change(data["identity"])
+                receipt.write_text(json.dumps(data))
+                with self.assertRaisesRegex(ValueError, message):
+                    runner.check_native_matrix(root)
+        with tempfile.TemporaryDirectory() as temporary:
+            root = self.native_matrix_root(Path(temporary))
+            # A Linux-shaped receipt carries no native profile or mode.
+            receipt = root / case / "result.json"
+            data = json.loads(receipt.read_text())
+            receipt.write_text(json.dumps({key: value for key, value in data.items() if key not in ("profile", "mode")}))
+            with self.assertRaisesRegex(ValueError, "malformed"):
+                runner.check_native_matrix(root)
+            receipt.write_text(json.dumps(data | {"executed": ["TestPicoquicMultipathMatrix/path-zero-ack/client"]}))
+            with self.assertRaisesRegex(ValueError, "invalid case receipt"):
+                runner.check_native_matrix(root)
+            receipt.write_text(json.dumps(data | {"controller": "bbrv3"}))
+            with self.assertRaisesRegex(ValueError, "controller"):
+                runner.check_native_matrix(root)
+            receipt.write_text(json.dumps(data))
+            (root / "negotiated-zero" / "result.json").unlink()
+            with self.assertRaisesRegex(ValueError, "negotiated-zero"):
+                runner.check_native_matrix(root)
+        with tempfile.TemporaryDirectory() as temporary:
+            root = self.native_matrix_root(Path(temporary), "bbrv3", "aggregate")
+            self.assertEqual(runner.check_native_matrix(root, "bbrv3", "aggregate")["executed"], runner.matrix_expected("bbrv3"))
+            with self.assertRaisesRegex(ValueError, "policy"):
+                runner.check_native_matrix(root, "bbrv3", "primary-backup")
+            (root / "useful-transfer" / "server" / "go-test.jsonl").unlink()
+            with self.assertRaisesRegex(ValueError, "missing"):
+                runner.check_native_matrix(root, "bbrv3", "aggregate")
+
+    def test_native_refusals_that_remain(self):
+        # The protocol has no native R14 smoke; aggregate stays the fixed BBR matrix; BBR is matrix-only.
+        for argv, message in ((["--smoke", "--binary", sys.executable], "R14 smoke"),
+                              (["--matrix", "--scenario", "useful-transfer", "--role", "client", "--policy", "aggregate",
+                                "--binary", sys.executable], "aggregate requires the fixed BBR matrix"),
+                              (["--zero-vectors", "--controller", "bbrv3", "--binary", sys.executable], "BBR is supported only"),
+                              (["--zero-vectors", "--policy", "aggregate", "--controller", "bbrv3", "--binary", sys.executable],
+                               "aggregate requires the fixed BBR matrix"),
+                              (["--matrix", "--scenario", "useful-transfer", "--binary", sys.executable], "--scenario and --role"),
+                              (["--zero-vectors"], "--binary is required"),
+                              (["--matrix", "--scenario", "useful-transfer", "--role", "client", "--binary", sys.executable],
+                               "--test-binary and --build-identity")):
+            with self.subTest(argv=argv), tempfile.TemporaryDirectory() as temporary:
+                output = Path(temporary) / "output"
+                stderr = io.StringIO()
+                with contextlib.redirect_stderr(stderr), self.assertRaises(SystemExit):
+                    self.run_native([*argv, "--output", str(output)])
+                self.assertIn(message, stderr.getvalue())
+                self.assertFalse(output.exists())
+
     def test_docker_and_runner_pins_agree(self):
         dockerfile = Path(runner.__file__).with_name("Dockerfile").read_text()
         self.assertEqual(re.findall(r"fetch -q --depth 1 origin ([0-9a-f]{40})", dockerfile), [runner.PICOQUIC_PIN])

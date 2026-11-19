@@ -51,6 +51,8 @@ CPU_SOURCE = "getrusage(RUSAGE_SELF) user+system time, window end minus start"
 LOST_SOURCE = "ConnectionStats().PacketsLost"
 USEFUL_SOURCE = "receiver-counted application bytes in the window, every flow"
 # A platform profile owns its inventory, host tuple, RSS unit and collectors, and what it can claim.
+# Both profiles admit multipath publicly (Darwin on Darwin 27 arm64, protocol D14), so an
+# opted-in arm grants through Transport.ConfigureMultipathIOV1 and advertises multipath.
 PROFILES = {
     LINUX: {"host": ("Linux", "x86_64"), "identity": ("linux", "amd64"), "cells": CELLS, "rss_unit": "kB",
             "sources": {"self_cpu": CPU_SOURCE, "peak_rss": "/proc/self/status VmHWM",
@@ -59,12 +61,11 @@ PROFILES = {
     DARWIN: {"host": ("Darwin", "arm64"), "identity": ("darwin", "arm64"), "cells": NATIVE_CELLS, "rss_unit": "bytes",
              "sources": {"self_cpu": CPU_SOURCE, "peak_rss": "getrusage(RUSAGE_SELF).ru_maxrss",
                          "packets_lost_metric": LOST_SOURCE, "useful_bytes": USEFUL_SOURCE},
-             "gso": False, "negotiated_multipath": False},
+             "gso": False, "negotiated_multipath": True},
 }
 RSS_SCALE = {"kB": 1024, "bytes": 1}
 NATIVE_NOT_JUDGED = ("native observations are semantic smoke records; Linux thresholds and foreign-CPU "
                      "arithmetic do not transfer, and Q1 selects any comparative protocol")
-NATIVE_MIXED_OPTED_IN = "negotiated mixed-bulk needs public Darwin multipath admission (Q2); no ordinary connection replaces it"
 # The Reno thresholds judge Reno pairs and the historical BBR stateless-pressure diagnostic.
 # A newly matched BBR workload reports its ratios as observations, not as a verdict.
 BBR_NOT_JUDGED = ("BBR smoke/diagnostic ratios are observations; the accepted thresholds are Reno's, "
@@ -95,8 +96,6 @@ LIFECYCLE_BOUNDARY_SOURCES = {
 }
 LIFECYCLE_NOT_JUDGED = ("lifecycle memory records are readiness observations; Q1 binds any comparison, "
                         "its qualifying retirement state and its thresholds")
-NATIVE_LIFECYCLE_REFUSED = ("negotiated lifecycle memory needs public Darwin multipath admission (Q2); "
-                            "no ordinary or privately granted connection replaces it")
 SUDO = "/usr/bin/sudo"
 SAMPLER_WRAPPER = "/usr/local/libexec/quicquic-powermetrics"  # the owner's root-owned install
 # The bounded wait for the sampler to exit once its standard input closes. It covers the
@@ -273,12 +272,6 @@ def check_observation(record):
     negotiated = PROFILES[platform_profile]["negotiated_multipath"]
     if server.get("multipath_advertised") != (negotiated and profile == OPTED_IN):
         raise ValueError(f"{cell}/{profile}: multipath advertisement does not match the platform profile")
-    if not negotiated and cell == "mixed-bulk" and profile == OPTED_IN:
-        raise ValueError(NATIVE_MIXED_OPTED_IN)
-    if not negotiated and (any(c.get("multipath_negotiated") is not False for c in server["connections"])
-                           or any(f.get("multipath_negotiated") is not False or f.get("paths")
-                                  for f in client["flows"])):
-        raise ValueError(f"{cell}/{profile}: a {platform_profile} receipt cannot claim negotiated multipath")
     closes = client["flows"] + server["connections"]
     if profile == CONTROL and (server["write_errors"] or any(
             item["timeout_close"] or item["close_cause"] for item in closes)):
@@ -384,8 +377,6 @@ def check_lifecycle(record):
     platform_profile = record.get("platform_profile")
     if platform_profile not in PROFILES:
         raise ValueError(f"unknown platform profile {platform_profile}")
-    if not PROFILES[platform_profile]["negotiated_multipath"]:
-        raise ValueError(NATIVE_LIFECYCLE_REFUSED)
     if record.get("workload") != LIFECYCLE:
         raise ValueError("not a lifecycle-memory record")
     controller, retired = record.get("controller"), record.get("retired_lifecycle")
@@ -1096,8 +1087,6 @@ def run_lifecycle(binary, directory, controller, retired, timeout_s, record, pla
     """One negotiated lifecycle-memory observation: an unsampled server role and the
     sampled client role, each its own process. Every launched role is reaped, even after a
     partial launch, before either record is read."""
-    if not PROFILES[platform_profile]["negotiated_multipath"]:
-        raise ValueError(NATIVE_LIFECYCLE_REFUSED)
     directory.mkdir(parents=True, exist_ok=False)
     test = "TestOrdinaryCostLifecycleRole"
     # The roles stop on their own before the driver's deadline would kill them.
@@ -1453,7 +1442,7 @@ def main(argv=None):
     parser.add_argument("--controller", choices=("reno", "bbrv3"), default="reno",
                         help="BBR runs the same workloads in smoke or diagnostic mode; the campaign stays Reno")
     parser.add_argument("--platform-profile", choices=sorted(PROFILES), default=LINUX,
-                        help="darwin-arm64 records native smoke/diagnostic observations without a verdict")
+                        help="darwin-arm64 records native smoke, diagnostic or lifecycle-memory observations without a verdict")
     parser.add_argument("--host-sampler", choices=("none", "powermetrics"), default="none",
                         help="darwin-arm64 only: optional powermetrics plist host activity; needs privilege the driver never acquires")
     parser.add_argument("--cpu-profile", action="store_true",
@@ -1482,16 +1471,15 @@ def main(argv=None):
     if args.lifecycle_memory != bool(args.retired_lifecycle):
         parser.error("--lifecycle-memory and --retired-lifecycle go together")
     if args.lifecycle_memory:
-        if not PROFILES[args.platform_profile]["negotiated_multipath"]:
-            parser.error(NATIVE_LIFECYCLE_REFUSED)
         if args.cpu_profile or args.revalidate_cell or args.host_sampler != "none":
             parser.error("--lifecycle-memory takes no CPU profile, revalidation or host sampler")
     native = args.platform_profile == DARWIN
     cell_choice = args.smoke_cell or args.diagnostic_cell
     if cell_choice and cell_choice not in PROFILES[args.platform_profile]["cells"]:
         parser.error(f"{cell_choice} is not in the {args.platform_profile} inventory")
-    if native and not cell_choice:
-        parser.error("the native profile records smoke or diagnostic observations; Q1 selects any campaign protocol")
+    if native and not (cell_choice or args.lifecycle_memory):
+        parser.error("the native profile records smoke, diagnostic or lifecycle-memory observations; "
+                     "Q1 selects any campaign protocol")
     if args.host_sampler != "none" and not native:
         parser.error("--host-sampler belongs to the native profile")
     if args.source is not None and not native:
@@ -1580,9 +1568,6 @@ def main(argv=None):
         else:
             cell = cell_choice
             profiles = [CONTROL, OPTED_IN]
-            if native and cell == "mixed-bulk":
-                profiles = [CONTROL]
-                summary["not_run"] = {OPTED_IN: NATIVE_MIXED_OPTED_IN}
             ledger.require_capacity(len(profiles))
             records = []
             for profile in profiles:

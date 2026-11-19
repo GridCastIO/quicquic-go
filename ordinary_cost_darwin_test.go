@@ -4,12 +4,12 @@ package quic
 
 import "syscall"
 
-// The Darwin profile grants through the private native seam: public multipath admission
-// is closed here, so these ordinary workloads never claim negotiated multipath.
+// The Darwin profile grants through the public API that its Darwin 27 arm64 support
+// admits. On a Darwin release outside that support the public grant refuses.
 var ordinaryCostHost = ordinaryCostDarwinARM64
 
 func ordinaryCostGrant(tr *Transport) error {
-	return tr.configureNativeIO(ordinaryCostWriteBudget)
+	return tr.ConfigureMultipathIOV1(ordinaryCostWriteBudget)
 }
 
 const ordinaryCostRSSSource = "getrusage(RUSAGE_SELF).ru_maxrss"

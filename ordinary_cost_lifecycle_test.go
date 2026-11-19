@@ -21,7 +21,7 @@ import (
 // MP-MAC C2 (#1491) observes memory at three states of a real negotiated path lifecycle:
 // negotiated idle on path zero, a validated backup path, and that same path ID after
 // retirement. Only the public multipath interfaces drive it, so it runs where public
-// admission exists and refuses elsewhere. interop/multipath/ordinary_cost.py
+// admission exists: both host profiles. interop/multipath/ordinary_cost.py
 // --lifecycle-memory runs the two roles as separate processes and reads the record back.
 const (
 	ordinaryCostIdle    = "negotiated-idle"
@@ -64,7 +64,7 @@ func (s ordinaryCostLifecycleSpec) validateFor(platform ordinaryCostPlatformProf
 		return fmt.Errorf("the retirement state is retained or closed, not %q", s.Retired)
 	}
 	if !platform.negotiatedMultipath {
-		return fmt.Errorf("negotiated lifecycle memory needs public multipath admission, which %s does not have until Q2", platform.name)
+		return fmt.Errorf("negotiated lifecycle memory needs public multipath admission, which %s does not have", platform.name)
 	}
 	return nil
 }
@@ -538,7 +538,10 @@ func TestOrdinaryCostLifecyclePhases(t *testing.T) {
 	_, err = ordinaryCostSampleAt(ordinaryCostRetired, "client", true, 1, "closed", states(retired("retiring")), memory)
 	require.Error(t, err, "a requested retirement is not an observed one")
 
-	for _, platform := range []ordinaryCostPlatformProfile{ordinaryCostLinuxAMD64, ordinaryCostDarwinARM64} {
+	// Both host profiles admit multipath publicly; a profile without that admission refuses.
+	unadmitted := ordinaryCostDarwinARM64
+	unadmitted.name, unadmitted.negotiatedMultipath = "unadmitted", false
+	for _, platform := range []ordinaryCostPlatformProfile{ordinaryCostLinuxAMD64, ordinaryCostDarwinARM64, unadmitted} {
 		for _, controller := range []string{"reno", "bbrv3"} {
 			for _, retired := range []string{"retained", "closed"} {
 				err := ordinaryCostLifecycleSpec{Controller: controller, Retired: retired}.validateFor(platform)
@@ -554,10 +557,10 @@ func TestOrdinaryCostLifecyclePhases(t *testing.T) {
 	}
 }
 
-// TestOrdinaryCostLifecycle runs both lifecycle roles in one process for Reno and BBR where
-// public admission exists. It checks the wiring and the record; its memory numbers mean
-// nothing, since only the driver's separate processes attribute memory to one role.
-// Elsewhere the public gate must refuse: that refusal is the readiness evidence there.
+// TestOrdinaryCostLifecycle runs both lifecycle roles in one process for Reno and BBR on
+// this host's profile, which admits multipath publicly. It checks the wiring and the
+// record; its memory numbers mean nothing, since only the driver's separate processes
+// attribute memory to one role.
 func TestOrdinaryCostLifecycle(t *testing.T) {
 	address := func() string {
 		probe := newUDPConnLocalhost(t)
@@ -574,21 +577,6 @@ func TestOrdinaryCostLifecycle(t *testing.T) {
 		require.Error(t, err, "the address is taken")
 		require.Empty(t, server.Controller)
 	})
-	if !ordinaryCostHost.negotiatedMultipath {
-		spec := ordinaryCostLifecycleSpec{Controller: "reno", Retired: "closed", Address: address(), TimeoutNS: int64(5 * time.Second)}
-		require.ErrorContains(t, spec.validateFor(ordinaryCostHost), "public multipath admission")
-		client, err := ordinaryCostRunLifecycleClient(t.Context(), spec, ordinaryCostConfig(t, true, "reno"))
-		require.ErrorIs(t, err, ErrMultipathUnsupportedV1, "the public grant refuses")
-		require.Empty(t, client.Samples)
-		require.False(t, client.Negotiated)
-		require.Empty(t, client.Controller)
-		server, err := ordinaryCostRunLifecycleServer(t.Context(), spec, ordinaryCostConfig(t, true, "reno"))
-		require.ErrorIs(t, err, ErrMultipathUnsupportedV1)
-		require.False(t, server.Negotiated)
-		require.Empty(t, server.Controller)
-		return
-	}
-
 	for _, controller := range []string{"reno", "bbrv3"} {
 		t.Run(controller, func(t *testing.T) {
 			spec := ordinaryCostLifecycleSpec{Controller: controller, Retired: "closed", Address: address(), TimeoutNS: int64(20 * time.Second)}
