@@ -17,6 +17,8 @@ from pathlib import Path
 from unittest import mock
 
 import ordinary_cost as driver
+import powermetrics_wrapper
+from test_powermetrics_wrapper import alive, fake_powermetrics, wait_gone, wrapper_command
 
 
 def flow(label="ordinary", bytes_per_second=1000, control_p99=1000.0):
@@ -501,7 +503,9 @@ class ExecutionTests(unittest.TestCase):
                 pids = []
                 class FakeRole(subprocess.Popen):
                     def __init__(self, command, **kwargs):
-                        super().__init__([sys.executable, "-c", "import signal; signal.pause()"], **kwargs)
+                        # Roles wait for a signal; the sampler stops when its stdin closes.
+                        child = "import sys; sys.stdin.read()" if command == ["sampler"] else "import signal; signal.pause()"
+                        super().__init__([sys.executable, "-c", child], **kwargs)
                         pids.append(self.pid)
                         (root / "pids.json").write_text(json.dumps(pids))
                     def wait(self, timeout=None):
@@ -1112,6 +1116,53 @@ class PowermetricsTests(unittest.TestCase):
         time.sleep(lifetime)
         return sampler.finish(launched + window[0], launched + window[1])
 
+    def test_sampler_route_is_the_owner_installed_wrapper_under_sudo(self):
+        wrapper_path = "/usr/local/libexec/quicquic-powermetrics"
+        self.assertEqual(driver.powermetrics_command(), ["/usr/bin/sudo", "-n", wrapper_path, "driver-stopped"])
+        self.assertEqual(driver.powermetrics_command("bounded"), ["/usr/bin/sudo", "-n", wrapper_path, "bounded"])
+        self.assertLessEqual({"driver-stopped", "bounded"}, set(powermetrics_wrapper.MODES))
+        # The driver's bounded wait covers the wrapper's own grace before SIGKILL.
+        self.assertLess(powermetrics_wrapper.STOP_GRACE_S + 1, driver.SAMPLER_STOP_S)
+
+    def test_killed_driver_leaves_no_sampler_running(self):
+        """The real wrapper with a sampler that ignores SIGTERM, under a driver killed by
+        SIGKILL while a role it launched afterwards is still alive: the role must not hold
+        the sampler's stdin open, so the wrapper sees EOF and reaps the sampler."""
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            fake = fake_powermetrics(root, payload=FIXTURE.read_bytes(), ignore_term=True, linger_s=60)
+            command = wrapper_command(fake, ["driver-stopped"], "w.STOP_GRACE_S = 0.3")
+            bootstrap = textwrap.dedent("""
+                import json, subprocess, sys, time
+                from pathlib import Path
+                sys.path.insert(0, sys.argv[2])
+                import ordinary_cost as driver
+                root = Path(sys.argv[1])
+                sampler = driver.HostSampler(json.loads(sys.argv[3]), root)
+                sampler.start()
+                role = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(60)"])
+                (root / "pids.json").write_text(json.dumps({"wrapper": sampler.process.pid, "role": role.pid}))
+                time.sleep(60)
+            """)
+            driver_process = subprocess.Popen([sys.executable, "-c", bootstrap, str(root), str(Path(driver.__file__).parent),
+                                               json.dumps(command)])
+            self.addCleanup(driver_process.wait)
+            self.addCleanup(lambda: driver_process.poll() is None and driver_process.kill())
+            deadline = time.monotonic() + 15
+            while not ((root / "pids.json").exists() and (root / "invoked.json").exists()):
+                self.assertLess(time.monotonic(), deadline, "the driver did not start its sampler and role")
+                time.sleep(0.05)
+            time.sleep(0.1)  # let both files finish writing
+            pids = json.loads((root / "pids.json").read_text())
+            sampler_pid = json.loads((root / "invoked.json").read_text())["pid"]
+            self.addCleanup(lambda: alive(pids["role"]) and os.kill(pids["role"], signal.SIGKILL))
+            self.addCleanup(lambda: alive(sampler_pid) and os.kill(sampler_pid, signal.SIGKILL))
+            driver_process.kill()
+            driver_process.wait()
+            self.assertTrue(wait_gone(sampler_pid), "the sampler outlived its killed driver")
+            self.assertTrue(wait_gone(pids["wrapper"]), "the wrapper outlived its killed driver")
+            self.assertTrue(alive(pids["role"]), "the role was still running, holding whatever it inherited")
+
     def test_window_bounds_bracket_the_clock_conversion(self):
         # The driver is preempted for 0.5 s between its two monotonic reads.
         readings = iter((10.0, 10.5))
@@ -1127,25 +1178,29 @@ class PowermetricsTests(unittest.TestCase):
             driver.cluster_activity(records, dict(coverage, window_end=end))
         self.assertEqual(caught.exception.status, "inconclusive")
 
-    def test_privilege_failure_is_unavailable_never_quiet(self):
+    def test_missing_grant_is_unavailable_never_quiet(self):
+        """sudo -n refuses at once rather than prompting; the refusal is the record."""
         with tempfile.TemporaryDirectory() as temporary:
             activity = self.run_sampler(Path(temporary),
-                "import sys; sys.stderr.write('powermetrics must be invoked as the superuser\\n'); sys.exit(1)")
+                "import sys; sys.stderr.write('sudo: a password is required\\n'); sys.exit(1)")
         self.assertEqual(activity["status"], "unavailable")
-        self.assertIn("superuser", activity["reason"])
+        self.assertIn("a password is required", activity["reason"])
         self.assertEqual(activity["exit"], 1)
+        self.assertTrue(activity["joined"])
 
     def test_sampler_output_is_preserved_and_parsed(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             script = textwrap.dedent(f"""
-                import signal, sys, time
+                import os, signal, sys
+                signal.signal(signal.SIGTERM, signal.SIG_IGN)  # only standard input stops it
+                print(os.getsid(0) == os.getpid(), file=sys.stderr, flush=True)
                 sys.stdout.buffer.write(open({str(FIXTURE)!r}, 'rb').read()); sys.stdout.flush()
-                signal.signal(signal.SIGTERM, lambda *_: sys.exit(0))
-                time.sleep(60)
+                sys.stdin.read()
             """)
             activity = self.run_sampler(root, script)
             self.assertEqual(activity["status"], "observed", activity)
+            self.assertEqual((root / "host.log").read_text().strip(), "True", "the sampler leads its own session")
             self.assertEqual((root / "host.plist").read_bytes(), FIXTURE.read_bytes())
             self.assertEqual(activity["raw_sha256"], hashlib.sha256(FIXTURE.read_bytes()).hexdigest())
             self.assertTrue(activity["joined"])
@@ -1166,12 +1221,12 @@ class PowermetricsTests(unittest.TestCase):
         self.assertEqual(activity["status"], "inconclusive")
         self.assertIn("before the window ended", activity["reason"])
 
-    def test_interrupted_stop_kills_and_joins_before_unwinding(self):
+    def test_interrupted_stop_has_already_closed_the_samplers_stdin(self):
+        """Standard input closes before the wait, so a failed wait still stops the sampler."""
         with tempfile.TemporaryDirectory() as temporary:
-            sampler = driver.HostSampler([sys.executable, "-c",
-                "import signal, time; signal.signal(signal.SIGTERM, signal.SIG_IGN); time.sleep(60)"], Path(temporary))
+            sampler = driver.HostSampler([sys.executable, "-c", "import sys; sys.stdin.read(); sys.exit(0)"],
+                                         Path(temporary))
             sampler.start()
-            time.sleep(0.5)  # let the child ignore SIGTERM before it is stopped
             process, real_wait = sampler.process, sampler.process.wait
 
             def interrupted(timeout=None):
@@ -1181,28 +1236,24 @@ class PowermetricsTests(unittest.TestCase):
 
             with mock.patch.object(process, "wait", side_effect=interrupted), self.assertRaises(KeyboardInterrupt):
                 sampler.finish(0, 0)
-            self.assertEqual(process.returncode, -signal.SIGKILL)
-            with self.assertRaises(ProcessLookupError):
-                os.kill(process.pid, 0)
+            self.assertTrue(process.stdin.closed)
+            self.assertEqual(real_wait(timeout=10), 0, "the sampler stopped on its own")
 
     def test_operator_signal_waits_until_the_sampler_is_reaped(self):
         with tempfile.TemporaryDirectory() as temporary:
-            sampler = driver.HostSampler([sys.executable, "-c",
-                "import signal, time; signal.signal(signal.SIGTERM, signal.SIG_IGN); time.sleep(60)"], Path(temporary))
+            sampler = driver.HostSampler([sys.executable, "-c", "import sys, time; sys.stdin.read(); time.sleep(0.3)"],
+                                         Path(temporary))
             sampler.start()
-            time.sleep(0.5)
-            process, real_kill = sampler.process, sampler.process.kill
+            process, real_wait = sampler.process, sampler.process.wait
 
-            def signaled_kill():
-                # A SIGINT at the fallback kill, the boundary a handler cannot protect.
+            def signaled_wait(timeout=None):
+                # A SIGINT while the driver waits on the stopping sampler.
                 os.kill(os.getpid(), signal.SIGINT)
-                real_kill()
+                return real_wait(timeout)
 
-            with mock.patch.object(driver, "SAMPLER_STOP_S", 0.3), \
-                    mock.patch.object(process, "kill", side_effect=signaled_kill), \
-                    self.assertRaises(KeyboardInterrupt):
+            with mock.patch.object(process, "wait", side_effect=signaled_wait), self.assertRaises(KeyboardInterrupt):
                 sampler.stop()
-            self.assertEqual(process.returncode, -signal.SIGKILL)
+            self.assertEqual(process.returncode, 0, "the interrupt was delivered after the sampler was reaped")
             with self.assertRaises(ProcessLookupError):
                 os.kill(process.pid, 0)
 
@@ -1231,8 +1282,8 @@ class PowermetricsTests(unittest.TestCase):
         script = textwrap.dedent(f"""
             import signal, sys, time
             sys.stdout.buffer.write(open({str(FIXTURE)!r}, 'rb').read()); sys.stdout.flush()
-            signal.signal(signal.SIGTERM, lambda *_: (time.sleep(0.2), sys.exit(0)))
-            time.sleep(60)
+            sys.stdin.read()
+            time.sleep(0.2)  # the sampler takes a moment to stop after its stdin closes
         """)
         with tempfile.TemporaryDirectory() as temporary, \
                 mock.patch.object(driver.subprocess, "Popen", Process), \
@@ -1245,14 +1296,33 @@ class PowermetricsTests(unittest.TestCase):
         self.assertEqual(activity["status"], "observed", activity)
         self.assertGreaterEqual(seen["stopped"], marks["reaped"])
 
-    def test_unresponsive_sampler_is_killed_and_joined(self):
+    def test_sampler_not_stopped_by_its_stdin_is_unavailable_and_never_signaled(self):
+        """The driver cannot signal the privileged sampler, so a sampler still running after
+        the bounded wait is left alone and recorded unavailable."""
         with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            script = textwrap.dedent(f"""
+                import signal, time
+                from pathlib import Path
+                def note(number, frame):
+                    with (Path({str(root)!r}) / "signals.txt").open("a") as file:
+                        file.write(str(number) + "\\n")
+                for number in (signal.SIGTERM, signal.SIGINT, signal.SIGHUP):
+                    signal.signal(number, note)
+                time.sleep(60)  # never reads standard input
+            """)
             with mock.patch.object(driver, "SAMPLER_STOP_S", 0.3):
-                activity = self.run_sampler(Path(temporary),
-                    "import signal, time; signal.signal(signal.SIGTERM, signal.SIG_IGN); time.sleep(60)")
-        self.assertTrue(activity["joined"])
-        self.assertEqual(activity["exit"], -signal.SIGKILL)
-        self.assertEqual(activity["status"], "inconclusive")
+                sampler = driver.HostSampler([sys.executable, "-c", script], root)
+                sampler.start()
+                self.addCleanup(lambda: sampler.process.poll() is None and (sampler.process.kill(), sampler.process.wait()))
+                launched = sampler.started
+                time.sleep(2.2)
+                activity = sampler.finish(launched + 0.3, launched + 1.9)
+            self.assertEqual(activity["status"], "unavailable")
+            self.assertIn("not confirmed stopped", activity["reason"])
+            self.assertFalse(activity["joined"])
+            self.assertIsNone(sampler.process.poll(), "the sampler was left running")
+            self.assertFalse((root / "signals.txt").exists(), "the driver sent the sampler no signal")
 
 
 class NativeExecutionTests(unittest.TestCase):
@@ -1379,7 +1449,7 @@ class NativeExecutionTests(unittest.TestCase):
                 mock.patch.object(driver.HostSampler, "stop", autospec=True, side_effect=signaled):
             code, summary, processes = self.invoke(Path(temporary), ("--platform-profile", "darwin-arm64", "--smoke-cell", "stream",
                                                                      "--host-sampler", "powermetrics"), platform="darwin-arm64",
-                                                   sampler=[sys.executable, "-c", "import time; time.sleep(60)"])
+                                                   sampler=[sys.executable, "-c", "import sys; sys.stdin.read()"])
         self.assertEqual(code, 1, summary)
         attempt = summary["attempts"][0]
         self.assertEqual(attempt["status"], "failed")
@@ -1434,7 +1504,7 @@ class NativeExecutionTests(unittest.TestCase):
                 mock.patch.object(driver.HostSampler, "finish", autospec=True, side_effect=signaled):
             code, summary, _ = self.invoke(Path(temporary), ("--platform-profile", "darwin-arm64", "--smoke-cell", "stream",
                                                              "--host-sampler", "powermetrics"), platform="darwin-arm64",
-                                           sampler=[sys.executable, "-c", "import time; time.sleep(60)"])
+                                           sampler=[sys.executable, "-c", "import sys; sys.stdin.read()"])
         self.assertEqual(code, 1)
         self.assertIn("SIGTERM", summary["attempts"][0]["error"])
         self.assertEqual(continued, [])
