@@ -649,8 +649,8 @@ func TestOrdinaryCostLifecycle(t *testing.T) {
 	}
 
 	// A test-local Config makes one role's connection run bbrv3 where the run requested reno.
-	// Each role's peer is an ordinary test-local endpoint that keeps its own socket bound from
-	// setup through cleanup, so no peer role can finish first.
+	// Each role's peer is an ordinary test-local endpoint, not the other role, so it cannot
+	// finish first. Each peer keeps its own socket bound from setup through cleanup.
 	t.Run("a client whose connection runs another controller fails", func(t *testing.T) {
 		ordinary := &Transport{Conn: newUDPConnLocalhost(t)}
 		t.Cleanup(func() { ordinary.Close() })
