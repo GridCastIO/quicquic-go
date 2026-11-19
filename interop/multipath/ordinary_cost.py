@@ -53,8 +53,14 @@ RSS_SCALE = {"kB": 1024, "bytes": 1}
 NATIVE_NOT_JUDGED = ("native observations are semantic smoke records; Linux thresholds and foreign-CPU "
                      "arithmetic do not transfer, and Q1 selects any comparative protocol")
 NATIVE_MIXED_OPTED_IN = "negotiated mixed-bulk needs public Darwin multipath admission (Q2); no ordinary connection replaces it"
+# The Reno thresholds judge Reno pairs and the historical BBR stateless-pressure diagnostic.
+# A newly matched BBR workload reports its ratios as observations, not as a verdict.
+BBR_NOT_JUDGED = ("BBR smoke/diagnostic ratios are observations; the accepted thresholds are Reno's, "
+                  "and only the historical stateless-pressure BBR diagnostic keeps their verdict")
 POWERMETRICS_INTERVAL_MS = 1000
 SAMPLER_STOP_S = 5
+# Allowance for the driver's own launch/stop timing around the sampler's elapsed sum.
+SAMPLER_SLACK_S = 0.05
 HOST_STATUSES = ("observed", "unavailable", "inconclusive")
 CONTROL, OPTED_IN = "unregistered", "opted-in"
 # Accepted product thresholds, section "Accepted product thresholds" of the Reno plan.
@@ -115,7 +121,8 @@ def flows(record, label):
 
 def check_metric(name, metric, unit):
     """A metric names its unit and producer; an unavailable metric has no value, not zero."""
-    if not isinstance(metric, dict) or metric.get("unit") != unit or not metric.get("source"):
+    if (not isinstance(metric, dict) or metric.get("unit") != unit
+            or not isinstance(metric.get("source"), str) or not metric["source"]):
         raise ValueError(f"{name}: metric needs unit {unit} and a source")
     value, available = metric.get("value"), metric.get("available")
     if available is True:
@@ -140,7 +147,12 @@ def check_identity(record, platform_profile):
 def check_metrics(record, platform_profile, controller):
     server, client = record["server"], record["client"]
     for role in (server, client):
-        check_metric("self_cpu", role.get("self_cpu"), "ns")
+        cpu = check_metric("self_cpu", role.get("self_cpu"), "ns")
+        seconds = role.get("window_cpu_s")
+        # One reading, two representations: Go's Duration.Seconds() of the same nanoseconds.
+        if cpu is not None and (type(seconds) not in (int, float)
+                                or not math.isclose(seconds, cpu / 1e9, rel_tol=1e-12, abs_tol=1e-9)):
+            raise ValueError("self_cpu metric does not match window_cpu_s")
     unit = PROFILES[platform_profile]["rss_unit"]
     for field in ("peak_rss_at_sample", "peak_rss_end"):
         peak = server.get(field)
@@ -149,6 +161,10 @@ def check_metrics(record, platform_profile, controller):
         value = check_metric(field, peak, unit)
         if value is None or peak.get("bytes") != value * RSS_SCALE[unit]:
             raise ValueError(f"{field}: RSS bytes do not normalize the raw {unit} reading")
+    if platform_profile == LINUX:
+        for legacy, field in (("rss_kb_at_20s", "peak_rss_at_sample"), ("rss_kb_end", "peak_rss_end")):
+            if server.get(legacy) != server[field]["value"]:
+                raise ValueError(f"{legacy}: RSS alias does not match its {field} reading")
     for connection in server["connections"]:
         lost = check_metric("packets_lost_metric", connection.get("packets_lost_metric"), "packets")
         if connection.get("controller") != controller:
@@ -197,6 +213,10 @@ def check_observation(record):
         raise ValueError(f"{cell}/{profile}: multipath advertisement does not match the platform profile")
     if not negotiated and cell == "mixed-bulk" and profile == OPTED_IN:
         raise ValueError(NATIVE_MIXED_OPTED_IN)
+    if not negotiated and (any(c.get("multipath_negotiated") is not False for c in server["connections"])
+                           or any(f.get("multipath_negotiated", False) is not False or f.get("paths")
+                                  for f in client["flows"])):
+        raise ValueError(f"{cell}/{profile}: a {platform_profile} receipt cannot claim negotiated multipath")
     closes = client["flows"] + server["connections"]
     if profile == CONTROL and (server["write_errors"] or any(
             item["timeout_close"] or item["close_cause"] for item in closes)):
@@ -471,9 +491,16 @@ def parse_powermetrics(raw):
     return records, tail
 
 
-def cluster_activity(records, window_ns):
-    """Elapsed-weighted active share (1 - idle_ratio) of each CPU cluster, labeled by the
-    producer's E/P cluster name. Unsupported fields and short coverage are inconclusive."""
+def cluster_activity(records, coverage):
+    """Elapsed-weighted active residency (1 - idle_ratio - down_ratio) of each CPU cluster,
+    labeled by the producer's E/P cluster name, averaged over the sampler's lifetime.
+
+    coverage holds the driver's monotonic times: sampler launch and stop, and the window.
+    Delta samples are contiguous from some unknown start delay after launch, and they
+    finish before the stop, so they certainly cover the window only when their total
+    elapsed time reaches the window's end from launch and reaches back to its start from
+    the stop. Timestamps are not used. Unsupported fields or uncertain coverage are
+    inconclusive."""
     if not records:
         raise HostObservationError("inconclusive", "no complete powermetrics record")
     names, active, elapsed_total = None, {}, 0
@@ -487,22 +514,28 @@ def cluster_activity(records, window_ns):
         seen = []
         for cluster in clusters:
             name = cluster.get("name") if isinstance(cluster, dict) else None
-            idle = cluster.get("idle_ratio") if isinstance(cluster, dict) else None
             if not isinstance(name, str) or not CLUSTER_NAME.match(name):
                 raise HostObservationError("inconclusive", f"unsupported cluster name {name!r}")
-            if type(idle) not in (int, float) or not math.isfinite(idle) or not 0 <= idle <= 1:
-                raise HostObservationError("inconclusive", f"{name}: unsupported idle_ratio {idle!r}")
+            shares = [cluster.get(field) for field in ("idle_ratio", "down_ratio")]
+            if any(type(share) not in (int, float) or not math.isfinite(share) or not 0 <= share <= 1
+                   for share in shares) or sum(shares) > 1 + 1e-9:
+                raise HostObservationError("inconclusive", f"{name}: unsupported idle/down residency {shares!r}")
             seen.append(name)
-            active[name] = active.get(name, 0.0) + elapsed * (1 - idle)
+            active[name] = active.get(name, 0.0) + elapsed * max(0.0, 1 - sum(shares))
         if names is not None and seen != names:
             raise HostObservationError("inconclusive", f"record {index} changed the cluster set")
         names = seen
         elapsed_total += elapsed
-    if elapsed_total < window_ns:
+    total_s = elapsed_total / 1e9
+    lifetime_s = coverage["stopped"] - coverage["launched"]
+    if total_s > lifetime_s + SAMPLER_SLACK_S:
+        raise HostObservationError("inconclusive", f"records claim {total_s:.3f} s of a {lifetime_s:.3f} s sampler lifetime")
+    if coverage["launched"] + total_s < coverage["window_end"] or coverage["stopped"] - total_s > coverage["window_start"]:
         raise HostObservationError("inconclusive",
-                                   f"records cover {elapsed_total} ns of a {window_ns} ns window")
+                                   f"{total_s:.3f} s of samples cannot be placed over the whole window")
     return {
         "status": "observed",
+        "scope": "sampler lifetime, which brackets the window",
         "records": len(records),
         "elapsed_ns": elapsed_total,
         "clusters": [{"name": name, "class": CLUSTER_CLASS[CLUSTER_NAME.match(name)["kind"]],
@@ -540,15 +573,20 @@ class HostSampler:
             return False
         early = self.process.poll() is not None  # poll reaps an exited sampler
         if not early:
-            self.process.terminate()
             try:
+                self.process.terminate()
                 self.process.wait(timeout=SAMPLER_STOP_S)
             except subprocess.TimeoutExpired:
                 self.process.kill()
                 self.process.wait()
+            except BaseException:
+                # An interrupted wait still kills and reaps the sampler before unwinding.
+                self.process.kill()
+                self.process.wait()
+                raise
         return early
 
-    def finish(self, window_start, window_end, window_ns):
+    def finish(self, window_start, window_end):
         """Stop the sampler and attribute what it recorded; monotonic window bounds."""
         stopped_at = time.monotonic()
         early = self.stop()
@@ -568,7 +606,9 @@ class HostSampler:
             if early or stopped_at < window_end:
                 raise HostObservationError("inconclusive", "sampler ended before the window ended")
             records, tail = parse_powermetrics(raw)
-            result.update(cluster_activity(records, window_ns), tail_bytes=tail)
+            coverage = {"launched": self.started, "stopped": stopped_at,
+                        "window_start": window_start, "window_end": window_end}
+            result.update(cluster_activity(records, coverage), tail_bytes=tail)
         except HostObservationError as error:
             result.update(status=error.status, reason=str(error))
         except ValueError as error:
@@ -651,13 +691,17 @@ def run_observation(binary, directory, cell, round_, profile, seed, warmup_s=WAR
                 if process.returncode is None:
                     reap(role, process)
         finally:
-            if sampler:
-                host = sampler.finish(window_start, window_start + window_s, window_s * 10**9)
-            occupied = time.monotonic() - begun
+            # Role facts first, so an interrupted sampler stop cannot drop them.
             record.update(cell=cell, round=round_, profile=profile, seed=seed, controller=controller,
                           platform_profile=platform_profile, cpu_profile=cpu_profile,
-                          timing_eligible=not cpu_profile, occupied_s=occupied, process_cpu_s=usage,
+                          timing_eligible=not cpu_profile, process_cpu_s=usage,
                           exit={role: process.returncode for role, process in processes.items()})
+            try:
+                if sampler:
+                    host = sampler.finish(window_start, window_start + window_s)
+            finally:
+                occupied = time.monotonic() - begun
+                record["occupied_s"] = occupied
     if linux:
         running = schedstat_running_ns()
         foreign = (sum(running[cpu] - before[cpu] for cpu in FIXTURE_CPUS)
@@ -911,8 +955,12 @@ def main(argv=None):
                 summary.update(passed=True, judged=False, judgment=NATIVE_NOT_JUDGED, observations=len(records))
             else:
                 verdict = judge_cell(cell, [tuple(records)])
-                summary.update(passed=verdict["passed"] and not any(r["contaminated"] for r in records),
-                               diagnostic=verdict, contaminated_observations=sum(r["contaminated"] for r in records))
+                contaminated = sum(r["contaminated"] for r in records)
+                judged = args.controller == "reno" or cell == "stateless-pressure"
+                summary.update(passed=(verdict["passed"] or not judged) and not contaminated, judged=judged,
+                               diagnostic=verdict, contaminated_observations=contaminated)
+                if not judged:
+                    summary["judgment"] = BBR_NOT_JUDGED
     except (Exception, KeyboardInterrupt) as error:
         summary.update(passed=False, error=f"{type(error).__name__}: {error}")
     finally:

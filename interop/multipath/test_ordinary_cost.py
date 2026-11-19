@@ -26,6 +26,7 @@ def flow(label="ordinary", bytes_per_second=1000, control_p99=1000.0):
         "control": {"count": 6000, "p99_us": control_p99} if label == "ordinary" else None,
         "timeout_close": False,
         "close_cause": "",
+        "multipath_negotiated": False,
     }
 
 
@@ -51,7 +52,7 @@ def observation(cell="stream-gso-on", profile="unregistered", round_=0, platform
     rss_unit, scale = ("kB", 1024) if linux else ("bytes", 1)
     rss = 1000 if linux else 1024000
     connection = {"label": "ordinary", "timeout_close": False, "close_cause": "", "controller": controller,
-                  "packets_lost_metric": lost(controller)}
+                  "multipath_negotiated": False, "packets_lost_metric": lost(controller)}
     if controller == "reno":
         connection["packets_lost"] = 0
     cells = list(driver.PROFILES[platform]["cells"])
@@ -81,7 +82,7 @@ def observation(cell="stream-gso-on", profile="unregistered", round_=0, platform
             "connections": [connection],
         },
         "client": {"go": driver.GO_VERSION, "controller": controller, "platform": identity(platform),
-                   "self_cpu": metric(30 * 10**9, "ns"), "flows": [flow()]},
+                   "window_cpu_s": 30.0, "self_cpu": metric(30 * 10**9, "ns"), "flows": [flow()]},
     }
     if linux:
         record["contaminated"] = False
@@ -644,6 +645,22 @@ class ExecutionTests(unittest.TestCase):
                         self.assertFalse(connection["packets_lost_metric"]["available"])
                 self.assertEqual(summary["diagnostic"]["packets_lost"], {"unregistered": [None], "opted-in": [None]})
 
+    def test_only_reno_and_the_historical_bbr_diagnostic_are_judged(self):
+        def slow(record):
+            if record["profile"] == driver.OPTED_IN:
+                scale_goodput(record, 0.5)
+
+        for controller, cell, judged in (("bbrv3", "mixed-bulk", False), ("bbrv3", "stream-gso-on", False),
+                                         ("bbrv3", "stateless-pressure", True), ("reno", "mixed-bulk", True)):
+            with self.subTest(controller=controller, cell=cell), tempfile.TemporaryDirectory() as temporary:
+                code, summary, _ = self.invoke(Path(temporary), ("--smoke-cell", cell, "--controller", controller), edit=slow)
+                self.assertEqual(summary["judged"], judged)
+                self.assertEqual(code, int(judged), summary.get("error"))
+                self.assertEqual(summary["passed"], not judged)
+                self.assertFalse(summary["diagnostic"]["passed"], "the ratios are still reported")
+                if not judged:
+                    self.assertIn("observations", summary["judgment"])
+
     def test_unsupported_bbr_or_profiling_campaign_launches_nothing(self):
         for extra in (("--controller", "bbrv3"),
                       ("--cpu-profile",),
@@ -735,6 +752,24 @@ class MetricRecordTests(unittest.TestCase):
             with self.subTest(name), self.assertRaisesRegex(ValueError, "metric|self_cpu"):
                 driver.check_observation(record)
 
+    def test_both_representations_of_a_reading_agree(self):
+        cases = {
+            "rss alias": lambda r: r["server"].update(rss_kb_end=2000),
+            "cpu seconds": lambda r: r["server"].update(window_cpu_s=1.0),
+            "client cpu seconds": lambda r: r["client"].update(window_cpu_s=31.0),
+            "non-string source": lambda r: r["server"]["self_cpu"].update(source=["getrusage"]),
+        }
+        for name, edit in cases.items():
+            record = observation()
+            edit(record)
+            with self.subTest(name), self.assertRaisesRegex(ValueError, "alias|window_cpu_s|metric"):
+                driver.check_observation(record)
+        # Go's Duration.Seconds() of the same nanoseconds is the same reading.
+        record = observation()
+        record["server"]["self_cpu"]["value"] = 123_456_789_123
+        record["server"]["window_cpu_s"] = 123_456_789_123 / 1e9
+        driver.check_observation(record)
+
     def test_useful_bytes_metric_matches_the_flows(self):
         record = observation("mixed-bulk")
         record["client"]["useful_bytes"]["value"] += 1
@@ -791,6 +826,20 @@ class NativeRecordTests(unittest.TestCase):
             with self.subTest(name), self.assertRaises(ValueError):
                 driver.check_observation(record)
 
+    def test_private_grant_receipt_cannot_claim_negotiation(self):
+        cases = {
+            "connection": lambda r: r["server"]["connections"][0].update(multipath_negotiated=True),
+            "connection unstated": lambda r: r["server"]["connections"][0].pop("multipath_negotiated"),
+            "flow": lambda r: r["client"]["flows"][0].update(multipath_negotiated=True),
+            "paths": lambda r: r["client"]["flows"][0].update(paths=["live", "live"]),
+        }
+        for name, edit in cases.items():
+            record = observation("stream", "opted-in", platform="darwin-arm64")
+            edit(record)
+            with self.subTest(name), self.assertRaisesRegex(ValueError, "negotiated"):
+                driver.check_observation(record)
+        driver.check_observation(observation("mixed-bulk", "opted-in"))
+
     def test_native_negotiated_mixed_bulk_is_refused_not_replaced(self):
         record = observation("mixed-bulk", "unregistered", platform="darwin-arm64")
         driver.check_observation(record)
@@ -800,6 +849,9 @@ class NativeRecordTests(unittest.TestCase):
 
 
 FIXTURE = Path(__file__).parent / "testdata" / "powermetrics" / "cpu_power.plist"
+# The fixture holds two contiguous samples of 1.00025 s. This sampler ran 2.2 s around a
+# window from 0.3 s to 1.9 s after launch, so the samples certainly cover it.
+COVERAGE = {"launched": 100.0, "stopped": 102.2, "window_start": 100.3, "window_end": 101.9}
 
 
 class PowermetricsTests(unittest.TestCase):
@@ -810,7 +862,7 @@ class PowermetricsTests(unittest.TestCase):
         records, tail = driver.parse_powermetrics(raw)
         self.assertEqual(len(records), 2)
         self.assertEqual(tail, 0)
-        activity = driver.cluster_activity(records, 2 * 10**9)
+        activity = driver.cluster_activity(records, COVERAGE)
         self.assertEqual(activity["status"], "observed")
         self.assertEqual(activity["records"], 2)
         by_name = {cluster["name"]: cluster for cluster in activity["clusters"]}
@@ -830,12 +882,15 @@ class PowermetricsTests(unittest.TestCase):
     def test_malformed_record_fails(self):
         first, second = FIXTURE.read_bytes().split(b"\0")[:2]
         for bad in (first + b"\0<plist><dict><key>x</key></plist>\0" + second + b"\0",
-                    b"<?xml version='1.0'?><plist version='1.0'><array/></plist>\0" + second + b"\0",
-                    b"\0\0"):
+                    b"<?xml version='1.0'?><plist version='1.0'><array/></plist>\0" + second + b"\0"):
             with self.subTest(bad=bad[:20]), self.assertRaisesRegex(ValueError, "powermetrics"):
-                records, _ = driver.parse_powermetrics(bad)
-                if not records:
-                    raise ValueError("powermetrics: no records")
+                driver.parse_powermetrics(bad)
+        # Separators alone hold no record, which the adapter classifies as inconclusive.
+        records, tail = driver.parse_powermetrics(b"\0\0")
+        self.assertEqual((records, tail), ([], 0))
+        with self.assertRaises(driver.HostObservationError) as caught:
+            driver.cluster_activity(records, COVERAGE)
+        self.assertEqual(caught.exception.status, "inconclusive")
 
     def test_unsupported_or_incomplete_records_are_inconclusive(self):
         records, _ = driver.parse_powermetrics(FIXTURE.read_bytes())
@@ -856,18 +911,45 @@ class PowermetricsTests(unittest.TestCase):
         }
         for name, case in cases.items():
             with self.subTest(name), self.assertRaises(driver.HostObservationError) as caught:
-                driver.cluster_activity(case, 2 * 10**9)
+                driver.cluster_activity(case, COVERAGE)
             self.assertEqual(caught.exception.status, "inconclusive")
-        with self.assertRaises(driver.HostObservationError) as caught:
-            driver.cluster_activity(records, 3 * 10**9)
-        self.assertIn("window", str(caught.exception))
 
-    def run_sampler(self, root, script, window=(0.2, 0.4)):
+    def test_down_residency_is_not_activity(self):
+        records, _ = driver.parse_powermetrics(FIXTURE.read_bytes())
+        for record in records:
+            record["processor"]["clusters"][0].update(idle_ratio=0.2, down_ratio=0.7)
+        activity = driver.cluster_activity(records, COVERAGE)
+        self.assertAlmostEqual(activity["clusters"][0]["active_ratio"], 0.1)
+        records[1]["processor"]["clusters"][0].update(idle_ratio=0.5, down_ratio=0.6)
+        with self.assertRaisesRegex(driver.HostObservationError, "residency"):
+            driver.cluster_activity(records, COVERAGE)
+        records[1]["processor"]["clusters"][0].pop("down_ratio")
+        with self.assertRaisesRegex(driver.HostObservationError, "residency"):
+            driver.cluster_activity(records, COVERAGE)
+
+    def test_samples_must_certainly_cover_the_window(self):
+        records, _ = driver.parse_powermetrics(FIXTURE.read_bytes())
+        cases = {
+            # Enough total time, but emitted at launch: the window starts 3 s later.
+            "before the window": dict(COVERAGE, stopped=105.0, window_start=103.0, window_end=104.0),
+            # The samples could all have finished before the window's end.
+            "short of the end": dict(COVERAGE, window_end=102.1),
+            # They could have started after the window began.
+            "after the start": dict(COVERAGE, window_start=100.1),
+            # More elapsed time than the sampler lived.
+            "impossible": dict(COVERAGE, stopped=101.0, window_start=100.1, window_end=100.9),
+        }
+        for name, coverage in cases.items():
+            with self.subTest(name), self.assertRaises(driver.HostObservationError) as caught:
+                driver.cluster_activity(records, coverage)
+            self.assertEqual(caught.exception.status, "inconclusive")
+
+    def run_sampler(self, root, script, window=(0.3, 1.9), lifetime=2.2):
         sampler = driver.HostSampler([sys.executable, "-c", script], root)
-        begun = time.monotonic()
         sampler.start()
-        time.sleep(window[1])
-        return sampler.finish(begun + window[0], begun + window[1], window_ns=int(1e8))
+        launched = sampler.started
+        time.sleep(lifetime)
+        return sampler.finish(launched + window[0], launched + window[1])
 
     def test_privilege_failure_is_unavailable_never_quiet(self):
         with tempfile.TemporaryDirectory() as temporary:
@@ -896,7 +978,7 @@ class PowermetricsTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary:
             sampler = driver.HostSampler([str(Path(temporary) / "no-such-powermetrics")], Path(temporary))
             sampler.start()
-            activity = sampler.finish(0, 0, window_ns=1)
+            activity = sampler.finish(0, 0)
         self.assertEqual(activity["status"], "unavailable")
         self.assertIn("never launched", activity["reason"])
         self.assertFalse(activity["joined"])
@@ -907,6 +989,25 @@ class PowermetricsTests(unittest.TestCase):
             activity = self.run_sampler(root, f"import sys; sys.stdout.buffer.write(open({str(FIXTURE)!r}, 'rb').read())")
         self.assertEqual(activity["status"], "inconclusive")
         self.assertIn("before the window ended", activity["reason"])
+
+    def test_interrupted_stop_kills_and_joins_before_unwinding(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            sampler = driver.HostSampler([sys.executable, "-c",
+                "import signal, time; signal.signal(signal.SIGTERM, signal.SIG_IGN); time.sleep(60)"], Path(temporary))
+            sampler.start()
+            time.sleep(0.5)  # let the child ignore SIGTERM before it is stopped
+            process, real_wait = sampler.process, sampler.process.wait
+
+            def interrupted(timeout=None):
+                if timeout is not None:
+                    raise KeyboardInterrupt("SIGTERM")
+                return real_wait()
+
+            with mock.patch.object(process, "wait", side_effect=interrupted), self.assertRaises(KeyboardInterrupt):
+                sampler.finish(0, 0)
+            self.assertEqual(process.returncode, -signal.SIGKILL)
+            with self.assertRaises(ProcessLookupError):
+                os.kill(process.pid, 0)
 
     def test_unresponsive_sampler_is_killed_and_joined(self):
         with tempfile.TemporaryDirectory() as temporary:
@@ -974,6 +1075,21 @@ class NativeExecutionTests(unittest.TestCase):
                 self.assertEqual(record["host_activity"]["status"], "unavailable")
                 self.assertTrue(record["host_activity"]["joined"])
                 self.assertIn("superuser", record["host_activity"]["reason"])
+
+    def test_interrupted_sampler_keeps_the_attempt_facts(self):
+        with tempfile.TemporaryDirectory() as temporary, \
+                mock.patch.object(driver.HostSampler, "finish", side_effect=KeyboardInterrupt("SIGTERM")):
+            code, summary, processes = self.invoke(Path(temporary), ("--platform-profile", "darwin-arm64", "--smoke-cell", "stream",
+                                                                     "--host-sampler", "powermetrics"), platform="darwin-arm64",
+                                                   sampler=[sys.executable, "-c", "pass"])
+        self.assertEqual(code, 1)
+        attempt = summary["attempts"][0]
+        self.assertEqual(attempt["status"], "failed")
+        self.assertIn("SIGTERM", attempt["error"])
+        self.assertEqual(attempt["platform_profile"], "darwin-arm64")
+        self.assertEqual(set(attempt["exit"]), {"server", "client"})
+        self.assertIn("process_cpu_s", attempt)
+        self.assertTrue(all(process.returncode is not None for process in processes))
 
     def test_sigterm_reaps_roles_and_sampler(self):
         self.exercise_sigterm_during_roles(native=True)
