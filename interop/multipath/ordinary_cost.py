@@ -2,6 +2,7 @@
 """R18 ordinary-peer cost: a missing or misaccounted case is a failed claim, not a product result."""
 
 import argparse
+import contextlib
 import json
 import hashlib
 import math
@@ -11,6 +12,8 @@ import sys
 import os
 from pathlib import Path
 import platform
+import plistlib
+import re
 import shutil
 import statistics
 import subprocess
@@ -31,6 +34,35 @@ CELLS = {
     "mixed-bulk": {"env": {}},
     "stateless-pressure": {"env": {}},
 }
+# The native Darwin arm64 profile's workloads. Darwin emits scalar packets, so acceleration
+# arms would repeat one wiring.
+NATIVE_CELLS = {
+    "stream": {"env": {}},
+    "datagram": {"env": {}},
+    "mixed-bulk": {"env": {}},
+    "stateless-pressure": {"env": {}},
+}
+LINUX, DARWIN = "linux-amd64", "darwin-arm64"
+# A platform profile owns its inventory, host tuple, RSS unit and what it can claim.
+PROFILES = {
+    LINUX: {"host": ("Linux", "x86_64"), "identity": ("linux", "amd64"), "cells": CELLS, "rss_unit": "kB",
+            "gso": True, "negotiated_multipath": True},
+    DARWIN: {"host": ("Darwin", "arm64"), "identity": ("darwin", "arm64"), "cells": NATIVE_CELLS, "rss_unit": "bytes",
+             "gso": False, "negotiated_multipath": False},
+}
+RSS_SCALE = {"kB": 1024, "bytes": 1}
+NATIVE_NOT_JUDGED = ("native observations are semantic smoke records; Linux thresholds and foreign-CPU "
+                     "arithmetic do not transfer, and Q1 selects any comparative protocol")
+NATIVE_MIXED_OPTED_IN = "negotiated mixed-bulk needs public Darwin multipath admission (Q2); no ordinary connection replaces it"
+# The Reno thresholds judge Reno pairs and the historical BBR stateless-pressure diagnostic.
+# A newly matched BBR workload reports its ratios as observations, not as a verdict.
+BBR_NOT_JUDGED = ("BBR smoke/diagnostic ratios are observations; the accepted thresholds are Reno's, "
+                  "and only the historical stateless-pressure BBR diagnostic keeps their verdict")
+POWERMETRICS_INTERVAL_MS = 1000
+SAMPLER_STOP_S = 5
+# Allowance for the driver's own launch/stop timing around the sampler's elapsed sum.
+SAMPLER_SLACK_S = 0.05
+HOST_STATUSES = ("observed", "unavailable", "inconclusive")
 CONTROL, OPTED_IN = "unregistered", "opted-in"
 # Accepted product thresholds, section "Accepted product thresholds" of the Reno plan.
 GOODPUT_FLOOR = 0.95
@@ -54,6 +86,8 @@ METRIC_BOUNDARIES = {
     "control": "application echo round trip",
     "cpu_profile": "sampled CPU across the entire role process, including setup, warmup and cleanup; not window CPU",
     "useful_bytes": "receiver-counted application content within the measurement window",
+    "self_cpu": "each role's own getrusage user+system time over the window; per process, not host CPU",
+    "host_activity": "optional native powermetrics cluster activity over the sampler's lifetime; never a quiet-host verdict",
 }
 
 
@@ -86,13 +120,84 @@ def flows(record, label):
     return [flow for flow in record["client"]["flows"] if flow["label"] == label]
 
 
+def check_metric(name, metric, unit):
+    """A metric names its unit and producer; an unavailable metric has no value, not zero."""
+    if (not isinstance(metric, dict) or metric.get("unit") != unit
+            or not isinstance(metric.get("source"), str) or not metric["source"]):
+        raise ValueError(f"{name}: metric needs unit {unit} and a source")
+    value, available = metric.get("value"), metric.get("available")
+    if available is True:
+        if type(value) is not int or value < 0:
+            raise ValueError(f"{name}: available metric needs a nonnegative integer value")
+    elif available is False:
+        if value is not None or not metric.get("reason"):
+            raise ValueError(f"{name}: unavailable metric needs no value and a reason")
+    else:
+        raise ValueError(f"{name}: metric availability is not stated")
+    return value
+
+
+def check_identity(record, platform_profile):
+    goos, goarch = PROFILES[platform_profile]["identity"]
+    expected = {"profile": platform_profile, "goos": goos, "goarch": goarch}
+    for role in ("server", "client"):
+        if record[role].get("platform") != expected:
+            raise ValueError(f"{role}: native identity {record[role].get('platform')} is not {expected}")
+
+
+def check_metrics(record, platform_profile, controller):
+    server, client = record["server"], record["client"]
+    for role in (server, client):
+        cpu = check_metric("self_cpu", role.get("self_cpu"), "ns")
+        seconds = role.get("window_cpu_s")
+        # The producer marks only a negative CPU interval unavailable, and window_cpu_s is a
+        # required reading of that same interval, so the window has no CPU evidence.
+        if cpu is None:
+            raise ValueError(f"self_cpu is unavailable ({role['self_cpu']['reason']}); the window has no CPU evidence")
+        # One reading, two representations: Go's Duration.Seconds() of the same nanoseconds.
+        if type(seconds) not in (int, float) or not math.isclose(seconds, cpu / 1e9, rel_tol=1e-12, abs_tol=1e-9):
+            raise ValueError("self_cpu metric does not match window_cpu_s")
+    unit = PROFILES[platform_profile]["rss_unit"]
+    for field in ("peak_rss_at_sample", "peak_rss_end"):
+        peak = server.get(field)
+        if not isinstance(peak, dict) or peak.get("unit") != unit:
+            raise ValueError(f"{field}: RSS unit must be {unit} on {platform_profile}")
+        value = check_metric(field, peak, unit)
+        if value is None or peak.get("bytes") != value * RSS_SCALE[unit]:
+            raise ValueError(f"{field}: RSS bytes do not normalize the raw {unit} reading")
+    if platform_profile == LINUX:
+        for legacy, field in (("rss_kb_at_20s", "peak_rss_at_sample"), ("rss_kb_end", "peak_rss_end")):
+            if server.get(legacy) != server[field]["value"]:
+                raise ValueError(f"{legacy}: RSS alias does not match its {field} reading")
+    for connection in server["connections"]:
+        lost = check_metric("packets_lost_metric", connection.get("packets_lost_metric"), "packets")
+        if connection.get("controller") != controller:
+            raise ValueError("a server connection ran another controller")
+        if controller == "reno":
+            if lost is None or connection.get("packets_lost") != lost:
+                raise ValueError("Reno packets lost must be counted")
+        elif lost is not None or "packets_lost" in connection:
+            raise ValueError(f"{controller} packets lost has no producer and must stay unavailable")
+    delivered = check_metric("useful_bytes", client.get("useful_bytes"), "bytes")
+    if delivered != sum(flow["useful_bytes"] for flow in client["flows"]):
+        raise ValueError("useful bytes metric does not match the flows")
+
+
 def check_observation(record):
     cell, profile = record["cell"], record["profile"]
     server, client = record["server"], record["client"]
     controller = record.get("controller", "reno")
+    platform_profile = record.get("platform_profile")
+    if platform_profile not in PROFILES:
+        raise ValueError(f"{cell}: unknown platform profile {platform_profile}")
+    cells = PROFILES[platform_profile]["cells"]
+    if cell not in cells:
+        raise ValueError(f"{cell}: not in the {platform_profile} inventory")
     if controller not in ("reno", "bbrv3") or any(
             role.get("controller", "reno") != controller for role in (server, client)):
         raise ValueError(f"{cell}: controller does not match both roles")
+    check_identity(record, platform_profile)
+    check_metrics(record, platform_profile, controller)
     if server["application_send_call_boundary"] != METRIC_BOUNDARIES["application_send_call"]:
         raise ValueError(f"{cell}: application send-call metric boundary mismatch")
     if client["go"] != GO_VERSION:
@@ -103,15 +208,33 @@ def check_observation(record):
         raise ValueError(f"{cell}/{profile}: grant does not match the profile")
     if profile == OPTED_IN and not server["joined"]:
         raise ValueError(f"{cell}: write authority did not join")
-    if server["gso_capable"] == bool(CELLS[cell]["env"]):
+    if server["gso_capable"] != (PROFILES[platform_profile]["gso"] and not cells[cell]["env"]):
         raise ValueError(f"{cell}: acceleration does not match the cell")
     if profile not in (CONTROL, OPTED_IN):
         raise ValueError(f"unknown profile {profile}")
+    negotiated = PROFILES[platform_profile]["negotiated_multipath"]
+    if server.get("multipath_advertised") != (negotiated and profile == OPTED_IN):
+        raise ValueError(f"{cell}/{profile}: multipath advertisement does not match the platform profile")
+    if not negotiated and cell == "mixed-bulk" and profile == OPTED_IN:
+        raise ValueError(NATIVE_MIXED_OPTED_IN)
+    if not negotiated and (any(c.get("multipath_negotiated") is not False for c in server["connections"])
+                           or any(f.get("multipath_negotiated") is not False or f.get("paths")
+                                  for f in client["flows"])):
+        raise ValueError(f"{cell}/{profile}: a {platform_profile} receipt cannot claim negotiated multipath")
     closes = client["flows"] + server["connections"]
     if profile == CONTROL and (server["write_errors"] or any(
             item["timeout_close"] or item["close_cause"] for item in closes)):
         raise ValueError(f"{cell}: failed control observation is invalid comparator evidence")
-    for field in ("window_cpu_s", "rss_kb_at_20s", "rss_kb_end"):
+    legacy = ("rss_kb_at_20s", "rss_kb_end")
+    if platform_profile == LINUX:
+        fields = ("window_cpu_s", *legacy)
+    else:
+        if any(field in server for field in legacy):
+            raise ValueError(f"{cell}: native records carry no Linux VmHWM counters")
+        if record.get("host_activity", {}).get("status") not in HOST_STATUSES:
+            raise ValueError(f"{cell}: host activity must be observed, unavailable or inconclusive")
+        fields = ("window_cpu_s",)
+    for field in fields:
         if not math.isfinite(server[field]) or server[field] <= 0:
             raise ValueError(f"{cell}: invalid {field}")
     for flow in client["flows"]:
@@ -153,8 +276,9 @@ def check_mixed(record):
 
 def check_accounting(records, cells=None):
     if any(record.get("mode") != "campaign" or record.get("cpu_profile", False)
-           or record.get("controller", "reno") != "reno" for record in records):
-        raise ValueError("diagnostic/smoke, profiled or BBR records cannot satisfy the Reno campaign inventory")
+           or record.get("controller", "reno") != "reno" or record.get("platform_profile") != LINUX
+           for record in records):
+        raise ValueError("diagnostic/smoke, profiled, BBR or native records cannot satisfy the Reno campaign inventory")
     expected = sorted(schedule(cells))
     actual = sorted((record["cell"], record["round"], record["profile"], record["seed"]) for record in records)
     if actual != expected:
@@ -174,6 +298,26 @@ def useful_bytes(record):
 def latency_margin(base, treated):
     """Microseconds above the limit: the larger of 110% of baseline or baseline plus 1 ms."""
     return treated - max(LATENCY_FACTOR * base, base + LATENCY_ALLOWANCE_US)
+
+
+def workload_failures(record):
+    """Execution failures of either arm, which decide an unjudged smoke. A flow that
+    delivered nothing is a valid record (the Reno thresholds judge its fair progress), but
+    an unjudged smoke cannot pass on it."""
+    failures = []
+    if record["server"]["write_errors"]:
+        failures.append(f"{record['profile']}: {record['server']['write_errors']} write errors")
+    # Each cell's demanded effect: every flow delivers, and offered pressure draws resets.
+    for flow in record["client"]["flows"]:
+        if flow["useful_bytes"] <= 0:
+            failures.append(f"{record['profile']}: {flow['label']} delivered no useful bytes")
+    flood = record["client"].get("flood")
+    if flood and flood["sent"] and not flood["resets"]:
+        failures.append(f"{record['profile']}: {flood['sent']} pressure packets drew no stateless reset")
+    for item in record["client"]["flows"] + record["server"]["connections"]:
+        if item["timeout_close"] or item["close_cause"]:
+            failures.append(f"{record['profile']}: {item['label']} closed: {item['close_cause'] or 'timeout'}")
+    return failures
 
 
 def judge_cell(cell, rounds):
@@ -207,7 +351,8 @@ def judge_cell(cell, rounds):
             empty[name].append(sum(1 for value in flow["series"] if value == 0))
             background[name].append(sum(f["useful_bytes"] for f in flows(record, "background")))
             peak[name].append(record["server"]["rss_kb_end"])
-            lost[name].append(sum(c.get("packets_lost", 0) for c in record["server"]["connections"]))
+            counted = [c["packets_lost_metric"]["value"] for c in record["server"]["connections"]]
+            lost[name].append(None if None in counted else sum(counted))
             drops[name].append(sum(f.get("datagram_drops", 0) for f in record["client"]["flows"]))
             write_errors[name].append(record["server"]["write_errors"])
             flood = record["client"].get("flood")
@@ -336,6 +481,253 @@ def wait_quiet(log):
             raise RuntimeError(f"host stayed busy for {waited:.0f} s")
 
 
+class HostObservationError(ValueError):
+    """A host observation that cannot attribute activity: unavailable or inconclusive."""
+
+    def __init__(self, status, reason):
+        super().__init__(reason)
+        self.status = status
+
+
+CLUSTER_NAME = re.compile(r"^(?P<kind>[EP])\d*-Cluster$")
+CLUSTER_CLASS = {"E": "efficiency", "P": "performance"}
+
+
+def parse_powermetrics(raw):
+    """powermetrics --format plist writes NUL-separated plist records; plistlib owns their
+    syntax. A malformed record fails. Only a final record cut off by stopping the sampler
+    is set aside, as tail bytes that are not evidence. Returns (records, tail bytes)."""
+    chunks = raw.split(b"\0")
+    records, tail = [], 0
+    for index, chunk in enumerate(chunks):
+        if not chunk.strip():
+            continue
+        try:
+            record = plistlib.loads(chunk.strip(), fmt=plistlib.FMT_XML)
+        except Exception as error:
+            if index == len(chunks) - 1:
+                tail = len(chunk)
+                continue
+            raise ValueError(f"malformed powermetrics plist record {index}: {error}") from error
+        if not isinstance(record, dict):
+            raise ValueError(f"powermetrics plist record {index} is not a dictionary")
+        records.append(record)
+    return records, tail
+
+
+def cluster_activity(records, coverage):
+    """Elapsed-weighted active residency (1 - idle_ratio - down_ratio) of each CPU cluster,
+    labeled by the producer's E/P cluster name, averaged over the sampler's lifetime.
+
+    coverage holds the driver's monotonic times: the window, a launch read before the
+    sampler could exist, and a stop read after it was reaped. Delta samples are contiguous
+    (each covers the time since the previous one) from some unknown start delay after
+    launch, and they finish before the stop, so they certainly cover the window only when
+    their total elapsed time reaches the window's end from launch and reaches back to its
+    start from the stop. Second-resolution timestamps are not used. Unsupported fields or
+    uncertain coverage are inconclusive."""
+    if not records:
+        raise HostObservationError("inconclusive", "no complete powermetrics record")
+    names, active, elapsed_total = None, {}, 0
+    for index, record in enumerate(records):
+        elapsed = record.get("elapsed_ns")
+        if record.get("is_delta") is not True or type(elapsed) is not int or elapsed <= 0:
+            raise HostObservationError("inconclusive", f"record {index} is not a positive delta sample")
+        clusters = record.get("processor", {}).get("clusters") if isinstance(record.get("processor"), dict) else None
+        if not isinstance(clusters, list) or not clusters:
+            raise HostObservationError("inconclusive", f"record {index} has no processor clusters")
+        seen = []
+        for cluster in clusters:
+            name = cluster.get("name") if isinstance(cluster, dict) else None
+            if not isinstance(name, str) or not CLUSTER_NAME.match(name):
+                raise HostObservationError("inconclusive", f"unsupported cluster name {name!r}")
+            if name in seen:
+                raise HostObservationError("inconclusive", f"record {index} repeated cluster {name}")
+            shares = [cluster.get(field) for field in ("idle_ratio", "down_ratio")]
+            if any(type(share) not in (int, float) or not math.isfinite(share) or not 0 <= share <= 1
+                   for share in shares) or sum(shares) > 1 + 1e-9:
+                raise HostObservationError("inconclusive", f"{name}: unsupported idle/down residency {shares!r}")
+            seen.append(name)
+            active[name] = active.get(name, 0.0) + elapsed * max(0.0, 1 - sum(shares))
+        if names is not None and seen != names:
+            raise HostObservationError("inconclusive", f"record {index} changed the cluster set")
+        names = seen
+        elapsed_total += elapsed
+    total_s = elapsed_total / 1e9
+    lifetime_s = coverage["stopped"] - coverage["launched"]
+    if total_s > lifetime_s + SAMPLER_SLACK_S:
+        raise HostObservationError("inconclusive", f"records claim {total_s:.3f} s of a {lifetime_s:.3f} s sampler lifetime")
+    if coverage["launched"] + total_s < coverage["window_end"] or coverage["stopped"] - total_s > coverage["window_start"]:
+        raise HostObservationError("inconclusive",
+                                   f"{total_s:.3f} s of samples cannot be placed over the whole window")
+    return {
+        "status": "observed",
+        "scope": "sampler lifetime, which brackets the window",
+        "records": len(records),
+        "elapsed_ns": elapsed_total,
+        "clusters": [{"name": name, "class": CLUSTER_CLASS[CLUSTER_NAME.match(name)["kind"]],
+                      "active_ratio": active[name] / elapsed_total} for name in names],
+    }
+
+
+def powermetrics_command():
+    """The adapter's sampler. It needs privilege the driver never acquires: Q1 selects and
+    authorizes any real invocation, and a refusal is an unavailable observation."""
+    return ["powermetrics", "--format", "plist", "--samplers", "cpu_power", "-i", str(POWERMETRICS_INTERVAL_MS)]
+
+
+class DeferredInterrupts:
+    """SIGINT and SIGTERM during one observation. They raise only inside an interruptible
+    wait; anywhere else (child launch and registration, teardown, sampler stop and
+    attribution) they are recorded and honored once every owned child is reaped. The
+    handler disarms before raising, so a second signal cannot interrupt the cleanup the
+    first began. Children keep the caller's delivery: nothing is masked, exec resets the
+    handler to the default, and an inherited ignore stays installed, so children inherit
+    it too."""
+
+    SIGNALS = (signal.SIGINT, signal.SIGTERM)
+
+    def __enter__(self):
+        # All state exists before the first handler can run.
+        self.pending, self.armed, self.installed = [], False, []
+        self.previous = {number: signal.getsignal(number) for number in self.SIGNALS}
+        try:
+            for number in self.SIGNALS:
+                if self.previous[number] is not signal.SIG_IGN:
+                    signal.signal(number, self.handle)
+                    self.installed.append(number)
+        except BaseException:
+            self.restore()
+            raise
+        return self
+
+    def restore(self):
+        for number in self.installed:
+            previous = self.previous[number]
+            signal.signal(number, signal.SIG_DFL if previous is None else previous)
+        self.installed = []
+
+    def handle(self, number, frame):
+        self.pending.append(number)
+        if self.armed:
+            self.armed = False
+            raise KeyboardInterrupt(signal.Signals(number).name)
+
+    @contextlib.contextmanager
+    def interruptible(self):
+        self.armed = True  # armed first: a signal after this raises; one before is pending
+        try:
+            if self.pending:
+                self.armed = False
+                raise KeyboardInterrupt(signal.Signals(self.pending[0]).name)
+            yield
+        finally:
+            self.armed = False
+
+    def __exit__(self, kind, error, traceback):
+        self.restore()
+        if error is None and self.pending:
+            number = self.pending[0]
+            handler = self.previous[number]
+            if callable(handler):
+                handler(number, None)  # the caller's handler, such as main's SIGTERM conversion
+            raise KeyboardInterrupt(signal.Signals(number).name)
+        return False
+
+
+def window_bounds(start_at_unix_ns, warmup_s, window_s, monotonic=time.monotonic, wall_ns=time.time_ns):
+    """The roles' wall-clock window on this process's monotonic clock. The wall-clock read
+    is bracketed by monotonic reads, so the window starts no earlier than the first bound
+    and ends no later than the second, whatever preemption separated the reads."""
+    before = monotonic()
+    wall = wall_ns()
+    after = monotonic()
+    offset = (start_at_unix_ns - wall) / 1e9 + warmup_s
+    return before + offset, after + offset + window_s
+
+
+class HostSampler:
+    """One optional host sampler bracketing an observation. It is always stopped and
+    joined, and its raw output is kept as host.plist."""
+
+    def __init__(self, command, directory):
+        self.command, self.directory = command, directory
+        self.raw_path, self.log_path = directory / "host.plist", directory / "host.log"
+        self.process, self.started, self.launch_error = None, None, None
+        self.halted = None
+
+    def start(self):
+        """A sampler that cannot launch leaves the observation running, unattributed. The
+        launch is read first, so no sample can predate it."""
+        self.started = time.monotonic()
+        try:
+            with self.raw_path.open("wb") as raw, self.log_path.open("wb") as log:
+                self.process = subprocess.Popen(self.command, stdout=raw, stderr=log)
+        except OSError as error:
+            self.launch_error = f"{type(error).__name__}: {error}"
+
+    def stop(self):
+        """Terminate, wait, then kill; returns whether it exited before being stopped.
+        SIGINT and SIGTERM stay blocked for this bounded section, so an operator interrupt
+        is delivered after the sampler is reaped rather than between its steps."""
+        if self.process is None:
+            return False
+        interrupts = {signal.SIGINT, signal.SIGTERM}
+        blocked = signal.pthread_sigmask(signal.SIG_BLOCK, interrupts)
+        try:
+            early = self.process.poll() is not None  # poll reaps an exited sampler
+            if not early:
+                try:
+                    self.process.terminate()
+                    self.process.wait(timeout=SAMPLER_STOP_S)
+                except BaseException:
+                    # A timeout, or any other failure of the wait, still kills and reaps it.
+                    self.process.kill()
+                    self.process.wait()
+                    if not isinstance(sys.exc_info()[1], subprocess.TimeoutExpired):
+                        raise
+        finally:
+            signal.pthread_sigmask(signal.SIG_SETMASK, blocked)
+        return early
+
+    def halt(self):
+        """Stop and reap the sampler once, recording the stop request and reap times."""
+        if self.halted is None:
+            requested = time.monotonic()
+            early = self.stop()
+            self.halted = (requested, early, time.monotonic())  # reaped: no sample postdates it
+        return self.halted
+
+    def finish(self, window_start, window_end):
+        """Stop the sampler if it is still running and attribute what it recorded, for
+        conservative monotonic window bounds (the earliest start and the latest end)."""
+        requested, early, stopped_at = self.halt()
+        raw = self.raw_path.read_bytes() if self.raw_path.exists() else b""
+        result = {"command": self.command, "exit": self.process.returncode if self.process else None,
+                  "joined": self.process is not None and self.process.returncode is not None,
+                  "raw_path": str(self.raw_path), "raw_bytes": len(raw),
+                  "raw_sha256": hashlib.sha256(raw).hexdigest()}
+        try:
+            if self.process is None:
+                raise HostObservationError("unavailable", f"sampler never launched: {self.launch_error}")
+            log = self.log_path.read_text(errors="replace").strip()[-500:]
+            if early and self.process.returncode != 0:
+                raise HostObservationError("unavailable", f"sampler exited {self.process.returncode}: {log}")
+            if self.started > window_start:
+                raise HostObservationError("inconclusive", "sampler started after the window began")
+            if early or requested < window_end:
+                raise HostObservationError("inconclusive", "sampler ended before the window ended")
+            records, tail = parse_powermetrics(raw)
+            coverage = {"launched": self.started, "stopped": stopped_at,
+                        "window_start": window_start, "window_end": window_end}
+            result.update(cluster_activity(records, coverage), tail_bytes=tail)
+        except HostObservationError as error:
+            result.update(status=error.status, reason=str(error))
+        except ValueError as error:
+            result.update(status="inconclusive", reason=str(error))
+        return result
+
+
 def role_command(binary, cpu_profile=None):
     command = [binary, "-test.run=^TestOrdinaryCostRole$", "-test.count=1", "-test.v", f"-test.timeout={SETUP_S + WARMUP_S + WINDOW_S + 60}s"]
     if cpu_profile is not None:
@@ -349,9 +741,13 @@ def check_role_log(role, output):
 
 
 def run_observation(binary, directory, cell, round_, profile, seed, warmup_s=WARMUP_S,
-                    window_s=WINDOW_S, timeout_s=135, record=None, controller="reno", cpu_profile=False):
-    """One instance; every launched child is reaped, including a partial launch."""
+                    window_s=WINDOW_S, timeout_s=135, record=None, controller="reno", cpu_profile=False,
+                    platform_profile=LINUX, host_sampler=False):
+    """One instance; every launched child, including a host sampler, is reaped, even after
+    a partial launch. Linux pins the roles and attributes foreign CPU; the native profile
+    reports optional host activity instead, and never judges the host quiet."""
     record = record if record is not None else {}
+    linux = platform_profile == LINUX
     directory.mkdir(parents=True, exist_ok=False)
     spec = {
         "cell": cell, "profile": profile, "seed": seed, "address": SERVER_ADDRESS, "controller": controller,
@@ -361,10 +757,14 @@ def run_observation(binary, directory, cell, round_, profile, seed, warmup_s=WAR
     env = {key: value for key, value in os.environ.items() if not key.startswith("QUIC_GO_")}
     env["GOMAXPROCS"] = "4"
     processes, usage = {}, {}
-    before = schedstat_running_ns()
-    softirq_before = softirqd_ns()
+    before = schedstat_running_ns() if linux else None
+    softirq_before = softirqd_ns() if linux else None
     begun = time.monotonic()
     deadline = begun + timeout_s
+    # The window in this process's monotonic clock, for the sampler's coverage.
+    window = window_bounds(spec["start_at_unix_ns"], warmup_s, window_s)
+    sampler = HostSampler(powermetrics_command(), directory) if host_sampler else None
+    host = {"status": "unavailable", "reason": "no host sampler selected; Q1 selects and authorizes one"}
 
     def reap(role, process, timeout=None):
         # Only this script reaps children: the RUSAGE_CHILDREN delta belongs to this role.
@@ -376,36 +776,56 @@ def run_observation(binary, directory, cell, round_, profile, seed, warmup_s=WAR
             usage[role] = usage.get(role, 0) + (current.ru_utime + current.ru_stime
                                                - previous.ru_utime - previous.ru_stime)
 
-    try:
-        for role, cpus, process_env in (("server", SERVER_CPUS, dict(env, **CELLS[cell]["env"])),
-                                        ("client", CLIENT_CPUS, env)):
-            role_spec = dict(spec, role=role, output=str(directory / f"{role}.json"))
-            with (directory / f"{role}.log").open("w") as log:
-                processes[role] = subprocess.Popen(
-                    ["taskset", "-c", cpus, *role_command(binary, directory / f"{role}.cpu.pprof" if cpu_profile else None)],
-                    env=dict(process_env, ORDINARY_COST_SPEC=json.dumps(role_spec)),
-                    stdout=log, stderr=subprocess.STDOUT,
-                )
-        for role, process in processes.items():
-            reap(role, process, timeout=max(0, deadline - time.monotonic()))
-            if process.returncode != 0:
-                raise ValueError(f"{cell}/{profile} {role} exit {process.returncode}")
-    finally:
-        # Terminate both roles before waiting on either. No failed launch leaves a peer alive.
-        for process in processes.values():
-            if process.returncode is None:
-                process.kill()
-        for role, process in processes.items():
-            if process.returncode is None:
-                reap(role, process)
-        occupied = time.monotonic() - begun
-        record.update(cell=cell, round=round_, profile=profile, seed=seed, controller=controller,
-                      cpu_profile=cpu_profile, timing_eligible=not cpu_profile, occupied_s=occupied, process_cpu_s=usage,
-                      exit={role: process.returncode for role, process in processes.items()})
-    running = schedstat_running_ns()
-    foreign = (sum(running[cpu] - before[cpu] for cpu in FIXTURE_CPUS)
-               - (softirqd_ns() - softirq_before)) / 1e9 - sum(usage.values())
-    record.update(foreign_cpu_s=foreign, contaminated=foreign > foreign_limit_s(occupied))
+    with DeferredInterrupts() as interrupts:
+        try:
+            if sampler:
+                sampler.start()
+            for role, cpus, process_env in (("server", SERVER_CPUS, dict(env, **PROFILES[platform_profile]["cells"][cell]["env"])),
+                                            ("client", CLIENT_CPUS, env)):
+                role_spec = dict(spec, role=role, output=str(directory / f"{role}.json"))
+                command = role_command(binary, directory / f"{role}.cpu.pprof" if cpu_profile else None)
+                with (directory / f"{role}.log").open("w") as log:
+                    processes[role] = subprocess.Popen(
+                        ["taskset", "-c", cpus, *command] if linux else command,
+                        env=dict(process_env, ORDINARY_COST_SPEC=json.dumps(role_spec)),
+                        stdout=log, stderr=subprocess.STDOUT,
+                    )
+            for role, process in processes.items():
+                with interrupts.interruptible():  # the only point an operator interrupt raises
+                    reap(role, process, timeout=max(0, deadline - time.monotonic()))
+                if process.returncode != 0:
+                    raise ValueError(f"{cell}/{profile} {role} exit {process.returncode}")
+        finally:
+            # Not interruptible: terminate both roles before waiting on either, keep their
+            # facts, then stop the sampler. No failed launch or interrupt leaves a child alive.
+            try:
+                for process in processes.values():
+                    if process.returncode is None:
+                        process.kill()
+                for role, process in processes.items():
+                    if process.returncode is None:
+                        reap(role, process)
+            finally:
+                record.update(cell=cell, round=round_, profile=profile, seed=seed, controller=controller,
+                              platform_profile=platform_profile, cpu_profile=cpu_profile,
+                              timing_eligible=not cpu_profile, process_cpu_s=usage,
+                              exit={role: process.returncode for role, process in processes.items()})
+                try:
+                    if sampler:
+                        sampler.halt()
+                finally:
+                    occupied = time.monotonic() - begun
+                    record["occupied_s"] = occupied
+    # Every owned child is reaped: parsing the capture is ordinary, cancellable work.
+    if sampler:
+        host = sampler.finish(*window)
+    if linux:
+        running = schedstat_running_ns()
+        foreign = (sum(running[cpu] - before[cpu] for cpu in FIXTURE_CPUS)
+                   - (softirqd_ns() - softirq_before)) / 1e9 - sum(usage.values())
+        record.update(foreign_cpu_s=foreign, contaminated=foreign > foreign_limit_s(occupied))
+    else:
+        record["host_activity"] = host
     for role in processes:
         check_role_log(role, (directory / f"{role}.log").read_text())
         def reject_nonfinite(value):
@@ -456,7 +876,8 @@ class AttemptLedger:
             raise ValueError("insufficient remaining instance/host-time allowance")
 
     def observe(self, binary, directory, cell, round_, profile, seed, candidate, mode,
-                attempt=0, warmup_s=WARMUP_S, controller="reno", cpu_profile=False):
+                attempt=0, warmup_s=WARMUP_S, controller="reno", cpu_profile=False,
+                platform_profile=LINUX, host_sampler=False):
         self.require_capacity()
         record = dict(cell=cell, round=round_, profile=profile, seed=seed, candidate=candidate,
                       mode=mode, attempt=attempt, status="started", occupied_s=0,
@@ -467,7 +888,8 @@ class AttemptLedger:
         try:
             run_observation(binary, directory, cell, round_, profile, seed,
                             warmup_s=warmup_s, timeout_s=self.timeout_s, record=record,
-                            controller=controller, cpu_profile=cpu_profile)
+                            controller=controller, cpu_profile=cpu_profile,
+                            platform_profile=platform_profile, host_sampler=host_sampler)
             record["status"] = "succeeded"
             return record
         except BaseException as error:
@@ -478,7 +900,11 @@ class AttemptLedger:
             self.save()
 
 
-def check_prerequisites(system, machine, which):
+def check_prerequisites(system, machine, which, platform_profile=LINUX):
+    if platform_profile == DARWIN:
+        if (system, machine) != PROFILES[DARWIN]["host"]:
+            raise RuntimeError(f"the native profile needs Darwin arm64, not {system} {machine}")
+        return
     if system != "Linux" or machine != "x86_64":
         raise RuntimeError(f"needs Linux amd64, not {system} {machine}")
     if not which("taskset"):
@@ -535,7 +961,11 @@ def binary_identity(binary):
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--controller", choices=("reno", "bbrv3"), default="reno",
-                        help="BBR is restricted to the stateless-pressure diagnostic; no multipath activation")
+                        help="BBR runs the same workloads in smoke or diagnostic mode; the campaign stays Reno")
+    parser.add_argument("--platform-profile", choices=sorted(PROFILES), default=LINUX,
+                        help="darwin-arm64 records native smoke/diagnostic observations without a verdict")
+    parser.add_argument("--host-sampler", choices=("none", "powermetrics"), default="none",
+                        help="darwin-arm64 only: optional powermetrics plist host activity; needs privilege the driver never acquires")
     parser.add_argument("--cpu-profile", action="store_true",
                         help="profile both diagnostic roles; timings are attribution-only, not qualification")
     parser.add_argument("--candidate", required=True, help="the exact 40-character product commit under measurement")
@@ -548,15 +978,23 @@ def main(argv=None):
                         help="campaign only: rerun just this affected cell of the Reno inventory; repeatable")
     parser.add_argument("--cause", help="the concrete source change that affects each --revalidate-cell")
     modes = parser.add_mutually_exclusive_group()
-    modes.add_argument("--smoke-cell", choices=sorted(CELLS), help="one short diagnostic pair; never counted campaign evidence")
-    modes.add_argument("--diagnostic-cell", choices=sorted(CELLS), help="one 10s/60s diagnostic pair; never counted campaign evidence")
+    every_cell = sorted(set(CELLS) | set(NATIVE_CELLS))
+    modes.add_argument("--smoke-cell", choices=every_cell, help="one short diagnostic pair; never counted campaign evidence")
+    modes.add_argument("--diagnostic-cell", choices=every_cell, help="one 10s/60s diagnostic pair; never counted campaign evidence")
     args = parser.parse_args(argv)
-    check_prerequisites(platform.system(), platform.machine(), shutil.which)
+    native = args.platform_profile == DARWIN
+    cell_choice = args.smoke_cell or args.diagnostic_cell
+    if cell_choice and cell_choice not in PROFILES[args.platform_profile]["cells"]:
+        parser.error(f"{cell_choice} is not in the {args.platform_profile} inventory")
+    if native and not cell_choice:
+        parser.error("the native profile records smoke or diagnostic observations; Q1 selects any campaign protocol")
+    if args.host_sampler != "none" and not native:
+        parser.error("--host-sampler belongs to the native profile")
+    check_prerequisites(platform.system(), platform.machine(), shutil.which, args.platform_profile)
     if len(args.candidate) != 40 or any(c not in "0123456789abcdef" for c in args.candidate):
         parser.error("--candidate must be a full lowercase commit SHA")
-    cell_choice = args.smoke_cell or args.diagnostic_cell
-    if args.controller == "bbrv3" and cell_choice != "stateless-pressure":
-        parser.error("BBR requires a stateless-pressure diagnostic, not a campaign or multipath cell")
+    if args.controller == "bbrv3" and not cell_choice:
+        parser.error("BBR runs smoke or diagnostic cells; the campaign inventory stays Reno")
     if args.cpu_profile and not cell_choice:
         parser.error("CPU profiling requires diagnostic or smoke mode")
     if args.revalidate_cell and cell_choice:
@@ -569,15 +1007,20 @@ def main(argv=None):
     warmup = 2 if mode == "smoke" else WARMUP_S
     identity = {
         "candidate": args.candidate, "binary": binary, "controller": args.controller,
+        "platform_profile": args.platform_profile,
         "cpu_profile": args.cpu_profile, "timing_eligible": not args.cpu_profile,
         "comparator": {"candidate": args.candidate, "binary_sha256": binary["sha256"], "profile": CONTROL},
         "kernel": platform.platform(), "uname": " ".join(platform.uname()), "go": GO_VERSION,
-        "server_cpus": SERVER_CPUS, "client_cpus": CLIENT_CPUS, "fixture_cpus_and_siblings": FIXTURE_CPUS,
         "warmup_s": warmup, "window_s": WINDOW_S, "base_seed": BASE_SEED, "mode": mode,
-        "cells": schedule_cells(args.revalidate_cell), "revalidation_cause": args.cause,
+        "cells": [cell_choice] if native else schedule_cells(args.revalidate_cell), "revalidation_cause": args.cause,
         "remaining_instances": args.remaining_instances, "remaining_host_seconds": args.remaining_host_seconds,
         "per_invocation_timeout_s": args.timeout_seconds, "metric_boundaries": METRIC_BOUNDARIES,
     }
+    if native:
+        identity.update(macos=platform.mac_ver()[0], pinning="none: Darwin offers no CPU affinity",
+                        host_sampler=args.host_sampler)
+    else:
+        identity.update(server_cpus=SERVER_CPUS, client_cpus=CLIENT_CPUS, fixture_cpus_and_siblings=FIXTURE_CPUS)
     (args.output / "identity.json").write_text(json.dumps(identity, indent=2) + "\n")
 
     def log(message):
@@ -593,7 +1036,8 @@ def main(argv=None):
     previous_sigterm = signal.signal(signal.SIGTERM, interrupt_on_sigterm)
     ledger = None
     summary = {"passed": False, "mode": mode, "campaign_complete": False, "metric_boundaries": METRIC_BOUNDARIES,
-               "controller": args.controller, "cpu_profile": args.cpu_profile, "timing_eligible": not args.cpu_profile}
+               "controller": args.controller, "cpu_profile": args.cpu_profile, "timing_eligible": not args.cpu_profile,
+               "platform_profile": args.platform_profile}
     try:
         ledger = AttemptLedger(args.output, args.remaining_instances, args.remaining_host_seconds, args.timeout_seconds)
         if args.timeout_seconds < SETUP_S + warmup + WINDOW_S + 10:
@@ -604,21 +1048,44 @@ def main(argv=None):
             summary.update(summarize(records, args.revalidate_cell), reruns=reruns,
                            campaign_complete=True, selected_cells=schedule_cells(args.revalidate_cell))
         else:
-            cell = args.smoke_cell or args.diagnostic_cell
-            ledger.require_capacity(2)
+            cell = cell_choice
+            profiles = [CONTROL, OPTED_IN]
+            if native and cell == "mixed-bulk":
+                profiles = [CONTROL]
+                summary["not_run"] = {OPTED_IN: NATIVE_MIXED_OPTED_IN}
+            ledger.require_capacity(len(profiles))
             records = []
-            for profile in (CONTROL, OPTED_IN):
-                quiet = wait_quiet(log)
+            for profile in profiles:
+                quiet = ({"available": False, "reason": "no quiet-host test on the native profile"}
+                         if native else wait_quiet(log))
                 record = ledger.observe(binary["path"], args.output / cell / profile, cell, 0,
                                         profile, BASE_SEED, args.candidate, mode, warmup_s=warmup,
-                                        controller=args.controller, cpu_profile=args.cpu_profile)
+                                        controller=args.controller, cpu_profile=args.cpu_profile,
+                                        platform_profile=args.platform_profile,
+                                        host_sampler=args.host_sampler == "powermetrics")
                 record["quiet"] = quiet
                 records.append(record)
                 with (args.output / f"{mode}.jsonl").open("a") as file:
                     file.write(json.dumps(record) + "\n")
-            verdict = judge_cell(cell, [tuple(records)])
-            summary.update(passed=verdict["passed"] and not any(r["contaminated"] for r in records),
-                           diagnostic=verdict, contaminated_observations=sum(r["contaminated"] for r in records))
+            if native:
+                # Every record already passed check_observation; there is no threshold verdict,
+                # but a failed workload fails the semantic smoke.
+                failures = [failure for record in records for failure in workload_failures(record)]
+                summary.update(passed=not failures, judged=False, judgment=NATIVE_NOT_JUDGED,
+                               observations=len(records), workload_failures=failures)
+            else:
+                verdict = judge_cell(cell, [tuple(records)])
+                contaminated = sum(r["contaminated"] for r in records)
+                judged = args.controller == "reno" or cell == "stateless-pressure"
+                summary.update(judged=judged, contaminated_observations=contaminated)
+                if judged:
+                    summary.update(passed=verdict["passed"] and not contaminated, diagnostic=verdict)
+                else:
+                    # Ratios only: no threshold outcome is reported, but a failed transfer fails.
+                    failures = [failure for record in records for failure in workload_failures(record)]
+                    observations = {k: v for k, v in verdict.items() if k not in ("passed", "failures")}
+                    summary.update(passed=not failures and not contaminated, judgment=BBR_NOT_JUDGED,
+                                   observations=observations, workload_failures=failures)
     except (Exception, KeyboardInterrupt) as error:
         summary.update(passed=False, error=f"{type(error).__name__}: {error}")
     finally:
