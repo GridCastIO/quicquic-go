@@ -265,9 +265,6 @@ def check_observation(record):
 
 def check_mixed(record):
     background = flows(record, "background")
-    # Comparative fair progress is judged only for Reno; delivery itself is a workload fact.
-    if any(flow["useful_bytes"] <= 0 for flow in background):
-        raise ValueError("mixed-bulk: no background delivery on an expected background flow")
     if record["profile"] == CONTROL:
         if len(background) != 2:
             raise ValueError("mixed-bulk control needs two independent connections")
@@ -303,10 +300,15 @@ def latency_margin(base, treated):
 
 
 def workload_failures(record):
-    """Execution failures of either arm, which no cost judgment excuses."""
+    """Execution failures of either arm, which decide an unjudged smoke. A flow that
+    delivered nothing is a valid record (the Reno thresholds judge its fair progress), but
+    an unjudged smoke cannot pass on it."""
     failures = []
     if record["server"]["write_errors"]:
         failures.append(f"{record['profile']}: {record['server']['write_errors']} write errors")
+    for flow in record["client"]["flows"]:
+        if flow["useful_bytes"] <= 0:
+            failures.append(f"{record['profile']}: {flow['label']} delivered no useful bytes")
     for item in record["client"]["flows"] + record["server"]["connections"]:
         if item["timeout_close"] or item["close_cause"]:
             failures.append(f"{record['profile']}: {item['label']} closed: {item['close_cause'] or 'timeout'}")
@@ -976,8 +978,11 @@ def main(argv=None):
                 with (args.output / f"{mode}.jsonl").open("a") as file:
                     file.write(json.dumps(record) + "\n")
             if native:
-                # Every record already passed check_observation; there is no threshold verdict.
-                summary.update(passed=True, judged=False, judgment=NATIVE_NOT_JUDGED, observations=len(records))
+                # Every record already passed check_observation; there is no threshold verdict,
+                # but a failed workload fails the semantic smoke.
+                failures = [failure for record in records for failure in workload_failures(record)]
+                summary.update(passed=not failures, judged=False, judgment=NATIVE_NOT_JUDGED,
+                               observations=len(records), workload_failures=failures)
             else:
                 verdict = judge_cell(cell, [tuple(records)])
                 contaminated = sum(r["contaminated"] for r in records)

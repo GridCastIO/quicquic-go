@@ -120,6 +120,13 @@ def pair_rounds(cell="stream-gso-on", opted=None):
     return pairs
 
 
+def idle(record, index):
+    background = record["client"]["flows"][index]
+    background["series"] = [0] * driver.WINDOW_S
+    background["useful_bytes"] = 0
+    resync_useful(record)
+
+
 def resync_useful(record):
     record["client"]["useful_bytes"]["value"] = sum(f["useful_bytes"] for f in record["client"]["flows"])
 
@@ -227,17 +234,17 @@ class AccountingTests(unittest.TestCase):
             with self.subTest(paths=paths), self.assertRaisesRegex(ValueError, "two-path"):
                 driver.check_observation(record)
 
-    def test_every_background_flow_must_deliver(self):
+    def test_idle_background_is_a_workload_failure_not_a_record_error(self):
+        """A valid record may show an idle background flow: the Reno thresholds judge it,
+        and an unjudged smoke counts it as a failed workload."""
         for profile, index in (("opted-in", 1), ("unregistered", 2)):
             for controller in ("reno", "bbrv3"):
                 record = observation("mixed-bulk", profile, controller=controller)
-                background = record["client"]["flows"][index]
-                background["series"] = [0] * driver.WINDOW_S
-                background["useful_bytes"] = 0
-                resync_useful(record)
-                with self.subTest(profile=profile, controller=controller), \
-                        self.assertRaisesRegex(ValueError, "no background delivery"):
+                idle(record, index)
+                with self.subTest(profile=profile, controller=controller):
                     driver.check_observation(record)
+                    self.assertEqual(driver.workload_failures(record),
+                                     [f"{profile}: background delivered no useful bytes"])
 
     def test_stateless_cell_must_apply_pressure(self):
         record = observation("stateless-pressure")
@@ -579,13 +586,15 @@ class ExecutionTests(unittest.TestCase):
                 self.assertIn("insufficient", summary["error"])
 
     def test_campaign_tolerance_failure_exits_nonzero(self):
-        for failure in ("goodput", "write", "close", "timeout"):
+        for failure in ("goodput", "idle background", "write", "close", "timeout"):
             with self.subTest(failure=failure), tempfile.TemporaryDirectory() as temporary:
                 def fail(record):
                     if record["cell"] != "mixed-bulk" or record["profile"] != driver.OPTED_IN:
                         return
                     if failure == "goodput":
                         scale_goodput(record, 0.5)
+                    elif failure == "idle background":
+                        idle(record, 1)  # judged by the existing fair-progress rule
                     elif failure == "write":
                         record["server"]["write_errors"] = 1
                     else:
@@ -700,19 +709,17 @@ class ExecutionTests(unittest.TestCase):
                 self.assertTrue(summary["workload_failures"])
 
     def test_unjudged_bbr_mixed_bulk_fails_on_an_idle_background_flow(self):
-        def idle(record):
+        def edit(record):
             if record["profile"] == driver.OPTED_IN:
-                background = record["client"]["flows"][1]
-                background["series"] = [0] * driver.WINDOW_S
-                background["useful_bytes"] = 0
-                resync_useful(record)
+                idle(record, 1)
 
         with tempfile.TemporaryDirectory() as temporary:
             code, summary, _ = self.invoke(Path(temporary), ("--smoke-cell", "mixed-bulk", "--controller", "bbrv3"),
-                                           edit=idle)
+                                           edit=edit)
         self.assertEqual(code, 1, summary)
-        self.assertFalse(summary.get("passed"))
-        self.assertIn("no background delivery", summary.get("error", ""))
+        self.assertFalse(summary["passed"])
+        self.assertNotIn("error", summary)
+        self.assertEqual(summary["workload_failures"], ["opted-in: background delivered no useful bytes"])
 
     def test_unsupported_bbr_or_profiling_campaign_launches_nothing(self):
         for extra in (("--controller", "bbrv3"),
@@ -1174,6 +1181,22 @@ class NativeExecutionTests(unittest.TestCase):
                     self.assertNotIn("server_cpus", identity_record)
                     with self.assertRaises(ValueError):
                         driver.check_accounting(records)
+
+    def test_native_smoke_fails_on_a_failed_workload(self):
+        def write_error(record):
+            if record["profile"] == driver.OPTED_IN:
+                record["server"]["write_errors"] = 1
+
+        for cell, edit, failure in (("stream", write_error, "opted-in: 1 write errors"),
+                                    ("mixed-bulk", lambda record: idle(record, 2),
+                                     "unregistered: background delivered no useful bytes")):
+            with self.subTest(cell=cell), tempfile.TemporaryDirectory() as temporary:
+                code, summary, _ = self.invoke(Path(temporary), ("--platform-profile", "darwin-arm64", "--smoke-cell", cell),
+                                               edit=edit, platform="darwin-arm64")
+                self.assertEqual(code, 1, summary)
+                self.assertFalse(summary["passed"])
+                self.assertFalse(summary["judged"])
+                self.assertEqual(summary["workload_failures"], [failure])
 
     def test_native_campaign_launches_nothing(self):
         for extra in ((), ("--revalidate-cell", "stream", "--cause", "x")):
