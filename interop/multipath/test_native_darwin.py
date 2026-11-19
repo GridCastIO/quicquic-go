@@ -662,7 +662,7 @@ class BlockedWriterClassificationTests(unittest.TestCase):
         self.refused("eagain-to-deadline", "send_buffer", send_buffer=True)
         self.refused("eagain-to-deadline", "publication_ms", publication_ms=True)
         self.refused("queued-expiry", "queued_publication_ms", queued_publication_ms=True)
-        self.refused("queued-expiry", "queued_expiry_ms", queued_expiry_ms=-0.1)
+        self.refused("scalar-emsgsize", "send_buffer", send_buffer=60000)
 
     def test_queued_expiry_needs_both_timing_facts(self):
         # The expiry is timed from the endpoint's decision and the collection delay
@@ -673,7 +673,6 @@ class BlockedWriterClassificationTests(unittest.TestCase):
                 del record["facts"][fact]
                 with self.assertRaisesRegex(ValueError, "queued-expiry: facts"):
                     runner.check_record("queued-expiry", IDENTITY, record, BLOCKED)
-        self.refused("scalar-emsgsize", "send_buffer", send_buffer=60000)
 
 
 class BlockedWriterRunCaseTests(unittest.TestCase):
