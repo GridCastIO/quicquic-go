@@ -19,6 +19,7 @@
 #define STREAM_LIMIT 64
 #define ALPN "qgf-r17"
 #define TUPLE_GATE_LIMIT 64
+#define INGRESS_HEAD 16 /* payload bytes reported per DATAGRAM ingress record */
 
 typedef struct {
     uint64_t id;
@@ -216,13 +217,22 @@ static int callback(picoquic_cnx_t *cnx, uint64_t stream_id, uint8_t *bytes, siz
         }
         break;
     }
-    case picoquic_callback_datagram:
-        fprintf(stdout, "datagram path %llu length %zu\n", (unsigned long long)stream_id, length);
+    case picoquic_callback_datagram: {
+        /* With path callbacks enabled, stream_id is the actual ingress path's
+         * unique ID, as picoquic_decode_datagram_frame passes it. This fixed
+         * record is the fixture's ingress fact; an echo payload's first byte
+         * only requests the reply path. */
+        char head[2 * INGRESS_HEAD + 1] = {0};
+        for (size_t i = 0; i < length && i < INGRESS_HEAD; i++) snprintf(head + 2 * i, 3, "%02x", bytes[i]);
+        fprintf(stdout, "ingress v1 datagram path %llu length %zu head %s\n", (unsigned long long)stream_id, length, head);
+        /* The Go matrix counts its aggregate witness payloads; they are not echoed. */
+        if (length != 0 && bytes[0] == 'W') return 0;
         if (length == 0 || length > sizeof(d->datagram) || d->datagram_length != 0) return -1;
         memcpy(d->datagram, bytes, length);
         d->datagram_length = length;
         d->datagram_path = bytes[0];
         return picoquic_mark_datagram_ready_path(cnx, d->datagram_path, 1);
+    }
     case picoquic_callback_prepare_datagram: {
         if (stream_id != d->datagram_path || d->datagram_length == 0 || length < d->datagram_length) return -1;
         unsigned char *buffer = picoquic_provide_datagram_buffer_ex(bytes, d->datagram_length, picoquic_datagram_not_active);

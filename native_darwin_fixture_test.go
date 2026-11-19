@@ -317,4 +317,7 @@ func TestNativeDarwinScalar(t *testing.T) {
 		facts["caller_deadline_enforced"] = true
 		facts["caller_write_delivered"] = true
 	})
+
+	// MP-MAC E3's scalar lane contention record, in native_darwin_contention_test.go.
+	nativeDarwinCase(t, "scalar-contention", nativeDarwinContentionCase)
 }
