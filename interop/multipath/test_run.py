@@ -240,19 +240,19 @@ class NativeProfileTests(unittest.TestCase):
             with self.subTest(lines=lines), self.assertRaisesRegex(ValueError, "discovery"):
                 runner.check_listing(lines)
         command = runner.discovery_command(Path("/bin/peer-matrix.test"))
-        self.assertEqual(command, ["/bin/peer-matrix.test", "-test.list", "^TestPicoquicMultipathMatrix$"])
+        self.assertEqual(command, [str(Path("/bin/peer-matrix.test").resolve()), "-test.list", "^TestPicoquicMultipathMatrix$"])
         # A caller-relative binary launches the hashed file, never a PATH lookup.
         relative = runner.discovery_command(Path("./peer-matrix.test"))[0]
-        self.assertEqual(relative, str(Path.cwd() / "peer-matrix.test"))
+        self.assertEqual(relative, str((Path.cwd() / "peer-matrix.test").resolve()))
 
     def test_native_ordinary_control_runs_the_compiled_self_binary(self):
         command, package, expected = runner.ordinary_invocation(Path("/bin/peer-control.test"))
         self.assertEqual((package, expected), (runner.PACKAGE, runner.EXPECTED))
-        self.assertEqual(command[:7], ["go", "tool", "test2json", "-t", "-p", runner.PACKAGE, "/bin/peer-control.test"])
+        self.assertEqual(command[:7], ["go", "tool", "test2json", "-t", "-p", runner.PACKAGE, str(Path("/bin/peer-control.test").resolve())])
         self.assertIn("-test.run=^TestPicoquicOrdinaryControl$", command)
         self.assertEqual(command[-1], "-version=1")
         relative, _, _ = runner.ordinary_invocation(Path("./peer-control.test"))
-        self.assertEqual(relative[6], str(Path.cwd() / "peer-control.test"))
+        self.assertEqual(relative[6], str((Path.cwd() / "peer-control.test").resolve()))
         linux, _, _ = runner.ordinary_invocation(None)
         self.assertEqual(linux, ["go", "test", "-json", "-tags=picoquic", "-run=^TestPicoquicOrdinaryControl$",
                                  "-count=1", "-timeout=90s", "./integrationtests/self", "-version=1"])
