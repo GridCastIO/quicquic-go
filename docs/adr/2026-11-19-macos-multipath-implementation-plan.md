@@ -1,6 +1,6 @@
 # macOS multipath implementation plan
 
-**Date:** 2026-11-19. **Track:** MP-MAC, one track in [MP-MAC-20261119](2026-11-19-macos-multipath-program.md). **Status:** Accepted handoff; implementation in progress. **Parent issue:** pending. **Normative scope:** Current slice contracts, preserved profile, evidence, dependencies and stop conditions. **Audit history:** [Handoff audit](../audits/2026-11-19-macos-multipath-handoff/README.md); [planning PR #1479](https://github.com/GridCastIO/quicquic-go/pull/1479). The completed [planning issue #1396](https://github.com/GridCastIO/quicquic-go/issues/1396) stays closed.
+**Date:** 2026-11-19. **Track:** MP-MAC, one track in [MP-MAC-20261119](2026-11-19-macos-multipath-program.md). **Status:** Accepted handoff; complete. **Parent issue:** pending. **Normative scope:** Current slice contracts, preserved profile, evidence, dependencies and stop conditions. **Audit history:** [Handoff audit](../audits/2026-11-19-macos-multipath-handoff/README.md); [planning PR #1479](https://github.com/GridCastIO/quicquic-go/pull/1479). The completed [planning issue #1396](https://github.com/GridCastIO/quicquic-go/issues/1396) stays closed.
 
 ## Outcome and authority
 
@@ -63,7 +63,7 @@ C2 observes live/retained memory at matched negotiated-connection lifecycle stat
 | C3 | Complete ([PR #1497](https://github.com/GridCastIO/quicquic-go/pull/1497)) | Scoped UDP queue/topology relay | None | None |
 | C4 | Complete ([PR #1557](https://github.com/GridCastIO/quicquic-go/pull/1557)) | Topology/control comparison workload | C1, C3 | None |
 | Q1 | Complete ([PR #1567](https://github.com/GridCastIO/quicquic-go/pull/1567); [execution protocol](2026-11-19-macos-multipath-execution-protocol.md)) | Concrete approved execution/venue protocol | E2, E3, P1, P2, C2, C4 | None |
-| Q2 | New; frontier | Qualified public activation, continuing coverage and support | Q1 | None |
+| Q2 | Complete ([PR #1585](https://github.com/GridCastIO/quicquic-go/pull/1585); [support record](../audits/2026-11-19-macos-multipath-q2-support.md)) | Qualified public activation, continuing coverage and support | Q1 | None |
 
 E1, P1, P2, C1 and C3 are parallel-safe in separate worktrees. E2/E3 follow E1 independently; C2 follows C1, while C4 requires both C1 and C3. P1/P2 may touch the same peer files but neither needs the other's behavior; coordinate ordinary merges without adding a convenience dependency. Q1 requires the six leaf readiness outputs, with their prerequisites transitively satisfied, because it must bind executable commands and known limitations. Q2 requires Q1's accepted protocol and owner decision. Shared-host measurement coordination is an operational condition, not a convenience blocking edge. No separate ordering is imposed by file proximity.
 
