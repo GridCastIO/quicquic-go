@@ -4,6 +4,7 @@ through the Go verify role. Observations are recorded side by side without a ver
 missing, refused or misaccounted observation fails the run."""
 
 import argparse
+import contextlib
 import json
 import math
 import os
@@ -53,7 +54,7 @@ NOT_JUDGED = ("topology comparison observations are apparatus records; no throug
               "statistical criterion applies, and Q1 selects any comparison protocol")
 METRIC_BOUNDARIES = {
     "useful_bytes": "receiver-counted focal STREAM bytes read in the window plus first-copy DATAGRAM bytes sent in the window",
-    "object_completion": "receiver time from an object's send-start timestamp to its last byte, completed in the window",
+    "object_completion": "receiver time from an object's send-start timestamp to the receiver's read returning EOF on the complete object; that EOF falls in the window",
     "max_receive_gap_ns": "longest part of the window in which a flow's receiver got nothing useful",
     "relay_drops": "relay queue drops and backlog overflow per route, as its record counts them",
     "relay_cpu": RELAY_CPU_SOURCE,
@@ -83,10 +84,24 @@ def check_role_log(role, output):
         raise ValueError(f"{role} must pass exactly once:\n{output[-2000:]}")
 
 
+@contextlib.contextmanager
+def deferred_interrupts():
+    """C1's DeferredInterrupts, plus: a cancellation recorded while a failure was already
+    leaving still cancels once every owned child is reaped, with that failure as its cause."""
+    interrupts = c1.DeferredInterrupts()
+    try:
+        with interrupts:
+            yield interrupts
+    except Exception as error:
+        if interrupts.pending:
+            raise KeyboardInterrupt(signal.Signals(interrupts.pending[0]).name) from error
+        raise
+
+
 def run_role(binary, env, spec, log_path, timeout_s, launched):
     """A short synchronous role: relay-config or verify. Its child is killed and reaped on
     any exit from the wait, an interrupt or timeout included."""
-    with c1.DeferredInterrupts() as interrupts:
+    with deferred_interrupts() as interrupts:
         with log_path.open("w") as log:
             process = subprocess.Popen(role_command(binary, timeout_s), env=dict(env, **{SPEC_ENV: json.dumps(spec)}),
                                        stdout=log, stderr=subprocess.STDOUT)
@@ -231,7 +246,7 @@ def observe(test_binary, relay_binary, directory, env, base, platform_profile, w
             usage[role] = usage.get(role, 0) + (current.ru_utime + current.ru_stime - previous.ru_utime - previous.ru_stime)
 
     spec = None
-    with c1.DeferredInterrupts() as interrupts:
+    with deferred_interrupts() as interrupts:
         try:
             with (directory / "relay.log").open("w") as log:
                 relay = subprocess.Popen([str(relay_binary), "-config", str(config), "-record", str(directory / "relay.json")],
@@ -327,7 +342,9 @@ def summarize(record):
         "workload_failures": observation["workload_failures"],
     }
     if record["topology"] == "shared":
-        competitor = flows["competitor"]["stream_useful_bytes"]
+        # A competitor that delivered nothing has no flow record; the verifier reports that
+        # as a workload failure, and the run's other figures still stand.
+        competitor = flows.get("competitor", {}).get("stream_useful_bytes", 0)
         total = competitor + summary["focal_stream_bytes"]
         # The Reno competitor's share of the shared bottleneck's STREAM delivery: an observation.
         summary.update(competitor_stream_bytes=competitor, competitor_share=competitor / total if total else None)
@@ -391,15 +408,26 @@ def main(argv=None):
                "topology": args.topology, "observations": []}
     try:
         for arm in args.arm:
-            record = {"status": "started"}
+            # The attempt is identifiable before setup, so any failure leaves a terminal row.
+            record = {"status": "started", "topology": args.topology, "arm": arm, "controller": args.controller,
+                      "seed": args.seed, "platform_profile": args.platform_profile}
+
+            def failed(error):
+                record.update(status="failed", error=f"{type(error).__name__}: {error}")
+                if error.__cause__ is not None:
+                    record["cause"] = f"{type(error.__cause__).__name__}: {error.__cause__}"
+                summary["observations"].append({"topology": args.topology, "arm": arm, "status": "failed",
+                                                "error": record["error"], **({"cause": record["cause"]} if "cause" in record else {})})
             try:
                 run_observation(binaries["test"]["path"], binaries["relay"]["path"], args.output / args.topology / arm, args.topology, arm,
                                 args.controller, args.seed, args.platform_profile, warmup, window, args.timeout_seconds, record)
                 record["status"] = "succeeded"
                 summary["observations"].append(summarize(record))
             except Exception as error:
-                record.update(status="failed", error=f"{type(error).__name__}: {error}")
-                summary["observations"].append({"arm": arm, "status": "failed", "error": record["error"]})
+                failed(error)
+            except KeyboardInterrupt as error:
+                failed(error)
+                raise  # cancellation stops the run: no later arm launches
             finally:
                 with (args.output / "observations.jsonl").open("a") as file:
                     file.write(json.dumps(record) + "\n")

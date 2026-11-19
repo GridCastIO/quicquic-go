@@ -3,6 +3,7 @@ import copy
 import io
 import json
 import os
+import signal
 import stat
 import sys
 import tempfile
@@ -77,6 +78,9 @@ elif role == "verify":
         empty = {"count": 0, "p50_us": 0, "p99_us": 0, "max_us": 0}
         result["server"]["flows"]["competitor"] = {"stream_useful_bytes": 300, "datagram_useful_bytes": 0, "max_receive_gap_ns": 9,
                                                    "datagram_latency": empty, "object_completion": empty}
+    if failing == role and failure == "no-competitor":
+        del result["server"]["flows"]["competitor"]
+        result["workload_failures"] = ["competitor: no useful STREAM delivery"]
     if failing == role and failure == "workload":
         result["workload_failures"] = ["focal-1: no useful STREAM delivery"]
     if failing == role and failure == "no-cpu":
@@ -193,7 +197,45 @@ class ExecutionTests(unittest.TestCase):
             self.assertEqual(records[0]["status"], "failed")
             self.assertGreater(records[0]["occupied_s"], 0)
             self.assertEqual(set(records[0]["launched"]), {"test"}, "no relay process existed")
+            for key, value in (("topology", "disjoint"), ("arm", "single-a"), ("controller", "bbrv3")):
+                self.assertEqual(records[0][key], value, "an early failure is still identifiable")
+            self.assertEqual(summary["observations"][0]["arm"], "single-a")
+            self.assertEqual(summary["observations"][0]["topology"], "disjoint")
             self.assertFalse(any(alive(pid) for pid in fixture.launched()))
+
+    def test_silent_competitor_keeps_the_measurements_and_fails_the_run(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            fixture = Fixture(Path(temporary), c1.DARWIN)
+            code, summary, records = fixture.run("--topology", "shared", "--arm", "single-a",
+                                                 env={"FAKE_ROLE": "verify:no-competitor"})
+            self.assertEqual(code, 1)
+            observation = summary["observations"][0]
+            self.assertEqual((observation["competitor_stream_bytes"], observation["competitor_share"]), (0, 0.0))
+            self.assertEqual(observation["focal_stream_bytes"], 800)
+            self.assertEqual(observation["workload_failures"], ["competitor: no useful STREAM delivery"])
+            self.assertEqual(records[0]["status"], "succeeded", "a valid observation with a workload failure")
+
+    def test_cancellation_during_failed_cleanup_still_cancels(self):
+        with self.assertRaises(KeyboardInterrupt) as raised:
+            with driver.deferred_interrupts():
+                os.kill(os.getpid(), signal.SIGINT)  # outside a wait: recorded, not raised
+                raise ValueError("role failed")
+        self.assertIsInstance(raised.exception.__cause__, ValueError, "the failure stays the cause")
+
+    def test_cancelled_arm_leaves_a_terminal_row_and_stops_the_run(self):
+        def cancelled(*args):
+            raise KeyboardInterrupt("SIGTERM") from ValueError("server exit 1")
+        with tempfile.TemporaryDirectory() as temporary:
+            fixture = Fixture(Path(temporary), c1.DARWIN)
+            with mock.patch.object(driver, "run_observation", side_effect=cancelled) as run:
+                code, summary, records = fixture.run("--topology", "disjoint", "--arm", "single-a", "--arm", "pair")
+            self.assertEqual(code, 1)
+            self.assertEqual(run.call_count, 1, "no later arm launches after cancellation")
+            self.assertEqual([(r["arm"], r["status"]) for r in records], [("single-a", "failed")])
+            self.assertIn("KeyboardInterrupt", records[0]["error"])
+            self.assertIn("server exit 1", records[0]["cause"])
+            self.assertEqual([(o["arm"], o["status"]) for o in summary["observations"]], [("single-a", "failed")])
+            self.assertFalse(summary["passed"])
 
     def test_observation_accepted_after_its_deadline_fails(self):
         class Clock:

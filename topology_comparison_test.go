@@ -115,6 +115,13 @@ func TestTopologyComparisonAdmission(t *testing.T) {
 			t.Cleanup(func() { tr.Close() })
 			if multipathProfileSupported {
 				require.NoError(t, tr.ConfigureMultipathIOV1(topologyWriteBudget))
+				// Runs before the socket's cleanup: the writer returns authority first.
+				t.Cleanup(func() {
+					tr.Close()
+					ctx, cancel := context.WithTimeout(context.Background(), ordinaryCostStopTimeout)
+					defer cancel()
+					require.NoError(t, tr.WaitMultipathIOStoppedV1(ctx), "%s %s", arm.Name, controller)
+				})
 			} else {
 				require.ErrorIs(t, tr.ConfigureMultipathIOV1(topologyWriteBudget), ErrMultipathUnsupportedV1)
 			}
@@ -274,6 +281,9 @@ func topologyRefusals(t *testing.T, run topologySmokeRun) {
 		"receiver beyond sender": func(r *topologySmokeRun) {
 			r.server.Flows[focal].DatagramsUseful = r.client.Flows[0].DatagramsOffered + 1
 		},
+		"measured DATAGRAMs reported unsampled": func(r *topologySmokeRun) {
+			r.server.Flows[focal].DatagramLatency = &ordinaryCostLatency{}
+		},
 		"unused route carried traffic": func(r *topologySmokeRun) { r.rec.Routes[1].Forward.Received = 1 },
 		"server saw another route": func(r *topologySmokeRun) {
 			for i := range r.server.Connections {
@@ -358,6 +368,12 @@ func topologyRefusals(t *testing.T, run topologySmokeRun) {
 	_, err = topologyVerify(spec, ordinaryCostHost)
 	require.ErrorContains(t, err, "packets_lost_metric.available is not stated", "a null availability states nothing")
 	spec.ClientResult = write("client3.json", run.client)
+	spec.ServerResult = omit("server-null-sample.json", run.server, func(doc map[string]any) {
+		doc["flows"].(map[string]any)["focal-1"].(map[string]any)["stream_series"].([]any)[0] = nil
+	})
+	_, err = topologyVerify(spec, ordinaryCostHost)
+	require.ErrorContains(t, err, "stream_series[0] is not stated", "a null sample is not an observed zero")
+	spec.ServerResult = write("server4.json", run.server)
 
 	unbalanced := run.clone(t).rec
 	unbalanced.Routes[0].Forward.Delivered++

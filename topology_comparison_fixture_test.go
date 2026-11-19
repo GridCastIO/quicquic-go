@@ -936,12 +936,15 @@ func topologyDecodeFile(path string, v any) error {
 // topologyStated requires stated to carry every key want has, recursively, with a null
 // only where the record itself encodes one.
 func topologyStated(stated, want any, at string) error {
+	if stated == nil && want != nil {
+		return fmt.Errorf("%s is not stated", at)
+	}
 	switch want := want.(type) {
 	case map[string]any:
 		got, _ := stated.(map[string]any)
 		for key, value := range want {
 			v, ok := got[key]
-			if !ok || v == nil && value != nil {
+			if !ok {
 				return fmt.Errorf("%s.%s is not stated", at, key)
 			}
 			if err := topologyStated(v, value, at+"."+key); err != nil {
@@ -1132,6 +1135,11 @@ func topologyCheck(spec topologySpec, platform ordinaryCostPlatformProfile, rec 
 		}
 		if got.MaxGapNS < 0 || got.MaxGapNS > spec.WindowNS || got.Completion == nil || got.DatagramLatency == nil {
 			return fmt.Errorf("%s: gap or latency account is missing", label)
+		}
+		// Each latency sample is taken with the count it describes.
+		if got.Completion.Count != got.ObjectsCompleted || got.DatagramLatency.Count != got.DatagramsUseful {
+			return fmt.Errorf("%s: %d completion and %d DATAGRAM latency samples for %d objects and %d DATAGRAMs",
+				label, got.Completion.Count, got.DatagramLatency.Count, got.ObjectsCompleted, got.DatagramsUseful)
 		}
 		if label != topologyLabelName(topologyCompetitor) {
 			useful += got.StreamBytes + got.DatagramBytes
