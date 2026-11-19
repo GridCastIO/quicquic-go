@@ -5,6 +5,7 @@ package quic
 import (
 	"bytes"
 	"context"
+	"crypto/rand"
 	"crypto/tls"
 	"encoding/binary"
 	"errors"
@@ -308,13 +309,81 @@ func (s *matrixSession) prefer(id uint32) {
 	}
 }
 
-func (s *matrixSession) datagram(id byte) {
+func (s *matrixSession) datagram(id byte) []byte {
 	s.t.Helper()
 	payload := bytes.Repeat([]byte{id, 'R', '1', '7'}, 64)
 	require.NoError(s.t, s.conn.SendDatagram(payload))
 	got, err := s.conn.ReceiveDatagram(s.ctx)
 	require.NoError(s.t, err)
 	require.Equal(s.t, payload, got)
+	return payload
+}
+
+// awaitIngress returns the peer's first ingress record of payload at or after
+// record index from. Malformed records fail.
+func (s *matrixSession) awaitIngress(from int, payload []byte) matrixIngressReceipt {
+	s.t.Helper()
+	for exited := false; ; {
+		records := s.peer.ingressRecords()
+		for i := from; i < len(records); i++ {
+			receipt, err := parseMatrixIngressRecord(records[i])
+			require.NoError(s.t, err)
+			if receipt.Length == len(payload) && bytes.Equal(receipt.Head, payload[:len(receipt.Head)]) {
+				return receipt
+			}
+		}
+		if exited {
+			s.t.Fatal("pinned peer exited without an ingress record; see peer.log")
+		}
+		select {
+		case <-s.peer.recorded:
+		case <-s.peer.done:
+			exited = true
+		case <-s.ctx.Done():
+			s.t.Fatal(s.ctx.Err())
+		}
+	}
+}
+
+// characterizeIngress echoes one DATAGRAM while a single path carries it and
+// checks the peer callback reports that path as the actual ingress. This
+// characterizes the receipt producer in each role; it is not aggregate evidence.
+func (s *matrixSession) characterizeIngress(id byte) {
+	s.t.Helper()
+	from := len(s.peer.ingressRecords())
+	before0, _ := s.trace.traffic(0)
+	before1, _ := s.trace.traffic(1)
+	payload := s.datagram(id)
+	// The recorder consumes PacketSent asynchronously; await the send.
+	var moved0, moved1 bool
+	require.NoError(s.t, s.trace.wait(s.ctx, func() bool {
+		after0, _ := s.trace.traffic(0)
+		after1, _ := s.trace.traffic(1)
+		moved0, moved1 = after0.Datagram > before0.Datagram, after1.Datagram > before1.Datagram
+		return moved0 || moved1
+	}))
+	require.NotEqual(s.t, moved0, moved1, "exactly one path sent the DATAGRAM")
+	sender := uint64(0)
+	if moved1 {
+		sender = 1
+	}
+	receipt := s.awaitIngress(from, payload)
+	require.Equal(s.t, sender, receipt.Path, "peer callback ingress path matches the sending path")
+	s.t.Logf("DATAGRAM %d: sent on path %d, peer callback ingress path %d", id, sender, receipt.Path)
+}
+
+// bothActive reports whether both paths are live with local use active.
+func (s *matrixSession) bothActive(paths []*Path) bool {
+	s.t.Helper()
+	for _, path := range paths {
+		state, err := path.StateV1()
+		require.NoError(s.t, err)
+		if state.Lifecycle != "live" || state.LocalUse != "active" {
+			s.t.Logf("path %d is %s/%s", state.WireID, state.Lifecycle, state.LocalUse)
+			return false
+		}
+	}
+	return true
 }
 
 func (s *matrixSession) mtuComplete(id protocol.PathID) bool {
@@ -387,42 +456,70 @@ func TestPicoquicMultipathMatrix(t *testing.T) {
 
 func matrixUsefulTransfer(s *matrixSession) {
 	s.echo(0)
-	s.datagram(0)
+	s.characterizeIngress(0)
 	s.open(1)
 	s.prefer(1)
 	s.echo(1)
-	s.datagram(1)
+	s.characterizeIngress(1)
 	require.NoError(s.t, s.trace.wait(s.ctx, s.trace.usefulTrafficReady))
 	if s.policy == "aggregate" {
 		paths := []*Path{s.path(0), s.path(1)}
 		for _, path := range paths {
 			require.NoError(s.t, path.SetLocalUseV1("active"))
 		}
+		// Snapshot after activation: sent traffic, and the peer record cursor
+		// with a fresh nonce for this phase's DATAGRAM payloads.
+		var nonce [8]byte
+		_, err := rand.Read(nonce[:])
+		require.NoError(s.t, err)
+		witness := newMatrixIngressWitness(nonce, len(s.peer.ingressRecords()), 4)
 		before0, _ := s.trace.traffic(0)
 		before1, _ := s.trace.traffic(1)
-		progressed := false
-		for round := 0; round < 64 && !progressed; round++ {
+		progressed, received := false, false
+		for round := 0; round < 64 && (!progressed || !received); round++ {
 			// Keep both routes active throughout this bounded offered-work phase.
-			for _, path := range paths {
-				state, err := path.StateV1()
-				require.NoError(s.t, err)
-				require.Equal(s.t, "active", state.LocalUse)
-				require.Equal(s.t, "live", state.Lifecycle)
+			eligible := s.bothActive(paths)
+			offered := witness.offerRound(eligible)
+			require.True(s.t, eligible, "both paths live and active in offer round %d", round)
+			for _, payload := range offered {
+				require.NoError(s.t, s.conn.SendDatagramContext(s.ctx, payload))
 			}
 			payload := bytes.Repeat([]byte("aggregate useful STREAM\n"), 1024)
 			require.Equal(s.t, payload, s.exchange('E', 255, payload))
 			sent0, _ := s.trace.traffic(0)
 			sent1, _ := s.trace.traffic(1)
 			progressed = sent0.Stream > before0.Stream && sent1.Stream > before1.Stream
+			tally, err := witness.tally(s.peer.ingressRecords())
+			require.NoError(s.t, err)
+			received = tally.Fresh[0] > 0 && tally.Fresh[1] > 0
 		}
 		require.True(s.t, progressed, "new useful STREAM traffic on both simultaneously active paths")
-		for _, path := range paths {
-			state, err := path.StateV1()
+		// The last round's receipts may still be in the peer output scanner.
+		// Wait for them without offering more work, within the role deadline.
+		for waiting := !received; waiting; {
+			select {
+			case <-s.peer.recorded:
+			case <-s.peer.done:
+				waiting = false
+			case <-s.ctx.Done():
+				waiting = false
+			}
+			tally, err := witness.tally(s.peer.ingressRecords())
 			require.NoError(s.t, err)
-			require.Equal(s.t, "active", state.LocalUse)
-			require.Equal(s.t, "live", state.Lifecycle)
+			received = tally.Fresh[0] > 0 && tally.Fresh[1] > 0
+			waiting = waiting && !received
 		}
-		s.t.Log("aggregate phase: new useful STREAM traffic on both live active paths")
+		// Only receipts read before the phase-end observation count, so every
+		// counted ingress lies between eligible observations.
+		records := s.peer.ingressRecords()
+		after0, _ := s.trace.traffic(0)
+		after1, _ := s.trace.traffic(1)
+		eligible := s.bothActive(paths)
+		witness.finish(eligible)
+		require.True(s.t, eligible, "both paths live and active at phase end")
+		result, err := witness.accept(records, map[uint64]uint64{0: after0.Datagram - before0.Datagram, 1: after1.Datagram - before1.Datagram})
+		require.NoError(s.t, err, "fresh DATAGRAM ingress on both simultaneously live active paths")
+		s.t.Logf("aggregate phase: new useful STREAM traffic on both live active paths; peer ingress receipts %v (duplicates %d, excluded %d); sender DATAGRAM deltas %v", result.Fresh, result.Duplicates, result.Excluded, result.SenderDelta)
 	}
 
 	for _, id := range []uint64{0, 1} {

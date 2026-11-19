@@ -19,8 +19,10 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"strconv"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -169,6 +171,18 @@ type smokePeer struct {
 	ready chan struct{}
 	done  chan struct{}
 	err   error // published by closing done
+
+	// The R17 adapter's DATAGRAM ingress records, in output order. Other
+	// lines are log text only.
+	mu       sync.Mutex
+	ingress  []string
+	recorded chan struct{}
+}
+
+func (p *smokePeer) ingressRecords() []string {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	return slices.Clone(p.ingress)
 }
 
 func startSmokePeer(t *testing.T, ctx context.Context, binary, dir string, args ...string) *smokePeer {
@@ -182,7 +196,7 @@ func startSmokePeer(t *testing.T, ctx context.Context, binary, dir string, args 
 	cmd.Stderr = cmd.Stdout
 	log, err := os.Create(filepath.Join(dir, "peer.log"))
 	require.NoError(t, err)
-	peer := &smokePeer{ready: make(chan struct{}), done: make(chan struct{})}
+	peer := &smokePeer{ready: make(chan struct{}), done: make(chan struct{}), recorded: make(chan struct{}, 1)}
 	require.NoError(t, cmd.Start())
 	go func() {
 		scanner := bufio.NewScanner(output)
@@ -193,6 +207,15 @@ func startSmokePeer(t *testing.T, ctx context.Context, binary, dir string, args 
 			if !ready && strings.Contains(line, "Waiting for packets") {
 				close(peer.ready)
 				ready = true
+			}
+			if strings.HasPrefix(line, matrixIngressPrefix) {
+				peer.mu.Lock()
+				peer.ingress = append(peer.ingress, line)
+				peer.mu.Unlock()
+				select {
+				case peer.recorded <- struct{}{}:
+				default:
+				}
 			}
 		}
 		peer.err = cmd.Wait()

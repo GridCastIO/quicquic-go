@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
-"""MP-MAC E1 Darwin case runner: a missing, duplicate, skipped or unrecorded case fails.
+"""MP-MAC Darwin case runner: a missing, duplicate, skipped or unrecorded case fails.
 
-It builds the root test binary, runs each TestNativeDarwinScalar case alone in its
-own process group and validates the case record that process wrote. A passing run
-is local smoke evidence for the granted endpoint method, never a support receipt.
+It builds the root test binary for one profile, runs each of the profile's cases
+alone in its own process group and validates the case record that process wrote.
+The scalar profile (MP-MAC E1) is local smoke evidence for the granted endpoint
+method; the blocked-writer profile (MP-MAC E2) is separately authorized native
+work. Neither is ever a support receipt.
 """
 
 import argparse
@@ -14,15 +16,17 @@ import os
 from pathlib import Path
 import platform
 import re
+import shlex
 import signal
 import shutil
 import subprocess
 import tempfile
 import time
+from typing import NamedTuple
 
 TEST = "TestNativeDarwinScalar"
 SCHEMA = "native-darwin-case/v1"
-RESULTS_SCHEMA = "native-darwin-run/v1"
+RESULTS_SCHEMA = "native-darwin-run/v2"
 RECORD_ENV = "NATIVE_DARWIN_RECORD"
 RECORD_FIELDS = {"schema", "case", "go", "goos", "goarch", "facts"}
 # Each family's expected local destination, from packet info on the granted socket.
@@ -49,15 +53,100 @@ NATIVE_FIELDS = ("product_version", "build_version", "kernel", "cpu")
 BUILD = {"CGO_ENABLED": "0", "GOOS": "darwin", "GOARCH": "arm64", "GOFLAGS": "-buildvcs=false"}
 
 
-def command_for(binary, name):
-    return [str(binary), f"-test.run=^{TEST}$/^{name}$", "-test.count=1", "-test.timeout=30s", "-test.v"]
+def is_count(value):
+    return type(value) is int and value > 0
 
 
-def check_output(name, output):
+def is_ms(value):
+    """A recorded duration in milliseconds. It is recorded, never judged here."""
+    return type(value) in (int, float) and value >= 0
+
+
+def is_send_buffer(value):
+    return is_count(value) and value < 60000
+
+
+# MP-MAC E2's blocked-writer cases. The separately classified cases come first;
+# their evidence class names what was native. Each traversal case reuses one current
+# write that waited in the Go poller, and its record must say so consistently.
+BLOCKED_TEST = "TestNativeDarwinBlockedWriter"
+# The observation classes the fixture can record; only native-traversal is evidence.
+TRAVERSAL_CLASSES = {"expired-before-dispatch", "stale-deadline", "missing-native-return", "reset-failure", "simulated", "no-witness", "native-traversal"}
+TRIGGER_FACTS = {
+    "evidence": "native-traversal", "send_buffer": is_send_buffer, "control_bytes": is_count, "payload_bytes": is_count,
+    "positive_control": "ECT(0)", "poller_witness": True, "injected": 0, "traced": False, "result": "deadline-exceeded",
+    "uncertain": 1, "native_return_after_deadline_ms": is_ms,
+}
+# The recorder's view of the claim. The active-close case's production endpoint has
+# no recorder, so it records the held request's deadline and the reset its caller saw.
+RECORDED_CLAIM_FACTS = {
+    **TRIGGER_FACTS, "native_calls": is_count, "deadline_preserved": True,
+    "deadline_reset": True, "native_returned": True,
+}
+BLOCKED_FACTS = {
+    "first-send-eperm": {
+        "evidence": "simulated", "injected": 2, "first_send_retry": "accepted", "retry_delivered": True,
+        "later_send": "uncertain-eperm", "faulted": False,
+    },
+    "constructed-segmentation-prefix": {
+        "evidence": "constructed", "segments": 3, "whole_accepted": 3, "whole_delivered": 3, "prefix_injected": "EAGAIN",
+        "prefix_accepted": 1, "prefix_uncertain": 1, "prefix_unsubmitted": 1, "prefix_delivered": 1,
+    },
+    "scalar-emsgsize": {
+        "evidence": "native-size-feedback", "send_buffer": is_send_buffer, "payload_bytes": is_count, "errno": "EMSGSIZE",
+        "unsubmitted": 1, "backpressure": False, "injected": 0, "successor_delivered": True, "faulted": False,
+    },
+    "eagain-to-deadline": {
+        **RECORDED_CLAIM_FACTS, "publication_ms": is_ms, "successor_deadline_preserved": True,
+        "successor_delivered": True, "faulted": False,
+    },
+    "queued-expiry": {
+        **RECORDED_CLAIM_FACTS, "queued_result": "deadline-exceeded", "queued_unsubmitted": 1, "queued_claimed": False,
+        "queued_before_current_deadline": True, "writer_waiting_at_queued_expiry": True, "queued_expiry_ms": is_ms,
+    },
+    "active-close-join": {
+        **TRIGGER_FACTS, "request_deadline_preserved": True, "reset_observed_by_caller_write": True, "close_returned_while_borrowed": True, "canceled_wait": "canceled", "returned_after_close_began": True,
+        "joined_after_return": True, "transport_write_after_join": "closed", "caller_write_delivered": True, "close_to_join_ms": is_ms,
+    },
+}
+TRAVERSAL_CASES = ("eagain-to-deadline", "queued-expiry", "active-close-join")
+# The existing endpoint tests for native return before deadline reset, queued
+# expiry, the borrow and shutdown that E2 selects for focused race runs. Q1 binds
+# the command and Q2 runs it on its exact candidate; this runner never runs it.
+RACE_TESTS = (
+    "TestNativeEndpointMemberReturnPrecedesDeadlineReset", "TestNativeEndpointQueuedExpiry", "TestNativeEndpointOverdueBorrow",
+    "TestNativeEndpointExpiredClaimAndNextDeadline", "TestEndpointPublicQueuedExpiryAndClose", "TestEndpointPublicOverdueBorrow",
+    "TestNativeIOStopAndJoin", "TestNativeLiveCloseDuringCurrentWrite",
+)
+
+
+def race_command():
+    return ["go", "test", "-race", "-count=1", f"-run=^({'|'.join(RACE_TESTS)})$", "."]
+
+
+class Profile(NamedTuple):
+    name: str
+    test: str
+    cases: tuple
+    build: dict
+
+
+PROFILES = {
+    "scalar": Profile("scalar", TEST, CASES, BUILD),
+    "blocked-writer": Profile("blocked-writer", BLOCKED_TEST, tuple(BLOCKED_FACTS), BUILD | {"GOFLAGS": "-buildvcs=false -tags=nativequal"}),
+}
+SCALAR = PROFILES["scalar"]
+
+
+def command_for(binary, name, profile=SCALAR):
+    return [str(binary), f"-test.run=^{profile.test}$/^{name}$", "-test.count=1", "-test.timeout=30s", "-test.v"]
+
+
+def check_output(name, output, profile=SCALAR):
     for word in ("SKIP", "FAIL"):
         if re.search(rf"^\s*(--- )?{word}\b", output, re.MULTILINE):
             raise ValueError(f"{word}: {name}")
-    if len(re.findall(rf"^\s*--- PASS: {TEST}/{re.escape(name)} ", output, re.MULTILINE)) != 1:
+    if len(re.findall(rf"^\s*--- PASS: {profile.test}/{re.escape(name)} ", output, re.MULTILINE)) != 1:
         raise ValueError(f"{name} must pass exactly once")
 
 
@@ -105,7 +194,32 @@ def parse_tuple(name, key, facts):
     return address, number
 
 
-def check_record(name, identity, record):
+def check_blocked_facts(name, facts):
+    evidence = facts["evidence"]
+    if not isinstance(evidence, str):
+        raise ValueError(f"{name}: fact evidence is {evidence!r}, not a class name")
+    if name in TRAVERSAL_CASES and evidence != "native-traversal":
+        kind = evidence if evidence in TRAVERSAL_CLASSES else f"unknown class {evidence!r}"
+        raise ValueError(f"{name}: {kind} is not native traversal evidence")
+    for key, expected in BLOCKED_FACTS[name].items():
+        value = facts[key]
+        if callable(expected):
+            if not expected(value):
+                raise ValueError(f"{name}: fact {key} is {value!r}, which {expected.__name__} refuses")
+        elif value != expected or type(value) is not type(expected):
+            raise ValueError(f"{name}: fact {key} is {value!r}, expected {expected!r}")
+    if "send_buffer" in facts:
+        # The trigger is exactly the read-back capacity; size feedback is one byte more.
+        expected = facts["send_buffer"] + (1 if name == "scalar-emsgsize" else 0)
+        if facts["payload_bytes"] != expected:
+            raise ValueError(f"{name}: fact payload_bytes is {facts['payload_bytes']!r}, expected {expected} for send_buffer {facts['send_buffer']}")
+    if "control_bytes" in facts and facts["control_bytes"] >= facts["send_buffer"]:
+        raise ValueError(f"{name}: fact control_bytes {facts['control_bytes']} must fit send_buffer {facts['send_buffer']}")
+
+
+def check_record(name, identity, record, profile=SCALAR):
+    if name not in profile.cases:
+        raise ValueError(f"{name}: not a {profile.name} case")
     if set(record) != RECORD_FIELDS:
         raise ValueError(f"{name}: record fields {sorted(record)} are not {sorted(RECORD_FIELDS)}")
     expected = {"schema": SCHEMA, "case": name, "go": identity["go"], "goos": identity["goos"], "goarch": identity["goarch"]}
@@ -113,9 +227,12 @@ def check_record(name, identity, record):
         if record[field] != value:
             raise ValueError(f"{name}: record {field} {record[field]!r} is not {value!r}")
     facts = record["facts"]
-    declared = FAMILY_FACTS if name in FAMILIES else set(FIXED_FACTS[name])
+    declared = set(BLOCKED_FACTS[name]) if profile is not SCALAR else FAMILY_FACTS if name in FAMILIES else set(FIXED_FACTS[name])
     if not isinstance(facts, dict) or set(facts) != declared:
         raise ValueError(f"{name}: facts {sorted(facts) if isinstance(facts, dict) else facts!r} are not {sorted(declared)}")
+    if profile is not SCALAR:
+        check_blocked_facts(name, facts)
+        return
     if name in FAMILIES:
         check_family_facts(name, facts)
         return
@@ -124,12 +241,12 @@ def check_record(name, identity, record):
             raise ValueError(f"{name}: fact {key} is {facts[key]!r}, expected {value!r}")
 
 
-def check_accounting(names):
-    unknown = sorted(set(names) - set(CASES))
-    missing = [name for name in CASES if name not in names]
+def check_accounting(names, profile=SCALAR):
+    unknown = sorted(set(names) - set(profile.cases))
+    missing = [name for name in profile.cases if name not in names]
     duplicate = sorted({name for name in names if names.count(name) > 1})
     if unknown or missing or duplicate:
-        raise ValueError(f"expected each of the {len(CASES)} cases exactly once: missing {missing}, duplicate {duplicate}, unknown {unknown}")
+        raise ValueError(f"expected each of the {len(profile.cases)} cases exactly once: missing {missing}, duplicate {duplicate}, unknown {unknown}")
 
 
 def check_native(identity):
@@ -173,8 +290,8 @@ GO_LIST_FILE_FIELDS = ("GoFiles", "CgoFiles", "CFiles", "CXXFiles", "MFiles", "H
 GO_LIST_TEST_FIELDS = ("TestGoFiles", "XTestGoFiles", "TestEmbedFiles", "XTestEmbedFiles")
 
 
-def build_env(toolchain):
-    return os.environ | BUILD | {"GOTOOLCHAIN": toolchain}
+def build_env(toolchain, profile=SCALAR):
+    return os.environ | profile.build | {"GOTOOLCHAIN": toolchain}
 
 
 def parse_go_list(text, directory):
@@ -199,9 +316,9 @@ def parse_go_list(text, directory):
         files.update(path for path in (root / "go.mod", root / "go.sum") if path.exists())
 
 
-def selected_sources(source, toolchain):
-    """The main-module files the test build of the source directory reads."""
-    return parse_go_list(capture("go", "list", "-deps", "-test", "-json", ".", env=build_env(toolchain), cwd=source), source)
+def selected_sources(source, toolchain, profile=SCALAR):
+    """The main-module files the profile's test build of the source directory reads."""
+    return parse_go_list(capture("go", "list", "-deps", "-test", "-json", ".", env=build_env(toolchain, profile), cwd=source), source)
 
 
 def tree_paths(source, tree):
@@ -217,15 +334,15 @@ def check_build_sources(selected, recorded):
         raise ValueError(f"the build reads source that the recorded tree omits: {missing}")
 
 
-def build(source, toolchain, output):
-    env = build_env(toolchain)
+def build(source, toolchain, output, profile=SCALAR):
+    env = build_env(toolchain, profile)
     reported = capture("go", "env", "GOVERSION", env=env, cwd=source)
     if toolchain != "local" and reported != toolchain:
         raise ValueError(f"requested {toolchain}, got {reported}")
     binary = output / "native-darwin.test"
     capture("go", "test", "-c", "-o", str(binary.resolve()), ".", env=env, cwd=source)
     digest = hashlib.sha256(binary.read_bytes()).hexdigest()
-    return binary, {"go": reported, "toolchain": toolchain, "mode": dict(BUILD), "binary_sha256": digest}
+    return binary, {"go": reported, "toolchain": toolchain, "mode": dict(profile.build), "binary_sha256": digest}
 
 
 def stop_group(process):
@@ -239,11 +356,11 @@ def stop_group(process):
             pass
 
 
-def run_case(binary, name, output, identity, timeout):
+def run_case(binary, name, output, identity, timeout, profile=SCALAR):
     directory = output / name
     directory.mkdir(parents=True)
     record_path = directory / "record.json"
-    command = command_for(Path(binary).resolve(), name)
+    command = command_for(Path(binary).resolve(), name, profile)
     instance = {"case": name, "command": command, "exit": None, "seconds": None, "record": None}
     started = time.monotonic()
     process = subprocess.Popen(command, env=os.environ | {RECORD_ENV: str(record_path)}, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, start_new_session=True)
@@ -266,18 +383,18 @@ def run_case(binary, name, output, identity, timeout):
     if process.returncode != 0:
         return instance, f"exit {process.returncode}"
     try:
-        check_output(name, text)
+        check_output(name, text, profile)
         if not record_path.exists():
             raise ValueError(f"{name}: no case record was written")
         instance["record"] = parse_record(record_path.read_text())
-        check_record(name, identity, instance["record"])
+        check_record(name, identity, instance["record"], profile)
     except (ValueError, OSError) as error:
         return instance, str(error)
     return instance, None
 
 
-def status():
-    return {"cases": len(CASES), "status": "pass", "support_receipt": False}
+def status(profile=SCALAR):
+    return {"cases": len(profile.cases), "status": "pass", "support_receipt": False}
 
 
 def is_text(value):
@@ -294,6 +411,14 @@ def is_integer(value):
 
 # The declared results shape: every section has exactly these fields, each with its
 # type. Cross-field consistency follows in validate_results; nothing else is read.
+def results_shape(profile):
+    """The declared results shape of a profile's run."""
+    return RESULTS_SHAPE | {
+        "build": RESULTS_SHAPE["build"] | {"mode": lambda value: value == profile.build},
+        "status": RESULTS_SHAPE["status"] | {"cases": lambda value: is_integer(value) and value == len(profile.cases)},
+    }
+
+
 RESULTS_SHAPE = {
     "source": {"commit": is_hex(40), "tree": is_hex(40), "head_tree": is_hex(40), "clean": lambda value: type(value) is bool},
     "build": {"go": is_text, "toolchain": is_text, "mode": lambda value: value == BUILD, "binary_sha256": is_hex(64)},
@@ -308,7 +433,7 @@ RESULTS_SHAPE = {
         "record": lambda value: isinstance(value, dict), "failure": lambda value: value is None,
     },
 }
-RESULTS_FIELDS = {"schema", "source", "build", "identity", "instances", "status"}
+RESULTS_FIELDS = {"schema", "profile", "source", "build", "identity", "instances", "status"}
 
 
 def check_shape(section, value, shape):
@@ -319,21 +444,28 @@ def check_shape(section, value, shape):
         raise ValueError(f"results {section} has invalid {invalid}")
 
 
-def validate_results(results):
-    """Read-back validation of a results file: a complete passing run, or an error."""
+def validate_results(results, profile_name=None):
+    """Read-back validation of a results file: a complete passing run, or an error.
+    A named profile must be the one the results record."""
     if not isinstance(results, dict) or set(results) != RESULTS_FIELDS:
         raise ValueError(f"results fields {sorted(results) if isinstance(results, dict) else results!r} are not {sorted(RESULTS_FIELDS)}")
     if results["schema"] != RESULTS_SCHEMA:
         raise ValueError(f"results schema {results['schema']!r} is not {RESULTS_SCHEMA}")
+    if not isinstance(results["profile"], str) or results["profile"] not in PROFILES:
+        raise ValueError(f"results profile {results['profile']!r} is not one of {sorted(PROFILES)}")
+    if profile_name is not None and results["profile"] != profile_name:
+        raise ValueError(f"results profile {results['profile']!r} is not the requested {profile_name!r}")
+    profile = PROFILES[results["profile"]]
+    shape = results_shape(profile)
     source, build_identity, identity = results["source"], results["build"], results["identity"]
-    check_shape("source", source, RESULTS_SHAPE["source"])
-    check_shape("build", build_identity, RESULTS_SHAPE["build"])
-    check_shape("identity", identity, RESULTS_SHAPE["identity"])
+    check_shape("source", source, shape["source"])
+    check_shape("build", build_identity, shape["build"])
+    check_shape("identity", identity, shape["identity"])
     if source["clean"] != (source["tree"] == source["head_tree"]):
         raise ValueError(f"results source clean flag contradicts its trees: {source!r}")
     if build_identity["toolchain"] not in ("local", build_identity["go"]):
         raise ValueError(f"results build toolchain {build_identity['toolchain']!r} is not local or the built {build_identity['go']!r}")
-    expected = {"go": build_identity["go"], "goos": BUILD["GOOS"], "goarch": BUILD["GOARCH"]}
+    expected = {"go": build_identity["go"], "goos": profile.build["GOOS"], "goarch": profile.build["GOARCH"]}
     if {key: identity[key] for key in expected} != expected:
         raise ValueError(f"results run identity contradicts the build: {expected!r}")
     check_native(identity)
@@ -341,15 +473,17 @@ def validate_results(results):
     if not isinstance(instances, list):
         raise ValueError("results instances are not a list")
     for instance in instances:
-        check_shape("instance", instance, RESULTS_SHAPE["instance"])
-    check_accounting([instance["case"] for instance in instances])
+        check_shape("instance", instance, shape["instance"])
+        if not instance["command"] or command_for(instance["command"][0], instance["case"], profile) != instance["command"]:
+            raise ValueError(f"results instance {instance['case']!r} command {instance['command']!r} is not its {profile.name} selector")
+    check_accounting([instance["case"] for instance in instances], profile)
     for instance in instances:
-        check_record(instance["case"], identity, instance["record"])
-    check_shape("status", results["status"], RESULTS_SHAPE["status"])
+        check_record(instance["case"], identity, instance["record"], profile)
+    check_shape("status", results["status"], shape["status"])
 
 
-def run(source, output, toolchain, case_timeout):
-    """Runs every case once and returns the results; stops at the first failure."""
+def run(source, output, toolchain, case_timeout, profile=SCALAR):
+    """Runs every case of the profile once and returns the results; stops at the first failure."""
     identity = native_identity()
     check_native(identity)
     if shutil.which("go") is None:
@@ -357,23 +491,23 @@ def run(source, output, toolchain, case_timeout):
     # Snapshot the source before creating output, which may lie inside the tree, and
     # refuse a build that would read source the snapshot leaves out.
     source_snapshot = source_identity(source)
-    check_build_sources(selected_sources(source, toolchain), tree_paths(source, source_snapshot["tree"]))
+    check_build_sources(selected_sources(source, toolchain, profile), tree_paths(source, source_snapshot["tree"]))
     output.mkdir(parents=True, exist_ok=False)
-    binary, build_identity = build(source, toolchain, output)
-    identity |= {"go": build_identity["go"], "goos": BUILD["GOOS"], "goarch": BUILD["GOARCH"]}
-    results = {"schema": RESULTS_SCHEMA, "source": source_snapshot, "build": build_identity, "identity": identity, "instances": []}
+    binary, build_identity = build(source, toolchain, output, profile)
+    identity |= {"go": build_identity["go"], "goos": profile.build["GOOS"], "goarch": profile.build["GOARCH"]}
+    results = {"schema": RESULTS_SCHEMA, "profile": profile.name, "source": source_snapshot, "build": build_identity, "identity": identity, "instances": []}
     # There is no repeat-until-pass.
     failure = None
-    for name in CASES:
-        instance, failure = run_case(binary, name, output, identity, case_timeout)
+    for name in profile.cases:
+        instance, failure = run_case(binary, name, output, identity, case_timeout, profile)
         instance["failure"] = failure
         results["instances"].append(instance)
         if failure is not None:
             break
     if failure is None:
-        check_accounting([instance["case"] for instance in results["instances"]])
+        check_accounting([instance["case"] for instance in results["instances"]], profile)
         # Only a complete passing run records a status, so a stopped run claims nothing.
-        results["status"] = status()
+        results["status"] = status(profile)
     (output / "results.json").write_text(json.dumps(results, indent=2) + "\n")
     return results, failure
 
@@ -381,18 +515,23 @@ def run(source, output, toolchain, case_timeout):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path, help="a new directory for this run")
+    parser.add_argument("--profile", choices=sorted(PROFILES), help="the case set: scalar (E1, the default) or blocked-writer (E2, separately authorized); with --validate, the profile the results must record")
+    parser.add_argument("--print-race-command", action="store_true", help="print the selected focused race command and exit")
     parser.add_argument("--toolchain", default="local", help="GOTOOLCHAIN for the build, such as go1.27.4")
     parser.add_argument("--source", type=Path, default=Path("."), help="the module root to build")
     parser.add_argument("--case-timeout", type=float, default=60.0)
     parser.add_argument("--validate", type=Path, help="validate an existing results.json and exit")
     args = parser.parse_args()
+    if args.print_race_command:
+        print(shlex.join(race_command()))
+        return
     if args.validate:
-        validate_results(json.loads(args.validate.read_text()))
+        validate_results(json.loads(args.validate.read_text()), args.profile)
         print("valid")
         return
     if args.output is None:
         parser.error("--output is required")
-    results, failure = run(args.source, args.output, args.toolchain, args.case_timeout)
+    results, failure = run(args.source, args.output, args.toolchain, args.case_timeout, PROFILES[args.profile or "scalar"])
     if failure is not None:
         raise SystemExit(f"stopped: {failure}")
     validate_results(json.loads((args.output / "results.json").read_text()))
