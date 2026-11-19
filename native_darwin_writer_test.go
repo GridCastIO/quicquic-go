@@ -781,7 +781,7 @@ func nativeDarwinActiveCloseJoin(t *testing.T, facts map[string]any) {
 // prefix, and scalar EMSGSIZE size feedback. The remaining cases are built only with
 // the nativequal tag, which only that profile selects. The protocol's expired claim
 // and successor keeps its own class; its expiry is positioned against the endpoint
-// tolerance, so ordinary runs never build it. The forced-traversal cases reuse one
+// tolerance, so ordinary runs never register it. The forced-traversal cases reuse one
 // current write that waits in the Go poller for queued expiry and active close and
 // join. Their execution is separately authorized native work; a case never skips.
 func TestNativeDarwinBlockedWriter(t *testing.T) {

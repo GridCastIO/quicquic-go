@@ -223,7 +223,8 @@ def check_blocked_facts(name, facts):
         kind = evidence if evidence in TRAVERSAL_CLASSES else f"unknown class {evidence!r}"
         raise ValueError(f"{name}: {kind} is not native traversal evidence")
     if name == EXPIRED_CASE and evidence != EXPIRED_CLASS:
-        raise ValueError(f"{name}: {evidence!r} is not the expired claim's own class {EXPIRED_CLASS!r}")
+        kind = "the traversal failure class" if evidence == "expired-before-dispatch" else "another class"
+        raise ValueError(f"{name}: {evidence!r} is {kind}; the expired claim's own class is {EXPIRED_CLASS!r}")
     for key, expected in BLOCKED_FACTS[name].items():
         value = facts[key]
         if callable(expected):

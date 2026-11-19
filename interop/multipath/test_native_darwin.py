@@ -811,8 +811,8 @@ class BlockedWriterExpiredClaimTests(unittest.TestCase):
             runner.check_record(EXPIRED, IDENTITY, record, BLOCKED)
 
     def test_the_failure_class_is_refused(self):
-        self.refused("'expired-before-dispatch' is not the expired claim's own class", evidence="expired-before-dispatch")
-        self.refused("'native-traversal' is not the expired claim's own class", evidence="native-traversal")
+        self.refused("'expired-before-dispatch' is the traversal failure class; the expired claim's own class is", evidence="expired-before-dispatch")
+        self.refused("'native-traversal' is another class; the expired claim's own class is", evidence="native-traversal")
         self.refused("not a class name", evidence=None)
 
     def test_both_claims_are_identified(self):

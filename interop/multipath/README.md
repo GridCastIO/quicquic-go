@@ -172,6 +172,7 @@ The profile records `support_receipt: false`, and a missing witness never counts
 A pressure wait is a native write entered before its write deadline that returned a timeout; a deadline that passes between entry and the socket's own check also counts, so an observed wait is example-level evidence. A complete observation without one reports `pressure_wait: not-observed`, a valid negative. A dropped or undelivered diagnostic makes the observation `incomplete-coverage`, and a load that some participant didn't finish within its window, or whose endpoint closed or faulted, is `interrupted`, even if its last results were drained during cleanup; both report `unknown` instead of a negative. Immediate local errors such as ENOBUFS are counted as errors, not waits. The runner recomputes status and pressure result from the recorded facts and rejects a record whose lane, datagram or writer counts don't add up, or whose observed pressure wait has no uncertain member in a failed result while nothing was withdrawn. The `scalar-contention` development case must be complete and fault-free with progress on every lane; it asserts nothing about native pressure.
 
 Readback of a `socket-pressure` record requires exactly the execution protocol's D7 load ([#1564](https://github.com/GridCastIO/quicquic-go/issues/1564)), the merged `nativeDarwinPressureLoad`:
+
 - 16 participants;
 - 64 requests;
 - 32 members;
