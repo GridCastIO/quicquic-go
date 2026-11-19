@@ -1,6 +1,6 @@
 # Linux ARM64 multipath implementation and qualification plan
 
-This plan completes the planning deliverable for [Linux ARM64 multipath (#1395)](https://github.com/GridCastIO/quicquic-go/issues/1395). The maintainer approved full parity with the Linux amd64 profile in the [issue brief (#1395)](https://github.com/GridCastIO/quicquic-go/issues/1395#issuecomment-7000964233), then approved this documentation-only approach on 2026-11-19. Public multipath support remains Linux amd64; this plan authorizes neither runtime activation nor a qualification campaign or campaign budget. The future slices below need their own executable contracts before dispatch.
+This plan completes the planning deliverable for [Linux ARM64 multipath (#1395)](https://github.com/GridCastIO/quicquic-go/issues/1395). The maintainer approved full parity with the Linux amd64 profile in the [issue brief (#1395)](https://github.com/GridCastIO/quicquic-go/issues/1395#issuecomment-7000964233), then approved this documentation-only approach on 2026-11-19. Public multipath support remains Linux amd64; this plan authorizes neither runtime activation nor a qualification campaign or campaign budget. The broad future slices below are superseded for dispatch by the audited [implementation contracts](2026-11-19-linux-arm64-multipath-implementation-plan.md) and [program index](2026-11-19-linux-arm64-multipath-program.md); this target/evidence plan retains the settled profile and source assessment.
 
 ## Source and decision
 

@@ -1,0 +1,27 @@
+# Linux ARM64 handoff audit
+
+**Source:** 38338dc8a9fe010a5a26e5fac7992f7eb137f11a. **Request:** explicit architecture-handoff for OmniFocus Linux arm64 multipath, task opcW01kVbsy. **State:** Source self-grill and independent slice audit passed before publication; no implementation or native collection ran.
+
+## Source and existing-work disposition
+
+The accepted full-parity profile is [planning issue #1395](https://github.com/GridCastIO/quicquic-go/issues/1395), merged through [PR #1481](https://github.com/GridCastIO/quicquic-go/pull/1481). Its source-backed plan and seven reviewed prose corrections supply context, not a runtime campaign allowance. The requested OmniFocus parent had an empty note and no children; no existing ARM64 implementation child or open ARM64 PR was found. This is a new scoped package, not a rebaseline of completed Linux/BBR or the separate macOS program.
+
+Two read-only architecture auditors inspected endpoint/peer and cost/topology source at the pinned commit. They proposed scope and ownership decisions only; neither implemented or dispatched work. The current plan contains source file:line anchors. Frozen B11 source 8c34fbac874adf55f096b6c67d51244160169422 is retained as reference: aggregation_test.go:83/279/348/471/989 owns topology/queue/UDP/join/tests; interop/multipath/aggregation.py:197 owns metric/control interpretation. The successor must not resurrect the retired experimentScheduler assignment at aggregation_test.go:880 or historical campaign/retry loops. Payload relay does not preserve ECN ancillary evidence.
+
+[PR #1295](https://github.com/GridCastIO/quicquic-go/pull/1295) was inspected with its body, diff, commits and related [issue #1285](https://github.com/GridCastIO/quicquic-go/issues/1285) closure. It is Draft/unselected at 6f3192a596c069007ac2fb7b470a0c4b45dba813, with a Linux amd64 scalar deadline adapter and exhausted finite comparison. The issue closed as not planned after owner acceptance of a measured tradeoff through [PR #1297](https://github.com/GridCastIO/quicquic-go/pull/1297); it did not select that runtime repair. Disposition: retain historical evidence, exclude the branch as a baseline/dependency and leave refs/state untouched. No new allowance or ARM64 cost exception follows.
+
+## Slice decisions
+
+The broad A2 outline is split into native peer construction P1 and ingress semantics P2. Actual callback ingress differs from the byte-selected echo route; P2 owns fresh post-activation membership and both-live/active continuity. P2 is independent of A0/P1. P1’s native container supplies its own compiler, so its readiness venue can differ honestly from the eventual qualification guest.
+
+The broad A3 outline is split at real interfaces into C1 ordinary workload/metrics/placement, C2 observed lifecycle memory, C3 real UDP topology and C4 its matched comparison consumer. C1 consumes A0's selected guest/toolchains/CPU IDs; C2 consumes C1 records and C4 consumes C1/C3. The existing six-class Linux native method needs one E1 applicability/attribution slice, not a new backend. E1 consumes A0's exact compiler/venue facts. Q1 binds concrete methods and required owner decisions; Q2 keeps the gate, independent tests, native evidence, approved CI and support publication atomic.
+
+No repeated-root conclusion is drawn from broad lifecycle/authority topics or prior documentation corrections. Current representation and ownership remain at typed public/endpoint/fixture seams. Runtime admission/lifetime obligations get the compact native semantic census; aids get finite interface evidence without recursive proof obligations. The domain-modeling check retains existing vocabulary and settled ADRs. Operational unknowns remain explicit Q1/Q2 obligations, with no campaign run in this handoff.
+
+## Independent slice audit
+
+Two read-only architecture auditors reviewed all ten nodes and focused respectively on endpoint/peer and cost/topology contracts. The first passed draft 9b7a610f379485290f4f66eaf8dc1a7bdecd41152b1581c494fd686add886f63, with a public-method shorthand check corrected against the actual signature. The second requested two in-contract corrections: preserve comparison arithmetic/negative-versus-invalid verdict tests from the accepted A3 outline, and assign finite comparison-aid retirement to Q2. Both were accepted before commit; that auditor passed revised draft 30fed8aa847474b85735cc1a5632e1e7dc9fa775380afbe469adee279d5b53dc. Minor subsequent prose names each artifact class directly, requires complete ordinary-control payload exchange and records the auditor's retirement/source-applicability clarification.
++
++The parent independently judged the complete graph and accepted the four-child frontier A0/P1/P2/C3. Each slice has all fifteen required contract fields; local checks found ten unique acyclic identities and 76 valid relative targets/anchors. Q1 must record actual measurement-source provenance and source-inert retirement applicability without pretending an earlier run executed on a later SHA; final local certification and hosted checks always use the final live head. No runtime defect, new campaign allowance, extra topology arm or parallel program implementation was absorbed.
++
++**Audit outcome: PASS after the accepted bounded corrections.** The initial A0–A4 outline is superseded only for dispatch decomposition. Publication review chronology and exact-head receipts belong in the docs PR discussion rather than the normative plan. No implementation or dispatch agent was launched.
