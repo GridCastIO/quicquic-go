@@ -489,12 +489,15 @@ func matrixUsefulTransfer(s *matrixSession) {
 			received = tally.Fresh[0] > 0 && tally.Fresh[1] > 0
 		}
 		require.True(s.t, progressed, "new useful STREAM traffic on both simultaneously active paths")
+		// Only receipts read before the phase-end observation count, so every
+		// counted ingress lies between eligible observations.
+		records := s.peer.ingressRecords()
+		after0, _ := s.trace.traffic(0)
+		after1, _ := s.trace.traffic(1)
 		eligible := s.bothActive(paths)
 		witness.finish(eligible)
 		require.True(s.t, eligible, "both paths live and active at phase end")
-		after0, _ := s.trace.traffic(0)
-		after1, _ := s.trace.traffic(1)
-		result, err := witness.accept(s.peer.ingressRecords(), map[uint64]uint64{0: after0.Datagram - before0.Datagram, 1: after1.Datagram - before1.Datagram})
+		result, err := witness.accept(records, map[uint64]uint64{0: after0.Datagram - before0.Datagram, 1: after1.Datagram - before1.Datagram})
 		require.NoError(s.t, err, "fresh DATAGRAM ingress on both simultaneously live active paths")
 		s.t.Logf("aggregate phase: new useful STREAM traffic on both live active paths; peer ingress receipts %v (duplicates %d, excluded %d); sender DATAGRAM deltas %v", result.Fresh, result.Duplicates, result.Excluded, result.SenderDelta)
 	}

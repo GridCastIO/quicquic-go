@@ -18,7 +18,8 @@ func TestPicoquicMatrixIngressWitness(t *testing.T) {
 	both := map[uint64]uint64{0: 64, 1: 64}
 
 	// phase builds a witness whose receipt cursor starts after the given
-	// pre-activation records and offers two rounds of two payloads.
+	// pre-activation records. Each eligibility value but the last offers one
+	// round of two payloads; the last is the phase-end observation.
 	phase := func(pre int, eligible ...bool) (*matrixIngressWitness, [][]byte) {
 		w := newMatrixIngressWitness(nonce, pre, 2)
 		var offered [][]byte
