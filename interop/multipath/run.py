@@ -15,6 +15,8 @@ import signal
 import subprocess
 import time
 
+import candidate_binding
+
 PACKAGE = "github.com/GridCastIO/quicquic-go/integrationtests/self"
 EXPECTED = ["TestPicoquicOrdinaryControl/client", "TestPicoquicOrdinaryControl/server"]
 # R14's two-path smoke reads private owners, so it runs in the root package.
@@ -38,6 +40,9 @@ PICOTLS_PIN = "e446233b4100ebcdec60901c05bfb7f4cd369c5d"
 PROFILES = {"linux-docker": ("linux", ("x86_64", "amd64")), "darwin-native": ("darwin", ("arm64",))}
 NATIVE_PROFILE = "darwin-native"
 PEER_BINARIES = ("picoquicdemo", "qgf-r17-peer")
+# The candidate checkout a native test binary is bound to (#1528): by default the one that
+# holds this runner, which is the protocol's $SRC.
+SOURCE = Path(__file__).resolve().parents[2]
 
 
 BBR_SCENARIOS = ("useful-transfer", "abandon-reopen-late-feedback", "same-id-migration-rebinding")
@@ -165,14 +170,24 @@ BUILD_IDENTITY_SCHEMA = {
     "binaries": {name: {"sha256": SHA256} for name in PEER_BINARIES},
     "self_test": exactly("pass"),
 }
+# The candidate snapshot and the byte-identical rebuild that bind the test binary (#1528).
+BINDING_FIELDS = ("source", "test_binary_binding")
+BINDING_SCHEMA = {
+    "source": {"commit": hex_text(40), "tree": hex_text(40), "head_tree": hex_text(40), "clean": exactly(True)},
+    "test_binary_binding": {
+        "method": exactly(candidate_binding.METHOD), "package": text, "form": lambda value: value in ("test", "build"),
+        "toolchain": text, "sha256": SHA256, "rebuild": exactly("byte-identical"),
+        "settings": lambda value: isinstance(value, dict) and all(isinstance(item, str) for pair in value.items() for item in pair)},
+}
 NATIVE_IDENTITY_SCHEMA = {
     "candidate": hex_text(40), "tree": hex_text(40),
     "go": lambda value: text(value) and GO_RELEASE.fullmatch(value) is not None,
     "kernel": {"system": exactly("Darwin"), "release": text, "version": text, "machine": exactly("arm64")},
     "build_identity_sha256": SHA256, "runner_sha256": SHA256, "peer_driver_sha256": SHA256, "test_binary_sha256": SHA256,
-}
-# Every identity field except the test binary, which differs between the two receipts by design.
-NATIVE_SHARED_IDENTITY = tuple(key for key in NATIVE_IDENTITY_SCHEMA if key != "test_binary_sha256")
+} | BINDING_SCHEMA
+# Every identity field except the test binary and its binding, which differ between the
+# two receipts by design.
+NATIVE_SHARED_IDENTITY = tuple(key for key in NATIVE_IDENTITY_SCHEMA if key not in ("test_binary_sha256", "test_binary_binding"))
 NATIVE_RUN_SCHEMA = {"profile": exactly(NATIVE_PROFILE), "status": exactly("pass"), "command": command_line,
                      "started": text, "duration_seconds": nonnegative_number}
 NATIVE_RECEIPT_SCHEMAS = {
@@ -277,7 +292,7 @@ def check_test_binary_settings(build_info, goos, goarch, toolchain=None):
     return settings
 
 
-def native_identity(build_identity, binary, test_binary):
+def native_identity(build_identity, binary, test_binary, source=SOURCE):
     candidate = os.environ.get("QGF_SOURCE_COMMIT", "")
     tree = os.environ.get("QGF_SOURCE_TREE", "")
     if not is_hex(candidate, 40) or not is_hex(tree, 40):
@@ -289,10 +304,13 @@ def native_identity(build_identity, binary, test_binary):
         raise ValueError(f"native profile requires a darwin/arm64 toolchain: {version}")
     info = subprocess.check_output(["go", "version", "-m", str(test_binary)], text=True, timeout=10)
     check_test_binary_settings(info, "darwin", "arm64", version.split()[2])
+    # Before any output or launch: the binary must be the clean candidate's build (#1528).
+    bound = candidate_binding.bind(source, candidate, {"test_binary": test_binary}, tree=tree)
     identity = {"candidate": candidate, "tree": tree, "go": version,
                 "kernel": {"system": system, "release": platform.release(), "version": platform.version(), "machine": machine},
                 "build_identity_sha256": digest(build_identity), "runner_sha256": digest(__file__),
-                "peer_driver_sha256": digest(Path(__file__).with_name("peer.c")), "test_binary_sha256": digest(test_binary)}
+                "peer_driver_sha256": digest(Path(__file__).with_name("peer.c")), "test_binary_sha256": digest(test_binary),
+                "source": bound["source"], "test_binary_binding": bound["bindings"]["test_binary"]}
     schema = NATIVE_IDENTITY_SCHEMA
     if binary is not None:
         identity["peer_binary_sha256"] = digest(binary)
@@ -372,6 +390,29 @@ def run_bounded(command, env, log_path, timeout):
         return run_group(command, log, timeout, env=env)
 
 
+def read_native_receipt(path, mode, where):
+    """Read one native receipt back, naming a missing #1528 binding before its shape, then
+    require the binding to describe this receipt's candidate, tree and test binary."""
+    try:
+        identity = json.loads(Path(path).read_text()).get("identity")
+    except (OSError, json.JSONDecodeError, AttributeError):
+        identity = None  # read_record reports it
+    if isinstance(identity, dict) and any(field not in identity for field in BINDING_FIELDS):
+        missing = [field for field in BINDING_FIELDS if field not in identity]
+        raise ValueError(f"{where} lacks the #1528 candidate binding ({', '.join(missing)}): "
+                         "its test binary was never proven to be the candidate's build")
+    receipt = read_record(path, NATIVE_RECEIPT_SCHEMAS[mode], where)
+    identity = receipt["identity"]
+    if identity["source"]["commit"] != identity["candidate"]:
+        raise ValueError(f"{where} identity: source commit {identity['source']['commit']} is not the candidate {identity['candidate']}")
+    if identity["source"]["tree"] != identity["tree"]:
+        raise ValueError(f"{where} identity: source tree {identity['source']['tree']} is not the recorded tree {identity['tree']}")
+    if identity["test_binary_binding"]["sha256"] != identity["test_binary_sha256"]:
+        raise ValueError(f"{where} identity: the binding names {identity['test_binary_binding']['sha256']}, "
+                         f"not the test binary {identity['test_binary_sha256']}")
+    return receipt
+
+
 def check_native(root):
     """Read back the native ordinary-control and discovery receipts; neither substitutes for the other."""
     control, discovery = root / "ordinary-control", root / "matrix-discovery"
@@ -379,9 +420,9 @@ def check_native(root):
     if not all(path.is_file() for path in paths):
         raise ValueError(f"missing native receipt: {[str(path) for path in paths if not path.is_file()]}")
     check_cases((control / "go-test.jsonl").read_text().splitlines(), PACKAGE, EXPECTED)
-    ordinary = read_record(control / "result.json", NATIVE_RECEIPT_SCHEMAS["ordinary-control"], "native ordinary-control receipt")
+    ordinary = read_native_receipt(control / "result.json", "ordinary-control", "native ordinary-control receipt")
     listed = check_listing((discovery / "list.txt").read_text().splitlines())
-    found = read_record(discovery / "result.json", NATIVE_RECEIPT_SCHEMAS["matrix-discovery"], "native matrix-discovery receipt")
+    found = read_native_receipt(discovery / "result.json", "matrix-discovery", "native matrix-discovery receipt")
     identities = [ordinary["identity"], found["identity"]]
     if any(identities[0][key] != identities[1][key] for key in NATIVE_SHARED_IDENTITY):
         raise ValueError("native receipts do not share one candidate/toolchain/build identity")
@@ -410,8 +451,13 @@ def main():
     parser.add_argument("--scenario", choices=MATRIX_SCENARIOS)
     parser.add_argument("--role", choices=("client", "server"))
     parser.add_argument("--test-binary", type=Path)
+    parser.add_argument("--source", type=Path,
+                        help="darwin-native only: the clean candidate checkout the test binary must rebuild from byte for byte; "
+                             "default: the checkout holding this runner")
     args = parser.parse_args()
     native = args.profile == NATIVE_PROFILE
+    if args.source is not None and not native:
+        parser.error("--source belongs to the darwin-native profile")
     if native and (args.smoke or args.matrix or args.zero_vectors or args.validate_matrix):
         parser.error("darwin-native executes no multipath case before public admission")
     if not native and (args.discover_matrix or args.validate_native or args.build_identity):
@@ -450,7 +496,7 @@ def main():
     if args.test_binary and (not args.test_binary.is_file() or not os.access(args.test_binary, os.X_OK)):
         raise ValueError(f"missing executable test binary: {args.test_binary}")
     if native:
-        identity = native_identity(args.build_identity, args.binary, args.test_binary)
+        identity = native_identity(args.build_identity, args.binary, args.test_binary, args.source or SOURCE)
     else:
         identity = execution_identity(args.binary, args.test_binary) if args.matrix or args.zero_vectors else None
     args.output.mkdir(parents=True, exist_ok=False)

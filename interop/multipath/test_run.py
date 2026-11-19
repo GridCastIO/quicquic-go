@@ -1,5 +1,7 @@
+import contextlib
 import hashlib
 import importlib.util
+import io
 import json
 import os
 from pathlib import Path
@@ -10,12 +12,14 @@ import sys
 import tempfile
 import time
 import unittest
+from unittest import mock
 
 
 sys.dont_write_bytecode = True
 SPEC = importlib.util.spec_from_file_location("peer_run", Path(__file__).with_name("run.py"))
 runner = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(runner)
+import test_candidate_binding as binding_fixture
 
 
 class AccountingTests(unittest.TestCase):
@@ -327,13 +331,15 @@ class NativeProfileTests(unittest.TestCase):
                      "[time.sleep(0.05) for _ in iter(lambda: not pathlib.Path(%r).exists(), False)]; time.sleep(60)"
                      ) % (str(child_pid), grandchild, str(ready))
             # A separate supervising process, so the test can deliver SIGTERM to the runner alone. It starts
-            # from the default disposition: the runner deliberately keeps an inherited ignore.
+            # from the default disposition: the runner deliberately keeps an inherited ignore. Like a script
+            # run, it puts the runner's directory first on sys.path for the runner's sibling imports.
             supervisor = ("import importlib.util, os, signal, sys; sys.dont_write_bytecode = True; "
-                          "signal.signal(signal.SIGTERM, signal.SIG_DFL); "
+                          "sys.path.insert(0, %r); signal.signal(signal.SIGTERM, signal.SIG_DFL); "
                           "spec = importlib.util.spec_from_file_location('peer_run', %r); "
                           "runner = importlib.util.module_from_spec(spec); spec.loader.exec_module(runner); "
                           "print('returned', runner.run_bounded([sys.executable, '-c', %r], os.environ, %r, 30))"
-                          ) % (str(Path(runner.__file__).resolve()), child, str(directory / "log"))
+                          ) % (str(Path(runner.__file__).resolve().parent), str(Path(runner.__file__).resolve()), child,
+                               str(directory / "log"))
             process = subprocess.Popen([sys.executable, "-B", "-c", supervisor],
                                        stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
             try:
@@ -382,12 +388,38 @@ class NativeProfileTests(unittest.TestCase):
             self.assertEqual(log.read_text().strip(), "SIG_IGN")
             self.assertIs(signal.getsignal(signal.SIGTERM), signal.SIG_IGN)
 
+    @staticmethod
+    def binding(digest, package):
+        return {"method": "rebuild-from-candidate/v1", "package": package, "form": "test", "toolchain": "go1.27.4",
+                "settings": {"-tags": "picoquic", "GOOS": "darwin", "GOARCH": "arm64"}, "sha256": digest,
+                "rebuild": "byte-identical"}
+
+    def test_native_receipts_require_their_candidate_binding(self):
+        for receipt in ("ordinary-control", "matrix-discovery"):
+            for change, message in (
+                    (lambda identity: identity.pop("test_binary_binding"), "lacks the #1528 candidate binding"),
+                    (lambda identity: identity.pop("source"), "lacks the #1528 candidate binding"),
+                    (lambda identity: identity["source"].update(commit="e" * 40), "source commit"),
+                    (lambda identity: identity["source"].update(tree="e" * 40), "source tree"),
+                    (lambda identity: identity["test_binary_binding"].update(sha256="e" * 64), "binding names"),
+                    (lambda identity: identity["source"].update(clean=False), "malformed")):
+                with self.subTest(receipt=receipt, message=message), tempfile.TemporaryDirectory() as temporary:
+                    root = self.native_root(temporary)
+                    path = root / receipt / "result.json"
+                    data = json.loads(path.read_text())
+                    change(data["identity"])
+                    path.write_text(json.dumps(data))
+                    with self.assertRaisesRegex(ValueError, message):
+                        runner.check_native(root)
+
     def native_root(self, temporary):
         root = Path(temporary)
         core = {"candidate": "a" * 40, "tree": "b" * 40, "go": "go version go1.27.4 darwin/arm64",
                 "build_identity_sha256": "c" * 64,
                 "kernel": {"system": "Darwin", "release": "27.2.0", "version": "Darwin Kernel Version 27.2.0", "machine": "arm64"},
-                "runner_sha256": "1" * 64, "peer_driver_sha256": "2" * 64, "test_binary_sha256": "3" * 64}
+                "runner_sha256": "1" * 64, "peer_driver_sha256": "2" * 64, "test_binary_sha256": "3" * 64,
+                "source": {"commit": "a" * 40, "tree": "b" * 40, "head_tree": "b" * 40, "clean": True},
+                "test_binary_binding": self.binding("3" * 64, "github.com/GridCastIO/quicquic-go/integrationtests/self")}
         run = {"command": ["go"], "started": "2026-11-19T00:00:00+00:00", "duration_seconds": 1.0}
         control = root / "ordinary-control"
         control.mkdir()
@@ -401,7 +433,9 @@ class NativeProfileTests(unittest.TestCase):
         (discovery / "list.txt").write_text("TestPicoquicMultipathMatrix\n")
         (discovery / "result.json").write_text(json.dumps(run | {
             "profile": "darwin-native", "mode": "matrix-discovery", "status": "pass",
-            "listed": runner.DISCOVERY_EXPECTED, "executed": [], "identity": core | {"test_binary_sha256": "4" * 64}}))
+            "listed": runner.DISCOVERY_EXPECTED, "executed": [],
+            "identity": core | {"test_binary_sha256": "4" * 64,
+                                "test_binary_binding": self.binding("4" * 64, "github.com/GridCastIO/quicquic-go")}}))
         return root
 
     def test_native_receipts_require_both_roles_and_discovery_separately(self):
@@ -464,6 +498,114 @@ class NativeProfileTests(unittest.TestCase):
         dockerfile = Path(runner.__file__).with_name("Dockerfile").read_text()
         self.assertEqual(re.findall(r"fetch -q --depth 1 origin ([0-9a-f]{40})", dockerfile), [runner.PICOQUIC_PIN])
         self.assertEqual(re.findall(r"PICOQUIC_FETCH_PTLS_TAG=([0-9a-f]{40})", dockerfile), [runner.PICOTLS_PIN])
+
+
+class NativeBindingTests(unittest.TestCase):
+    """MP-MAC #1528: darwin-native refuses a test binary that is not a byte-identical
+    rebuild of the clean QGF_SOURCE_COMMIT/QGF_SOURCE_TREE checkout, before any launch."""
+
+    def setUp(self):
+        directory = tempfile.TemporaryDirectory()
+        self.addCleanup(directory.cleanup)
+        self.root = Path(directory.name)
+        self.repo = binding_fixture.FixtureRepo(self.root)
+        self.identity, _ = NativeProfileTests.build_identity(None, self.root, __file__)
+
+    def build(self, name):
+        return self.repo.build(name, tags="picoquic")
+
+    def run_driver(self, test_binary, commit=None, tree=None, profile="darwin-native"):
+        """--discover-matrix through main; launching the bound binary is recorded and fails."""
+        launches, real_popen, real_output = [], subprocess.Popen, subprocess.check_output
+
+        def popen(command, *args, **kwargs):
+            if Path(command[0]).resolve() == Path(test_binary).resolve():
+                launches.append(command)
+                raise OSError("launch spy: nothing runs in a binding test")
+            return real_popen(command, *args, **kwargs)
+
+        def check_output(command, *args, **kwargs):
+            # The host's go may target another platform; the fixture was built by this go.
+            if command == ["go", "version"]:
+                return f"go version {binding_fixture.GO_VERSION} darwin/arm64\n"
+            return real_output(command, *args, **kwargs)
+
+        environment = {"QGF_SOURCE_COMMIT": commit or self.repo.head(), "QGF_SOURCE_TREE": tree or self.repo.tree()}
+        argv = ["run.py", "--profile", profile, "--discover-matrix", "--test-binary", str(test_binary),
+                "--build-identity", str(self.identity), "--source", str(self.repo.root), "--output", str(self.root / "output")]
+        with contextlib.ExitStack() as stack:
+            stack.enter_context(mock.patch.dict(os.environ, environment))
+            stack.enter_context(mock.patch.object(sys, "argv", argv))
+            stack.enter_context(mock.patch.object(runner.platform, "system", return_value="Darwin"))
+            stack.enter_context(mock.patch.object(runner.platform, "machine", return_value="arm64"))
+            stack.enter_context(mock.patch.object(runner.subprocess, "Popen", side_effect=popen))
+            stack.enter_context(mock.patch.object(runner.subprocess, "check_output", side_effect=check_output))
+            runner.main()
+        return launches
+
+    def refused(self, pattern, test_binary, **identity):
+        with self.assertRaisesRegex(ValueError, pattern):
+            self.run_driver(test_binary, **identity)
+        self.assertFalse((self.root / "output").exists(), "refused before any output")
+
+    def test_candidate_build_is_accepted_and_recorded(self):
+        test_binary = self.build("peer-matrix.test")
+        with self.assertRaisesRegex(OSError, "launch spy"):
+            self.run_driver(test_binary)
+        identity = json.loads((self.root / "output" / "attempt.json").read_text())["identity"]
+        self.assertEqual(identity["source"], {"commit": self.repo.head(), "tree": self.repo.tree(),
+                                              "head_tree": self.repo.tree(), "clean": True})
+        bound = identity["test_binary_binding"]
+        self.assertEqual((bound["sha256"], bound["form"], bound["rebuild"]), (sha256(test_binary), "test", "byte-identical"))
+        self.assertEqual(bound["settings"]["-tags"], "picoquic")
+        runner.check_record(identity, runner.NATIVE_IDENTITY_SCHEMA, "native identity")
+
+    def test_stale_dirty_mismatched_or_ignored_builds_are_refused(self):
+        first, first_tree = self.repo.head(), self.repo.tree()
+        stale = self.repo.stale("stale.test", tags="picoquic")
+        current = self.build("current.test")
+        self.refused("is not the candidate's build", stale)
+        self.refused("not the candidate", current, commit=first)
+        self.refused("not the recorded tree", current, tree=first_tree)
+        self.repo.write("extra_ignored.go", "package bindingfixture\n\nconst Extra = 1\n")
+        self.refused("recorded tree omits", self.build("ignored.test"))
+        (self.repo.root / "extra_ignored.go").unlink()
+        self.repo.write("fixture.go", 'package bindingfixture\n\nconst Version = "edited"\n')
+        self.refused("not clean", current)
+
+    def test_linux_docker_takes_no_source(self):
+        with contextlib.redirect_stderr(io.StringIO()), self.assertRaises(SystemExit):
+            self.run_driver(self.build("linux.test"), profile="linux-docker")
+        self.assertFalse((self.root / "output").exists())
+
+    def test_linux_docker_never_binds(self):
+        test_binary, launches = self.build("linux.test"), []
+
+        def run_bounded(command, env, log_path, timeout):
+            launches.append(command)
+            return 1
+
+        environment = {"QGF_SOURCE_COMMIT": self.repo.head(), "QGF_SOURCE_TREE": self.repo.tree(),
+                       "QGF_IMAGE_ID": "sha256:" + "0" * 64}
+        argv = ["run.py", "--profile", "linux-docker", "--zero-vectors", "--binary", str(test_binary), "--test-binary", str(test_binary),
+                "--output", str(self.root / "output")]
+        with contextlib.ExitStack() as stack:
+            stack.enter_context(mock.patch.dict(os.environ, environment))
+            stack.enter_context(mock.patch.object(sys, "argv", argv))
+            stack.enter_context(mock.patch.object(runner.platform, "system", return_value="Linux"))
+            stack.enter_context(mock.patch.object(runner.platform, "machine", return_value="x86_64"))
+            stack.enter_context(mock.patch.object(runner.shutil, "which", return_value="/usr/bin/stand-in"))
+            stack.enter_context(mock.patch.object(runner.subprocess, "check_output",
+                                                  return_value="go version go1.27.4 linux/amd64\n"))
+            stack.enter_context(mock.patch.object(runner, "run_bounded", side_effect=run_bounded))
+            stack.enter_context(mock.patch.object(runner.candidate_binding, "bind",
+                                                  side_effect=AssertionError("bound on linux-docker")))
+            with self.assertRaisesRegex(ValueError, "peer control exited 1"):
+                runner.main()
+        self.assertEqual(len(launches), 1)
+        identity = json.loads((self.root / "output" / "attempt.json").read_text())["identity"]
+        self.assertNotIn("source", identity)
+        self.assertNotIn("test_binary_binding", identity)
 
 
 if __name__ == "__main__":
