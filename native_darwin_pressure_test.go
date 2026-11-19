@@ -1,4 +1,4 @@
-//go:build darwin && native_pressure
+//go:build darwin && nativepressure
 
 package quic
 
@@ -14,7 +14,7 @@ var nativeDarwinPressureLoad = nativeDarwinLoad{
 }
 
 // TestNativeDarwinPressure is MP-MAC E3's bounded socket-pressure observation
-// mode. It builds only with the native_pressure tag, so default development tests
+// mode. It builds only with the nativepressure tag, so default development tests
 // never launch it; interop/multipath/native_darwin.py --profile pressure runs its
 // one case. It offers the bounded load once on a real loopback socket and records
 // what it observed. A pressure wait may or may not occur: an absent wait in a

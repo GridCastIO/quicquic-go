@@ -49,5 +49,5 @@ RUN go test -c -tags=picoquic -o /src/peer-smoke.test .
 RUN cp /src/peer-smoke.test /src/peer-matrix.test
 RUN PYTHONDONTWRITEBYTECODE=1 python3 -B -m unittest discover -s interop/multipath -p test_run.py && \
     PYTHONDONTWRITEBYTECODE=1 python3 -B -m unittest discover -s interop/multipath -p test_native_build.py && \
-    PICOQUIC_BINARY=/usr/local/bin/qgf-r17-peer go test -tags=picoquic -run='^TestPicoquicMatrix(AwaitsTraceConsumption|CIDReceipt|ReplayDispositions|MTUFinalLossObservation|MTUProgress|TuplePlan|PeerLaunch|PeerAdapter)$' -count=1 .
+    PICOQUIC_BINARY=/usr/local/bin/qgf-r17-peer go test -tags=picoquic -run='^TestPicoquicMatrix(AwaitsTraceConsumption|CIDReceipt|ReplayDispositions|MTUFinalLossObservation|MTUProgress|TuplePlan|PeerLaunch|PeerAdapter|IngressWitness|IngressRecord)$' -count=1 .
 ENTRYPOINT ["python3", "interop/multipath/run.py", "--binary", "/usr/local/bin/picoquicdemo"]
