@@ -331,13 +331,15 @@ class NativeProfileTests(unittest.TestCase):
                      "[time.sleep(0.05) for _ in iter(lambda: not pathlib.Path(%r).exists(), False)]; time.sleep(60)"
                      ) % (str(child_pid), grandchild, str(ready))
             # A separate supervising process, so the test can deliver SIGTERM to the runner alone. It starts
-            # from the default disposition: the runner deliberately keeps an inherited ignore.
+            # from the default disposition: the runner deliberately keeps an inherited ignore. Like a script
+            # run, it puts the runner's directory first on sys.path for the runner's sibling imports.
             supervisor = ("import importlib.util, os, signal, sys; sys.dont_write_bytecode = True; "
-                          "signal.signal(signal.SIGTERM, signal.SIG_DFL); "
+                          "sys.path.insert(0, %r); signal.signal(signal.SIGTERM, signal.SIG_DFL); "
                           "spec = importlib.util.spec_from_file_location('peer_run', %r); "
                           "runner = importlib.util.module_from_spec(spec); spec.loader.exec_module(runner); "
                           "print('returned', runner.run_bounded([sys.executable, '-c', %r], os.environ, %r, 30))"
-                          ) % (str(Path(runner.__file__).resolve()), child, str(directory / "log"))
+                          ) % (str(Path(runner.__file__).resolve().parent), str(Path(runner.__file__).resolve()), child,
+                               str(directory / "log"))
             process = subprocess.Popen([sys.executable, "-B", "-c", supervisor],
                                        stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
             try:
