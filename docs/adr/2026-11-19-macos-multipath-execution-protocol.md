@@ -1,0 +1,206 @@
+# macOS multipath execution protocol
+
+**Date:** 2026-11-19. **Identity:** MP-MAC-Q1, [Bind the concrete execution protocol and venue (#1494)](https://github.com/GridCastIO/quicquic-go/issues/1494), in [MP-MAC-20261119](2026-11-19-macos-multipath-program.md). **Status:** Draft for the owner's decision. Not executable. **Contract:** [Q1 slice](2026-11-19-macos-multipath-implementation-plan.md#q1--bind-the-concrete-execution-protocol-and-venue) at accepted plan commit `24cd8a12dbf63bdd8bfbffdcfc07ca987739e465`. **Source inspected:** `7895b718318f644d352c1c97a7ef119e61eb5dbc`. **Consumer:** [Q2 (#1495)](https://github.com/GridCastIO/quicquic-go/issues/1495).
+
+## Purpose and authority
+
+This document is the single collection contract that Q2 executes on its exact activation candidate. It binds the merged readiness apparatus (E1–E3, P1–P2, C1–C4) to candidate rules, commands, venue, toolchains, build cells, release applicability, inventory, criteria, attribution and continuing coverage. It records evidence that is missing as a blocker, never as a waived row.
+
+Q1 ran nothing native. It ran no fixture, sampler, build of a test binary, peer or measurement, installed nothing, and reserved no venue. Every fact below comes from reading source, the merged readiness receipts, hosted job metadata and read-only host identity commands.
+
+The protocol becomes executable only when the [owner decision receipt](#owner-decision-receipt) records approval of every row in the [decision table](#decision-table) together with this document's exact revision. A partial approval is not executable. Neither a runner, a readiness label nor this document grants execution authority. The owner, or a maintainer the owner names, owns venue access, privileged sampling, the operational inventory and any support exception. Q2 also needs the owner's separate activation authority before it is dispatched.
+
+A protocol change after approval needs the owner's reapproval before any affected step runs. That includes a command, cell, inventory count, criterion, timeout or follow-up method.
+
+## Inputs bound here
+
+| Input | Binding |
+| --- | --- |
+| [#1528](https://github.com/GridCastIO/quicquic-go/issues/1528), test binaries bound to their candidate | [D4](#decision-table) and [candidate rules](#candidate-and-identity-rules) |
+| [#1530](https://github.com/GridCastIO/quicquic-go/issues/1530), Darwin abandon/reopen source tuple | [D8](#decision-table) and [known limitations](#known-limitations) |
+| [#1531](https://github.com/GridCastIO/quicquic-go/issues/1531) (closed `wontfix`), ordinary-demo stdio tails | [Known limitations](#known-limitations) |
+| [#1552](https://github.com/GridCastIO/quicquic-go/issues/1552), whether to select a `powermetrics` sampler | [D6](#decision-table), step X3 and [attribution](#attribution-and-contamination) |
+| [#1556](https://github.com/GridCastIO/quicquic-go/issues/1556) (closed by [PR #1566](https://github.com/GridCastIO/quicquic-go/pull/1566)), queued-expiry basis | [Deadline criteria](#deadline-and-timing-criteria) |
+| [#1564](https://github.com/GridCastIO/quicquic-go/issues/1564), pressure load, window cutoff and long writes | [D7](#decision-table) and step X6 |
+
+## Venue, host and toolchain inventory
+
+Observed read-only on 2026-11-19.
+
+| Item | Observed fact | Consequence |
+| --- | --- | --- |
+| Proposed venue `mbp128` | `Mac16,5`, Apple M4 Max, 12 performance and 4 efficiency cores, 128 GiB; macOS 27.2.1 build 26B131; Darwin 27.2.0, XNU `13432.41.4~25/RELEASE_ARM64_T6041`, arm64 | The exact host tuple recorded by the accepted target. Native Apple Silicon, so no Rosetta. |
+| Venue sharing | The host sends for wiremux `tb` campaigns, hosts GARM runner VMs on efficiency cores and runs other agents' work | No exclusive reservation, affinity or process termination is implied. [Attribution](#attribution-and-contamination) and the host gate apply. |
+| Second Mac `m4mini` | `Mac16,11`, M4 Pro, 8 performance and 4 efficiency cores; macOS 27.2.1 26B131, the same Darwin 27.2.0 kernel build | It is not an earlier Darwin 27 release, so it adds no release coverage. Not proposed as a venue. |
+| Hosted macOS runner | The latest `main` unit job ran image `macos-26-arm64` 20261112.0504.1, macOS 26.7.2 build 25G332 (Darwin 25) | Not a Darwin 27 venue. After Q2 it exercises refusal of a nonselected major, not admission. |
+| Repository runners | The Actions API reports 0 self-hosted runners and no repository variables | No continuing Darwin 27 runner exists. |
+| Go 1.27.4 | Installed at `/usr/local/go`, `go version go1.27.4 darwin/arm64`. `bin/go` sha256 `d4f87582b3289f95d5913feeda16a0682e6ec9ac37b48a600b32b00fb58b1b81`, `src/internal/poll/fd_unix.go` sha256 `675f74e8cbfc73170e08b43947c131706cd59e498d722555fe3b793618f5f162`, `fd_poll_runtime.go` sha256 `88fda43019c5dcf42545effdebd1747aaea377560dd041a35df8499538ee07c5`. The module-cache toolchain `golang.org/toolchain@v0.0.1-go1.27.4.darwin-arm64` has identical hashes. | Available. It matches `go.mod`'s `toolchain go1.27.4` and the CI matrix. |
+| Go 1.26.11 | **Not installed.** Present: `~/sdk/go1.26.6`; module-cache toolchains 1.26.9 and 1.26.10 | Concrete blocker **B1** until the owner authorizes its acquisition ([D2](#decision-table)). |
+| Python | 3.15.2 at `/opt/homebrew/bin/python3` | Runs every driver. |
+| C toolchain | Xcode Apple clang 21.0.0 (clang-2100.4.1.1), macOS SDK 27.2 | P1's recorded build toolchain. |
+| Peer build prefixes | User-owned CMake 3.31.12 and pkgconf 3.0.11 under `~/.local/share/qgf-native-tools`; Homebrew OpenSSL 3.5.9 with static `libssl.a` and `libcrypto.a` | P1's recipe inputs. Existing P1 build identities predate [PR #1534](https://github.com/GridCastIO/quicquic-go/pull/1534)'s `peer.c`, so Q2 rebuilds the peer at its candidate. |
+| `powermetrics` | `/usr/bin/powermetrics` is present. It requires the superuser, and `ordinary_cost.py` invokes it without privilege. | Not run, and `sudo` was not probed. Concrete blocker **B2** if the sampler is selected ([D6](#decision-table)). |
+
+## Candidate and identity rules
+
+1. **Candidate.** One clean commit on Q2's feature branch that contains the activation change and its acceptance-expecting tests. Every native step runs at that commit with `git status --porcelain` empty. Each record carries the commit and its tree (`git rev-parse HEAD` and `git rev-parse 'HEAD^{tree}'`).
+2. **Binaries.** Every test binary, peer and relay is built from the candidate inside this protocol's steps, in a fresh directory, and is never reused from an earlier candidate. D4 selects how a receipt proves the binary came from the candidate.
+3. **Freshness.** A change to any Go, C or Python file, `go.mod` or `go.sum` after collection begins invalidates all collected native evidence. A change limited to Markdown or `docs/` does not. If `main` gains non-documentation changes before Q2 merges, Q2 stops and asks the owner either to re-collect or to accept an exact applicability disposition for that diff. Evidence is never silently carried to a different tree.
+4. **Host identity per run block.** `sw_vers`, `uname -a`, `sysctl -n hw.model machdep.cpu.brand_string hw.perflevel0.physicalcpu hw.perflevel1.physicalcpu`. Per toolchain: `go version`, `go env GOROOT`, and the sha256 of `$GOROOT/bin/go`, `$GOROOT/src/internal/poll/fd_unix.go` and `$GOROOT/src/internal/poll/fd_poll_runtime.go`. The poller sources bind each EAGAIN and deadline observation to the exact installed toolchain source.
+5. **Retention.** Every attempt, including failed, contaminated and interrupted attempts, keeps its raw output, `go test -json` stream, peer logs, build identity and driver records under one results root for the candidate.
+
+## Execution cells
+
+| Cell | Toolchain | Build | Rows that run here | Why this cell is semantic |
+| --- | --- | --- | --- | --- |
+| T27 | go1.27.4 | default | Every step | Primary toolchain (`go.mod` and CI). |
+| T26 | go1.26.11 | default | X2, X4, X5, X7 | The Go runtime poller, scheduler and `net` package belong to the toolchain, so deadline traversal, endpoint races and public behavior can differ by toolchain. E6 ran its native classes on both toolchains. Peer, cost, lifecycle and topology rows are wire or measurement rows, and the R17 precedent ran them on one toolchain. |
+| O27 | go1.27.4 | `-tags quic_go_no_private_syscalls` | X7 (public and BBR sets only), X10 fallback pairs | The tag replaces ordinary `sendmsg_x` sends with the scalar fallback and removes the private read-slot reader. The granted endpoint already writes scalar packets through `WriteMsgUDPAddrPort`, so endpoint and peer rows do not differ by this tag. Ordinary-cost control arms do. |
+
+Not proposed: an O26 cell, `darwin/amd64` execution (deferred and refused), Rosetta, a Linux container or another Darwin major. The cross-compile workflow keeps its existing Darwin opt-out builds for both architectures.
+
+## Command inventory
+
+These steps run in this order. `$SRC` is the candidate checkout, `$OUT` a new results root, `$BIN` and `$BUILD` new directories. Every step begins with the host gate below. Every step stops at its first failure and keeps its evidence.
+
+**Host gate.** Run `ps -axo command | grep -E 'native-gap-evidence/.*/scripts/(campaign|chain|rig)[0-9]*\.sh|rig[0-9]*\.sh tb|nativerig' | grep -v grep` and `pgrep -lx nativerig` before every step and record both outputs. A match means a wiremux measurement campaign is running, so the step waits for a quiet window and nothing is recorded.
+
+| Step | Semantic rows | Command (per cell) | Expected identity and output | Missing or failed evidence |
+| --- | --- | --- | --- | --- |
+| X1 identity | All | The identity commands in [candidate rule 4](#candidate-and-identity-rules) | One host tuple equal to the [venue](#venue-host-and-toolchain-inventory) and one candidate commit and tree | A different host tuple stops collection pending the owner. |
+| X2 first write-wait observation | Expiry before dispatch; queued expiry behind a blocked writer; buffer lifetime; shutdown and grant return | `python3 -B interop/multipath/native_darwin.py --profile blocked-writer --toolchain go1.27.4 --output $OUT/T27/blocked-writer`, then the same with `go1.26.11` into `$OUT/T26/blocked-writer` | `native-darwin-run/v2`, profile `blocked-writer`, `support_receipt: false`. Six cases, each exactly once. `eagain-to-deadline`, `queued-expiry` and `active-close-join` have `evidence: native-traversal`, `poller_witness: true`, `injected: 0` and `traced: false`. The other three keep their separate classes: `simulated`, `constructed` and `native-size-feedback`. | See [first write-wait observation](#first-write-wait-observation). |
+| X3 sampler capture (only if D6 selects the sampler) | Ordinary behavior and costs (attribution) | [Sampler capture](#sampler-capture-and-contiguity-check) | One real `cpu_power` record set that passes the contiguity check | No `observed` host record counts until X3 passes. |
+| X4 family, packet info, ECN and contention | Grant and deadline authority; packet info, ECN and family; shared endpoint contention | `python3 -B interop/multipath/native_darwin.py --profile scalar --toolchain go1.27.4 --output $OUT/T27/scalar`, and the same with `go1.26.11` | Seven cases exactly once: IPv4-only, IPv6-only, dual-stack mapped IPv4 and native IPv6 delivery with CE in, ECT(0) out, packet-info destination and interface; grant refusals; authority returned after the join; `scalar-contention` complete and fault-free with progress on every lane | Any missing family, metadata or ECN record blocks activation. |
+| X5 focused endpoint races | Buffer lifetime; queued expiry; shutdown and grant return | `GOTOOLCHAIN=go1.27.4 go test -race -count=1 '-run=^(TestNativeEndpointMemberReturnPrecedesDeadlineReset\|TestNativeEndpointQueuedExpiry\|TestNativeEndpointOverdueBorrow\|TestNativeEndpointExpiredClaimAndNextDeadline\|TestEndpointPublicQueuedExpiryAndClose\|TestEndpointPublicOverdueBorrow\|TestNativeIOStopAndJoin\|TestNativeLiveCloseDuringCurrentWrite)$' -json .`, and the same with `GOTOOLCHAIN=go1.26.11`. This is `native_darwin.py --print-race-command` with the toolchain fixed. | All eight tests pass once with no skip and no race report | A failure is diagnosed. It is never rerun until it passes. |
+| X6 socket-pressure observation | Local send backpressure; shared endpoint contention | `python3 -B interop/multipath/native_darwin.py --profile pressure --toolchain go1.27.4 --output $OUT/T27/pressure`. One attempt, no retry. | One `socket-pressure` record whose load equals the D7 load. `pressure_wait` is `observed`, `not-observed` (a valid negative) or `unknown` (from `interrupted` or `incomplete-coverage`). Errors by class, including any `enobufs`. `max_write_ns` and `long_writes` as D7 decides. | A negative or unknown result is recorded, not rescued. UDP ENOBUFS stays an explicit residual if it is not observed. |
+| X7 deterministic and public sets | Grant authority; validation, migration and stale tuples; detachment versus transport join; selection, admission and configuration; BBR feedback and lifecycle; packet info and ECN controls | Per cell, with `-json` and `GOTOOLCHAIN` fixed (O27 adds `-tags quic_go_no_private_syscalls`). (a) `go test -count=1 '-run=^(TestMultipath[A-Za-z0-9]*\|TestPathMigration[A-Za-z0-9]*\|TestPathDetachAuthority\|TestPacketCeilingRefusesNativeMultipathIO\|TestNativeIOGrantValidation\|TestDarwinManagedECN[A-Za-z0-9]*)$' .` (b) `go test -count=1 '-run=^TestMultipathHTTP3' ./http3` (c) `go test -race -count=1 '-run=^(TestBBRPath[A-Za-z0-9]*\|TestBBRNative[A-Za-z0-9]*\|TestNativeProtectionCoalesced[A-Za-z0-9]*\|TestE24SoftwareCiphertextBeforeNativeAndFinalFence\|TestNativeOrdinaryBBRAcceptedMembers)$' .` (d) `go test -race -count=1 '-run=^TestLocalBBR' ./internal/ackhandler` | Every selected test passes once. A test that skips for lack of the public profile fails this row, because Q2's acceptance tests state Darwin 27 arm64 support independently of the production gate. | These are deterministic or public loopback results. They are not the native transfer and lifecycle observations in X9–X12. |
+| X8 ECN-disabled ordinary control | Packet info, ECN and family | `QUIC_GO_DISABLE_ECN=true go test -count=1 '-run=^(TestMultipathOrdinaryPeerFallback\|TestMultipathExplicitGrantLifecycle\|TestDarwinManagedECNFallback)$' -json .` on T27 | All three pass with ECN disabled | Blocks activation like any other required row. |
+| X9 peer build and ordinary control | Wire interoperability (ordinary) | P1's commands from the [native Darwin peer profile](../../interop/multipath/README.md#native-darwin-peer-profile): `native_build.py --cmake ~/.local/share/qgf-native-tools/cmake-3.31.12/CMake.app/Contents/bin/cmake --pkg-config ~/.local/share/qgf-native-tools/pkgconf-3.0.11/bin/pkg-config --openssl-root /opt/homebrew/Cellar/openssl@3/3.5.9 --work $BUILD`; `go test -c -tags=picoquic` for `peer-control.test` and `peer-matrix.test`; `run.py --profile darwin-native` ordinary control, `--discover-matrix` and `--validate-native` | A build identity naming both pins, SDK 27.2, the candidate's `peer.c` digest and arm64 binaries. `TestPicoquicOrdinaryControl/client` and `/server` pass exactly once. Discovery lists exactly `TestPicoquicMultipathMatrix`. | Any refusal stops the peer rows. |
+| X10 independent peer matrix | Wire interoperability; aggregate scheduling versus useful receipt; validation, migration and stale tuples; BBR feedback and lifecycle | T27 only. For each scenario and role: `python3 -B interop/multipath/run.py --profile darwin-native --matrix --scenario $S --role $R --binary $PEER --test-binary $BIN/peer-matrix.test --build-identity $BUILD/build-identity.json --output $ROOT/$S/$R`. `$PEER` is the `qgf-r17-peer` binary that the build identity records. Reno root: all 8 scenarios × 2 roles, then `--zero-vectors` once into `$ROOT/negotiated-zero` and `run.py --profile darwin-native --validate-matrix --output $ROOT`. BBR primary/backup root (fresh `$ROOT`): `--controller bbrv3` for `useful-transfer`, `abandon-reopen-late-feedback` and `same-id-migration-rebinding` × 2 roles, then `--validate-matrix --controller bbrv3 --output $ROOT`. BBR aggregate root (fresh `$ROOT`): the same six cases with `--controller bbrv3 --policy aggregate`, then `--validate-matrix --controller bbrv3 --policy aggregate --output $ROOT`. | 16 + 6 + 6 = 28 case receipts and one negotiated-zero receipt, each executed exactly once, with one candidate, toolchain and build identity. In both roles of every aggregate `useful-transfer` case, the [P2 fresh ingress phase](../../interop/multipath/README.md#experimental-bbr-aggregate) reports a fresh receipt on paths zero and one while both stay live and active. | A first-run P2 witness failure is inconclusive until fixture failure is told apart from Darwin behavior. Diagnose; never rerun to pass. |
+| X11 ordinary cost | Ordinary behavior and costs; BBR feedback and lifecycle | T27, built once with `go test -c -tags ordinarycost`. Per controller, cell and observation: `python3 -B interop/multipath/ordinary_cost.py --platform-profile darwin-arm64 --controller $C --diagnostic-cell $CELL --candidate $SHA --binary $BIN/ordinary-cost.test --output $OUT/T27/cost/$C/$CELL/$N --remaining-instances $I --remaining-host-seconds $H --timeout-seconds 135`, adding `--host-sampler powermetrics` if D6 selects it. O27 fallback check: `--smoke-cell` for `stream` and `datagram` with Reno, once each, using a binary built with the opt-out tag. | D9 inventory: Reno and BBR × `stream`, `datagram`, `mixed-bulk`, `stateless-pressure` × 3 paired diagnostic observations = 24 pairs (48 instances), plus 2 O27 smoke pairs. `mixed-bulk`'s opted-in arm negotiates multipath once Q2 sets the Darwin profile's `negotiated_multipath`. | Judged by [cost criteria](#cost-lifecycle-and-topology-criteria). A missing metric is `unavailable`, never zero. |
+| X12 lifecycle memory | Ordinary behavior and costs (memory at path states) | T27: `python3 -B interop/multipath/ordinary_cost.py --platform-profile darwin-arm64 --controller $C --lifecycle-memory --retired-lifecycle closed --candidate $SHA --binary $BIN/ordinary-cost.test --output $OUT/T27/lifecycle/$C --remaining-instances $I --remaining-host-seconds $H --timeout-seconds 135` for Reno and BBR, once each | Two `mp-mac-c2-lifecycle-memory/1` records with phases `negotiated-idle`, `validated-backup` and `retired` (state `closed`). `match_lifecycle` pairs only succeeded attempts. | Reported. See [criteria](#cost-lifecycle-and-topology-criteria). |
+| X13 topology comparison | Aggregate scheduling; shared-bottleneck control; ordinary behavior and costs | T27: `go build -o $BIN/udprelay ./interop/multipath/relay/cmd/udprelay`, then `python3 -B interop/multipath/topology_comparison.py --platform-profile darwin-arm64 --test-binary $BIN/ordinary-cost.test --relay-binary $BIN/udprelay --candidate $SHA --controller $C --topology $K --arm $ARM --mode diagnostic --timeout-seconds 135 --output $OUT/T27/topology/$C/$K/$ARM/$N` | D9 inventory. BBR: `disjoint` and `shared` × all five arms × 3 observations, and `unequal` × all five arms × 1, for 35 arm runs. Reno: `primary-backup` on `disjoint` and `shared` × 1, for 2 runs. Each run passes `verify` readback. | Judged by [topology criteria](#cost-lifecycle-and-topology-criteria) where D9 names them; the rest are reported. |
+
+`--remaining-instances` and `--remaining-host-seconds` count down from the Q2 ledger that D9 approves: 52 cost instances (each pair is two instances), 2 lifecycle attempts and 37 topology runs. A step that would exceed the ledger stops.
+
+### First write-wait observation
+
+X2 is the first native step after identity, and it runs on T27 before anything else, so that the riskiest native trigger is known early.
+
+- **Fixture owner:** the transport test suite, for E2's `TestNativeDarwinBlockedWriter` (`native_darwin_writer_test.go`, `//go:build darwin`, traversal cases under `nativequal`) and its `native_darwin.py` profile.
+- **Receipt fields:** per case, `evidence`, `send_buffer`, `control_bytes`, `payload_bytes`, `positive_control`, `poller_witness`, `injected`, `traced`, `result`, `uncertain`, `native_return_after_deadline_ms`, `native_calls`, `deadline_preserved`, `deadline_reset` and `native_returned`. Case-specific facts: `publication_ms` and successor facts for `eagain-to-deadline`; the queued facts below for `queued-expiry`; and the close, cancel, join and caller-write facts with `close_to_join_ms` for `active-close-join`. The run carries the build identity, binary sha256 and native identity.
+- **Missing trigger:** a traversal case with any class other than `native-traversal` (`no-witness`, `expired-before-dispatch`, `stale-deadline`, `missing-native-return`, `reset-failure` or `simulated`) stops Q2 collection. Trigger diagnosis and any repair go to E2's fixture owner as a separately scoped follow-up. A changed trigger, command or case set needs the owner's reapproval of this protocol before X2 runs again. A missing witness never counts as safe native deadline behavior, and activation stays blocked.
+
+### Sampler capture and contiguity check
+
+This runs only if D6 selects the sampler, under the privilege D6 authorizes. It comes before any record that uses `--host-sampler`.
+
+1. Capture: `/usr/bin/powermetrics --format plist --samplers cpu_power -i 1000 -n 60` under the authorized privilege. A small capture reader timestamps each NUL-terminated record's arrival on the monotonic clock and also records the clock just before launch and just after reaping.
+2. Parse every record with the merged adapter's `plistlib` path. It must find cluster names labeled `E` or `P`, `idle_ratio`, `down_ratio`, `elapsed_ns` and `is_delta`.
+3. Contiguity passes only if every record after the first has `is_delta` true; each consecutive arrival gap is within 50 ms of the later record's `elapsed_ns`; and the sum of `elapsed_ns` is within 100 ms of the time from launch to the last arrival. Otherwise the adapter must classify gaps as `inconclusive` (a follow-up under [#1552](https://github.com/GridCastIO/quicquic-go/issues/1552)) before any `observed` record counts.
+4. Before any captured bytes are committed as a fixture, check that they carry no host identifier beyond the model and OS fields the fixture already holds.
+
+## Comparison criteria
+
+### Deadline and timing criteria
+
+The endpoint tolerance is the existing `endpointTolerance` of 20 ms (`native_endpoint.go`), unchanged. E2's records are untraced (`traced: false`), so, as for E6's uninstrumented classes, their timing is compared with it.
+
+| Fact | Basis | Criterion |
+| --- | --- | --- |
+| `native_return_after_deadline_ms` (each traversal case) | Native return after the request's absolute deadline | At most 20 ms |
+| `queued_expiry_ms` (`queued-expiry`) | From the queued deadline to the endpoint's terminal decision, the queued member's `returnedAt`. This is the corrected basis from [PR #1566](https://github.com/GridCastIO/quicquic-go/pull/1566); the case already refuses a decision before the deadline or after the observation. | At most 20 ms |
+| `queued_publication_ms`, `publication_ms` | Fixture collection or publication delay after the endpoint's decision | Recorded, not judged. Never added to expiry. |
+| `close_to_join_ms` | From `Transport.Close` to the join | Recorded, not judged. The case's ordering facts (join after native return) are the requirement. |
+
+A miss is a timing failure. It blocks activation and goes to diagnosis. It is not rerun until it passes, and the tolerance is not relaxed.
+
+### Cost, lifecycle and topology criteria
+
+These are the [accepted product thresholds](2026-10-24-multipath-reno-plan.md#accepted-product-thresholds), unchanged. No Linux exception, including the R18 CPU dispositions and the B9 and B11 records, transfers to Darwin.
+
+- **Ordinary cost, Reno.** On the median of the three paired diagnostic observations per cell: opted-in useful goodput at least 95% of unregistered; CPU per useful byte at most 110%; p99 control echo latency and p99 application send-call latency each at most the larger of 110% of baseline and baseline + 1 ms; native peak RSS growth at most 10% (normalized bytes); no timeout-only close; bounded memory; the declared fair progress. A miss blocks activation unless the owner gives an exact-result disposition for that cell.
+- **Ordinary cost, BBR.** Reported with the same ratios but `judged: false`, as the existing convention does for BBR pairs. The owner gives BBR primary/backup and aggregate their own ordinary-cost disposition on the exact results before activation.
+- **Opt-out fallback pairs (O27).** Functional: both arms valid with useful delivery and no workload failure. Not judged.
+- **Lifecycle memory.** Reported per phase: `go_heap_live`, `peak_rss`, detachment and grant joins, for Reno and BBR at `retired` state `closed`. No new threshold. The memory requirement is the 10% native RSS criterion above, together with the owner's review of these phase records.
+- **Topology, BBR aggregate.** On medians of three: `disjoint` aggregate useful goodput at least 120% of the better of `single-a` and `single-b`, and at least 95% of `pair`; on `shared`, the Reno competitor's useful goodput with `aggregate` reduced by no more than 10% relative to `pair`. STREAM completion and DATAGRAM useful delivery are reported separately. `unequal` and the Reno primary/backup runs are reported, not judged. A failed judged cell blocks the aggregate support claim. It does not trigger more experiments.
+
+Every native summary today carries no verdict (`judged: false`, `NATIVE_NOT_JUDGED`), so D12 decides how Q2 computes these verdicts.
+
+## Attribution and contamination
+
+- An observation is **contaminated** when the host gate matches at the start or end of its step, or when its sampler record is `inconclusive` after X3 passed. A contaminated block gets one clean rerun of that block. It is neither discarded silently nor counted as a product failure.
+- Activity on efficiency cores is background activity, not contamination. If the sampler is selected, performance-cluster and efficiency-cluster activity are reported separately and not judged.
+- If the sampler is not selected, `host_activity` is `unavailable` in every record. A cost miss is then not attributable from the record. It still blocks unless the owner disposes it.
+- A load average alone never marks a run contaminated. Linux foreign-CPU arithmetic and its thresholds do not apply.
+
+## Attempts and failure handling
+
+- Each declared instance runs once. Per-invocation timeouts are as stated in each step and in the existing drivers: the matrix role context and C adapter at 30 s, the Go test at 90 s, the runner at 120 s, build and setup at 1200 s, and `native_darwin.py` cases at 60 s.
+- A failed attempt stops its step and keeps its evidence. Diagnose before deciding anything. A rerun is legitimate only for a demonstrated external failure or contamination. Never repeat until passing.
+- A product failure returns Q2 to implementation and leaves activation unmerged. A fixture failure goes to that fixture's owner as a scoped follow-up, with protocol reapproval where its inputs change.
+
+## Admitted-release applicability
+
+The accepted predicate admits Darwin kernel major 27 on arm64 (`getMacOSVersion` reads the major only). Q2's evidence is from Darwin 27.2.0. The archived [Darwin 27 transient-error results](../audits/2026-09-22-darwin27-errors/results.md) are from 27.0.0 (26A428): C `sendmsg` and private-batch EAGAIN/EINTR, payloads and ECN metadata were identical to Darwin 25. They say nothing about the Go poller or the endpoint writer. Both available Macs run 27.2.1, so no earlier Darwin 27 host exists for qualification. Later 27.x releases are unobserved by definition. D5 decides the admitted domain.
+
+## Continuing coverage
+
+The existing hosted unit, integration, lint and cross-compile jobs stay. They run on Darwin 25 (`macos-26-arm64`), where Q2's independently stated expectations require refusal. If the hosted image later moves to Darwin 27, those same jobs begin exercising admission with the same independent expectations. The `multipath-interop.yml` job stays Linux amd64. No Darwin 27 runner exists today. D11 decides whether a continuing Darwin check is selected and, if so, its maintained-aid terms.
+
+## Known limitations
+
+- **Ordinary-demo stdio ([#1531](https://github.com/GridCastIO/quicquic-go/issues/1531)).** On Darwin a canceled `picoquicdemo` can lose its buffered output tail. Readiness is a bounded successful Dial and both exit statuses are checked. A missing log tail is never evidence for or against anything.
+- **Darwin tuple gate ([#1530](https://github.com/GridCastIO/quicquic-go/issues/1530)).** All Darwin tuples are `127.0.0.1` with distinct ports. The abandon/reopen gate matches the exact armed address and port but cannot separate tuples by address. With quic-go-fast as server, the independent client reopens from the tuple path one used before (`addresses[1]`), as on Linux; the scenario is defined by a new wire ID. A changed tuple is exercised by `same-id-migration-rebinding`.
+- **Family evidence seam.** X4 reaches the granted endpoint through the private grant seam that public `ConfigureMultipathIOV1` uses. The public peer rows use IPv4 loopback only.
+- **Native BBR protected-member evidence.** No dedicated native protected-buffer lifetime witness exists. X7(c) supplies deterministic protection, credit and member-completion checks under `-race` on Darwin. X10's BBR cases, X11's BBR pairs and X12's BBR record supply native transfer, migration, close and lifecycle observations at example level ([D13](#decision-table)).
+- **Pressure.** X6 is a bounded observation and may legitimately be negative. It is not E2's induced traversal. UDP ENOBUFS has never been observed and stays an explicit residual unless X6 records it.
+- **Relay.** The relay forwards payloads only, so ECN and IP metadata are not carried on topology rows. Its timing fidelity at load and its CPU cost are recorded, not assumed.
+- **Metrics.** `ConnectionStats().PacketsLost` is unavailable for BBR. Darwin `ru_maxrss` is bytes. `go_heap_live` is live heap after a forced GC, not resident memory.
+- **Scope.** All native results are example-level for this host, kernel, toolchains and candidate. They do not cover every kernel interleaving, general performance, fairness or other Darwin majors and architectures.
+
+## Code needed before the affected steps
+
+Q1 adds no code. Each item below is a separate small follow-up or part of Q2, as noted. It must merge before the step it gates.
+
+| Item | Gates | Owner of the change |
+| --- | --- | --- |
+| Lift the driver refusals keyed to public admission: `run.py`'s `darwin-native` refusal of `--matrix`, `--zero-vectors` and `--validate-matrix`; the Darwin profile's `negotiated_multipath` in `ordinary_cost.py`; and the Go fixtures' refusal expectations | X10–X13 | Q2's candidate, because each is true only with activation. Per-case arguments, identities and timeouts stay as bound here. |
+| Binary-to-candidate binding for `run.py`, `ordinary_cost.py` and `topology_comparison.py`, if D4 selects option A | X9–X13 receipts | Follow-up [#1528](https://github.com/GridCastIO/quicquic-go/issues/1528) |
+| Pin the D7 load in `socket-pressure` readback, if D7 selects the pin | X6 | Follow-up [#1564](https://github.com/GridCastIO/quicquic-go/issues/1564) |
+| A privileged sampler invocation the driver can use, plus the X3 capture reader, if D6 selects the sampler | X3, and `--host-sampler` in X11 | Follow-up [#1552](https://github.com/GridCastIO/quicquic-go/issues/1552) |
+| Native verdict computation, if D12 selects option A | X11 and X13 verdicts | A new follow-up |
+
+## Decision table
+
+Recommendations come first in each row. Each choice commits Q2 to what the last column says.
+
+| ID | Decision | Options | Recommendation | What the choice commits Q2 to |
+| --- | --- | --- | --- | --- |
+| D1 | Venue and access | A: `mbp128`, shared, booked by quiet windows through the host gate, no exclusive reservation or affinity. B: another Darwin 27 arm64 host the owner provides. | A | About 4 hours of quiet-window time in total: X2–X8 about 1 h, X9–X10 about 1 h, X11 about 1.2 h, X12–X13 about 1 h. The owner books the windows around wiremux campaigns. |
+| D2 | Installed Go toolchains | A: go1.27.4 as installed, and acquire go1.26.11 as the checksum-verified module toolchain `golang.org/toolchain@v0.0.1-go1.26.11.darwin-arm64` in the user's module cache (what `GOTOOLCHAIN=go1.26.11` downloads). B: go1.26.11 through `golang.org/dl` into `~/sdk`. C: go1.27.4 only, narrowing the toolchain matrix. | A | One user-cache download before X2 on T26 (clears B1). Both toolchains are recorded by version, GOROOT and hashes. C would drop the T26 rows and limit the support record to Go 1.27.4. |
+| D3 | Execution cells | A: T27 everywhere; T26 for X2, X4, X5 and X7; O27 for X7(a–c) and the X11 fallback pairs. B: every step on every cell. | A | The finite cell table above. B roughly triples peer and measurement time without a semantic difference. |
+| D4 | Binary binding ([#1528](https://github.com/GridCastIO/quicquic-go/issues/1528)) | A: extend E1's merged build-from-source method (`source_identity`, `check_build_sources`) to the prebuilt-binary drivers, so they refuse a binary not built from the recorded tree. B: procedural binding: build in the protocol step, record the build command, log digest and binary sha256, with the caller-asserted commit as today. | A | Follow-up #1528 before X9. B needs no code but leaves the receipt's commit caller-asserted. VCS stamping is not proposed, because `go test -c` test binaries are not assumed to carry `vcs.revision`. |
+| D5 | Admitted Darwin 27 releases | A: all of Darwin 27 on arm64, with this applicability assessment in the support record and the residual stated. B: a minimum release of 27.2 (kernel 27.2.0), which needs a minor-version reader in the platform helper. C: obtain an earlier Darwin 27 host and qualify on it too. | A | A ships the major-wide predicate already designed, with an explicit statement that 27.0 and 27.1 are assessed, not observed. B changes Q2's helper design (re-audit). C adds a venue and repeats X2–X13 there. |
+| D6 | Privileged sampling ([#1552](https://github.com/GridCastIO/quicquic-go/issues/1552)) | A: select `powermetrics`. The owner provides narrowly scoped privilege for `/usr/bin/powermetrics` only (for example a NOPASSWD rule the owner installs), and the driver gains that invocation through the follow-up. X3 runs early. B: no sampler; `host_activity` is `unavailable` everywhere. | A | A: the owner's privilege change (B2), follow-up #1552, and X3 before X11. It gives performance-cluster versus efficiency-cluster attribution on a shared host. B: no privilege and no follow-up, but cost misses cannot be attributed from the records. |
+| D7 | Pressure load, cutoff, long writes ([#1564](https://github.com/GridCastIO/quicquic-go/issues/1564)) | Load: A, the merged `nativeDarwinPressureLoad` (16 participants × 64 requests × 32 members, 1200-byte payload, 1 s budget, 20 s window), at most 98,304 writes. Cutoff: A, keep the conservative reading with no cutoff; or B, stop new offers at a cutoff before the window ends. Long writes: A, report `max_write_ns` and `long_writes`, not as pressure waits. Pin: A, pin the load in readback (#1564); or B, check it in Q2's receipt review. | Load A, cutoff A, long writes A, pin A | One X6 attempt. A late or unfinished load reads `interrupted` and `unknown`, never a false negative. The #1564 follow-up pins the load and bounds writer counts. |
+| D8 | Abandon/reopen tuple ([#1530](https://github.com/GridCastIO/quicquic-go/issues/1530)) | A: keep the scenario (new wire ID; reopen from the prior tuple as on Linux) and record the Darwin tuple-gate difference. B: require a new reopen source tuple. | A | A: no adapter change, and #1530 closes with Q1. B changes the scenario inventory and the adapter, and needs a scoped re-audit before Q2. |
+| D9 | Measurement inventory | A: X11 24 pairs (Reno and BBR × 4 cells × 3) plus 2 O27 pairs; X12 2 attempts at `closed`; X13 37 runs; 135 s per instance. B: one observation per cell or arm, with no medians. | A | A ledger of 52 cost instances (26 pairs), 2 lifecycle attempts and 37 topology runs; medians of three for judged cells. B is cheaper but leaves single observations on a shared host. |
+| D10 | Attribution and contamination | A: the [rule above](#attribution-and-contamination): host-gate or inconclusive-sampler contamination, one clean rerun per contaminated block, efficiency-core activity not contamination. B: also treat performance-cluster activity above a threshold as contamination. | A | No new threshold. B needs a numeric threshold chosen now. |
+| D11 | Continuing coverage and maintained aids | A: no new required check. Keep the hosted jobs with Q2's independent expectations, and re-run this protocol's T27 rows X2, X4, X5 and X7 by hand when Q2's candidate inputs change: a CI Go pin, a Darwin 27 minor on the venue, or `native_endpoint.go`, `multipath_api.go` or `sys_conn_*_darwin.go`. B: register `mbp128` as a self-hosted runner for a required focused Darwin 27 job (X4, X5, X7). C: as B, but optional and nonblocking. | A | A selects no new maintained aid. B needs the owner to register a runner and approve its terms: payoff (detect a Darwin 27 regression in the endpoint or admission), domain (Darwin 27 arm64, X4, X5, X7), owner (transport integration and interop maintainer), retirement (equivalent replacement or removal of the profile). A required check on a shared laptop can block unrelated PRs. |
+| D12 | Native verdict computation | A: a small follow-up adds verdict computation for Darwin summaries in `ordinary_cost.py` and `topology_comparison.py` using the bound criteria. B: Q2's receipt computes verdicts from the parsed JSON summaries by the stated arithmetic. | A | A: a reviewed implementation of the criteria before X11. B: no code, but the arithmetic is reviewed only in Q2's receipt. |
+| D13 | Native BBR protected-member evidence | A: accept the [example-level combination](#known-limitations) of X7(c) under `-race` on Darwin and X10–X12 BBR observations. B: require a new dedicated native protected-buffer witness fixture before Q2. | A | B adds a readiness follow-up with its own review before Q2 can run. |
+
+### Concrete blockers
+
+These stay blockers until the named decision or action clears them. None is waived.
+
+- **B1:** go1.26.11 is not installed on the venue. Cleared by D2, then a recorded acquisition before T26 rows.
+- **B2:** `powermetrics` needs the superuser and the driver cannot invoke it with privilege. Only if D6 is A: cleared by the owner's privilege change and follow-up #1552, then X3.
+- **B3:** no earlier Darwin 27 host exists. Only if D5 is C.
+- **B4:** no Darwin 27 runner is registered. Only if D11 is B or C.
+- **B5:** the [code items](#code-needed-before-the-affected-steps) each gate their steps: always the Q2-owned refusal lifts, and the follow-ups for #1528 (D4 A), #1564 (D7 pin A) and D12 A.
+
+## Owner decision receipt
+
+Pending. The owner records here, with this document's exact revision: each of D1–D13 as approved or as the option chosen instead; any owner action taken, such as the privilege change or toolchain acquisition; and the date. Until this section records approval of every row, this protocol is not executable, [#1494](https://github.com/GridCastIO/quicquic-go/issues/1494) stays open and Q2 stays blocked.
