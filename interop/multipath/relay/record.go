@@ -68,9 +68,10 @@ func fitsDatagrams(bytes, n uint64) bool {
 	return hi != 0 || bytes <= lo
 }
 
-// validate reports whether d is a direction a relay could have recorded: every received
-// datagram has exactly one outcome, byte totals fit their datagram counts, and lateness
-// describes only sends.
+// validate applies the record's declared direction checks: every received datagram
+// has exactly one outcome, byte totals fit the IPv4 UDP payload bound of their datagram
+// counts, and lateness describes only sends. They do not prove that a relay run
+// produced d.
 func (d Direction) validate(queued bool) error {
 	remaining := d.Received
 	for _, n := range []uint64{d.Dropped, d.Overflow, d.Delivered, d.SendErrors, d.Abandoned} {

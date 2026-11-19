@@ -57,3 +57,16 @@ func TestQueueAdmissionExactAtHighRate(t *testing.T) {
 	_, ok = q.admit(now, 0)
 	require.False(t, ok)
 }
+
+// The queue owner orders arrivals: a reader whose timestamp trails the queue's latest
+// arrival is admitted as arriving then, against the backlog actually remaining, so a
+// shared queue's readers cannot invent backlog from their timestamp order.
+func TestQueueAdmissionReorderedArrivals(t *testing.T) {
+	now := time.Unix(100, 0)
+	q := newQueue(Queue{RateBPS: MaxRateBPS, LimitBytes: MinLimitBytes})
+	_, ok := q.admit(now.Add(time.Microsecond), 1473)
+	require.False(t, ok, "1,501 charged bytes never fit")
+	leaves, ok := q.admit(now, 72)
+	require.True(t, ok, "the queue is empty")
+	require.Equal(t, now.Add(time.Microsecond+8*time.Nanosecond), leaves, "service starts at the queue's latest arrival")
+}

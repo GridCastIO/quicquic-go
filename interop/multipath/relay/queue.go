@@ -1,7 +1,6 @@
 package relay
 
 import (
-	"math/bits"
 	"sync"
 	"time"
 )
@@ -27,7 +26,7 @@ type queue struct {
 	limit uint64 // LimitBytes in the backlog's units
 
 	mu      sync.Mutex
-	at      time.Time // reference instant of backlog
+	at      time.Time // latest arrival, the reference instant of backlog
 	backlog uint64
 }
 
@@ -46,6 +45,9 @@ func (q *queue) admit(now time.Time, size int) (time.Time, bool) {
 	charge := scaledBits(uint64(size) + ipv4UDPOverhead)
 	q.mu.Lock()
 	defer q.mu.Unlock()
+	// The queue owner orders arrivals. Readers sharing a queue take their timestamps
+	// before this lock, so one can trail the latest arrival; it is admitted as arriving
+	// then, against the backlog actually remaining.
 	if d := now.Sub(q.at); d > 0 {
 		// Service drains rate scaled units per nanosecond.
 		if elapsed := uint64(d); elapsed > q.backlog/q.rate {
@@ -55,18 +57,7 @@ func (q *queue) admit(now time.Time, size int) (time.Time, bool) {
 		}
 		q.at = now
 	}
-	// Readers sharing a queue can arrive with now slightly behind the reference
-	// instant; the backlog they see includes service not yet drained at now.
-	ahead := q.backlog
-	if d := q.at.Sub(now); d > 0 {
-		hi, lo := bits.Mul64(uint64(d), q.rate)
-		sum, carry := bits.Add64(lo, ahead, 0)
-		if hi != 0 || carry != 0 {
-			return time.Time{}, false
-		}
-		ahead = sum
-	}
-	if ahead > q.limit || charge > q.limit-ahead {
+	if charge > q.limit-q.backlog {
 		return time.Time{}, false
 	}
 	q.backlog += charge
