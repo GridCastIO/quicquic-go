@@ -122,6 +122,8 @@ type nativeDarwinLane struct {
 	accepted, uncertain, unsubmitted, failed int
 	// Publication diagnostics the endpoint delivered to the fixture's sink.
 	diagnostics int
+	// Admitted requests not yet taken, and their peak.
+	occupancy, maxOccupancy int
 	// The longest time from a member's native return to the producer taking it.
 	publicationLag time.Duration
 }
@@ -132,7 +134,7 @@ func (l *nativeDarwinLane) facts(participant int, name string) map[string]any {
 		"offers": l.offers, "admitted": l.admitted, "refused": l.refused, "closed": l.closed,
 		"results": l.results, "withdrawn": l.withdrawn,
 		"accepted": l.accepted, "uncertain": l.uncertain, "unsubmitted": l.unsubmitted, "failed": l.failed,
-		"diagnostics": l.diagnostics, "publication_lag_max_ns": l.publicationLag.Nanoseconds(),
+		"diagnostics": l.diagnostics, "occupancy_max": l.maxOccupancy, "publication_lag_max_ns": l.publicationLag.Nanoseconds(),
 	}
 }
 
@@ -183,6 +185,7 @@ func (p *nativeDarwinProducer) collect() bool {
 		now := monotime.Now()
 		lane := &p.lanes[result.identity.path]
 		lane.results++
+		lane.occupancy--
 		p.occupancy--
 		if result.failure() != nil {
 			lane.failed++
@@ -209,6 +212,8 @@ func (p *nativeDarwinProducer) offer() (admitted, closed bool) {
 		switch err := p.endpoint.offer(p.participant, i, *head); {
 		case err == nil:
 			lane.admitted++
+			lane.occupancy++
+			lane.maxOccupancy = max(lane.maxOccupancy, lane.occupancy)
 			p.owned -= len(head.members)
 			p.heads[i] = nil
 			p.occupancy++
@@ -336,8 +341,9 @@ var nativeDarwinFaults = map[endpointFaultCause]string{
 
 // observeNativeDarwinContention starts the endpoint's real writer over native,
 // offers load from one producer per participant and returns the observation.
-// It joins every producer, then the writer, then the diagnostic sink's backlog,
-// before it returns; the caller still owns native and closes it afterward.
+// It joins every producer, then the writer, and then waits up to the endpoint's
+// tolerance for the diagnostic sink's backlog, which touches only the fixture's
+// counts, before it returns; the caller still owns native and closes it afterward.
 func observeNativeDarwinContention(ctx context.Context, native endpointNativeIO, destination netip.AddrPort, load nativeDarwinLoad, hook func()) nativeDarwinObservation {
 	ctx, cancel := context.WithTimeout(ctx, load.window)
 	defer cancel()
@@ -436,7 +442,7 @@ func (o nativeDarwinObservation) facts(facts map[string]any) {
 	facts["load"] = o.load.facts()
 	facts["writer"] = o.writer.facts()
 	facts["lanes"] = lanes
-	facts["occupancy_max"] = occupancy
+	facts["participant_occupancy_max"] = occupancy
 }
 
 // requireSettled checks the fixture's own bookkeeping: every buffer it made is
@@ -515,6 +521,8 @@ func TestNativeDarwinContentionAccounting(t *testing.T) {
 		for _, producer := range observation.producers {
 			require.Equal(t, 4, producer.maxOccupancy, "a participant holds at most four requests")
 			for i, lane := range producer.lanes {
+				require.Positive(t, lane.maxOccupancy, nativeDarwinLaneNames[i])
+				require.LessOrEqual(t, lane.maxOccupancy, producer.maxOccupancy, nativeDarwinLaneNames[i])
 				require.Equal(t, load.requests, lane.results, nativeDarwinLaneNames[i])
 				require.Equal(t, load.requests*load.members, lane.accepted, "real progress on every lane")
 				require.Equal(t, lane.results, lane.diagnostics, "every publication observed")

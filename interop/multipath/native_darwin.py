@@ -25,7 +25,8 @@ import time
 
 TEST = "TestNativeDarwinScalar"
 SCHEMA = "native-darwin-case/v1"
-RESULTS_SCHEMA = "native-darwin-run/v1"
+# v2 added the profile and E3's scalar-contention case.
+RESULTS_SCHEMA = "native-darwin-run/v2"
 RECORD_ENV = "NATIVE_DARWIN_RECORD"
 RECORD_FIELDS = {"schema", "case", "go", "goos", "goarch", "facts"}
 # Each family's expected local destination, from packet info on the granted socket.
@@ -117,14 +118,14 @@ def parse_tuple(name, key, facts):
     return address, number
 
 
-CONTENTION_FACTS = {"status", "pressure_wait", "fault", "diagnostics_dropped", "load", "writer", "lanes", "occupancy_max"}
+CONTENTION_FACTS = {"status", "pressure_wait", "fault", "diagnostics_dropped", "load", "writer", "lanes", "participant_occupancy_max"}
 LOAD_FIELDS = ("participants", "requests", "members", "payload", "budget_ms", "window_ms")
 ERROR_CLASSES = ("enobufs", "eagain", "emsgsize", "deadline", "other")
 WRITER_FIELDS = ("writes", "max_write_ns", "long_writes", "deadline_waits")
 LANES = ("path0", "path1", "control")
 LANE_COUNTS = (
     "offers", "admitted", "refused", "closed", "results", "withdrawn",
-    "accepted", "uncertain", "unsubmitted", "failed", "diagnostics", "publication_lag_max_ns",
+    "accepted", "uncertain", "unsubmitted", "failed", "diagnostics", "occupancy_max", "publication_lag_max_ns",
 )
 FAULTS = {"none", "overdue", "late-return", "native"}
 
@@ -154,7 +155,7 @@ def contention_status(facts):
 
 
 def check_contention_facts(name, facts):
-    load, writer, lanes, occupancy = facts["load"], facts["writer"], facts["lanes"], facts["occupancy_max"]
+    load, writer, lanes, occupancy = facts["load"], facts["writer"], facts["lanes"], facts["participant_occupancy_max"]
     check_counts(name, "load", load, LOAD_FIELDS)
     if min(load["participants"], load["requests"], load["members"], load["payload"]) == 0:
         raise ValueError(f"{name}: load {load!r} offers nothing")
@@ -178,8 +179,10 @@ def check_contention_facts(name, facts):
             raise ValueError(f"{where}: admitted is not results + withdrawn within the offered requests")
         if lane["accepted"] + lane["uncertain"] + lane["unsubmitted"] != lane["results"] * load["members"] or lane["failed"] > lane["results"]:
             raise ValueError(f"{where}: datagram outcomes do not add up to its results")
+        if lane["occupancy_max"] > lane["admitted"] or (lane["admitted"] > 0) != (lane["occupancy_max"] > 0):
+            raise ValueError(f"{where}: occupancy_max does not fit its admissions")
     if not isinstance(occupancy, list) or len(occupancy) != participants or any(type(value) is not int or value < 0 for value in occupancy):
-        raise ValueError(f"{name}: occupancy_max is not one count per participant")
+        raise ValueError(f"{name}: participant_occupancy_max is not one count per participant")
     if writer["writes"] < sum(lane["accepted"] + lane["uncertain"] for lane in lanes):
         raise ValueError(f"{name}: fewer native writes than accepted or uncertain datagrams")
     if sum(writer["errors"].values()) > writer["writes"] or writer["long_writes"] > writer["writes"] or writer["deadline_waits"] > writer["errors"]["deadline"]:

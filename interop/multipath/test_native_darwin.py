@@ -41,7 +41,7 @@ def contention_facts(participants=2, requests=3, members=2):
             lanes.append({
                 "participant": participant, "lane": lane, "offers": requests + 2, "admitted": requests, "refused": 2, "closed": 0,
                 "results": requests, "withdrawn": 0, "accepted": requests * members, "uncertain": 0, "unsubmitted": 0, "failed": 0,
-                "diagnostics": requests, "publication_lag_max_ns": 25000,
+                "diagnostics": requests, "occupancy_max": 2, "publication_lag_max_ns": 25000,
             })
     return {
         "status": "complete", "pressure_wait": "not-observed", "fault": "none", "diagnostics_dropped": 0,
@@ -50,7 +50,7 @@ def contention_facts(participants=2, requests=3, members=2):
             "writes": participants * 3 * requests * members, "max_write_ns": 60000, "long_writes": 0, "deadline_waits": 0,
             "errors": {name: 0 for name in runner.ERROR_CLASSES},
         },
-        "lanes": lanes, "occupancy_max": [4] * participants,
+        "lanes": lanes, "participant_occupancy_max": [4] * participants,
     }
 
 
@@ -143,7 +143,7 @@ class ContentionTests(unittest.TestCase):
                 self.check(contention_facts(), name)
 
     def test_lane_accounting_must_add_up(self):
-        for key, value in (("offers", 4), ("refused", 3), ("withdrawn", 1), ("accepted", 5), ("failed", 4), ("admitted", 4)):
+        for key, value in (("offers", 4), ("refused", 3), ("withdrawn", 1), ("accepted", 5), ("failed", 4), ("admitted", 4), ("occupancy_max", 4), ("occupancy_max", 0)):
             facts = contention_facts()
             facts["lanes"][1][key] = value
             with self.subTest(key=key), self.assertRaisesRegex(ValueError, "lane 1"):
@@ -156,7 +156,7 @@ class ContentionTests(unittest.TestCase):
             ("lane 0 fields", lambda facts: facts["lanes"][0].pop("diagnostics")),
             ("lane 0 has invalid", lambda facts: facts["lanes"][0].update(refused=True)),
             ("writer errors fields", lambda facts: facts["writer"]["errors"].pop("enobufs")),
-            ("occupancy_max", lambda facts: facts["occupancy_max"].pop()),
+            ("participant_occupancy_max", lambda facts: facts["participant_occupancy_max"].pop()),
             ("fault", lambda facts: facts.update(fault="unknown")),
             ("facts", lambda facts: facts.pop("writer")),
         )
