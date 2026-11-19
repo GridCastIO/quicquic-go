@@ -375,15 +375,17 @@ func (s *matrixSession) characterizeIngress(id byte) {
 // bothActive reports whether both paths are live with local use active.
 func (s *matrixSession) bothActive(paths []*Path) bool {
 	s.t.Helper()
+	states := make([]MultipathPathStateV1, 0, len(paths))
 	for _, path := range paths {
 		state, err := path.StateV1()
 		require.NoError(s.t, err)
-		if state.Lifecycle != "live" || state.LocalUse != "active" {
-			s.t.Logf("path %d is %s/%s", state.WireID, state.Lifecycle, state.LocalUse)
-			return false
-		}
+		states = append(states, state)
 	}
-	return true
+	first, ok := matrixPathsLiveActive(states)
+	if !ok {
+		s.t.Logf("path %d is %s/%s", first.WireID, first.Lifecycle, first.LocalUse)
+	}
+	return ok
 }
 
 func (s *matrixSession) mtuComplete(id protocol.PathID) bool {
