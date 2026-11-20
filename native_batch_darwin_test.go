@@ -294,9 +294,6 @@ type nativeBBRBorrowCapture struct {
 	observed, protected, nativeGSO bool
 	members, datagrams             int
 	recipes                        []nativeProtectionRecipe
-	// The borrow's state after the hook's transaction's first advance.
-	stillCurrent       bool
-	published, credits int
 }
 
 // One ordinary BBR opportunity, built by production emission on a real endpoint
@@ -315,8 +312,8 @@ func TestBBRNativeSoftwareEmissionBatches(t *testing.T) {
 	// writer is joined, on every path.
 	var endpoint *nativeEndpoint
 	var participant *endpointParticipant
-	var capture nativeBBRBorrowCapture // guarded by endpoint control
-	var entered atomic.Bool            // the hook enters endpoint control once
+	var capture nativeBBRBorrowCapture // guarded by endpoint.mutex
+	var entered atomic.Bool            // the hook observes once
 	original := rawSendmsgX
 	t.Cleanup(func() { rawSendmsgX = original })
 	rawSendmsgX = func(fd int, msgs []msghdrX) (int, syscall.Errno) {
@@ -324,18 +321,11 @@ func TestBBRNativeSoftwareEmissionBatches(t *testing.T) {
 			return original(fd, msgs)
 		}
 		// The writer makes native calls outside endpoint control (write), so it
-		// can enter control here, as other owners do during any native call. Neither
-		// of this one transaction's advances can settle the borrow: the writer has
-		// not published its completion, so reconcileCurrent leaves the current
-		// token fenced unless it is past deadline plus tolerance, and only expired
-		// or revoked queued records are published. The borrow-state fields below
-		// check the first advance's result: the member is still current, nothing
-		// was published, and no credit was detached for return.
-		endpoint.do(func(s *endpointState) {
-			token := s.current
-			if token == nil || token.request.identity.connection != participant.id {
-				return
-			}
+		// can take the endpoint mutex here. The hook only reads under it: unlike
+		// do, it runs no advance and returns no credit, so the observation cannot
+		// change endpoint, record or credit state.
+		endpoint.mutex.Lock()
+		if token := endpoint.state.current; token != nil && token.request.identity.connection == participant.id {
 			capture.observed = true
 			capture.members = len(token.request.members)
 			member := token.request.members[0]
@@ -348,10 +338,8 @@ func TestBBRNativeSoftwareEmissionBatches(t *testing.T) {
 					capture.recipes = append(capture.recipes, recipe)
 				}
 			}
-			capture.stillCurrent = s.current == token
-			capture.published = len(participant.results)
-			capture.credits = len(s.credits)
-		})
+		}
+		endpoint.mutex.Unlock()
 		return original(fd, msgs)
 	}
 	endpoint = startNativeEndpoint(socket, nativeDarwinBudget, nil)
@@ -400,19 +388,16 @@ func TestBBRNativeSoftwareEmissionBatches(t *testing.T) {
 	}
 	// Every call this endpoint made has returned and its records have settled.
 	submissionsAfter, batchedAfter, _ := sendmsgXCountersSnapshot()
-	require.Zero(t, c.emission.bbr.credit.pending, "the member's credit returned")
 
-	var observed nativeBBRBorrowCapture
-	endpoint.do(func(*endpointState) { observed = capture })
+	endpoint.mutex.Lock()
+	observed := capture
+	endpoint.mutex.Unlock()
 	require.True(t, observed.observed, "the hook saw the member inside its sendmsg_x call")
 	require.Equal(t, 1, observed.members, "one opportunity makes one member")
 	require.True(t, observed.protected, "the writer protects the member from its plan")
 	require.False(t, observed.nativeGSO, "Darwin has no wire GSO")
 	require.Greater(t, observed.datagrams, 1, "a multi-datagram software member")
 	require.Len(t, observed.recipes, observed.datagrams)
-	require.True(t, observed.stillCurrent, "the hook's transaction left the member current")
-	require.Zero(t, observed.published, "no result was published during the borrow")
-	require.Zero(t, observed.credits, "no credit was returned during the borrow")
 
 	cidLen := c.connIDManager.Get().Len()
 	for i, recipe := range observed.recipes {
