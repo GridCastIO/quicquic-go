@@ -28,8 +28,8 @@ def record_ends(raw, count):
     """The byte offset just past each of the first count records' own last byte, chunked
     as parse_powermetrics chunks them. A record's own last byte is its last non-whitespace
     byte, the last byte plistlib parses. A NUL is a separator that belongs to no record,
-    wherever it falls: the real stream writes one before every record after the first and
-    none after the last, so a NUL arrives with the next record, never with its own."""
+    wherever it falls and whichever read delivers it: the real stream places one before
+    every record after the first and none after the last."""
     ends, start = [], 0
     for chunk in raw.split(b"\0"):
         if chunk.strip():
