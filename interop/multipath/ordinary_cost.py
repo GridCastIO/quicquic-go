@@ -437,14 +437,18 @@ def check_lifecycle(record):
 
 
 def match_lifecycle(first, second):
-    """Two valid lifecycle records that one comparison may pair: one qualifying retirement
-    state on both sides, with the same phase, role and path labels. Returns per-phase heap
-    pairs. Which records a comparison pairs, and how it judges them, is Q1's protocol."""
+    """Two valid lifecycle records that one comparison may pair: the same platform profile and
+    one qualifying retirement state on both sides, with the same phase, role and path labels.
+    Returns per-phase heap pairs. Which records a comparison pairs, and how it judges them, is
+    Q1's protocol."""
     for record in (first, second):
         # Only a completed attempt is evidence; a failed one can still carry its payloads.
         if record.get("status") != "succeeded":
             raise ValueError(f"a comparison pairs succeeded attempts, not {record.get('status')}")
         check_lifecycle(record)
+    if first["platform_profile"] != second["platform_profile"]:
+        raise ValueError(f"one side is {first['platform_profile']}, the other {second['platform_profile']}; "
+                         "a comparison pairs one platform profile")
     if first["retired_lifecycle"] != second["retired_lifecycle"]:
         raise ValueError(f"one side retired to {first['retired_lifecycle']}, the other to {second['retired_lifecycle']}")
     pairs = {}
