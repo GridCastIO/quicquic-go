@@ -31,9 +31,10 @@ func TestNativeSoftwareRenoEmissionSegments(t *testing.T) {
 			}
 			require.Equal(t, r.count, r.memberEnd(), "every registered packet is in a handed member")
 			packets += r.count
-			for _, member := range r.request.members {
-				require.False(t, member.nativeGSO, "Darwin has no wire GSO")
-				if member.gsoSize != 0 && member.datagrams() > 1 {
+			// The endpoint owns the request's descriptors once admitted; the
+			// sender's sidecar keeps each member's datagram count.
+			for _, member := range r.members {
+				if member.datagrams > 1 {
 					segmented++
 				}
 			}

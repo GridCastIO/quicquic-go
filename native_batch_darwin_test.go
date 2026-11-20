@@ -235,29 +235,26 @@ func TestNativeSoftwareRenoEmissionBatches(t *testing.T) {
 	result := c.emission.send(monotime.Now(), true)
 	require.NoError(t, result.err)
 	require.True(t, result.progress)
-	// A fresh sender takes records in order. Storage stays borrowed until this
-	// goroutine consumes the result, so the writer only reads it meanwhile.
+	// The endpoint owns the request's descriptors once admitted; the sender's
+	// sidecar keeps each member's datagram count and bytes until Free.
 	var records []*ordinaryLocalRecord
-	var datagrams []string
+	var datagrams, size, segmented int
 	for i := range sender.records {
 		r := &sender.records[i]
 		if r.state == ordinaryFree {
 			continue
 		}
 		records = append(records, r)
-		for _, member := range r.request.members {
-			data, segment := member.buffer.Data, len(member.buffer.Data)
-			if member.gsoSize != 0 {
-				segment = int(member.gsoSize)
-			}
-			for len(data) != 0 {
-				n := min(segment, len(data))
-				datagrams = append(datagrams, string(data[:n]))
-				data = data[n:]
+		for _, member := range r.members {
+			datagrams += member.datagrams
+			size += int(member.bytes)
+			if member.datagrams > 1 {
+				segmented++
 			}
 		}
 	}
-	require.Greater(t, len(datagrams), 2, "the turn emitted enough packets to batch")
+	require.Greater(t, datagrams, 2, "the turn emitted enough packets to batch")
+	require.NotZero(t, segmented, "production construction built a multi-datagram member")
 	timeout := time.After(scaleDuration(5 * time.Second))
 	for _, r := range records {
 		for r.state != ordinaryFree {
@@ -272,10 +269,16 @@ func TestNativeSoftwareRenoEmissionBatches(t *testing.T) {
 			}
 		}
 	}
-	for i, want := range datagrams {
+	var received int
+	for range datagrams {
 		payload, _ := peer.read(t)
-		require.Equal(t, want, payload, "datagram %d arrives whole and in order", i)
+		require.LessOrEqual(t, len(payload), 1200, "each segment arrives as its own datagram")
+		received += len(payload)
 	}
+	require.Equal(t, size, received, "every byte of the turn arrived")
+	require.NoError(t, peerSocket.SetReadDeadline(time.Now().Add(scaleDuration(100*time.Millisecond))))
+	_, _, err := peerSocket.ReadFrom(make([]byte, 1500))
+	require.ErrorIs(t, err, os.ErrDeadlineExceeded, "no extra datagram arrived")
 	submissionsAfter, batchedAfter, _ := sendmsgXCountersSnapshot()
 	require.Greater(t, submissionsAfter, submissions, "Reno's software segments went through sendmsg_x")
 	require.Greater(t, batchedAfter-batched, submissionsAfter-submissions, "each submission carried more than one datagram")
