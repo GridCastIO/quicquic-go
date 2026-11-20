@@ -54,8 +54,9 @@ type packetEmission struct {
 	shortSegments bool
 	// softwareSegments lets advance use withSoftwareSegments on this platform:
 	// Linux, where wire GSO can be unavailable, and Darwin, which has none
-	// (#1589). The constructor's own guard (confirmed ordinary primary Reno)
-	// still selects the connections; fixed at construction.
+	// (#1589). The constructor's own guard (confirmed primary Reno, ordinary or,
+	// per softwarePathZeroCredit, multipath path zero) still selects the
+	// connections; fixed at construction.
 	softwareSegments bool
 	// softwarePathZeroCredit admits a multipath connection's path zero into that
 	// domain while no terminal control datagram awaits its receipt: Darwin only
