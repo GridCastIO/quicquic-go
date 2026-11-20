@@ -3124,6 +3124,9 @@ func (c *Conn) initPacketEmission(packer *packetPacker) {
 	// Darwin has no wire GSO, so its confirmed ordinary primary Reno uses the
 	// software constructor that Linux uses when GSO is unavailable (#1589).
 	c.emission.softwareSegments = runtime.GOOS == "linux" || runtime.GOOS == "darwin"
+	// Darwin's multipath Reno sends path zero through the same constructor while
+	// no receipt is pending (#1592). Linux keeps its existing constructors there.
+	c.emission.softwarePathZeroCredit = runtime.GOOS == "darwin"
 	// BBR's bounded opportunity builds the same multi-packet member on Darwin
 	// that wire GSO lets it build on Linux (#1590).
 	c.emission.softwareBBRSegments = runtime.GOOS == "darwin"
