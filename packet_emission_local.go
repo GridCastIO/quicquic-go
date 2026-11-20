@@ -30,6 +30,7 @@ type localPacketSender interface {
 	finish()
 	reserveBuffer(protocol.ByteCount) localBufferReservation
 	canSoftwareSegment() bool
+	softwareCreditAllowed() bool
 	softwarePacketRoom() bool
 	finishPrefixWhenNativeEmpty() bool
 	drain()

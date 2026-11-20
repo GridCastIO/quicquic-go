@@ -327,8 +327,18 @@ func (s *nativeOrdinarySender) scalarPacketAllowance() bool {
 	conn, ok := s.connection.conn.(*nativeOrdinaryConn)
 	// The underlying capability cannot turn false through this native writer:
 	// its EIO latch is separate. A replacement is excluded, as are routed paths.
-	return ok && s.switchGeneration == 0 && s.origin == s.participant && s.route == nil && s.connection.pathCredit == nil && s.connection.emission.bbr == nil && len(s.connection.emission.terminalReceipts) == 0 &&
+	return ok && s.switchGeneration == 0 && s.origin == s.participant && s.route == nil && s.softwareCreditAllowed() && s.connection.emission.bbr == nil && len(s.connection.emission.terminalReceipts) == 0 &&
 		!conn.sendConn.capabilities().GSO && !conn.writeState.gsoDisabled.Load()
+}
+
+// softwareCreditAllowed is the software domain's one path-credit rule. An
+// ordinary connection has no registry. Where the platform admits it (#1592), a
+// multipath connection qualifies while no terminal control datagram awaits its
+// receipt, so no accepted prefix can be ambiguous for one; callers keep routed
+// paths out, so only path zero qualifies.
+func (s *nativeOrdinarySender) softwareCreditAllowed() bool {
+	credit := s.connection.pathCredit
+	return credit == nil || s.connection.emission.softwarePathZeroCredit && !credit.needsReceipt()
 }
 
 // softwarePacketRoom must not seal an unhanded buffer. Actual pool capacity is

@@ -309,5 +309,5 @@ func TestNativeProtectionEndpointUnclaimedDisposal(t *testing.T) {
 func writeEndpointRequest(native endpointNativeIO, token *endpointToken) endpointResult {
 	var scratch handshake.PacketProtectionScratch
 	var oobScratch [128]byte
-	return writeEndpointRequestWithScratch(native, token, &scratch, oobScratch[:0])
+	return writeEndpointRequestWithScratch(native, nil, token, &scratch, oobScratch[:0])
 }

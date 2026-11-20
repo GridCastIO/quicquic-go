@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"net"
-	"runtime"
 	"slices"
 	"sync"
 
@@ -53,6 +52,23 @@ type packetEmission struct {
 	// shortSegments lets a short DATAGRAM packet set a segmented send's
 	// segment size (see gsoBatch); fixed at construction.
 	shortSegments bool
+	// softwareSegments lets advance use withSoftwareSegments on this platform:
+	// Linux, where wire GSO can be unavailable, and Darwin, which has none
+	// (#1589). The constructor's own guard (confirmed primary Reno, ordinary or,
+	// per softwarePathZeroCredit, multipath path zero) still selects the
+	// connections; fixed at construction.
+	softwareSegments bool
+	// softwarePathZeroCredit admits a multipath connection's path zero into that
+	// domain while no terminal control datagram awaits its receipt: Darwin only
+	// (#1592), where path-credit Reno otherwise writes one datagram per member.
+	// nativeOrdinarySender.softwareCreditAllowed owns the rule; fixed at construction.
+	softwarePathZeroCredit bool
+	// softwareBBRSegments lets an ordinary native BBR opportunity without wire
+	// GSO build the multi-packet member largeNativeBBRGSO selects, as software
+	// segments the writer submits as separate datagrams: Darwin, which has no
+	// wire GSO (#1590). Linux keeps one packet per opportunity without GSO;
+	// fixed at construction.
+	softwareBBRSegments bool
 	// authority gates queued work and the close submission; nil is ungrouped.
 	authority *connAuthority
 	// sendQoS is the connection's send thread QoS, bound to every queue; nil
@@ -237,12 +253,12 @@ func (e *packetEmission) sendAny(now monotime.Time, confirmed bool) emissionResu
 }
 
 func (e *packetEmission) advance(now monotime.Time, gso bool) emissionResult {
-	return e.advanceForPlatform(now, gso, runtime.GOOS == "linux")
+	return e.advanceForPlatform(now, gso, e.softwareSegments)
 }
 
 // The platform fact is explicit so the real constructor can be characterized on
 // another host without a mutable production override.
-func (e *packetEmission) advanceForPlatform(now monotime.Time, gso, linux bool) emissionResult { //nolint:unparam,nolintlint // Production supplies the OS fact; tests exercise Linux construction on other hosts.
+func (e *packetEmission) advanceForPlatform(now monotime.Time, gso, softwareSegments bool) emissionResult { //nolint:unparam,nolintlint // Production supplies the construction fact; tests exercise the software constructor on other hosts.
 	if e.pathCredit != nil && e.pathCredit.needsReceipt() {
 		gso = false // no accepted-prefix ambiguity for terminal control datagrams
 	}
@@ -256,7 +272,7 @@ func (e *packetEmission) advanceForPlatform(now monotime.Time, gso, linux bool) 
 	if gso {
 		return e.withGSO(now)
 	}
-	if linux && e.local != nil && e.route == nil && e.pathCredit == nil && e.bbr == nil && len(e.terminalReceipts) == 0 && e.local.canSoftwareSegment() {
+	if softwareSegments && e.local != nil && e.route == nil && e.local.softwareCreditAllowed() && e.bbr == nil && len(e.terminalReceipts) == 0 && e.local.canSoftwareSegment() {
 		return e.withSoftwareSegments(now)
 	}
 	return e.withoutGSO(now)

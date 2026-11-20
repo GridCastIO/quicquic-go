@@ -107,11 +107,12 @@ func (b *nativeProtectionConstruction) reserve(sealer sealer, pn protocol.Packet
 	}
 	if b.plan == nil {
 		// The larger tier's new eligibility belongs only to ordinary standard-
-		// size native BBR. Existing Reno/jumbo/control placement stays synchronous.
+		// size native BBR, segmented by wire GSO or, on Darwin, in software
+		// (#1590). Existing Reno/jumbo/control placement stays synchronous.
 		e := b.emission
 		if b.buffer.Cap() == protocol.MaxCoalescedPacketBufferSize &&
 			(!e.inOpportunity || !e.paceReservation || e.reservation == nil || e.reservation.bytes <= protocol.MaxLargePacketBufferSize ||
-				!e.largeNativeBBRGSO(e.route, e.packetSize()) || !e.boundedGSO()) {
+				!e.largeNativeBBRGSO(e.route, e.packetSize()) || !e.boundedSegmentsOn(e.route, e.packetSize())) {
 			b.synchronous()
 			return false, nil
 		}
