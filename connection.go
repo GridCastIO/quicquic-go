@@ -9,6 +9,7 @@ import (
 	"io"
 	"net"
 	"reflect"
+	"runtime"
 	"slices"
 	"sync"
 	"sync/atomic"
@@ -3120,6 +3121,9 @@ func (c *Conn) initPacketEmission(packer *packetPacker) {
 		shortSegments: shortGSOSegmentsEnabled(),
 		refusals:      refusals,
 	}
+	// Darwin has no wire GSO, so its confirmed ordinary primary Reno uses the
+	// software constructor that Linux uses when GSO is unavailable (#1589).
+	c.emission.softwareSegments = runtime.GOOS == "linux" || runtime.GOOS == "darwin"
 	if bbr {
 		c.emission.enableBBR(monotime.Now(), c.packetCeiling.size())
 		c.emission.enableBBRECN()

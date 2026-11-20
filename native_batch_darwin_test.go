@@ -3,7 +3,10 @@
 package quic
 
 import (
+	"bytes"
+	"context"
 	"fmt"
+	"io"
 	"net"
 	"os"
 	"runtime"
@@ -13,6 +16,7 @@ import (
 	"time"
 
 	"github.com/GridCastIO/quicquic-go/internal/handshake"
+	"github.com/GridCastIO/quicquic-go/internal/monotime"
 	"github.com/GridCastIO/quicquic-go/internal/protocol"
 	"github.com/stretchr/testify/require"
 )
@@ -205,4 +209,135 @@ func TestNativeSoftwareBatchFallback(t *testing.T) {
 			w.readSegments(t, segments)
 		})
 	}
+}
+
+// Production emission of confirmed ordinary Reno reaches the socket through
+// sendmsg_x: the constructor builds software segments and the granted writer
+// batches them. No member is built by hand.
+func TestNativeSoftwareRenoEmissionBatches(t *testing.T) {
+	requireNativeBatchQualified(t)
+	socket := nativeDarwinListen("udp4", net.IPv4(127, 0, 0, 1))(t)
+	peerSocket := nativeDarwinListen("udp4", net.IPv4(127, 0, 0, 1))(t)
+	peer := newNativeDarwinReader(t, peerSocket)
+	endpoint := startNativeEndpoint(socket, nativeDarwinBudget, nil)
+	t.Cleanup(func() { <-endpoint.stop() })
+	conf := &Config{InitialPacketSize: 1200, DisablePathMTUDiscovery: true}
+	require.NoError(t, conf.SetCongestionControlV1("reno"))
+	tc := newConfiguredEmissionTestConnection(t, false, conf)
+	c := tc.conn
+	c.rttStats.UpdateRTT(100*time.Microsecond, 0)
+	require.NoError(t, c.useNativeOrdinary(endpoint, peerSocket.LocalAddr().(*net.UDPAddr).AddrPort(), packetInfo{}))
+	sender := c.emission.local.(*nativeOrdinarySender)
+	t.Cleanup(sender.Close)
+	queueNativeSoftwareStream(t, c)
+
+	submissions, batched, _ := sendmsgXCountersSnapshot()
+	result := c.emission.send(monotime.Now(), true)
+	require.NoError(t, result.err)
+	require.True(t, result.progress)
+	// A fresh sender takes records in order. Storage stays borrowed until this
+	// goroutine consumes the result, so the writer only reads it meanwhile.
+	var records []*ordinaryLocalRecord
+	var datagrams []string
+	for i := range sender.records {
+		r := &sender.records[i]
+		if r.state == ordinaryFree {
+			continue
+		}
+		records = append(records, r)
+		for _, member := range r.request.members {
+			data, segment := member.buffer.Data, len(member.buffer.Data)
+			if member.gsoSize != 0 {
+				segment = int(member.gsoSize)
+			}
+			for len(data) != 0 {
+				n := min(segment, len(data))
+				datagrams = append(datagrams, string(data[:n]))
+				data = data[n:]
+			}
+		}
+	}
+	require.Greater(t, len(datagrams), 2, "the turn emitted enough packets to batch")
+	timeout := time.After(scaleDuration(5 * time.Second))
+	for _, r := range records {
+		for r.state != ordinaryFree {
+			require.NoError(t, sender.consume())
+			if r.state == ordinaryFree {
+				break
+			}
+			select {
+			case <-sender.completed():
+			case <-timeout:
+				require.FailNow(t, "the sender never settled the turn's records")
+			}
+		}
+	}
+	for i, want := range datagrams {
+		payload, _ := peer.read(t)
+		require.Equal(t, want, payload, "datagram %d arrives whole and in order", i)
+	}
+	submissionsAfter, batchedAfter, _ := sendmsgXCountersSnapshot()
+	require.Greater(t, submissionsAfter, submissions, "Reno's software segments went through sendmsg_x")
+	require.Greater(t, batchedAfter-batched, submissionsAfter-submissions, "each submission carried more than one datagram")
+}
+
+// Over public Dial and Listen, with both transports granted so every QUIC send
+// goes through a native writer, a Reno bulk transfer is submitted through
+// sendmsg_x. Not parallel: the sendmsg_x counters are process-wide.
+func TestNativeSoftwareGrantedRenoTransferBatches(t *testing.T) {
+	requireNativeBatchQualified(t)
+	server := nativeDarwinGrant(t, newUDPConnLocalhost(t))
+	client := nativeDarwinGrant(t, newUDPConnLocalhost(t))
+	// Join both writers before the capability reset registered above.
+	t.Cleanup(func() {
+		nativeDarwinJoin(t, client)
+		nativeDarwinJoin(t, server)
+	})
+	reno := func() *Config {
+		conf := &Config{}
+		require.NoError(t, conf.SetCongestionControlV1("reno"))
+		return conf
+	}
+	ctx, cancel := context.WithTimeout(t.Context(), scaleDuration(10*time.Second))
+	defer cancel()
+	listener, err := server.Listen(nativeServerTLS(), reno())
+	require.NoError(t, err)
+	conn, err := client.Dial(ctx, listener.Addr(), nativeClientTLS(), reno())
+	require.NoError(t, err)
+	accepted, err := listener.Accept(ctx)
+	require.NoError(t, err)
+	require.Equal(t, "reno", accepted.CongestionControlV1())
+
+	payload := make([]byte, 4<<20)
+	for i := range payload {
+		payload[i] = byte(i % 251)
+	}
+	submissions, batched, _ := sendmsgXCountersSnapshot()
+	str, err := conn.OpenStreamSync(ctx)
+	require.NoError(t, err)
+	_, err = str.Write([]byte("go"))
+	require.NoError(t, err)
+	served, err := accepted.AcceptStream(ctx)
+	require.NoError(t, err)
+	_, err = io.ReadFull(served, make([]byte, 2))
+	require.NoError(t, err)
+	written := make(chan error, 1)
+	go func() {
+		_, err := served.Write(payload)
+		if err == nil {
+			err = served.Close()
+		}
+		written <- err
+	}()
+	deadline, ok := ctx.Deadline()
+	require.True(t, ok)
+	require.NoError(t, str.SetReadDeadline(deadline))
+	data, err := io.ReadAll(str)
+	require.NoError(t, err)
+	require.NoError(t, <-written)
+	require.True(t, bytes.Equal(payload, data), "the transfer arrived intact")
+	submissionsAfter, batchedAfter, _ := sendmsgXCountersSnapshot()
+	require.Greater(t, submissionsAfter, submissions, "the granted Reno sender used sendmsg_x")
+	require.Greater(t, batchedAfter-batched, submissionsAfter-submissions, "each submission carried more than one datagram")
+	require.NoError(t, conn.CloseWithError(0, ""))
 }
