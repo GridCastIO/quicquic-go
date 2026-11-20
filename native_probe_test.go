@@ -92,6 +92,7 @@ func startNativeProbeEndpoint(t *testing.T, socket *nativeProbeSocket) *nativeEn
 	endpoint := startNativeEndpoint(socket, 100*time.Millisecond, nil)
 	t.Cleanup(func() {
 		socket.release()
+		socket.releaseReset() // a failed assertion may leave the writer in a held reset
 		<-endpoint.stop()
 	})
 	return endpoint
