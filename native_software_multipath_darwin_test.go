@@ -182,8 +182,9 @@ func TestNativeSoftwareMultipathZeroMoveSeals(t *testing.T) {
 		require.Nil(t, sender.pending, "the move finished the builder before changing the tuple")
 		require.NotEqual(t, ordinaryBuilding, pending.state)
 		for i := range sender.records {
-			r := &sender.records[i]
-			if r.state != ordinaryFree {
+			// An endpoint-owned record's request moved to the endpoint with its
+			// snapshot (clearRequest); the writes below show where those went.
+			if r := &sender.records[i]; r.state != ordinaryFree && len(r.request.members) > 0 {
 				require.Equal(t, nativeProbePeer, r.request.destination, "no record carries the new tuple yet")
 			}
 		}
@@ -206,6 +207,7 @@ func TestNativeSoftwareMultipathZeroMoveSeals(t *testing.T) {
 		require.NoError(t, sender.consume())
 		after := f.socket.writes[before:]
 		require.NotEmpty(t, after)
+		require.NotZero(t, before, "the pre-move turn reached the old tuple")
 		for _, write := range f.socket.writes[:before] {
 			require.Equal(t, nativeProbePeer, write.destination)
 		}
