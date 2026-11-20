@@ -23,6 +23,15 @@ func (e *packetEmission) largeNativeBBRGSO(route *pathRoute, size protocol.ByteC
 	return e.bbr != nil && e.local != nil && e.queue == e.local && e.pathCredit == nil && route == nil && size <= protocol.MaxPacketBufferSize
 }
 
+// softwareBBRSegmentsOn reports whether an ordinary BBR plan on route builds
+// largeNativeBBRGSO's multi-packet member as software segments: the platform
+// has none of the wire GSO that boundedGSOOn requires. The member keeps the
+// same pacing budget, whole-packet credit range, single handoff and deferred
+// writer protection; the writer submits each segment as its own datagram.
+func (e *packetEmission) softwareBBRSegmentsOn(route *pathRoute, size protocol.ByteCount) bool {
+	return e.softwareBBRSegments && e.largeNativeBBRGSO(route, size) && !e.opportunityCapabilities().GSO
+}
+
 func (e *packetEmission) boundedGSOSendLimit(route *pathRoute, size protocol.ByteCount) protocol.ByteCount {
 	if e.largeNativeBBRGSO(route, size) {
 		return maxGSOUDPPayload

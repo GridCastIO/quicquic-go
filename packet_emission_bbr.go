@@ -346,7 +346,7 @@ func (e *packetEmission) planBounded(route *pathRoute, p *bbrSendPolicy, mode ac
 		return boundedPlan{step: stepSteered, request: size, ceiling: size, ordinary: true}
 	}
 	limit, ceiling := size, size
-	if confirmed && e.boundedGSOOn(route) {
+	if confirmed && (e.boundedGSOOn(route) || e.softwareBBRSegmentsOn(route, size)) {
 		ceiling = min(p.budget(now), e.boundedGSOSendLimit(route, size))
 		ceiling -= ceiling % size
 		limit = min(ceiling, allowance-allowance%size)
@@ -356,9 +356,10 @@ func (e *packetEmission) planBounded(route *pathRoute, p *bbrSendPolicy, mode ac
 
 func (e *packetEmission) boundedDatagrams(now monotime.Time, size, limit protocol.ByteCount) emissionResult {
 	exhausted := false
-	gso := e.boundedGSO()
+	// Without wire GSO, the same member geometry leaves as software segments.
+	segmented := e.boundedGSO() || e.softwareBBRSegmentsOn(e.route, size)
 	buf := getPacketBufferForCeiling(packetCeiling(size))
-	if gso {
+	if segmented {
 		buf.Release()
 		if e.largeNativeBBRGSO(e.route, size) && limit > protocol.MaxLargePacketBufferSize {
 			buf = getCoalescedPacketBuffer()
@@ -397,7 +398,7 @@ func (e *packetEmission) boundedDatagrams(now monotime.Time, size, limit protoco
 		}
 		more := batch.add(receipt.size, receipt.frames)
 		mode, allowance := recovery.(boundedRecovery).SendAllowance(now)
-		if !e.localPacketRoom() || !gso || !more || !batch.fits(buf.Len(), limit) || mode != ackhandler.SendAny || allowance < size || recovery.ECNMode(true) != ecn {
+		if !e.localPacketRoom() || !segmented || !more || !batch.fits(buf.Len(), limit) || mode != ackhandler.SendAny || allowance < size || recovery.ECNMode(true) != ecn {
 			break
 		}
 	}

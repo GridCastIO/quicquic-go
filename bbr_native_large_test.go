@@ -223,6 +223,9 @@ func TestBBRNativeLargeMemberSelection(t *testing.T) {
 				if scenario == "GSO disabled" {
 					native := c.conn.(*nativeOrdinaryConn)
 					native.sendConn = &countingCapabilitiesConn{sendConn: native.sendConn}
+					// Platforms without the software construction fact keep one
+					// packet; TestBBRNativeSoftwareMemberSelection covers Darwin (#1590).
+					c.emission.softwareBBRSegments = false
 				}
 				if scenario == "UDP ceiling" {
 					c.mtuDiscoverer = c.newPathMTUFinder(1337, 1452)
