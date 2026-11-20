@@ -19,8 +19,11 @@ import (
 func TestNativeSoftwareGrantedMultipathTransferBatches(t *testing.T) {
 	requireNativeBatchQualified(t)
 	requireMultipathProfile(t)
-	// Each writer is joined by its own cleanup, which runs before the capability
-	// reset registered above.
+	// The deltas span from before any writer exists to after every writer is
+	// joined, so they cover only completed sendmsg_x calls (#1596).
+	submissions, batched, _ := sendmsgXCountersSnapshot()
+	// Each writer is also joined by its own cleanup, so a failure partway through
+	// still joins it before the capability reset registered above.
 	server := grantedTransport(t)
 	nativeDarwinJoinOnCleanup(t, server)
 	client := grantedTransport(t)
@@ -53,7 +56,6 @@ func TestNativeSoftwareGrantedMultipathTransferBatches(t *testing.T) {
 	for i := range payload {
 		payload[i] = byte(i % 251)
 	}
-	submissions, batched, _ := sendmsgXCountersSnapshot()
 	str, err := conn.OpenStreamSync(ctx)
 	require.NoError(t, err)
 	_, err = str.Write([]byte("go"))
@@ -77,8 +79,11 @@ func TestNativeSoftwareGrantedMultipathTransferBatches(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, <-written)
 	require.True(t, bytes.Equal(payload, data), "the transfer arrived intact")
+	require.NoError(t, conn.CloseWithError(0, ""))
+	nativeDarwinJoin(t, server)
+	nativeDarwinJoin(t, client)
+	nativeDarwinJoin(t, second)
 	submissionsAfter, batchedAfter, _ := sendmsgXCountersSnapshot()
 	require.Greater(t, submissionsAfter, submissions, "the granted multipath Reno sender used sendmsg_x")
-	require.Greater(t, batchedAfter-batched, submissionsAfter-submissions, "each submission carried more than one datagram")
-	require.NoError(t, conn.CloseWithError(0, ""))
+	require.Greater(t, batchedAfter-batched, submissionsAfter-submissions, "average datagrams per sendmsg_x call > 1")
 }

@@ -29,17 +29,24 @@ func largeBBRConnection(t *testing.T, allowance protocol.ByteCount) (*Conn, *nat
 	native.sendConn = gsoCapableConn{native.sendConn}
 	sender.nativeGSO = true
 	socket.hold = nativeProbeHoldAll
+	now := seedLargeBBRWindow(t, c, allowance)
+	return c, sender, socket, now
+}
+
+// seedLargeBBRWindow seeds the real controller's window to allowance and installs
+// a fresh pacing policy, retaining the concrete recovery owner required by
+// prepared registration. These tests exercise emission geometry, not BBR's
+// separately covered startup trajectory. It returns the seeding time.
+func seedLargeBBRWindow(t *testing.T, c *Conn, allowance protocol.ByteCount) monotime.Time {
+	t.Helper()
 	now := monotime.Now()
-	// Seed the real controller's window, retaining the concrete recovery owner
-	// required by prepared registration. These tests exercise emission geometry,
-	// not BBR's separately covered startup trajectory.
 	b := c.emission.bbr.controller
 	anchor := congestion.PacketInfo{Ordinal: 1, Length: 1200, AckEliciting: true, RegistrationValid: true, SendTime: now.Add(-5 * time.Millisecond), Delivery: congestion.DeliverySnapshot{Valid: true}}
 	b.Sent(congestion.SendEvent{Packet: anchor})
 	b.Feedback(congestion.FeedbackEvent{Time: now, HasAck: true, RawRTT: 5 * time.Millisecond, Acked: []congestion.PacketInfo{anchor}, Delivery: congestion.DeliverySample{Delivered: uint64(allowance - b.GetCongestionWindow()), Ordinal: 1, BytesPerSecond: 100_000_000, Interval: 5 * time.Millisecond, Valid: true}})
 	require.Equal(t, allowance, b.GetCongestionWindow())
 	c.emission.bbr = newBBRSendPolicy(100_000_000, 1200, now)
-	return c, sender, socket, now
+	return now
 }
 
 func largeBBRPayloads(t *testing.T, c *Conn, payloadSize, count int) [][]byte {

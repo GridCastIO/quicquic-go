@@ -287,6 +287,141 @@ func TestNativeSoftwareRenoEmissionBatches(t *testing.T) {
 	require.Greater(t, batchedAfter-batched, submissionsAfter-submissions, "each submission carried more than one datagram")
 }
 
+// nativeBBRBorrowCapture is what the observation hook copies from the endpoint's
+// current request inside the member's own sendmsg_x call.
+type nativeBBRBorrowCapture struct {
+	observed, protected, nativeGSO bool
+	members, datagrams             int
+	recipes                        []nativeProtectionRecipe
+	// The borrow's state as the hook's endpoint transaction leaves it.
+	stillCurrent, fenced bool
+	published, credits   int
+}
+
+// One ordinary BBR opportunity, built by production emission on a real endpoint
+// socket, reaches the raw peer datagram by datagram through sendmsg_x (#1595):
+// every datagram is its own packet's ciphertext, with its recipe's length. The
+// batching verdict comes from the quiescent counters, not from the hook.
+// Not parallel: rawSendmsgX and the sendmsg_x counters are process-wide.
+func TestBBRNativeSoftwareEmissionBatches(t *testing.T) {
+	requireNativeBatchQualified(t)
+	socket := nativeDarwinListen("udp4", net.IPv4(127, 0, 0, 1))(t)
+	peerSocket := nativeDarwinListen("udp4", net.IPv4(127, 0, 0, 1))(t)
+	peer := newNativeDarwinReader(t, peerSocket)
+
+	// The hook wraps the existing injection seam and still calls the real
+	// syscall. Registered before the endpoint's stop, its restore runs after the
+	// writer is joined, on every path.
+	var endpoint *nativeEndpoint
+	var participant *endpointParticipant
+	var capture nativeBBRBorrowCapture // guarded by endpoint control
+	original := rawSendmsgX
+	t.Cleanup(func() { rawSendmsgX = original })
+	rawSendmsgX = func(fd int, msgs []msghdrX) (int, syscall.Errno) {
+		// Native calls run outside endpoint control, so the writer can enter it
+		// here. With the borrow unpublished and inside its deadline, advance leaves
+		// the current token fenced and expires nothing; the fields below show
+		// what this transaction left.
+		endpoint.do(func(s *endpointState) {
+			token := s.current
+			if capture.observed || token == nil || token.request.identity.connection != participant.id {
+				return
+			}
+			capture.observed = true
+			capture.members = len(token.request.members)
+			member := token.request.members[0]
+			capture.protected = member.protection != nil
+			capture.nativeGSO = member.nativeGSO
+			capture.datagrams = member.datagrams()
+			if member.protection != nil {
+				for _, recipe := range member.protection.entries {
+					recipe.protection = handshake.PacketProtection{} // geometry only
+					capture.recipes = append(capture.recipes, recipe)
+				}
+			}
+			capture.stillCurrent = s.current == token
+			capture.fenced = token.completion.Load() == nil
+			capture.published = len(participant.results)
+			capture.credits = len(s.credits)
+		})
+		return original(fd, msgs)
+	}
+	endpoint = startNativeEndpoint(socket, nativeDarwinBudget, nil)
+	t.Cleanup(func() { <-endpoint.stop() })
+
+	conf := &Config{InitialPacketSize: 1200, EnableDatagrams: true}
+	require.NoError(t, conf.SetCongestionControlV1("bbrv3"))
+	tc := newConfiguredEmissionTestConnection(t, false, conf)
+	c := tc.conn
+	c.rttStats.UpdateRTT(5*time.Millisecond, 0)
+	require.True(t, c.emission.softwareBBRSegments, "Darwin builds BBR software segments")
+	require.NoError(t, c.useNativeOrdinary(endpoint, peerSocket.LocalAddr().(*net.UDPAddr).AddrPort(), packetInfo{}))
+	sender := c.emission.local.(*nativeOrdinarySender)
+	t.Cleanup(sender.Close)
+	participant = sender.participant
+	native := c.conn.(*nativeOrdinaryConn)
+	native.sendConn = &countingCapabilitiesConn{sendConn: native.sendConn} // no wire GSO
+	now := seedLargeBBRWindow(t, c, 65536)
+	opener := softwareBBRProtection(t, c)
+	payloads := largeBBRPayloads(t, c, softwareBBRFullPayload(c, sender), 70)
+
+	submissions, batched, _ := sendmsgXCountersSnapshot()
+	result := c.emission.send(now, true)
+	require.NoError(t, result.err)
+	require.True(t, result.progress)
+	var records []*ordinaryLocalRecord
+	for i := range sender.records {
+		if r := &sender.records[i]; r.state != ordinaryFree {
+			records = append(records, r)
+		}
+	}
+	require.NotEmpty(t, records)
+	timeout := time.After(scaleDuration(5 * time.Second))
+	for _, r := range records {
+		for r.state != ordinaryFree {
+			require.NoError(t, sender.consume())
+			if r.state == ordinaryFree {
+				break
+			}
+			select {
+			case <-sender.completed():
+			case <-timeout:
+				require.FailNow(t, "the sender never settled the turn's records")
+			}
+		}
+	}
+	// Every call this endpoint made has returned and its records have settled.
+	submissionsAfter, batchedAfter, _ := sendmsgXCountersSnapshot()
+	require.Zero(t, c.emission.bbr.credit.pending, "the member's credit returned")
+
+	var observed nativeBBRBorrowCapture
+	endpoint.do(func(*endpointState) { observed = capture })
+	require.True(t, observed.observed, "the hook saw the member inside its sendmsg_x call")
+	require.Equal(t, 1, observed.members, "one opportunity makes one member")
+	require.True(t, observed.protected, "the writer protects the member from its plan")
+	require.False(t, observed.nativeGSO, "Darwin has no wire GSO")
+	require.Greater(t, observed.datagrams, 1, "a multi-datagram software member")
+	require.Len(t, observed.recipes, observed.datagrams)
+	require.True(t, observed.stillCurrent, "the hook's transaction left the member current")
+	require.True(t, observed.fenced, "the hook's transaction published nothing for the borrow")
+	require.Zero(t, observed.published, "no result was published during the borrow")
+	require.Zero(t, observed.credits, "no credit was returned during the borrow")
+
+	cidLen := c.connIDManager.Get().Len()
+	for i, recipe := range observed.recipes {
+		payload, _ := peer.read(t)
+		datagram := []byte(payload)
+		require.Len(t, datagram, int(recipe.end-recipe.start), "datagram %d has its recipe's length", i)
+		plain := largeBBRPlaintext(t, opener, datagram, cidLen, recipe)
+		require.True(t, bytes.Contains(plain, payloads[i]), "datagram %d is its own packet's ciphertext", i)
+	}
+	require.NoError(t, peerSocket.SetReadDeadline(time.Now().Add(scaleDuration(100*time.Millisecond))))
+	_, _, err := peerSocket.ReadFrom(make([]byte, 1500))
+	require.ErrorIs(t, err, os.ErrDeadlineExceeded, "no extra datagram arrived")
+	require.Greater(t, submissionsAfter, submissions, "BBR's software segments went through sendmsg_x")
+	require.Greater(t, batchedAfter-batched, submissionsAfter-submissions, "average datagrams per sendmsg_x call > 1")
+}
+
 // Over public Dial and Listen, with both transports granted so every QUIC send
 // goes through a native writer, a Reno bulk transfer is submitted through
 // sendmsg_x. Not parallel: the sendmsg_x counters are process-wide.
@@ -302,12 +437,17 @@ func TestBBRNativeSoftwareGrantedTransferBatches(t *testing.T) {
 
 // nativeGrantedTransferBatches sends 4 MiB over public Dial and Listen between
 // two granted transports using controller, and requires the transfer to arrive
-// intact through sendmsg_x submissions carrying more than one datagram each.
+// intact through sendmsg_x calls that average more than one datagram each.
 func nativeGrantedTransferBatches(t *testing.T, controller string) {
 	t.Helper()
 	requireNativeBatchQualified(t)
-	// Each writer is joined by its own cleanup, which runs before the capability
-	// reset registered above.
+	// Each sendmsg_x call counts its submission before its datagrams, so a
+	// snapshot taken while a writer is live can see a call's datagrams without its
+	// submission (#1596). The deltas span from before any writer exists to after
+	// every writer is joined, so they cover only completed calls.
+	submissions, batched, _ := sendmsgXCountersSnapshot()
+	// Each writer is also joined by its own cleanup, so a failure partway through
+	// still joins it before the capability reset registered above.
 	server := nativeDarwinGrant(t, newUDPConnLocalhost(t))
 	nativeDarwinJoinOnCleanup(t, server)
 	client := nativeDarwinGrant(t, newUDPConnLocalhost(t))
@@ -331,7 +471,6 @@ func nativeGrantedTransferBatches(t *testing.T, controller string) {
 	for i := range payload {
 		payload[i] = byte(i % 251)
 	}
-	submissions, batched, _ := sendmsgXCountersSnapshot()
 	str, err := conn.OpenStreamSync(ctx)
 	require.NoError(t, err)
 	_, err = str.Write([]byte("go"))
@@ -355,10 +494,12 @@ func nativeGrantedTransferBatches(t *testing.T, controller string) {
 	require.NoError(t, err)
 	require.NoError(t, <-written)
 	require.True(t, bytes.Equal(payload, data), "the transfer arrived intact")
+	require.NoError(t, conn.CloseWithError(0, ""))
+	nativeDarwinJoin(t, server)
+	nativeDarwinJoin(t, client)
 	submissionsAfter, batchedAfter, _ := sendmsgXCountersSnapshot()
 	require.Greater(t, submissionsAfter, submissions, "the granted %s sender used sendmsg_x", controller)
-	require.Greater(t, batchedAfter-batched, submissionsAfter-submissions, "each submission carried more than one datagram")
-	require.NoError(t, conn.CloseWithError(0, ""))
+	require.Greater(t, batchedAfter-batched, submissionsAfter-submissions, "average datagrams per sendmsg_x call > 1")
 }
 
 // nativeDarwinJoinOnCleanup joins tr's writer in its own cleanup. Go cancels
