@@ -63,6 +63,12 @@ type packetEmission struct {
 	// (#1592), where path-credit Reno otherwise writes one datagram per member.
 	// nativeOrdinarySender.softwareCreditAllowed owns the rule; fixed at construction.
 	softwarePathZeroCredit bool
+	// softwareBBRSegments lets an ordinary native BBR opportunity without wire
+	// GSO build the multi-packet member largeNativeBBRGSO selects, as software
+	// segments the writer submits as separate datagrams: Darwin, which has no
+	// wire GSO (#1590). Linux keeps one packet per opportunity without GSO;
+	// fixed at construction.
+	softwareBBRSegments bool
 	// authority gates queued work and the close submission; nil is ungrouped.
 	authority *connAuthority
 	// sendQoS is the connection's send thread QoS, bound to every queue; nil

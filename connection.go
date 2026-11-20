@@ -3127,6 +3127,9 @@ func (c *Conn) initPacketEmission(packer *packetPacker) {
 	// Darwin's multipath Reno sends path zero through the same constructor while
 	// no receipt is pending (#1592). Linux keeps its existing constructors there.
 	c.emission.softwarePathZeroCredit = runtime.GOOS == "darwin"
+	// BBR's bounded opportunity builds the same multi-packet member on Darwin
+	// that wire GSO lets it build on Linux (#1590).
+	c.emission.softwareBBRSegments = runtime.GOOS == "darwin"
 	if bbr {
 		c.emission.enableBBR(monotime.Now(), c.packetCeiling.size())
 		c.emission.enableBBRECN()
