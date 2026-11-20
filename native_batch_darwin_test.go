@@ -371,9 +371,15 @@ func TestNativeSoftwareBatchNamedZoneScalar(t *testing.T) {
 	batch := newNativeSegmentBatch(socket)
 	require.NotNil(t, batch)
 	port := socket.LocalAddr().(*net.UDPAddr).AddrPort().Port()
+	// The same socket batches an unzoned destination, so the decline below is the
+	// zone's, not the IPv6 family's.
+	accepted, err, dispatched := batch.submit([][]byte{[]byte("a"), []byte("b")}, nil, netip.AddrPortFrom(netip.IPv6Loopback(), port))
+	require.NoError(t, err)
+	require.True(t, dispatched, "an unzoned IPv6 destination batches")
+	require.Equal(t, 2, accepted)
 	destination := netip.AddrPortFrom(netip.MustParseAddr("fe80::1%lo0"), port)
 	submissions, _, _ := sendmsgXCountersSnapshot()
-	accepted, err, dispatched := batch.submit([][]byte{[]byte("a"), []byte("b")}, nil, destination)
+	accepted, err, dispatched = batch.submit([][]byte{[]byte("a"), []byte("b")}, nil, destination)
 	require.NoError(t, err)
 	require.False(t, dispatched, "a named zone leaves the chunk to the scalar writer")
 	require.Zero(t, accepted)
