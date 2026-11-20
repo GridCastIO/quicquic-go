@@ -193,7 +193,7 @@ func TestNativeSoftwareMultipathZeroMoveSeals(t *testing.T) {
 		require.False(t, sender.writeState.wroteFirstPacket)
 		require.True(t, sender.canSoftwareSegment(), "a path-zero move keeps the software domain")
 
-		f.socket.hold = nil
+		// The gate stays open once released, so later writes pass without a hold.
 		f.socket.release()
 		synctest.Wait()
 		require.NoError(t, sender.consume())
