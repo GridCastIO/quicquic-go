@@ -14,7 +14,57 @@ The predicate admits all of Darwin 27 on arm64 ([D5](../adr/2026-11-19-macos-mul
 
 ## Qualification results
 
-Recorded after collection on the exact candidate.
+The accepted candidate is `463568a9ae324c9d61c638bb7ac72beeb430eab2` (tree `9983bfa8630c4055ef8420b76add713edc425c4b`). It was collected clean, X1 through X13, on `mbp128` (Mac16,5, M4 Max with 12 performance and 4 efficiency cores, macOS 27.2.1 build 26B131, Darwin 27.2.0) with go1.27.4 and go1.26.11. The protocol host gate was clear before and after all 124 observation invocations. None was contaminated, held or failed, and no replacement attempt was used. The receipts on [PR #1585](https://github.com/GridCastIO/quicquic-go/pull/1585) are the evidence of record:
+- [certification](https://github.com/GridCastIO/quicquic-go/pull/1585#issuecomment-7037930356);
+- [X1–X10](https://github.com/GridCastIO/quicquic-go/pull/1585#issuecomment-7038066523);
+- [X11](https://github.com/GridCastIO/quicquic-go/pull/1585#issuecomment-7039421580);
+- [X12 and X13](https://github.com/GridCastIO/quicquic-go/pull/1585#issuecomment-7040944588).
+
+The raw results root for each candidate, including its failed attempts, is retained on the venue under rule 5.
+
+### Results by step
+
+- **X2 (T27, T26):** all eight write-wait cases passed once each, with native return 0.03–2.08 ms after the deadline, a poller witness, `injected: 0` and `traced: false`. The BBR case `bbr-protected-close-join` recorded `borrowed-through-fence`.
+- **X3:** the `powermetrics` capture passed contiguity in one attempt (60 records).
+- **X4 (T27, T26):** every family case (IPv4-only, IPv6-only, dual-stack mapped and native) received CE and sent ECT(0), with the packet-info destination and interface. Refusals and post-join authority held, and contention was complete with `fault: none`.
+- **X5 (T27, T26 race):** 8 of 8 passed with no race reports.
+- **X6:** complete at the D7 load of 98,304 writes, `fault: none`, `pressure_wait: not-observed`, and zero errors in every class. ENOBUFS was not observed.
+- **X7 (T27, T26, O27):** every required name ran with one terminal action against the inventory at `9dee3cf56` plus Q2's acceptance tests. The only skips are the two expected refusal tests.
+- **X8:** the ECN-disabled ordinary control passed 3 of 3.
+- **X9:** the pinned independent peer built against SDK 27.2 on arm64. Its ordinary control and discovery passed.
+- **X10:** Reno 16 of 16 plus negotiated-zero, BBR primary/backup 6 of 6, and BBR aggregate 6 of 6. Each scenario and role ran once.
+- **X11:** the four judged Reno cells missed narrowly, and the owner accepted them as measured (below). Medians, as goodput / CPU per useful byte / control p99 margin:
+  - stream: 0.956 / 1.110 / +442 µs;
+  - datagram: 1.038 / 1.010 / +1,097 µs;
+  - mixed-bulk: 0.952 / 1.089 / −4,932 µs, with one round's opted-in server peak RSS ×1.178;
+  - stateless-pressure: 0.897 / 1.152 / +2,015 µs, with one round's peak RSS ×1.154.
+
+  Stateless-pressure is the expected R0 result: there is no reset batching, and the opted-in arm answered about 15 times as many stateless resets. BBR is reported. Its goodput / CPU medians are stream 0.968 / 1.040, datagram 0.951 / 1.027, mixed-bulk 1.136 / 1.223 and stateless-pressure 0.916 / 1.116. Both O27 smoke pairs delivered useful bytes.
+- **X12:** both lifecycle attempts succeeded at `closed`, with the backup detached and the grant joins complete. Retired-phase `go_heap_live` / `peak_rss` was 1,800,480 / 20,316,160 B for Reno and 3,624,328 / 21,200,896 B for BBR.
+- **X13 (BBR):** passed, in 37 of 37 runs. The medians were:
+  - disjoint aggregate ÷ better single arm: 2.004 (≥ 1.20);
+  - disjoint aggregate ÷ pair: 1.005 (≥ 0.95);
+  - shared competitor beside the aggregate ÷ beside the pair: 1.092 (≥ 0.90).
+
+### Combination verdicts
+
+- **Reno primary/backup (default):** qualified. Correctness rows X2–X10 passed, ordinary cost was accepted as measured by the owner, and lifecycle memory is as reported.
+- **BBR primary/backup:** qualified. Correctness rows passed, and the reported ordinary cost was accepted as measured by the owner.
+- **BBR aggregate:** qualified. Correctness rows passed, the X13 topology gates passed, and the reported ordinary cost was accepted as measured.
+
+### Owner dispositions and earlier candidates
+
+- **X11 on `463568a9a`.** The owner accepted all four Reno results and BBR's numbers exactly as measured ([#1495 comment 7039863535](https://github.com/GridCastIO/quicquic-go/issues/1495#issuecomment-7039863535)). Host load was heavy during collection: a 1-minute load average of 14–77, with runner VMs, Spotlight and foreign builds. This was supplementary and not a pass/fail input; D10 A reports performance-cluster activity without judging it. Whether `sendmsg_x` batching raises the peak RSS is followed up in [#1599](https://github.com/GridCastIO/quicquic-go/issues/1599).
+- **`016bc60c7`.** X1 and X2 passed, then X3 failed. The capture reader dated each record by the next record's NUL ([#1586](https://github.com/GridCastIO/quicquic-go/issues/1586), fixed by [PR #1587](https://github.com/GridCastIO/quicquic-go/pull/1587)). The owner approved the fix and a restart ([#1495 comment 7025205252](https://github.com/GridCastIO/quicquic-go/issues/1495#issuecomment-7025205252)).
+- **`a8193c627`.** X1–X10 passed. X11 failed for Reno: goodput 0.77–0.81, and CPU per useful byte 1.24–1.42. BBR's reported goodput was 0.41–0.63. The owner chose to fix first ([#1495 comment 7028382059](https://github.com/GridCastIO/quicquic-go/issues/1495#issuecomment-7028382059)). That candidate's X12 and X13 ran for information only.
+  - The send-path fixes were [#1589](https://github.com/GridCastIO/quicquic-go/issues/1589), [#1590](https://github.com/GridCastIO/quicquic-go/issues/1590) and [#1592](https://github.com/GridCastIO/quicquic-go/issues/1592).
+  - Collection then restarted from X1 on `463568a9a`.
+
+Neither earlier candidate's results can activate anything.
+
+### Post-collection change (rule 3)
+
+After collection, one prose-only commit filled in this section and corrected the #1590 entry in `CHANGELOG.md`, which still said Darwin grants were publicly refused. The CHANGELOG correction came from a low concern raised by the `ras verify` of review run `20261119T220039-73fede99ed3971220f0048df`, pinned to `463568a9a`. No selected build, fixture, test or receipt check reads either file.
 
 ## Continuing coverage
 
