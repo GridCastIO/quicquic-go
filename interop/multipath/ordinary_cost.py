@@ -36,8 +36,8 @@ CELLS = {
     "mixed-bulk": {"env": {}},
     "stateless-pressure": {"env": {}},
 }
-# The native Darwin arm64 profile's workloads. Darwin emits scalar packets, so acceleration
-# arms would repeat one wiring.
+# The native Darwin arm64 profile's workloads. Darwin has no wire GSO, and QUIC_GO_DISABLE_GSO
+# does not change its sends, so acceleration arms would repeat one wiring.
 NATIVE_CELLS = {
     "stream": {"env": {}},
     "datagram": {"env": {}},

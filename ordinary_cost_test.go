@@ -97,7 +97,8 @@ type ordinaryCostPlatformProfile struct {
 	// negotiatedMultipath reports public multipath admission, which the opted-in mixed-bulk
 	// cell needs. No other cell stands in for it.
 	negotiatedMultipath bool
-	// gso reports segmentation offload in ordinary emission; Darwin emits scalar packets.
+	// gso reports wire segmentation offload (UDP GSO) in ordinary emission. Darwin has none;
+	// its software segments batch through sendmsg_x instead.
 	gso bool
 	// legacyRSSKB keeps the Linux rss_kb_* fields that the Reno thresholds read.
 	legacyRSSKB bool
