@@ -977,8 +977,10 @@ func (s *nativeOrdinarySender) replacePath(target *Transport, conn sendConn) sen
 	return next
 }
 
-// moveZero makes target and address path zero's current tuple. Unlike replacePath it
-// cancels nothing: the old tuple's fence has resolved, and other paths' work is theirs.
+// moveZero makes target and address path zero's current tuple. It finishes the open
+// builder, which offers it to the endpoint, then cancels path zero's local work the
+// endpoint has not taken. Unlike replacePath, it keeps the sender generation and
+// leaves other paths' work to them.
 func (s *nativeOrdinarySender) moveZero(target *Transport, address net.Addr, info packetInfo, conn sendConn) sendConn {
 	destination, ok := nativeDestination(address)
 	participant := s.origin
@@ -1002,7 +1004,10 @@ func (s *nativeOrdinarySender) moveZero(target *Transport, address net.Addr, inf
 	return next
 }
 
-// rebindZero is moveZero for a peer's new address on the same endpoint.
+// rebindZero changes path zero's destination on the same endpoint. Unlike moveZero it
+// does not finish the open builder: cancelZero settles it, with the rest of path
+// zero's local work the endpoint has not taken, as unsubmitted. The write state
+// stays, and its fallback restarts.
 func (s *nativeOrdinarySender) rebindZero(address net.Addr, info packetInfo, conn sendConn) {
 	destination, ok := nativeDestination(address)
 	if !ok {
