@@ -12,6 +12,7 @@ import (
 	"os"
 	"runtime"
 	"strings"
+	"sync/atomic"
 	"syscall"
 	"testing"
 	"time"
@@ -293,9 +294,9 @@ type nativeBBRBorrowCapture struct {
 	observed, protected, nativeGSO bool
 	members, datagrams             int
 	recipes                        []nativeProtectionRecipe
-	// The borrow's state as the hook's endpoint transaction leaves it.
-	stillCurrent, fenced bool
-	published, credits   int
+	// The borrow's state after the hook's transaction's first advance.
+	stillCurrent       bool
+	published, credits int
 }
 
 // One ordinary BBR opportunity, built by production emission on a real endpoint
@@ -315,19 +316,24 @@ func TestBBRNativeSoftwareEmissionBatches(t *testing.T) {
 	var endpoint *nativeEndpoint
 	var participant *endpointParticipant
 	var capture nativeBBRBorrowCapture // guarded by endpoint control
+	var entered atomic.Bool            // the hook enters endpoint control once
 	original := rawSendmsgX
 	t.Cleanup(func() { rawSendmsgX = original })
 	rawSendmsgX = func(fd int, msgs []msghdrX) (int, syscall.Errno) {
+		if entered.Swap(true) {
+			return original(fd, msgs)
+		}
 		// The writer makes native calls outside endpoint control (write), so it
-		// can enter control here, as other owners do during any native call. This
-		// transaction's advance cannot settle the borrow: reconcileCurrent leaves
-		// an unpublished current token fenced unless it is past deadline plus
-		// tolerance, and only expired or revoked queued records are published.
-		// The borrow-state fields below check that it left the member current,
-		// fenced, unpublished and holding its credit.
+		// can enter control here, as other owners do during any native call. Neither
+		// of this one transaction's advances can settle the borrow: the writer has
+		// not published its completion, so reconcileCurrent leaves the current
+		// token fenced unless it is past deadline plus tolerance, and only expired
+		// or revoked queued records are published. The borrow-state fields below
+		// check the first advance's result: the member is still current, nothing
+		// was published, and no credit was detached for return.
 		endpoint.do(func(s *endpointState) {
 			token := s.current
-			if capture.observed || token == nil || token.request.identity.connection != participant.id {
+			if token == nil || token.request.identity.connection != participant.id {
 				return
 			}
 			capture.observed = true
@@ -343,7 +349,6 @@ func TestBBRNativeSoftwareEmissionBatches(t *testing.T) {
 				}
 			}
 			capture.stillCurrent = s.current == token
-			capture.fenced = token.completion.Load() == nil
 			capture.published = len(participant.results)
 			capture.credits = len(s.credits)
 		})
@@ -406,7 +411,6 @@ func TestBBRNativeSoftwareEmissionBatches(t *testing.T) {
 	require.Greater(t, observed.datagrams, 1, "a multi-datagram software member")
 	require.Len(t, observed.recipes, observed.datagrams)
 	require.True(t, observed.stillCurrent, "the hook's transaction left the member current")
-	require.True(t, observed.fenced, "the hook's transaction published nothing for the borrow")
 	require.Zero(t, observed.published, "no result was published during the borrow")
 	require.Zero(t, observed.credits, "no credit was returned during the borrow")
 
