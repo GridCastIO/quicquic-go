@@ -61,7 +61,7 @@ func TestNativeEndpointEmptySupplyQuery(t *testing.T) {
 	require.False(t, e.nativeWorkEmpty(p), "a current native/deadline borrow is busy")
 	// Exercise real member execution, then leave its immutable final fact
 	// unreconciled under this worker-free control fixture.
-	token.fact = endpointWriteResult{result: writeEndpointRequestWithScratch(endpointTestNative{}, token, nil, nil), returnedAt: time.Now()}
+	token.fact = endpointWriteResult{result: writeEndpointRequestWithScratch(endpointTestNative{}, nil, token, nil, nil), returnedAt: time.Now()}
 	token.completion.Store(&token.fact)
 	require.False(t, e.nativeWorkEmpty(p), "publication alone cannot make current empty")
 	require.Same(t, token, e.state.current)
@@ -120,7 +120,7 @@ func TestNativeSoftwareStaleEmptyObservationUsesOrdinaryAdmission(t *testing.T) 
 		e.do(func(s *endpointState) { first = s.claim() })
 		require.NotNil(t, first)
 		require.Equal(t, sender.participant.id, first.request.identity.connection, "the existing cold round-robin cursor, not enqueue order, selects service")
-		first.fact = endpointWriteResult{result: writeEndpointRequestWithScratch(endpointTestNative{}, first, nil, nil), returnedAt: time.Now()}
+		first.fact = endpointWriteResult{result: writeEndpointRequestWithScratch(endpointTestNative{}, nil, first, nil, nil), returnedAt: time.Now()}
 		first.completion.Store(&first.fact)
 		e.do(func(*endpointState) {})
 		require.NotEqual(t, ordinaryFree, record.state)
@@ -130,7 +130,7 @@ func TestNativeSoftwareStaleEmptyObservationUsesOrdinaryAdmission(t *testing.T) 
 		e.do(func(s *endpointState) { second = s.claim() })
 		require.NotNil(t, second)
 		require.Equal(t, other.id, second.request.identity.connection)
-		second.fact = endpointWriteResult{result: writeEndpointRequestWithScratch(endpointTestNative{}, second, nil, nil), returnedAt: time.Now()}
+		second.fact = endpointWriteResult{result: writeEndpointRequestWithScratch(endpointTestNative{}, nil, second, nil, nil), returnedAt: time.Now()}
 		second.completion.Store(&second.fact)
 		e.do(func(*endpointState) {})
 		result, ok := e.take(other)

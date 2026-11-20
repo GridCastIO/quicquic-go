@@ -125,7 +125,7 @@ func TestNativeProtectionEmissionReservationBeforeWriter(t *testing.T) {
 		require.EqualValues(t, 1, plan.next)
 		require.Zero(t, plan.entries[0].protection, "writer clears key handle before native callback")
 		return len(data), nil
-	}}, token, &scratch, oobScratch[:0])
+	}}, nil, token, &scratch, oobScratch[:0])
 	require.NoError(t, result.failure())
 	require.Equal(t, 1, result.members[0].accepted)
 	require.Zero(t, result.members[0].uncertain)
