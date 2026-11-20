@@ -80,7 +80,7 @@ func (w *nativeDarwinWriter) readSegments(t *testing.T, segments []string) {
 
 // A software-segmented member on the granted socket is submitted in sendmsg_x
 // chunks of at most maxSendBatch datagrams.
-func TestNativeDarwinBatchedSegments(t *testing.T) {
+func TestNativeSoftwareBatchedSegments(t *testing.T) {
 	requireNativeBatchQualified(t)
 	w := newNativeBatchWriter(t)
 	segments := nativeBatchSegments(40, 16)
@@ -97,7 +97,7 @@ func TestNativeDarwinBatchedSegments(t *testing.T) {
 
 // The first datagram on a fresh write state keeps its scalar EPERM retry; only the
 // rest of the member is batched.
-func TestNativeDarwinBatchFirstDatagramScalar(t *testing.T) {
+func TestNativeSoftwareBatchFirstDatagramScalar(t *testing.T) {
 	requireNativeBatchQualified(t)
 	w := newNativeBatchWriter(t)
 	segments := nativeBatchSegments(5, 16)
@@ -129,7 +129,7 @@ func (r nativeBatchHookedRaw) Write(f func(uintptr) bool) error {
 // The submission gate runs before every chunk: a deadline that passes after the
 // first chunk leaves the rest of the member unsubmitted, never uncertain, and
 // nothing more reaches the socket.
-func TestNativeDarwinBatchExpiryBetweenChunks(t *testing.T) {
+func TestNativeSoftwareBatchExpiryBetweenChunks(t *testing.T) {
 	requireNativeBatchQualified(t)
 	socket := nativeDarwinListen("udp4", net.IPv4(127, 0, 0, 1))(t)
 	peerSocket := nativeDarwinListen("udp4", net.IPv4(127, 0, 0, 1))(t)
@@ -170,7 +170,7 @@ func TestNativeDarwinBatchExpiryBetweenChunks(t *testing.T) {
 
 // Without a qualified capability the granted writer stays scalar: it consults the
 // capability, submits no batch and delivers every segment.
-func TestNativeDarwinBatchFallback(t *testing.T) {
+func TestNativeSoftwareBatchFallback(t *testing.T) {
 	for _, mode := range []string{"disabled", "unqualified", "architecture"} {
 		t.Run(mode, func(t *testing.T) {
 			resetSendmsgXForTesting(t)
