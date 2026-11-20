@@ -1,6 +1,6 @@
 # macOS multipath program
 
-**Date:** 2026-11-19. **Identity:** MP-MAC-20261119. **Status:** Accepted handoff; implementation in progress. **Tracking issue:** pending. **Audit history:** [Source and slice audit](../audits/2026-11-19-macos-multipath-handoff/README.md).
+**Date:** 2026-11-19. **Identity:** MP-MAC-20261119. **Status:** Accepted handoff; complete. **Tracking issue:** pending. **Audit history:** [Source and slice audit](../audits/2026-11-19-macos-multipath-handoff/README.md).
 
 ## Purpose and source of truth
 
@@ -10,7 +10,7 @@ Package the owner-approved macOS profile from [planning issue #1396](https://git
 
 | Track | Plan | Parent issue | Size | Current frontier | State |
 | --- | --- | --- | --- | --- | --- |
-| MP-MAC — Native macOS multipath | [Implementation plan](2026-11-19-macos-multipath-implementation-plan.md) | pending | 11 slices / intended PRs | Q2 | Readiness complete; protocol approved |
+| MP-MAC — Native macOS multipath | [Implementation plan](2026-11-19-macos-multipath-implementation-plan.md) | pending | 11 slices / intended PRs | None | Complete |
 
 | Slice | Blocked by | State |
 | --- | --- | --- |
@@ -24,9 +24,9 @@ Package the owner-approved macOS profile from [planning issue #1396](https://git
 | C3 — UDP topology relay | None | COMPLETE ([PR #1497](https://github.com/GridCastIO/quicquic-go/pull/1497)) |
 | C4 — Topology comparison workload | C1, C3 | COMPLETE ([PR #1557](https://github.com/GridCastIO/quicquic-go/pull/1557)) |
 | Q1 — Concrete execution/venue protocol | E2, E3, P1, P2, C2, C4 | COMPLETE ([PR #1567](https://github.com/GridCastIO/quicquic-go/pull/1567); [execution protocol](2026-11-19-macos-multipath-execution-protocol.md)) |
-| Q2 — Qualification and public activation | Q1 | FRONTIER |
+| Q2 — Qualification and public activation | Q1 | COMPLETE ([PR #1585](https://github.com/GridCastIO/quicquic-go/pull/1585); [support record](../audits/2026-11-19-macos-multipath-q2-support.md)) |
 
-There are no cross-track edges. E1, E2, E3, P1, P2, C1, C2, C3, C4 and Q1 are complete, and the owner approved the [execution protocol](2026-11-19-macos-multipath-execution-protocol.md). Q2 is the only remaining slice. P1/P2 shared some files but had no behavioral dependency. E2/E3 were parallel-safe after E1; C2 depended only on C1, and C4 on both C1 and C3. E1 and P1 have exposed native socket and build feasibility; priority does not create a blocking edge. Shared-host qualification coordination belongs to Q1, not to arbitrary serial task order.
+There are no cross-track edges. All eleven slices are complete: Q2 executed the owner-approved [execution protocol](2026-11-19-macos-multipath-execution-protocol.md) on its exact candidate and activated the public profile on Darwin 27 arm64. No slice remains on the frontier. P1/P2 shared some files but had no behavioral dependency. E2/E3 were parallel-safe after E1; C2 depended only on C1, and C4 on both C1 and C3. E1 and P1 have exposed native socket and build feasibility; priority does not create a blocking edge. Shared-host qualification coordination belongs to Q1, not to arbitrary serial task order.
 
 Q1 cannot complete without the concrete owner-approved execution, venue, toolchain, admitted-release and selected maintained-aid decisions. It collects no native qualification campaign. Q2 cannot be ready merely because tooling compiles; its blocker binds the actual methods and authority. The implementation skill verifies those conditions again before dispatch. No implementation agent is launched by this handoff.
 

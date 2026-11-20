@@ -83,7 +83,8 @@ def observation(cell="stream-gso-on", profile="unregistered", round_=0, platform
             "controller": controller,
             "platform": identity(platform),
             "granted": profile == "opted-in",
-            "multipath_advertised": linux and profile == "opted-in",
+            # Both profiles admit multipath publicly, so every opted-in server advertises it.
+            "multipath_advertised": profile == "opted-in",
             "gso_capable": linux and cell not in ("stream-gso-off", "datagram-batch-off"),
             "window_cpu_s": 60.0,
             "self_cpu": metric(60 * 10**9, "ns", CPU_SOURCE),
@@ -116,6 +117,10 @@ def observation(cell="stream-gso-on", profile="unregistered", round_=0, platform
     record["client"]["useful_bytes"] = metric(sum(f["useful_bytes"] for f in record["client"]["flows"]), "bytes", USEFUL_SOURCE)
     record.update(changes)
     return record
+
+
+def flows_labeled(record, label):
+    return [item for item in record["client"]["flows"] if item["label"] == label]
 
 
 def campaign():
@@ -954,8 +959,6 @@ class NativeRecordTests(unittest.TestCase):
     def test_native_observation_is_valid(self):
         for cell in driver.NATIVE_CELLS:
             for profile in ("unregistered", "opted-in"):
-                if cell == "mixed-bulk" and profile == "opted-in":
-                    continue
                 for controller in ("reno", "bbrv3"):
                     driver.check_observation(observation(cell, profile, platform="darwin-arm64", controller=controller))
 
@@ -973,10 +976,9 @@ class NativeRecordTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "identity"):
             driver.check_observation(record)
 
-    def test_native_never_claims_linux_counters_or_negotiation(self):
+    def test_native_never_claims_linux_counters(self):
         cases = {
             "gso": lambda r: r["server"].update(gso_capable=True),
-            "advertised": lambda r: r["server"].update(multipath_advertised=True),
             "legacy rss": lambda r: r["server"].update(rss_kb_end=1000),
             "quiet host": lambda r: r.update(host_activity={"status": "quiet"}),
         }
@@ -986,27 +988,25 @@ class NativeRecordTests(unittest.TestCase):
             with self.subTest(name), self.assertRaises(ValueError):
                 driver.check_observation(record)
 
-    def test_private_grant_receipt_cannot_claim_negotiation(self):
-        cases = {
-            "connection": lambda r: r["server"]["connections"][0].update(multipath_negotiated=True),
-            "connection unstated": lambda r: r["server"]["connections"][0].pop("multipath_negotiated"),
-            "flow": lambda r: r["client"]["flows"][0].update(multipath_negotiated=True),
-            "flow unstated": lambda r: r["client"]["flows"][0].pop("multipath_negotiated"),
-            "paths": lambda r: r["client"]["flows"][0].update(paths=["live", "live"]),
-        }
-        for name, edit in cases.items():
-            record = observation("stream", "opted-in", platform="darwin-arm64")
-            edit(record)
-            with self.subTest(name), self.assertRaisesRegex(ValueError, "negotiated"):
+    def test_native_advertisement_follows_public_admission(self):
+        # D14: the Darwin profile grants through the public interface, so its opted-in
+        # server advertises multipath and its control server does not, as on Linux.
+        self.assertTrue(driver.PROFILES[driver.DARWIN]["negotiated_multipath"])
+        for profile, advertised in (("opted-in", False), ("unregistered", True)):
+            record = observation("stream", profile, platform="darwin-arm64")
+            record["server"]["multipath_advertised"] = advertised
+            with self.subTest(profile=profile), self.assertRaisesRegex(ValueError, "advertisement"):
                 driver.check_observation(record)
-        driver.check_observation(observation("mixed-bulk", "opted-in"))
 
-    def test_native_negotiated_mixed_bulk_is_refused_not_replaced(self):
-        record = observation("mixed-bulk", "unregistered", platform="darwin-arm64")
-        driver.check_observation(record)
-        record = observation("mixed-bulk", "opted-in", platform="darwin-arm64")
-        with self.assertRaisesRegex(ValueError, "negotiated"):
-            driver.check_observation(record)
+    def test_native_mixed_bulk_opted_in_negotiates_two_paths(self):
+        driver.check_observation(observation("mixed-bulk", "unregistered", platform="darwin-arm64"))
+        driver.check_observation(observation("mixed-bulk", "opted-in", platform="darwin-arm64"))
+        for name, edit in (("unnegotiated", lambda background: background.update(multipath_negotiated=False)),
+                           ("one path", lambda background: background.update(paths=["live"]))):
+            record = observation("mixed-bulk", "opted-in", platform="darwin-arm64")
+            edit(flows_labeled(record, "background")[0])
+            with self.subTest(name), self.assertRaisesRegex(ValueError, "one negotiated two-path connection"):
+                driver.check_observation(record)
 
 
 FIXTURE = Path(__file__).parent / "testdata" / "powermetrics" / "cpu_power.plist"
@@ -1411,11 +1411,9 @@ class NativeExecutionTests(unittest.TestCase):
                     self.assertFalse(summary["judged"])
                     self.assertNotIn("diagnostic", summary)
                     records = [json.loads(line) for line in (root / "output" / "smoke.jsonl").read_text().splitlines()]
-                    expected = ["unregistered"] if cell == "mixed-bulk" else ["unregistered", "opted-in"]
-                    self.assertEqual([record["profile"] for record in records], expected)
-                    self.assertEqual(len(processes), 2 * len(expected))
-                    if cell == "mixed-bulk":
-                        self.assertIn("Q2", summary["not_run"]["opted-in"])
+                    self.assertEqual([record["profile"] for record in records], ["unregistered", "opted-in"])
+                    self.assertEqual(len(processes), 4)
+                    self.assertNotIn("not_run", summary)
                     for record in records:
                         self.assertEqual(record["host_activity"]["status"], "unavailable")
                         self.assertNotIn("contaminated", record)
@@ -1425,13 +1423,33 @@ class NativeExecutionTests(unittest.TestCase):
                     with self.assertRaises(ValueError):
                         driver.check_accounting(records)
 
+    def test_native_mixed_bulk_diagnostic_runs_both_arms(self):
+        # X11: each pair executes both arms; the opted-in arm negotiates multipath (D14).
+        for controller in ("reno", "bbrv3"):
+            with self.subTest(controller=controller), tempfile.TemporaryDirectory() as temporary:
+                root = Path(temporary)
+                code, summary, processes = self.invoke(root, ("--platform-profile", "darwin-arm64", "--diagnostic-cell",
+                                                              "mixed-bulk", "--controller", controller), platform="darwin-arm64")
+                self.assertEqual(code, 0, summary.get("error"))
+                self.assertEqual((summary["mode"], summary["judged"], summary["observations"]), ("diagnostic", False, 2))
+                self.assertNotIn("not_run", summary)
+                self.assertEqual((summary["instances_charged"], len(processes)), (2, 4))
+                records = [json.loads(line) for line in (root / "output" / "diagnostic.jsonl").read_text().splitlines()]
+                self.assertEqual([record["profile"] for record in records], [driver.CONTROL, driver.OPTED_IN])
+                control, treated = records
+                self.assertFalse(control["server"]["multipath_advertised"])
+                self.assertEqual(len(flows_labeled(control, "background")), 2)
+                self.assertTrue(treated["server"]["multipath_advertised"])
+                self.assertEqual([(f["multipath_negotiated"], f["paths"]) for f in flows_labeled(treated, "background")],
+                                 [(True, ["live", "live"])])
+
     def test_native_smoke_fails_on_a_failed_workload(self):
         def write_error(record):
             if record["profile"] == driver.OPTED_IN:
                 record["server"]["write_errors"] = 1
 
         for cell, edit, failure in (("stream", write_error, "opted-in: 1 write errors"),
-                                    ("mixed-bulk", lambda record: idle(record, 2),
+                                    ("mixed-bulk", lambda record: record["profile"] == driver.CONTROL and idle(record, 2),
                                      "unregistered: background delivered no useful bytes")):
             with self.subTest(cell=cell), tempfile.TemporaryDirectory() as temporary:
                 code, summary, _ = self.invoke(Path(temporary), ("--platform-profile", "darwin-arm64", "--smoke-cell", cell),
@@ -1589,8 +1607,11 @@ def path_state(wire_id, lifecycle="live", local_use="active", primary=False, val
             "local_use": local_use, "primary": primary, "validated": validated}
 
 
-def lifecycle_record(controller="reno", retired="closed", heap=(4_000_000, 4_100_000, 4_010_000)):
-    """A producer-shaped lifecycle-memory record, as ordinary_cost_lifecycle_test.go writes it."""
+def lifecycle_record(controller="reno", retired="closed", heap=(4_000_000, 4_100_000, 4_010_000), platform="linux-amd64"):
+    """A producer-shaped lifecycle-memory record, as ordinary_cost_lifecycle_test.go writes it
+    on the platform: Linux reads VmHWM in kB, Darwin ru_maxrss in bytes."""
+    rss = (metric(20_000, "kB", RSS_SOURCE[platform], bytes=20_000 * 1024) if platform == "linux-amd64"
+           else metric(20_480_000, "bytes", RSS_SOURCE[platform], bytes=20_480_000))
     states = (path_state(0, primary=True), path_state(1, local_use="backup", tuple_generation=1),
               path_state(1, lifecycle=retired, local_use="backup", tuple_generation=1))
     samples = []
@@ -1600,16 +1621,16 @@ def lifecycle_record(controller="reno", retired="closed", heap=(4_000_000, 4_100
             "baseline": None if phase == "negotiated-idle" else "negotiated-idle",
             "state_before": dict(state), "state_after": dict(state),
             "go_heap_live": metric(value, "bytes", driver.LIFECYCLE_BOUNDARY_SOURCES["go_heap_live"]),
-            "peak_rss": metric(20_000, "kB", "/proc/self/status VmHWM", bytes=20_000 * 1024),
+            "peak_rss": dict(rss),
         })
     joins = driver.LIFECYCLE_BOUNDARY_SOURCES["grant_joins"]
     return {
-        "workload": driver.LIFECYCLE, "controller": controller, "platform_profile": "linux-amd64",
+        "workload": driver.LIFECYCLE, "controller": controller, "platform_profile": platform,
         "retired_lifecycle": retired, "exit": {"server": 0, "client": 0}, "status": "succeeded",
-        "server": {"format": driver.LIFECYCLE_FORMAT, "role": "server", "controller": controller, "go": driver.GO_VERSION, "platform": identity("linux-amd64"),
+        "server": {"format": driver.LIFECYCLE_FORMAT, "role": "server", "controller": controller, "go": driver.GO_VERSION, "platform": identity(platform),
                    "multipath_negotiated": True, "peer_closed": True, "close_cause": "Application error 0x0 (remote)",
                    "grant_joins": {"origin": True}, "grant_join_source": joins},
-        "client": {"format": driver.LIFECYCLE_FORMAT, "role": "client", "controller": controller, "go": driver.GO_VERSION, "platform": identity("linux-amd64"),
+        "client": {"format": driver.LIFECYCLE_FORMAT, "role": "client", "controller": controller, "go": driver.GO_VERSION, "platform": identity(platform),
                    "retired_lifecycle": retired, "multipath_negotiated": True, "samples": samples,
                    "transport_detachment": {"transport": "backup", "detached": True,
                                             "source": driver.LIFECYCLE_BOUNDARY_SOURCES["transport_detachment"]},
@@ -1801,17 +1822,29 @@ class LifecycleRecordTests(unittest.TestCase):
             with self.subTest(status=status), self.assertRaisesRegex(ValueError, "pairs succeeded attempts"):
                 driver.match_lifecycle(lifecycle_record(), failed)
 
-    def test_native_lifecycle_is_refused_not_replaced(self):
-        record = lifecycle_record()
-        record["platform_profile"] = "darwin-arm64"
-        with self.assertRaisesRegex(ValueError, "public Darwin multipath admission"):
+    def test_native_lifecycle_record_is_valid_in_darwin_units(self):
+        # D14: Darwin negotiates through public admission and reads ru_maxrss in bytes.
+        for controller in ("reno", "bbrv3"):
+            driver.check_lifecycle(lifecycle_record(controller, platform="darwin-arm64"))
+        record = lifecycle_record(platform="darwin-arm64")
+        self.sample(record, "retired")["peak_rss"] = metric(20_000, "kB", RSS_SOURCE["linux-amd64"], bytes=20_000 * 1024)
+        with self.assertRaisesRegex(ValueError, "RSS unit must be bytes on darwin-arm64"):
             driver.check_lifecycle(record)
-        with self.assertRaisesRegex(ValueError, "public Darwin multipath admission"):
-            driver.run_lifecycle("fixture", Path("unused"), "reno", "closed", 30, {}, "darwin-arm64")
+        record = lifecycle_record(platform="darwin-arm64")
+        self.sample(record, "validated-backup")["peak_rss"]["source"] = RSS_SOURCE["linux-amd64"]
+        with self.assertRaisesRegex(ValueError, re.escape("source must be 'getrusage(RUSAGE_SELF).ru_maxrss' on darwin-arm64")):
+            driver.check_lifecycle(record)
+        record = lifecycle_record(platform="darwin-arm64")
+        record["client"]["platform"] = identity("linux-amd64")
+        with self.assertRaisesRegex(ValueError, "native identity"):
+            driver.check_lifecycle(record)
+        self.assertEqual(driver.match_lifecycle(lifecycle_record("reno", platform="darwin-arm64"),
+                                                lifecycle_record("bbrv3", platform="darwin-arm64"))["retired"],
+                         (4_010_000, 4_010_000))
 
 
 class LifecycleExecutionTests(unittest.TestCase):
-    def invoke(self, root, failure=None, edit=None, extra=("--retired-lifecycle", "closed")):
+    def invoke(self, root, failure=None, edit=None, extra=("--retired-lifecycle", "closed"), platform="linux-amd64"):
         binary = root / "fixture"
         binary.write_bytes(b"fixture identity")
         output = root / "output"
@@ -1841,16 +1874,19 @@ class LifecycleExecutionTests(unittest.TestCase):
             process = Process(spec["role"])
             processes[spec["role"]] = (process, spec, command)
             stdout.write("--- PASS: TestOrdinaryCostLifecycleRole (0.10s)\n")
-            record = lifecycle_record(spec["controller"], spec["retired_lifecycle"])
+            record = lifecycle_record(spec["controller"], spec["retired_lifecycle"], platform=platform)
             if edit:
                 edit(record)
             Path(spec["output"]).write_text(json.dumps(record[spec["role"]]))
             return process
 
         with contextlib.ExitStack() as stack:
-            stack.enter_context(mock.patch.object(driver.platform, "platform", return_value="Linux-test"))
-            stack.enter_context(mock.patch.object(driver.platform, "system", return_value="Linux"))
-            stack.enter_context(mock.patch.object(driver.platform, "machine", return_value="x86_64"))
+            system, machine = driver.PROFILES[platform]["host"]
+            stack.enter_context(mock.patch.object(driver.platform, "platform", return_value=f"{system}-test"))
+            stack.enter_context(mock.patch.object(driver.platform, "system", return_value=system))
+            stack.enter_context(mock.patch.object(driver.platform, "machine", return_value=machine))
+            stack.enter_context(mock.patch.object(driver.candidate_binding, "bind", side_effect=(
+                stub_binding if platform == driver.DARWIN else AssertionError("bound off Darwin"))))
             stack.enter_context(mock.patch.object(driver.shutil, "which", return_value="taskset"))
             stack.enter_context(mock.patch.object(driver.subprocess, "run", return_value=mock.Mock(stdout=f"fixture: {driver.GO_VERSION}\n")))
             stack.enter_context(mock.patch.object(driver.subprocess, "Popen", side_effect=launch))
@@ -1902,7 +1938,6 @@ class LifecycleExecutionTests(unittest.TestCase):
 
     def test_lifecycle_arguments(self):
         for extra, message in (((), "go together"),
-                               (("--retired-lifecycle", "closed", "--platform-profile", "darwin-arm64"), "public Darwin multipath admission"),
                                (("--retired-lifecycle", "closed", "--cpu-profile"), "no CPU profile"),
                                (("--retired-lifecycle", "retiring"), "invalid choice")):
             with self.subTest(extra=extra), tempfile.TemporaryDirectory() as temporary:
@@ -1918,6 +1953,39 @@ class LifecycleExecutionTests(unittest.TestCase):
                              "--remaining-instances", "1", "--remaining-host-seconds", "60", "--timeout-seconds", "40",
                              "--smoke-cell", "stream-gso-on", "--retired-lifecycle", "closed"])
             self.assertIn("go together", stderr.getvalue())
+
+    def test_native_lifecycle_runs_through_public_admission(self):
+        # Protocol X12: --lifecycle-memory --retired-lifecycle closed on darwin-arm64, per controller.
+        for controller in ("reno", "bbrv3"):
+            with self.subTest(controller=controller), tempfile.TemporaryDirectory() as temporary:
+                code, summary, output, processes = self.invoke(
+                    Path(temporary), extra=("--retired-lifecycle", "closed", "--controller", controller,
+                                            "--platform-profile", "darwin-arm64", "--timeout-seconds", "135",
+                                            "--remaining-instances", "2", "--remaining-host-seconds", "270"),
+                    platform="darwin-arm64")
+                self.assertEqual(code, 0, summary)
+                self.assertEqual((summary["mode"], summary["passed"], summary["judged"]), (driver.LIFECYCLE, True, False))
+                self.assertEqual((summary["platform_profile"], summary["instances_charged"]), ("darwin-arm64", 1))
+                self.assertEqual(sorted(processes), ["client", "server"])
+                for role, (_, spec, command) in processes.items():
+                    self.assertEqual(spec["controller"], controller)
+                    self.assertNotIn("taskset", command, "Darwin offers no CPU affinity")
+                identity_record = json.loads((output / "identity.json").read_text())
+                self.assertEqual((identity_record["platform_profile"], identity_record["mode"], identity_record["cells"]),
+                                 ("darwin-arm64", driver.LIFECYCLE, []))
+                self.assertIn("source", identity_record)
+                self.assertIn("binding", identity_record["binary"])
+                record = json.loads((output / f"{driver.LIFECYCLE}.jsonl").read_text())
+                self.assertEqual(record["platform_profile"], "darwin-arm64")
+                self.assertEqual({sample["peak_rss"]["unit"] for sample in record["client"]["samples"]}, {"bytes"})
+                driver.check_lifecycle(record)
+        with tempfile.TemporaryDirectory() as temporary:
+            stderr = io.StringIO()
+            with contextlib.redirect_stderr(stderr), self.assertRaises(SystemExit):
+                self.invoke(Path(temporary), extra=("--retired-lifecycle", "closed", "--platform-profile", "darwin-arm64",
+                                                    "--host-sampler", "powermetrics"), platform="darwin-arm64")
+            self.assertIn("no CPU profile, revalidation or host sampler", stderr.getvalue())
+            self.assertFalse((Path(temporary) / "output").exists())
 
     def test_short_timeout_launches_nothing(self):
         with tempfile.TemporaryDirectory() as temporary:
@@ -2158,10 +2226,14 @@ class DarwinVerdictTests(unittest.TestCase):
         self.assertEqual(verdict["diagnostic"]["peak_rss_bytes"][driver.OPTED_IN], [1_126_400] * 3)
         self.assertNotIn("peak_rss_kb", verdict["diagnostic"])
 
+    def test_reno_mixed_bulk_reads_both_arms(self):
+        # D14: the opted-in mixed-bulk arm negotiates, so the cell has a verdict like the others.
+        code, verdict = self.verdict(self.rounds(cell="mixed-bulk"))
+        self.assertEqual(code, 0)
+        self.assertEqual((verdict["cell"], verdict["judged"], verdict["passed"]), ("mixed-bulk", True, True))
+
     def test_bbr_is_reported_unjudged_on_every_cell(self):
         for cell in driver.NATIVE_CELLS:
-            if cell == "mixed-bulk":
-                continue  # its opted-in arm needs the D14 lifts
             with self.subTest(cell=cell):
                 shutil.rmtree(self.root, ignore_errors=True)
                 self.root.mkdir()

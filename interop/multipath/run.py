@@ -31,7 +31,7 @@ MATRIX_SCENARIOS = (
 MATRIX_EXPECTED = [f"TestPicoquicMultipathMatrix/{scenario}/{role}"
                    for scenario in MATRIX_SCENARIOS for role in ("client", "server")]
 ZERO_EXPECTED = ["TestMultipathNegotiatedZeroVectors", "TestMultipathNegotiatedZeroControlledPeer"]
-# The native profile compiles and lists the matrix; it executes no multipath case before Q2.
+# Native discovery lists the compiled matrix without executing it; --matrix executes its cases.
 DISCOVERY_EXPECTED = ["TestPicoquicMultipathMatrix"]
 PICOQUIC_PIN = "fbd46d9a1f54ebf9397f2ee6355b5019ab379fb7"
 PICOTLS_PIN = "e446233b4100ebcdec60901c05bfb7f4cd369c5d"
@@ -67,22 +67,33 @@ def matrix_invocation(scenario, role, test_binary=None, controller="reno"):
     return command, [f"TestPicoquicMultipathMatrix/{scenario}/{role}"]
 
 
-def check_matrix(root, controller="reno", policy="primary-backup"):
-    expected = matrix_expected(controller)
-    identity = None
+def check_case_logs(root, expected):
+    """Require exactly the declared case logs before reading any metadata, so missing evidence wins."""
     expected_paths = set()
-    # Require every log before comparing metadata, so missing evidence wins.
     for case in expected:
         _, scenario, role = case.split("/")
         expected_paths.add(root / scenario / role / "go-test.jsonl")
     actual_paths = set(root.glob("*/*/go-test.jsonl"))
     if actual_paths != expected_paths:
         raise ValueError(f"missing or unexpected matrix case logs: {actual_paths ^ expected_paths}")
+
+
+def refuse_native_receipt(result, case):
+    """Linux receipts carry no profile or mode; a darwin-native one belongs to check_native_matrix."""
+    if "profile" in result or "mode" in result:
+        raise ValueError(f"{case}: a {result.get('profile', 'native')} receipt; validate it with --profile darwin-native")
+
+
+def check_matrix(root, controller="reno", policy="primary-backup"):
+    expected = matrix_expected(controller)
+    identity = None
+    check_case_logs(root, expected)
     for case in expected:
         _, scenario, role = case.split("/")
         directory = root / scenario / role
         check_cases((directory / "go-test.jsonl").read_text().splitlines(), SMOKE_PACKAGE, [case])
         result = json.loads((directory / "result.json").read_text())
+        refuse_native_receipt(result, case)
         if result.get("status") != "pass" or result.get("executed") != [case] or not result.get("identity"):
             raise ValueError(f"invalid case receipt: {case}")
         if result.get("controller", "reno") != controller:
@@ -101,6 +112,7 @@ def check_matrix(root, controller="reno", policy="primary-backup"):
             raise ValueError("missing negotiated-zero normative/controlled evidence")
         check_cases((zero / "go-test.jsonl").read_text().splitlines(), SMOKE_PACKAGE, ZERO_EXPECTED)
         zero_result = json.loads((zero / "result.json").read_text())
+        refuse_native_receipt(zero_result, "negotiated-zero")
         if zero_result.get("status") != "pass" or zero_result.get("executed") != ZERO_EXPECTED or zero_result.get("identity") != identity:
             raise ValueError("negotiated-zero receipt identity/accounting mismatch")
         result["negotiated_zero"] = {"executed": ZERO_EXPECTED, "independent_peer": False}
@@ -185,13 +197,25 @@ NATIVE_IDENTITY_SCHEMA = {
 NATIVE_SHARED_IDENTITY = tuple(key for key in NATIVE_IDENTITY_SCHEMA if key not in ("test_binary_sha256", "test_binary_binding"))
 NATIVE_RUN_SCHEMA = {"profile": exactly(NATIVE_PROFILE), "status": exactly("pass"), "command": command_line,
                      "started": text, "duration_seconds": nonnegative_number}
+# A launched peer adds its digest to the identity.
+NATIVE_PEER_IDENTITY_SCHEMA = NATIVE_IDENTITY_SCHEMA | {"peer_binary_sha256": SHA256}
+# Each native mode writes its own label, so no receipt reads back as another mode's evidence.
 NATIVE_RECEIPT_SCHEMAS = {
     "ordinary-control": NATIVE_RUN_SCHEMA | {
         "mode": exactly("ordinary-control"), "policy": exactly("primary-backup"), "controller": exactly("reno"),
-        "executed": exactly(EXPECTED), "identity": NATIVE_IDENTITY_SCHEMA | {"peer_binary_sha256": SHA256}},
+        "executed": exactly(EXPECTED), "identity": NATIVE_PEER_IDENTITY_SCHEMA},
     "matrix-discovery": NATIVE_RUN_SCHEMA | {
         "mode": exactly("matrix-discovery"), "listed": exactly(DISCOVERY_EXPECTED), "executed": exactly([]),
         "identity": NATIVE_IDENTITY_SCHEMA},
+    # One scenario/role per receipt; check_native_matrix compares the case, controller and policy.
+    "matrix": NATIVE_RUN_SCHEMA | {
+        "mode": exactly("matrix"), "policy": lambda value: value in ("primary-backup", "aggregate"),
+        "controller": lambda value: value in ("reno", "bbrv3"),
+        "executed": lambda value: isinstance(value, list) and len(value) == 1 and text(value[0]),
+        "identity": NATIVE_PEER_IDENTITY_SCHEMA},
+    "negotiated-zero": NATIVE_RUN_SCHEMA | {
+        "mode": exactly("negotiated-zero"), "policy": exactly("primary-backup"), "controller": exactly("reno"),
+        "executed": exactly(ZERO_EXPECTED), "identity": NATIVE_PEER_IDENTITY_SCHEMA},
 }
 
 
@@ -254,8 +278,9 @@ def required_executables(profile):
     return ("go", "stdbuf") if profile == "linux-docker" else ("go",)
 
 
-def load_build_identity(path, system, machine, binary=None):
-    """Read back the native build recipe's record; unknown or malformed fields fail."""
+def load_build_identity(path, system, machine, binary=None, peer=None):
+    """Read back the native build recipe's record; unknown or malformed fields fail. With peer,
+    the binary must be the one the record names for that peer."""
     record = read_record(path, BUILD_IDENTITY_SCHEMA, "build identity")
     if record["platform"]["system"] != system or record["platform"]["machine"] != machine:
         raise ValueError(f"build identity platform does not match {system}/{machine}")
@@ -263,6 +288,8 @@ def load_build_identity(path, system, machine, binary=None):
         raise ValueError("build identity was produced from a different peer.c")
     if binary is not None and digest(binary) not in {entry["sha256"] for entry in record["binaries"].values()}:
         raise ValueError(f"peer binary is not one recorded by the build identity: {binary}")
+    if binary is not None and peer is not None and digest(binary) != record["binaries"][peer]["sha256"]:
+        raise ValueError(f"peer binary is not the {peer} the build identity records: {binary}")
     return record
 
 
@@ -287,13 +314,13 @@ def check_test_binary_settings(build_info, goos, goarch, toolchain=None):
     return settings
 
 
-def native_identity(build_identity, binary, test_binary, source=SOURCE):
+def native_identity(build_identity, binary, test_binary, source=SOURCE, peer=None):
     candidate = os.environ.get("QGF_SOURCE_COMMIT", "")
     tree = os.environ.get("QGF_SOURCE_TREE", "")
     if not is_hex(candidate, 40) or not is_hex(tree, 40):
         raise ValueError("native execution requires exact QGF_SOURCE_COMMIT and QGF_SOURCE_TREE")
     system, machine = platform.system(), platform.machine()
-    load_build_identity(build_identity, system, machine, binary)
+    load_build_identity(build_identity, system, machine, binary, peer)
     version = subprocess.check_output(["go", "version"], text=True, timeout=10).strip()
     if not version.endswith(" darwin/arm64"):
         raise ValueError(f"native profile requires a darwin/arm64 toolchain: {version}")
@@ -422,18 +449,73 @@ def check_native(root):
             "guarantee": "example-level native build, ordinary control and matrix discovery; no multipath executed"}
 
 
+def check_native_matrix(root, controller="reno", policy="primary-backup"):
+    """Read back the native matrix: each case receipt, and for Reno the negotiated-zero
+    receipt, with its native label, identity schema and #1528 binding. Every receipt names
+    one identity: candidate, tree, toolchain, kernel, build identity, runner, peer and test binary."""
+    expected = matrix_expected(controller)
+    check_case_logs(root, expected)
+    identity = None
+    for case in expected:
+        _, scenario, role = case.split("/")
+        directory = root / scenario / role
+        check_cases((directory / "go-test.jsonl").read_text().splitlines(), SMOKE_PACKAGE, [case])
+        receipt = read_native_receipt(directory / "result.json", "matrix", f"native matrix receipt {case}")
+        if receipt["executed"] != [case]:
+            raise ValueError(f"invalid case receipt: {case}")
+        if receipt["controller"] != controller:
+            raise ValueError(f"matrix controller mismatch: {case}")
+        if receipt["policy"] != policy:
+            raise ValueError(f"matrix policy mismatch: {case}")
+        if identity is None:
+            identity = receipt["identity"]
+        elif receipt["identity"] != identity:
+            raise ValueError(f"native matrix receipts do not share one candidate/toolchain/build identity: {case}")
+    result = {"profile": NATIVE_PROFILE, "status": "pass", "executed": expected, "identity": identity,
+              "controller": controller, "policy": policy,
+              "guarantee": "example-level native Darwin public-profile matrix; fixed draft-21 QUIC v1 scenarios only"}
+    if controller == "reno":
+        zero = root / "negotiated-zero"
+        if not (zero / "go-test.jsonl").is_file() or not (zero / "result.json").is_file():
+            raise ValueError("missing negotiated-zero normative/controlled evidence")
+        check_cases((zero / "go-test.jsonl").read_text().splitlines(), SMOKE_PACKAGE, ZERO_EXPECTED)
+        zero_receipt = read_native_receipt(zero / "result.json", "negotiated-zero", "native negotiated-zero receipt")
+        if zero_receipt["identity"] != identity:
+            raise ValueError("negotiated-zero receipt identity does not match the matrix cases")
+        result["negotiated_zero"] = {"executed": ZERO_EXPECTED, "independent_peer": False}
+    return result
+
+
+# The peer each native mode's receipt names: the matrix and negotiated-zero share the R17
+# adapter's identity (negotiated-zero launches none), the ordinary control runs the demo.
+NATIVE_PEERS = {"ordinary-control": "picoquicdemo", "matrix-discovery": None,
+                "matrix": "qgf-r17-peer", "negotiated-zero": "qgf-r17-peer"}
+
+
+def native_mode(args):
+    """The label a native receipt carries, one per mode."""
+    if args.discover_matrix:
+        return "matrix-discovery"
+    if args.matrix:
+        return "matrix"
+    if args.zero_vectors:
+        return "negotiated-zero"
+    return "ordinary-control"
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--binary")
     parser.add_argument("--output", required=True, type=Path)
     parser.add_argument("--profile", choices=tuple(PROFILES), default="linux-docker",
-                        help="explicit execution identity; darwin-native runs only the ordinary control and matrix discovery")
+                        help="explicit execution identity; darwin-native runs the ordinary control, matrix discovery, "
+                             "matrix cases and negotiated-zero evidence, never the R14 smoke")
     parser.add_argument("--build-identity", type=Path, help="darwin-native build record from native_build.py")
     modes = parser.add_mutually_exclusive_group()
     modes.add_argument("--smoke", action="store_true", help="run R14's two-path smoke instead of the ordinary control")
     modes.add_argument("--matrix", action="store_true", help="run exactly one R17 scenario/role")
     modes.add_argument("--zero-vectors", action="store_true", help="run the separate negotiated-zero normative/controlled evidence")
-    modes.add_argument("--validate-matrix", action="store_true", help="validate the 16 retained independent case receipts")
+    modes.add_argument("--validate-matrix", action="store_true", help="validate the retained independent case receipts")
     modes.add_argument("--discover-matrix", action="store_true", help="list the compiled native matrix without executing it")
     modes.add_argument("--validate-native", action="store_true", help="validate the native ordinary-control and discovery receipts")
     parser.add_argument("--policy", choices=("primary-backup", "aggregate"), default="primary-backup")
@@ -448,14 +530,19 @@ def main():
     native = args.profile == NATIVE_PROFILE
     if args.source is not None and not native:
         parser.error("--source belongs to the darwin-native profile")
-    if native and (args.smoke or args.matrix or args.zero_vectors or args.validate_matrix):
-        parser.error("darwin-native executes no multipath case before public admission")
+    if native and args.smoke:
+        parser.error("darwin-native runs no R14 smoke; the matrix cases are its multipath evidence")
     if not native and (args.discover_matrix or args.validate_native or args.build_identity):
         parser.error("matrix discovery, native validation and build identities require --profile darwin-native")
     if args.policy == "aggregate" and (args.controller != "bbrv3" or not (args.matrix or args.validate_matrix)):
         parser.error("aggregate requires the fixed BBR matrix")
     if args.validate_matrix or args.validate_native:
-        result = check_native(args.output) if args.validate_native else check_matrix(args.output, args.controller, args.policy)
+        if args.validate_native:
+            result = check_native(args.output)
+        elif native:
+            result = check_native_matrix(args.output, args.controller, args.policy)
+        else:
+            result = check_matrix(args.output, args.controller, args.policy)
         with (args.output / ("native-result.json" if args.validate_native else "matrix-result.json")).open("x") as output:
             json.dump(result, output, indent=2)
             output.write("\n")
@@ -486,7 +573,8 @@ def main():
     if args.test_binary and (not args.test_binary.is_file() or not os.access(args.test_binary, os.X_OK)):
         raise ValueError(f"missing executable test binary: {args.test_binary}")
     if native:
-        identity = native_identity(args.build_identity, args.binary, args.test_binary, args.source or SOURCE)
+        identity = native_identity(args.build_identity, args.binary, args.test_binary, args.source or SOURCE,
+                                   peer=NATIVE_PEERS[native_mode(args)])
     else:
         identity = execution_identity(args.binary, args.test_binary) if args.matrix or args.zero_vectors else None
     args.output.mkdir(parents=True, exist_ok=False)
@@ -524,7 +612,7 @@ def main():
         package, expected = SMOKE_PACKAGE, ZERO_EXPECTED
     attempt = {"policy": args.policy, "controller": args.controller, "expected": expected, "identity": identity, "command": command, "started": started}
     if native:
-        attempt = {"profile": args.profile, "mode": "ordinary-control"} | attempt
+        attempt = {"profile": args.profile, "mode": native_mode(args)} | attempt
     (args.output / "attempt.json").write_text(json.dumps(attempt, indent=2) + "\n")
     status = run_bounded(command, env, args.output / "go-test.jsonl", 120)
     if status != 0:
@@ -533,7 +621,7 @@ def main():
     result = {"policy": args.policy, "controller": args.controller, "executed": expected, "status": "pass", "identity": identity,
               "command": command, "started": started, "duration_seconds": time.monotonic() - before}
     if native:
-        result = {"profile": args.profile, "mode": "ordinary-control"} | result
+        result = {"profile": args.profile, "mode": native_mode(args)} | result
     (args.output / "result.json").write_text(json.dumps(result, indent=2) + "\n")
     print(json.dumps(result))
 

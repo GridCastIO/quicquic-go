@@ -23,12 +23,13 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// requireMultipathProfile skips a test that needs the public profile on a build where it
-// isn't qualified. TestMultipathPublicRefusal covers those builds.
+// requireMultipathProfile skips a test that needs the public profile where the independent
+// expectation says it isn't qualified, never because the production gate refuses.
+// TestMultipathPublicRefusal covers those platforms.
 func requireMultipathProfile(t *testing.T) {
 	t.Helper()
-	if !multipathProfileSupported {
-		t.Skipf("multipath is qualified only on linux/amd64, not %s/%s", runtime.GOOS, runtime.GOARCH)
+	if !expectedMultipathProfile(t) {
+		t.Skipf("multipath is qualified only on linux/amd64 and darwin/arm64 with Darwin 27, not %s/%s", runtime.GOOS, runtime.GOARCH)
 	}
 }
 
@@ -113,7 +114,7 @@ func TestMultipathConfigSelection(t *testing.T) {
 // Off the qualified platform, every public entry point refuses and nothing advertises.
 // This is the semantic matrix of the one capability gate on those builds.
 func TestMultipathPublicRefusal(t *testing.T) {
-	if multipathProfileSupported {
+	if expectedMultipathProfile(t) {
 		t.Skip("the qualified platform accepts the profile; the lifecycle tests cover it")
 	}
 	conf := multipathConfig(t)
@@ -375,6 +376,18 @@ func TestMultipathServerSelectedConfig(t *testing.T) {
 		negotiated, err := server.MultipathNegotiatedV1()
 		require.NoError(t, err)
 		require.False(t, negotiated, "the client never offered it")
+	})
+	t.Run("granted transport refuses a selected config listing v2", func(t *testing.T) {
+		v2 := multipathConfig(t)
+		v2.Versions = []Version{Version1, Version2}
+		srv := grantedTransport(t)
+		ln, err := srv.Listen(nativeServerTLS(), &Config{GetConfigForClient: func(*ClientInfo) (*Config, error) { return v2, nil }})
+		require.NoError(t, err)
+		defer ln.Close()
+		_, err = dial(t, srv)
+		var transportErr *TransportError
+		require.ErrorAs(t, err, &transportErr)
+		require.Equal(t, ConnectionRefused, transportErr.ErrorCode)
 	})
 	t.Run("a late request on an address listener can't retrofit", func(t *testing.T) {
 		ln, err := ListenAddr("127.0.0.1:0", nativeServerTLS(), &Config{GetConfigForClient: getConfig})
@@ -879,6 +892,70 @@ func TestMultipathMigrateAndDetach(t *testing.T) {
 	require.Equal(t, after.Remote, state.Remote)
 	require.Len(t, p.client.PathsV1(), 1)
 	require.NoError(t, p.client.Context().Err())
+}
+
+// One connection leaves a shared granted transport; another connection that still uses it
+// delivers useful data over it afterward, before the transport closes. Detachment is per
+// connection and is not the transport's join.
+func TestMultipathSharedTransportSurvivorDelivery(t *testing.T) {
+	requireMultipathProfile(t)
+	ctx, cancel := context.WithTimeout(t.Context(), 20*time.Second)
+	defer cancel()
+	serverTr, shared, elsewhere := grantedTransport(t), grantedTransport(t), grantedTransport(t)
+	serverAddr := serverTr.Conn.LocalAddr().(*net.UDPAddr)
+	ln, err := serverTr.Listen(nativeServerTLS(), multipathConfig(t))
+	require.NoError(t, err)
+	t.Cleanup(func() { ln.Close() })
+	dial := func() (*Conn, *Conn) {
+		t.Helper()
+		client, err := shared.Dial(ctx, serverAddr, nativeClientTLS(), multipathConfig(t))
+		require.NoError(t, err)
+		t.Cleanup(func() { client.CloseWithError(0, "") })
+		server, err := ln.Accept(ctx)
+		require.NoError(t, err)
+		t.Cleanup(func() { server.CloseWithError(0, "") })
+		return client, server
+	}
+	leaving, _ := dial()
+	survivor, survivorServer := dial()
+	transfer := func(message string) {
+		t.Helper()
+		stream, err := survivor.OpenUniStreamSync(ctx)
+		require.NoError(t, err)
+		_, err = stream.Write([]byte(message))
+		require.NoError(t, err)
+		require.NoError(t, stream.Close())
+		received, err := survivorServer.AcceptUniStream(ctx)
+		require.NoError(t, err)
+		data, err := io.ReadAll(received)
+		require.NoError(t, err)
+		require.Equal(t, message, string(data))
+	}
+	transfer("before the other connection detaches")
+
+	// The leaving connection moves its only path off the shared transport.
+	path := leaving.PathsV1()[0]
+	require.NoError(t, path.MigrateV1(ctx, elsewhere))
+	state, err := path.StateV1()
+	require.NoError(t, err)
+	require.Equal(t, elsewhere.Conn.LocalAddr().(*net.UDPAddr).Port, int(state.Local.Port()))
+	require.NoError(t, leaving.WaitTransportDetachedV1(ctx, shared), "the leaving connection detaches")
+	shortCtx, shortCancel := context.WithTimeout(ctx, 20*time.Millisecond)
+	defer shortCancel()
+	require.ErrorIs(t, survivor.WaitTransportDetachedV1(shortCtx, shared), context.DeadlineExceeded, "the survivor still uses it")
+
+	transfer("after the other connection detached, before the transport closes")
+	survivorState, err := survivor.PathsV1()[0].StateV1()
+	require.NoError(t, err)
+	require.Equal(t, shared.Conn.LocalAddr().(*net.UDPAddr).Port, int(survivorState.Local.Port()), "carried by the shared transport")
+	require.NoError(t, leaving.Context().Err(), "the leaving connection survives on its new transport")
+
+	require.NoError(t, survivor.CloseWithError(0, ""))
+	require.NoError(t, leaving.CloseWithError(0, ""))
+	for _, tr := range []*Transport{shared, elsewhere, serverTr} {
+		require.NoError(t, tr.Close())
+		require.NoError(t, tr.WaitMultipathIOStoppedV1(ctx))
+	}
 }
 
 // Every identity is distinct, and a backpressure cause matches only its own set.
