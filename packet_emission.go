@@ -59,7 +59,7 @@ type packetEmission struct {
 	softwareSegments bool
 	// softwareBBRSegments lets an ordinary native BBR opportunity without wire
 	// GSO build the multi-packet member largeNativeBBRGSO selects, as software
-	// segments the writer submits one datagram at a time: Darwin, which has no
+	// segments the writer submits as separate datagrams: Darwin, which has no
 	// wire GSO (#1590). Linux keeps one packet per opportunity without GSO;
 	// fixed at construction.
 	softwareBBRSegments bool

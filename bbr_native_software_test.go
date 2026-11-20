@@ -44,6 +44,9 @@ func softwareBBRProtection(t *testing.T, c *Conn) handshake.ShortHeaderOpener {
 	return opener
 }
 
+// softwareBBRFullPayload is the DATAGRAM payload that fills one packet: the
+// packet less its short header, the 16-byte AEAD tag and the 3-byte DATAGRAM
+// frame header (type and two-byte length).
 func softwareBBRFullPayload(c *Conn, sender *nativeOrdinarySender) int {
 	_, pnLen := sender.recovery.PeekPacketNumber(protocol.Encryption1RTT)
 	return int(c.maxPacketSize()-wire.ShortHeaderLen(c.connIDManager.Get(), pnLen)) - 16 - 3
@@ -129,7 +132,7 @@ func TestBBRNativeSoftwareMemberSelection(t *testing.T) {
 // platform with the construction fact and without wire GSO. Every other plan
 // keeps its existing request.
 func TestBBRNativeSoftwarePlanScope(t *testing.T) {
-	for _, scope := range []string{"selected", "fact off", "wire GSO", "unregistered", "Reno", "multipath", "nonzero route", "handshake", "active jumbo", "PTO", "MTU"} {
+	for _, scope := range []string{"selected", "fact off", "wire GSO", "unregistered", "Reno", "multipath", "nonzero route", "handshake", "active jumbo", "steered", "PTO", "MTU"} {
 		t.Run(scope, func(t *testing.T) {
 			nativeOrdinaryTest(t, func(t *testing.T) {
 				c, sender, _, now := softwareBBRConnection(t, 65536)
@@ -138,6 +141,7 @@ func TestBBRNativeSoftwarePlanScope(t *testing.T) {
 				var route *pathRoute
 				confirmed, mode, size := true, ackhandler.SendAny, protocol.ByteCount(1200)
 				var mtu *mtuFinder
+				steered := scope == "steered"
 				switch scope {
 				case "fact off":
 					e.softwareBBRSegments = false
@@ -161,10 +165,13 @@ func TestBBRNativeSoftwarePlanScope(t *testing.T) {
 				case "MTU":
 					mtu = c.newPathMTUFinder(1200, 1452)
 				}
-				plan := e.planBounded(route, p, mode, 65536, size, mtu, false, confirmed, now)
+				plan := e.planBounded(route, p, mode, 65536, size, mtu, steered, confirmed, now)
 				switch scope {
 				case "selected", "wire GSO":
 					require.EqualValues(t, 64800, plan.request, "the large native member, from software or wire segments")
+				case "steered":
+					require.Equal(t, stepSteered, plan.step)
+					require.Equal(t, size, plan.request, "steered work keeps one packet")
 				case "PTO":
 					require.Equal(t, stepProbe, plan.step)
 				case "MTU":

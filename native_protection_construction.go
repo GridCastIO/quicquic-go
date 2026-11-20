@@ -112,7 +112,7 @@ func (b *nativeProtectionConstruction) reserve(sealer sealer, pn protocol.Packet
 		e := b.emission
 		if b.buffer.Cap() == protocol.MaxCoalescedPacketBufferSize &&
 			(!e.inOpportunity || !e.paceReservation || e.reservation == nil || e.reservation.bytes <= protocol.MaxLargePacketBufferSize ||
-				!e.largeNativeBBRGSO(e.route, e.packetSize()) || (!e.boundedGSO() && !e.softwareBBRSegmentsOn(e.route, e.packetSize()))) {
+				!e.largeNativeBBRGSO(e.route, e.packetSize()) || !e.boundedSegmentsOn(e.route, e.packetSize())) {
 			b.synchronous()
 			return false, nil
 		}

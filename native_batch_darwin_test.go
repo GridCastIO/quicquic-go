@@ -291,6 +291,20 @@ func TestNativeSoftwareRenoEmissionBatches(t *testing.T) {
 // goes through a native writer, a Reno bulk transfer is submitted through
 // sendmsg_x. Not parallel: the sendmsg_x counters are process-wide.
 func TestNativeSoftwareGrantedRenoTransferBatches(t *testing.T) {
+	nativeGrantedTransferBatches(t, "reno")
+}
+
+// The same transfer under BBR builds software-segmented members (#1590), which
+// the granted writer also submits through sendmsg_x.
+func TestBBRNativeSoftwareGrantedTransferBatches(t *testing.T) {
+	nativeGrantedTransferBatches(t, "bbrv3")
+}
+
+// nativeGrantedTransferBatches sends 4 MiB over public Dial and Listen between
+// two granted transports using controller, and requires the transfer to arrive
+// intact through sendmsg_x submissions carrying more than one datagram each.
+func nativeGrantedTransferBatches(t *testing.T, controller string) {
+	t.Helper()
 	requireNativeBatchQualified(t)
 	// Each writer is joined by its own cleanup, which runs before the capability
 	// reset registered above.
@@ -298,20 +312,20 @@ func TestNativeSoftwareGrantedRenoTransferBatches(t *testing.T) {
 	nativeDarwinJoinOnCleanup(t, server)
 	client := nativeDarwinGrant(t, newUDPConnLocalhost(t))
 	nativeDarwinJoinOnCleanup(t, client)
-	reno := func() *Config {
+	config := func() *Config {
 		conf := &Config{}
-		require.NoError(t, conf.SetCongestionControlV1("reno"))
+		require.NoError(t, conf.SetCongestionControlV1(controller))
 		return conf
 	}
 	ctx, cancel := context.WithTimeout(t.Context(), scaleDuration(10*time.Second))
 	defer cancel()
-	listener, err := server.Listen(nativeServerTLS(), reno())
+	listener, err := server.Listen(nativeServerTLS(), config())
 	require.NoError(t, err)
-	conn, err := client.Dial(ctx, listener.Addr(), nativeClientTLS(), reno())
+	conn, err := client.Dial(ctx, listener.Addr(), nativeClientTLS(), config())
 	require.NoError(t, err)
 	accepted, err := listener.Accept(ctx)
 	require.NoError(t, err)
-	require.Equal(t, "reno", accepted.CongestionControlV1())
+	require.Equal(t, controller, accepted.CongestionControlV1())
 
 	payload := make([]byte, 4<<20)
 	for i := range payload {
@@ -342,7 +356,7 @@ func TestNativeSoftwareGrantedRenoTransferBatches(t *testing.T) {
 	require.NoError(t, <-written)
 	require.True(t, bytes.Equal(payload, data), "the transfer arrived intact")
 	submissionsAfter, batchedAfter, _ := sendmsgXCountersSnapshot()
-	require.Greater(t, submissionsAfter, submissions, "the granted Reno sender used sendmsg_x")
+	require.Greater(t, submissionsAfter, submissions, "the granted %s sender used sendmsg_x", controller)
 	require.Greater(t, batchedAfter-batched, submissionsAfter-submissions, "each submission carried more than one datagram")
 	require.NoError(t, conn.CloseWithError(0, ""))
 }

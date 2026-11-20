@@ -67,11 +67,9 @@ func (e *packetEmission) reserveOn(p *bbrSendPolicy, n protocol.ByteCount, ordin
 	return e.reservation != nil
 }
 
-// boundedGSO applies Reno's route rule to the opportunity's capability: a target
-// transport or a tuple's own fallback disables segmentation, as does a terminal
-// control datagram awaiting its receipt.
-func (e *packetEmission) boundedGSO() bool { return e.boundedGSOOn(e.route) }
-
+// boundedGSOOn applies Reno's route rule to the opportunity's capability: a
+// target transport or a tuple's own fallback disables segmentation, as does a
+// terminal control datagram awaiting its receipt.
 func (e *packetEmission) boundedGSOOn(r *pathRoute) bool {
 	if e.pathCredit != nil && e.pathCredit.needsReceipt() {
 		return false
@@ -346,7 +344,7 @@ func (e *packetEmission) planBounded(route *pathRoute, p *bbrSendPolicy, mode ac
 		return boundedPlan{step: stepSteered, request: size, ceiling: size, ordinary: true}
 	}
 	limit, ceiling := size, size
-	if confirmed && (e.boundedGSOOn(route) || e.softwareBBRSegmentsOn(route, size)) {
+	if confirmed && e.boundedSegmentsOn(route, size) {
 		ceiling = min(p.budget(now), e.boundedGSOSendLimit(route, size))
 		ceiling -= ceiling % size
 		limit = min(ceiling, allowance-allowance%size)
@@ -356,8 +354,7 @@ func (e *packetEmission) planBounded(route *pathRoute, p *bbrSendPolicy, mode ac
 
 func (e *packetEmission) boundedDatagrams(now monotime.Time, size, limit protocol.ByteCount) emissionResult {
 	exhausted := false
-	// Without wire GSO, the same member geometry leaves as software segments.
-	segmented := e.boundedGSO() || e.softwareBBRSegmentsOn(e.route, size)
+	segmented := e.boundedSegmentsOn(e.route, size)
 	buf := getPacketBufferForCeiling(packetCeiling(size))
 	if segmented {
 		buf.Release()
