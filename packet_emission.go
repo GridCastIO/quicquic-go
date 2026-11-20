@@ -57,6 +57,12 @@ type packetEmission struct {
 	// (#1589). The constructor's own guard (confirmed ordinary primary Reno)
 	// still selects the connections; fixed at construction.
 	softwareSegments bool
+	// softwareBBRSegments lets an ordinary native BBR opportunity without wire
+	// GSO build the multi-packet member largeNativeBBRGSO selects, as software
+	// segments the writer submits as separate datagrams: Darwin, which has no
+	// wire GSO (#1590). Linux keeps one packet per opportunity without GSO;
+	// fixed at construction.
+	softwareBBRSegments bool
 	// authority gates queued work and the close submission; nil is ungrouped.
 	authority *connAuthority
 	// sendQoS is the connection's send thread QoS, bound to every queue; nil

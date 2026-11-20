@@ -67,11 +67,9 @@ func (e *packetEmission) reserveOn(p *bbrSendPolicy, n protocol.ByteCount, ordin
 	return e.reservation != nil
 }
 
-// boundedGSO applies Reno's route rule to the opportunity's capability: a target
-// transport or a tuple's own fallback disables segmentation, as does a terminal
-// control datagram awaiting its receipt.
-func (e *packetEmission) boundedGSO() bool { return e.boundedGSOOn(e.route) }
-
+// boundedGSOOn applies Reno's route rule to the opportunity's capability: a
+// target transport or a tuple's own fallback disables segmentation, as does a
+// terminal control datagram awaiting its receipt.
 func (e *packetEmission) boundedGSOOn(r *pathRoute) bool {
 	if e.pathCredit != nil && e.pathCredit.needsReceipt() {
 		return false
@@ -346,7 +344,7 @@ func (e *packetEmission) planBounded(route *pathRoute, p *bbrSendPolicy, mode ac
 		return boundedPlan{step: stepSteered, request: size, ceiling: size, ordinary: true}
 	}
 	limit, ceiling := size, size
-	if confirmed && e.boundedGSOOn(route) {
+	if confirmed && e.boundedSegmentsOn(route, size) {
 		ceiling = min(p.budget(now), e.boundedGSOSendLimit(route, size))
 		ceiling -= ceiling % size
 		limit = min(ceiling, allowance-allowance%size)
@@ -356,9 +354,9 @@ func (e *packetEmission) planBounded(route *pathRoute, p *bbrSendPolicy, mode ac
 
 func (e *packetEmission) boundedDatagrams(now monotime.Time, size, limit protocol.ByteCount) emissionResult {
 	exhausted := false
-	gso := e.boundedGSO()
+	segmented := e.boundedSegmentsOn(e.route, size)
 	buf := getPacketBufferForCeiling(packetCeiling(size))
-	if gso {
+	if segmented {
 		buf.Release()
 		if e.largeNativeBBRGSO(e.route, size) && limit > protocol.MaxLargePacketBufferSize {
 			buf = getCoalescedPacketBuffer()
@@ -397,7 +395,7 @@ func (e *packetEmission) boundedDatagrams(now monotime.Time, size, limit protoco
 		}
 		more := batch.add(receipt.size, receipt.frames)
 		mode, allowance := recovery.(boundedRecovery).SendAllowance(now)
-		if !e.localPacketRoom() || !gso || !more || !batch.fits(buf.Len(), limit) || mode != ackhandler.SendAny || allowance < size || recovery.ECNMode(true) != ecn {
+		if !e.localPacketRoom() || !segmented || !more || !batch.fits(buf.Len(), limit) || mode != ackhandler.SendAny || allowance < size || recovery.ECNMode(true) != ecn {
 			break
 		}
 	}
