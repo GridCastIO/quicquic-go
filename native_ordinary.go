@@ -979,8 +979,7 @@ func (s *nativeOrdinarySender) replacePath(target *Transport, conn sendConn) sen
 
 // moveZero makes target and address path zero's current tuple. It finishes the open
 // builder, as a turn's end does, then cancels path zero's local work the endpoint
-// has not taken. Unlike replacePath, it keeps the sender generation and leaves
-// other paths' work to them.
+// has not taken. Unlike replacePath, it keeps the sender generation.
 func (s *nativeOrdinarySender) moveZero(target *Transport, address net.Addr, info packetInfo, conn sendConn) sendConn {
 	destination, ok := nativeDestination(address)
 	participant := s.origin
