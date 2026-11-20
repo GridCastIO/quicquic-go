@@ -1350,6 +1350,7 @@ func (e *nativeEndpoint) write(native endpointNativeIO) {
 	defer close(e.writer)
 	var scratch handshake.PacketProtectionScratch
 	var oobScratch [128]byte
+	batch := newNativeSegmentBatch(native)
 	e.mutex.Lock()
 	for {
 		s := e.state
@@ -1375,7 +1376,7 @@ func (e *nativeEndpoint) write(native endpointNativeIO) {
 			result = token.request.unsubmitted(err, token.fact.result.members)
 			writeErr, fault = err, true
 		} else {
-			result = writeEndpointRequestWithScratch(native, token, &scratch, oobScratch[:0])
+			result = writeEndpointRequestWithScratch(native, batch, token, &scratch, oobScratch[:0])
 			writeErr = result.failure()
 			fault = endpointFatalWrite(writeErr)
 		}
@@ -1455,11 +1456,12 @@ func endpointSendmsgError(err error, cause error) bool {
 	return ok && system.Syscall == "sendmsg" && errors.Is(system.Err, cause)
 }
 
-func writeEndpointRequestWithScratch(native endpointNativeIO, token *endpointToken, scratch *handshake.PacketProtectionScratch, oobScratch []byte) endpointResult {
+// batch, when non-nil, is the sole writer's batch hook for software-segmented members.
+func writeEndpointRequestWithScratch(native endpointNativeIO, batch *nativeSegmentBatch, token *endpointToken, scratch *handshake.PacketProtectionScratch, oobScratch []byte) endpointResult {
 	request := *token.request
 	result := newEndpointResult(token.fact.result.members, len(request.members))
 	for i, member := range request.members {
-		result.members[i] = writeEndpointMember(native, token, member, scratch, oobScratch)
+		result.members[i] = writeEndpointMember(native, batch, token, member, scratch, oobScratch)
 		if result.members[i].err != nil {
 			// The untouched suffix has no native error or native-return time.
 			now := monotime.Now()
@@ -1472,7 +1474,7 @@ func writeEndpointRequestWithScratch(native endpointNativeIO, token *endpointTok
 	return result
 }
 
-func writeEndpointMember(native endpointNativeIO, token *endpointToken, member endpointMember, scratch *handshake.PacketProtectionScratch, oobScratch []byte) (result endpointMemberResult) {
+func writeEndpointMember(native endpointNativeIO, batch *nativeSegmentBatch, token *endpointToken, member endpointMember, scratch *handshake.PacketProtectionScratch, oobScratch []byte) (result endpointMemberResult) {
 	result.unsubmitted = member.datagrams()
 	defer func() { result.returnedAt = monotime.Now() }()
 	if member.datagram != nil {
@@ -1524,7 +1526,21 @@ func writeEndpointMember(native endpointNativeIO, token *endpointToken, member e
 			}
 		}
 	}
+	// Software segments may be batched once the first datagram on a fresh write
+	// state has had its scalar EPERM retry. Each scalar datagram between batch
+	// attempts keeps backpressure, deadline waits and error classification.
+	batching := batch != nil && len(data) > segment
 	for len(data) != 0 {
+		if batching && (member.writeState == nil || member.writeState.wroteFirstPacket) && len(data) > segment {
+			var stop bool
+			data, batching, stop = batch.writeSegments(token, member, data, segment, &result)
+			if stop {
+				return result
+			}
+			if len(data) == 0 {
+				break
+			}
+		}
 		length := min(segment, len(data))
 		attempted, err := writeEndpointDatagram(native, token, member, data[:length], member.oob)
 		if err != nil {

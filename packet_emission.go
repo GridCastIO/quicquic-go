@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"net"
-	"runtime"
 	"slices"
 	"sync"
 
@@ -53,6 +52,11 @@ type packetEmission struct {
 	// shortSegments lets a short DATAGRAM packet set a segmented send's
 	// segment size (see gsoBatch); fixed at construction.
 	shortSegments bool
+	// softwareSegments lets advance use withSoftwareSegments on this platform:
+	// Linux, where wire GSO can be unavailable, and Darwin, which has none
+	// (#1589). The constructor's own guard (confirmed ordinary primary Reno)
+	// still selects the connections; fixed at construction.
+	softwareSegments bool
 	// authority gates queued work and the close submission; nil is ungrouped.
 	authority *connAuthority
 	// sendQoS is the connection's send thread QoS, bound to every queue; nil
@@ -237,12 +241,12 @@ func (e *packetEmission) sendAny(now monotime.Time, confirmed bool) emissionResu
 }
 
 func (e *packetEmission) advance(now monotime.Time, gso bool) emissionResult {
-	return e.advanceForPlatform(now, gso, runtime.GOOS == "linux")
+	return e.advanceForPlatform(now, gso, e.softwareSegments)
 }
 
 // The platform fact is explicit so the real constructor can be characterized on
 // another host without a mutable production override.
-func (e *packetEmission) advanceForPlatform(now monotime.Time, gso, linux bool) emissionResult { //nolint:unparam,nolintlint // Production supplies the OS fact; tests exercise Linux construction on other hosts.
+func (e *packetEmission) advanceForPlatform(now monotime.Time, gso, softwareSegments bool) emissionResult { //nolint:unparam,nolintlint // Production supplies the construction fact; tests exercise the software constructor on other hosts.
 	if e.pathCredit != nil && e.pathCredit.needsReceipt() {
 		gso = false // no accepted-prefix ambiguity for terminal control datagrams
 	}
@@ -256,7 +260,7 @@ func (e *packetEmission) advanceForPlatform(now monotime.Time, gso, linux bool) 
 	if gso {
 		return e.withGSO(now)
 	}
-	if linux && e.local != nil && e.route == nil && e.pathCredit == nil && e.bbr == nil && len(e.terminalReceipts) == 0 && e.local.canSoftwareSegment() {
+	if softwareSegments && e.local != nil && e.route == nil && e.pathCredit == nil && e.bbr == nil && len(e.terminalReceipts) == 0 && e.local.canSoftwareSegment() {
 		return e.withSoftwareSegments(now)
 	}
 	return e.withoutGSO(now)
