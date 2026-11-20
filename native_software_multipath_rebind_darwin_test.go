@@ -24,12 +24,12 @@ type openZeroBuilder struct {
 	stream   *SendStream
 	m        *pathMember
 	// The open builder's packets and the state before the tuple changes.
-	pending   *ordinaryLocalRecord
-	tokens    []ackhandler.LocalCompletionToken
-	completed int
-	writes    int
-	outcome   string
-	old       *endpointWriteState
+	pending         *ordinaryLocalRecord
+	tokens          []ackhandler.LocalCompletionToken
+	completedBefore int
+	writesBefore    int
+	outcomeBefore   string
+	oldWriteState   *endpointWriteState
 }
 
 func newOpenZeroBuilder(t *testing.T) *openZeroBuilder {
@@ -70,26 +70,26 @@ func newOpenZeroBuilder(t *testing.T) *openZeroBuilder {
 	for _, packet := range pending.packets[:pending.count] {
 		b.tokens = append(b.tokens, packet.token)
 	}
-	b.pending, b.completed, b.writes = pending, len(observer.completed), len(f.socket.writes)
-	b.outcome, b.old = b.m.lastOutcome, sender.writeState
+	b.pending, b.completedBefore, b.writesBefore = pending, len(observer.completed), len(f.socket.writes)
+	b.outcomeBefore, b.oldWriteState = b.m.lastOutcome, sender.writeState
 	withFirstPathFinder(f) // a cutover resets the handshake's path MTU finder
 	return b
 }
 
-// requireCancelled checks the old tuple's member right after the tuple change,
+// requireCanceled checks the old tuple's member right after the tuple change,
 // then that a later turn builds software members for the new destination only.
-func (b *openZeroBuilder) requireCancelled(t *testing.T, destination netip.AddrPort) {
+func (b *openZeroBuilder) requireCanceled(t *testing.T, destination netip.AddrPort) {
 	t.Helper()
 	f, sender, c := b.f, b.sender, b.f.c
 	require.Nil(t, sender.pending, "the open builder was settled")
 	require.Equal(t, ordinaryFree, b.pending.state)
-	cancelled := b.observer.completed[b.completed:]
-	require.Len(t, cancelled, len(b.tokens), "0 accepted, 0 uncertain and every datagram unsubmitted")
-	for i, completion := range cancelled {
+	canceled := b.observer.completed[b.completedBefore:]
+	require.Len(t, canceled, len(b.tokens), "0 accepted, 0 uncertain and every datagram unsubmitted")
+	for i, completion := range canceled {
 		require.Equal(t, b.tokens[i], completion.token, "completions keep packet order")
 		require.Equal(t, ackhandler.LocalPacketUnsubmitted, completion.outcome, "packet %d", i)
 	}
-	require.Len(t, f.socket.writes, b.writes, "the old tuple's member wrote nothing")
+	require.Len(t, f.socket.writes, b.writesBefore, "the old tuple's member wrote nothing")
 	require.False(t, sender.writeState.wroteFirstPacket, "the new tuple's first write can retry")
 	require.Equal(t, destination, sender.destination)
 	require.True(t, sender.canSoftwareSegment(), "a same-endpoint rebind keeps the software domain")
@@ -99,8 +99,8 @@ func (b *openZeroBuilder) requireCancelled(t *testing.T, destination netip.AddrP
 	synctest.Wait()
 	_, segmented := nativeSoftwareRecords(t, sender)
 	require.NotZero(t, segmented, "the new tuple builds software members")
-	require.NoError(t, sender.consume(), "no cancelled packet completes again")
-	after := f.socket.writes[b.writes:]
+	require.NoError(t, sender.consume(), "no canceled packet completes again")
+	after := f.socket.writes[b.writesBefore:]
 	require.NotEmpty(t, after)
 	for _, write := range after {
 		require.Equal(t, destination, write.destination)
@@ -113,7 +113,7 @@ func (b *openZeroBuilder) requireCancelled(t *testing.T, destination netip.AddrP
 				seen++
 			}
 		}
-		require.Equal(t, 1, seen, "each cancelled packet completes once")
+		require.Equal(t, 1, seen, "each canceled packet completes once")
 	}
 }
 
@@ -125,8 +125,9 @@ func TestNativeSoftwareMultipathZeroRebindCancels(t *testing.T) {
 	destination, ok := nativeDestination(rebound)
 	require.True(t, ok)
 
-	// rebindZero itself cancels the open builder. This is commitTuple's path-zero
-	// branch without its leading leaveRoute, which would finish the builder first.
+	// rebindZero itself cancels the open builder. This is the generation advance and
+	// rebind of commitTuple's path-zero branch, without its leading leaveRoute,
+	// which would finish the builder first.
 	t.Run("rebind", func(t *testing.T) {
 		nativeOrdinaryTest(t, func(t *testing.T) {
 			b := newOpenZeroBuilder(t)
@@ -136,16 +137,17 @@ func TestNativeSoftwareMultipathZeroRebindCancels(t *testing.T) {
 			m.tuple = c.pathGeneration
 			c.emission.resetLocalPath(c.pathGeneration, monotime.Now())
 			c.emission.rebindLocalZero(rebound, packetInfo{})
-			require.Same(t, b.old, b.sender.writeState, "a rebind keeps path zero's write state")
-			require.Equal(t, b.outcome, m.lastOutcome, "the old tuple's cancellation is not the new tuple's outcome")
-			b.requireCancelled(t, destination)
+			require.Same(t, b.oldWriteState, b.sender.writeState, "a rebind keeps path zero's write state")
+			require.Equal(t, b.outcomeBefore, m.lastOutcome, "the old tuple's cancellation is not the new tuple's outcome")
+			b.requireCanceled(t, destination)
 		})
 	})
 
 	// The production cutover on the same transport. Its leaveRoute finishes the
 	// builder, the endpoint refuses the retired zero epoch's request, and the
-	// sender settles it before rebindLocalZero runs. serviceCutover's fence would
-	// wait for this builder, so the test commits directly.
+	// sender settles it before rebindLocalZero runs. Only the run loop's
+	// serviceCutover commits, outside any send turn, so the test commits directly
+	// to hold a builder open across it.
 	t.Run("commit", func(t *testing.T) {
 		nativeOrdinaryTest(t, func(t *testing.T) {
 			b := newOpenZeroBuilder(t)
@@ -158,7 +160,7 @@ func TestNativeSoftwareMultipathZeroRebindCancels(t *testing.T) {
 			b.f.tc.sendConn.EXPECT().ChangeRemoteAddr(rebound, gomock.Any())
 			p.commitTuple(m, m.candidate, monotime.Now())
 			require.Greater(t, m.tuple, tuple, "the cutover advanced path zero's tuple")
-			b.requireCancelled(t, destination)
+			b.requireCanceled(t, destination)
 		})
 	})
 }

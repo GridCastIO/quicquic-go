@@ -927,7 +927,7 @@ func (e *packetEmission) moveLocalZero(target *Transport, addr net.Addr, info pa
 
 // rebindLocalZero publishes a peer's new address for path zero on the same endpoint.
 // The rebind cancels path zero's local work that the endpoint has not taken,
-// including an open builder, as unsubmitted, and restarts the tuple's first-write
+// including its open builder, as unsubmitted, and restarts the tuple's first-write
 // fallback.
 func (e *packetEmission) rebindLocalZero(addr net.Addr, info packetInfo) {
 	e.local.rebindZero(addr, info, *e.conn)
