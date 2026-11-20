@@ -318,10 +318,13 @@ func TestBBRNativeSoftwareEmissionBatches(t *testing.T) {
 	original := rawSendmsgX
 	t.Cleanup(func() { rawSendmsgX = original })
 	rawSendmsgX = func(fd int, msgs []msghdrX) (int, syscall.Errno) {
-		// Native calls run outside endpoint control, so the writer can enter it
-		// here. With the borrow unpublished and inside its deadline, advance leaves
-		// the current token fenced and expires nothing; the fields below show
-		// what this transaction left.
+		// The writer makes native calls outside endpoint control (write), so it
+		// can enter control here, as other owners do during any native call. This
+		// transaction's advance cannot settle the borrow: reconcileCurrent leaves
+		// an unpublished current token fenced unless it is past deadline plus
+		// tolerance, and only expired or revoked queued records are published.
+		// The borrow-state fields below check that it left the member current,
+		// fenced, unpublished and holding its credit.
 		endpoint.do(func(s *endpointState) {
 			token := s.current
 			if capture.observed || token == nil || token.request.identity.connection != participant.id {
