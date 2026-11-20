@@ -24,7 +24,7 @@ The raw results root for each candidate, including its failed attempts, is retai
 
 ### Results by step
 
-- **X2 (T27, T26):** all eight write-wait cases passed once each, with native return 0.03–2.08 ms after the deadline, a poller witness, `injected: 0` and `traced: false`. The BBR case `bbr-protected-close-join` recorded `borrowed-through-fence`.
+- **X2 (T27, T26):** all eight blocked-writer cases passed once each on both toolchains. The four native-traversal cases (`eagain-to-deadline`, `queued-expiry`, `active-close-join` and `bbr-protected-close-join`) had a poller witness, `injected: 0` and `traced: false`, with native return 0.03–2.08 ms after the deadline. `bbr-protected-close-join` recorded `borrowed-through-fence`. The other four keep their own classes: `expired-before-dispatch-successor` is `expired-claim-unsubmitted` (`injected: 0`, `traced: false`), `first-send-eperm` is `simulated` (two injected errors), `constructed-segmentation-prefix` is `constructed`, and `scalar-emsgsize` is `native-size-feedback`.
 - **X3:** the `powermetrics` capture passed contiguity in one attempt (60 records).
 - **X4 (T27, T26):** every family case (IPv4-only, IPv6-only, dual-stack mapped and native) received CE and sent ECT(0), with the packet-info destination and interface. Refusals and post-join authority held, and contention was complete with `fault: none`.
 - **X5 (T27, T26 race):** 8 of 8 passed with no race reports.
@@ -41,7 +41,7 @@ The raw results root for each candidate, including its failed attempts, is retai
 
   Stateless-pressure is the expected R0 result: there is no reset batching, and the opted-in arm answered about 15 times as many stateless resets. BBR is reported. Its goodput / CPU medians are stream 0.968 / 1.040, datagram 0.951 / 1.027, mixed-bulk 1.136 / 1.223 and stateless-pressure 0.916 / 1.116. Both O27 smoke pairs delivered useful bytes.
 - **X12:** both lifecycle attempts succeeded at `closed`, with the backup detached and the grant joins complete. Retired-phase `go_heap_live` / `peak_rss` was 1,800,480 / 20,316,160 B for Reno and 3,624,328 / 21,200,896 B for BBR.
-- **X13 (BBR):** passed, in 37 of 37 runs. The medians were:
+- **X13:** all 37 runs completed: 35 BBR runs and two reported Reno primary/backup controls. The BBR aggregate verdict passed, with these medians:
   - disjoint aggregate ÷ better single arm: 2.004 (≥ 1.20);
   - disjoint aggregate ÷ pair: 1.005 (≥ 0.95);
   - shared competitor beside the aggregate ÷ beside the pair: 1.092 (≥ 0.90).
