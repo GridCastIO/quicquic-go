@@ -1822,6 +1822,19 @@ class LifecycleRecordTests(unittest.TestCase):
             with self.subTest(status=status), self.assertRaisesRegex(ValueError, "pairs succeeded attempts"):
                 driver.match_lifecycle(lifecycle_record(), failed)
 
+    def test_comparison_pairs_one_platform_profile(self):
+        # A Linux record and a Darwin record are each valid, but no comparison pairs them.
+        for first, second in (("linux-amd64", "darwin-arm64"), ("darwin-arm64", "linux-amd64")):
+            with self.subTest(first=first, second=second), self.assertRaisesRegex(
+                    ValueError, re.escape(f"one side is {first}, the other {second}; a comparison pairs one platform profile")):
+                driver.match_lifecycle(lifecycle_record("reno", platform=first), lifecycle_record("bbrv3", platform=second))
+        for platform in ("linux-amd64", "darwin-arm64"):
+            with self.subTest(platform=platform):
+                pairs = driver.match_lifecycle(lifecycle_record("reno", platform=platform),
+                                               lifecycle_record("bbrv3", heap=(5, 6, 7), platform=platform))
+                self.assertEqual(pairs, {"negotiated-idle": (4_000_000, 5), "validated-backup": (4_100_000, 6),
+                                         "retired": (4_010_000, 7)})
+
     def test_native_lifecycle_record_is_valid_in_darwin_units(self):
         # D14: Darwin negotiates through public admission and reads ru_maxrss in bytes.
         for controller in ("reno", "bbrv3"):
