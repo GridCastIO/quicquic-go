@@ -12,6 +12,10 @@ import sampler_capture as reader
 from test_powermetrics_wrapper import D6_BOUNDED, wrapper_command
 
 FIXTURE = Path(__file__).parent / "testdata" / "powermetrics" / "cpu_power.plist"
+RECEIPT_TIMES = FIXTURE.parent / "x3_016bc60c7_receipt_times.json"
+# Every separator in the retained real capture (RECEIPT_TIMES capture_sha256): a NUL before
+# each record after the first, none after the last.
+REAL_SEPARATOR = b'</plist>\n\0<?xml version="1.0" encoding="UTF-8"?>'
 SECOND = 10**9
 MS = 10**6
 LAUNCHED = 1_000 * SECOND
@@ -130,6 +134,119 @@ class JudgeTests(unittest.TestCase):
         self.assertNotIn("Mac16,6", json.dumps(review), "names only, never values")
 
 
+def dumped(count, elapsed=None):
+    """count producer-shaped records as plistlib writes them, each ending b"</plist>\\n"."""
+    records = []
+    for index in range(count):
+        record = copy.deepcopy(template())
+        record["elapsed_ns"] = elapsed[index] if elapsed else SECOND
+        records.append(plistlib.dumps(record))
+    return records
+
+
+def arrivals_of(result):
+    return [record["arrival_ns"] for record in result["records"]]
+
+
+class FramingTests(unittest.TestCase):
+    """A record is dated by the read that delivers its own last byte, the closing > of
+    </plist>. The real stream writes a NUL before every record after the first and none
+    after the last; the #1573 fakes wrote one after every record. Either way a NUL is a
+    separator, so it never moves a record's arrival into the next record's read."""
+
+    def test_real_framing_with_each_nul_read_with_the_next_record(self):
+        records = dumped(60)
+        times = [5 * SECOND + index * SECOND for index in range(60)]
+        raw = b"\0".join(records)
+        reads = [(LAUNCHED + times[0], len(records[0]))]
+        reads += [(LAUNCHED + at, 1 + len(record)) for at, record in zip(times[1:], records[1:])]
+        result = judge(raw, reads)
+        self.assertEqual(arrivals_of(result), times)
+        self.assertEqual(result["status"], "passed", result["reasons"])
+
+    def test_real_framing_with_each_nul_in_a_read_of_its_own(self):
+        records = dumped(60)
+        times = [5 * SECOND + index * SECOND for index in range(60)]
+        raw = b"\0".join(records)
+        reads = [(LAUNCHED + times[0], len(records[0]))]
+        for at, record in zip(times[1:], records[1:]):
+            reads += [(LAUNCHED + at - MS, 1), (LAUNCHED + at, len(record))]
+        result = judge(raw, reads)
+        self.assertEqual(arrivals_of(result), times)
+        self.assertEqual(result["status"], "passed", result["reasons"])
+
+    def test_terminator_framing_with_each_nul_read_with_its_record(self):
+        records = dumped(3)
+        raw = b"".join(record + b"\0" for record in records)
+        reads = [(LAUNCHED + at, len(record) + 1) for at, record in zip((5 * SECOND, 6 * SECOND, 7 * SECOND), records)]
+        self.assertEqual(arrivals_of(judge(raw, reads)), [5 * SECOND, 6 * SECOND, 7 * SECOND])
+
+    def test_terminator_framing_with_each_nul_read_after_its_record(self):
+        records = dumped(3)
+        raw = b"".join(record + b"\0" for record in records)
+        # Each NUL comes with the next record; the final one alone at EOF, a second later.
+        reads = [(LAUNCHED + 5 * SECOND, len(records[0])), (LAUNCHED + 6 * SECOND, 1 + len(records[1])),
+                 (LAUNCHED + 7 * SECOND, 1 + len(records[2])), (LAUNCHED + 8 * SECOND, 1)]
+        self.assertEqual(arrivals_of(judge(raw, reads)), [5 * SECOND, 6 * SECOND, 7 * SECOND])
+
+    def test_split_record_is_dated_by_the_read_with_its_last_byte(self):
+        records = dumped(3)
+        raw = b"".join(record + b"\0" for record in records)
+        reads = [(LAUNCHED + 5 * SECOND, len(records[0]) + 1), (LAUNCHED + 5800 * MS, 100),
+                 (LAUNCHED + 6 * SECOND, len(records[1]) + 1 - 100), (LAUNCHED + 7 * SECOND, len(records[2]) + 1)]
+        self.assertEqual(arrivals_of(judge(raw, reads)), [5 * SECOND, 6 * SECOND, 7 * SECOND])
+
+    def test_whitespace_and_nul_after_the_closing_tag_are_not_the_records_bytes(self):
+        records = dumped(3)
+        self.assertTrue(records[0].endswith(b"</plist>\n"))
+        raw = b"\0".join(records)
+        # Read 1 ends at </plist>; read 2 starts with its trailing newline and the NUL.
+        reads = [(LAUNCHED + 5 * SECOND, len(records[0]) - 1), (LAUNCHED + 6 * SECOND, 2 + len(records[1])),
+                 (LAUNCHED + 7 * SECOND, 1 + len(records[2]))]
+        self.assertEqual(arrivals_of(judge(raw, reads)), [5 * SECOND, 6 * SECOND, 7 * SECOND])
+
+    def test_merged_read_dates_every_record_it_completes(self):
+        records = dumped(3)
+        raw = b"\0".join(records)
+        # Read 1 completes records 0 and 1 and carries record 2's leading NUL.
+        reads = [(LAUNCHED + 6 * SECOND, len(records[0]) + 1 + len(records[1]) + 1),
+                 (LAUNCHED + 7 * SECOND, len(records[2]))]
+        self.assertEqual(arrivals_of(judge(raw, reads)), [6 * SECOND, 6 * SECOND, 7 * SECOND])
+
+    def test_retained_q2_capture_rejudged_with_its_reconstructed_reads_passes(self):
+        # The Q2 X3 attempt on 016bc60c7 failed under the #1573 reader. Its receipt, in
+        # RECEIPT_TIMES, holds when each NUL arrived and when record 59's last byte did, not
+        # when each earlier record's last byte did. This schedule assumes each record
+        # arrived with the NUL before it: record i at receipt time i - 1 (i = 1 to 58), and
+        # record 59 in two reads, the NUL and part of it at time 58 and the rest at time 59.
+        # A producer that held each record's tail until the next sample would match the same
+        # receipt and fail; only a fresh capture tells them apart. Record 0's own arrival is
+        # not in the receipt either, so this places it one elapsed_ns[1] before record 1:
+        # gap 1 is constructed, not evidence, and so is the sum check's start. The passing
+        # verdict holds under this schedule only.
+        times = json.loads(RECEIPT_TIMES.read_text())
+        old_arrivals, elapsed = times["arrival_ns"], times["elapsed_ns"]
+        records = dumped(60, elapsed)
+        raw = b"\0".join(records)
+        self.assertIn(REAL_SEPARATOR, raw)
+        self.assertEqual((raw.count(b"\0"), raw.endswith(b"</plist>\n")), (59, True))
+        constructed_first = old_arrivals[0] - elapsed[1]
+        reads = [(LAUNCHED + constructed_first, len(records[0]))]
+        reads += [(LAUNCHED + old_arrivals[index - 1], 1 + len(records[index])) for index in range(1, 59)]
+        reads += [(LAUNCHED + old_arrivals[58], 1 + len(records[59]) // 2),
+                  (LAUNCHED + old_arrivals[59], len(records[59]) - len(records[59]) // 2)]
+        # The schedule reproduces the retained receipt under the old rule: the read that
+        # delivered each record's following NUL, and the final record's own last byte.
+        nuls = [offset for offset, byte in enumerate(raw) if byte == 0]
+        self.assertEqual([reader.arrival(offset + 1, reads) - LAUNCHED for offset in nuls] +
+                         [reader.arrival(len(raw), reads) - LAUNCHED], old_arrivals)
+        result = judge(raw, reads)
+        self.assertEqual(result["status"], "passed", result["reasons"])
+        self.assertEqual(arrivals_of(result), [constructed_first] + old_arrivals[:58] + [old_arrivals[59]])
+        self.assertEqual(result["max_gap_deviation_ns"], 6_400_917)  # record 18
+        self.assertEqual(result["sum_deviation_ns"], -2_339_937)
+
+
 class CaptureTests(unittest.TestCase):
     def test_capture_holds_stdin_open_until_the_bounded_sampler_ends(self):
         with tempfile.TemporaryDirectory() as temporary:
@@ -164,6 +281,30 @@ class CaptureTests(unittest.TestCase):
             self.assertEqual(json.loads((output / "capture.json").read_text()), result)
             self.assertEqual(result["status"], "failed")
             self.assertIn("3 records, not 60", result["reasons"])
+
+    def test_capture_dates_real_framing_by_each_records_own_write(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            record = plistlib.dumps(template())
+            fake = root / "powermetrics"
+            # As the real producer writes: a NUL before each record after the first, in the
+            # same write, and none after the last.
+            fake.write_text(textwrap.dedent(f"""\
+                #!{sys.executable}
+                import sys, time
+                assert sys.argv[1:] == {D6_BOUNDED[1:]!r}, sys.argv
+                for index in range(3):
+                    sys.stdout.buffer.write((b"\\0" if index else b"") + {record!r}); sys.stdout.flush()
+                    time.sleep(0.3)
+            """))
+            fake.chmod(0o755)
+            output = root / "x3"
+            result = reader.capture(output, command=wrapper_command(fake, ["bounded"], "w.STOP_GRACE_S = 0.3"))
+            self.assertEqual(result["exit"], 0, (output / "capture.log").read_text())
+            self.assertEqual((output / "capture.plist").read_bytes(), b"\0".join([record] * 3))
+            arrivals = arrivals_of(result)
+            self.assertEqual(len(arrivals), 3)
+            self.assertGreater(arrivals[2] - arrivals[0], 400 * MS, arrivals)
 
 
 if __name__ == "__main__":
