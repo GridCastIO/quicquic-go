@@ -4,6 +4,7 @@ package quic
 
 import (
 	"bytes"
+	"os"
 	"syscall"
 	"testing"
 	"testing/synctest"
@@ -56,6 +57,9 @@ func softwareBBRFullPayload(c *Conn, sender *nativeOrdinarySender) int {
 // builds the member wire GSO builds on Linux, as software segments: the same
 // tier, ceiling, pacing charge and plan, with one native write per datagram.
 func TestBBRNativeSoftwareMemberSelection(t *testing.T) {
+	// The short-datagram case needs equal-size short segments whatever the
+	// environment selects.
+	t.Setenv(disableShortGSOSegmentsEnv, "false")
 	for _, scenario := range []string{"standard", "UDP ceiling", "small allowance", "small pacing balance", "short datagrams"} {
 		t.Run(scenario, func(t *testing.T) {
 			nativeOrdinaryTest(t, func(t *testing.T) {
@@ -238,7 +242,53 @@ func TestBBRNativeSoftwareMemberOutcomes(t *testing.T) {
 				require.Zero(t, buffer.refCount)
 				require.Nil(t, protection.buffer)
 				require.Zero(t, c.emission.bbr.credit.pending, "the credit returns exactly once")
+				var terminals []endpointResult
+				sender.endpoint.do(func(state *endpointState) {
+					for _, index := range sender.participant.results {
+						terminals = append(terminals, state.records[index].result)
+					}
+				})
+				require.Len(t, terminals, 1)
+				require.Len(t, terminals[0].members, 1)
+				fact := terminals[0].members[0]
+				counts := [3]int{fact.accepted, fact.uncertain, fact.unsubmitted}
+				switch outcome {
+				case "accepted":
+					require.Equal(t, [3]int{54, 0, 0}, counts, "accepted, uncertain, unsubmitted")
+					require.NoError(t, fact.err)
+				case "partial":
+					require.Equal(t, [3]int{2, 1, 51}, counts, "the attempted EAGAIN datagram is uncertain")
+					require.ErrorIs(t, fact.err, syscall.EAGAIN)
+				case "revoked":
+					require.Equal(t, [3]int{0, 0, 54}, counts)
+					require.ErrorIs(t, fact.err, errEndpointRevoked)
+				case "expired":
+					require.Equal(t, [3]int{0, 0, 54}, counts)
+					require.ErrorIs(t, fact.err, os.ErrDeadlineExceeded)
+				}
+				// The partial case observes each packet's outcome in registration
+				// order; the others keep concrete recovery and its accepted fast path.
+				var observer *nativeSoftwareFenceObserver
+				if outcome == "partial" {
+					observer = &nativeSoftwareFenceObserver{LocalSentPacketHandler: sender.recovery}
+					sender.recovery = observer
+				}
 				require.NoError(t, sender.consume())
+				if observer != nil {
+					completed := append([]nativeSoftwareFenceCompletion(nil), observer.completed...)
+					require.Len(t, completed, len(tokens))
+					for i, packet := range tokens {
+						want := ackhandler.LocalPacketUnsubmitted
+						switch {
+						case i < 2:
+							want = ackhandler.LocalPacketAccepted
+						case i == 2:
+							want = ackhandler.LocalPacketUncertain
+						}
+						require.Equal(t, packet.token, completed[i].token, "packet %d settles in registration order", i)
+						require.Equal(t, want, completed[i].outcome, "packet %d", i)
+					}
+				}
 				for _, packet := range tokens {
 					require.Error(t, sender.recovery.CompleteLocalPacket(packet.token, ackhandler.LocalPacketAccepted, monotime.Now()), "every registration has already settled")
 				}
@@ -298,7 +348,27 @@ func TestBBRNativeSoftwareMemberBorrowThroughFence(t *testing.T) {
 			t.Fatal("the participant retired during its native borrow")
 		default:
 		}
+		// The second call returns; the final deadline reset still belongs to the
+		// native fence, so nothing is released until it returns.
+		resetHeld := false
+		socket.holdReset = func() bool {
+			resetHeld = resetHeld || len(socket.writes) == 2
+			return resetHeld
+		}
 		socket.release()
+		synctest.Wait()
+		require.True(t, resetHeld, "the writer is parked in its final deadline reset")
+		require.Len(t, socket.writes, 2, "no datagram is submitted after the close")
+		require.True(t, borrowed(), "completion is unpublished during the final deadline reset")
+		require.EqualValues(t, 1, buffer.refCount)
+		require.Same(t, buffer, plan.buffer)
+		require.Equal(t, pending, c.emission.bbr.credit.pending, "no credit returns during the final deadline reset")
+		select {
+		case <-participant.retired:
+			t.Fatal("the participant retired before its final fence")
+		default:
+		}
+		socket.releaseReset()
 		synctest.Wait()
 		<-participant.retired
 		require.Len(t, socket.writes, 2, "no datagram is submitted after the close")

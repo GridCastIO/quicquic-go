@@ -40,11 +40,22 @@ type nativeProbeSocket struct {
 	hold   func([]byte) bool
 	result func([]byte) (int, error)
 	gate   chan struct{}
+	// holdReset, when it reports true, parks a deadline reset (a zero
+	// deadline) until releaseReset.
+	holdReset func() bool
+	resetGate chan struct{}
 }
 
-func newNativeProbeSocket() *nativeProbeSocket { return &nativeProbeSocket{gate: make(chan struct{})} }
+func newNativeProbeSocket() *nativeProbeSocket {
+	return &nativeProbeSocket{gate: make(chan struct{}), resetGate: make(chan struct{})}
+}
 
-func (s *nativeProbeSocket) SetWriteDeadline(time.Time) error { return nil }
+func (s *nativeProbeSocket) SetWriteDeadline(deadline time.Time) error {
+	if deadline.IsZero() && s.holdReset != nil && s.holdReset() {
+		<-s.resetGate
+	}
+	return nil
+}
 
 func (s *nativeProbeSocket) WriteMsgUDPAddrPort(data, _ []byte, destination netip.AddrPort) (int, int, error) {
 	s.writes = append(s.writes, nativeProbeWrite{data: bytes.Clone(data), destination: destination})
@@ -63,6 +74,14 @@ func (s *nativeProbeSocket) release() {
 	case <-s.gate:
 	default:
 		close(s.gate)
+	}
+}
+
+func (s *nativeProbeSocket) releaseReset() {
+	select {
+	case <-s.resetGate:
+	default:
+		close(s.resetGate)
 	}
 }
 
