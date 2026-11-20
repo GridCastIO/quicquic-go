@@ -189,10 +189,12 @@ func TestNativeSoftwareBatchFallback(t *testing.T) {
 					major: {product: "test-only excluded architecture", arch: "excluded"},
 				}
 				t.Cleanup(func() { qualifiedDarwinKernelMajors = original })
-			default:
+			case "unqualified":
 				original := sendmsgXKernelMajor
 				sendmsgXKernelMajor = func() (int, error) { return -1, nil }
 				t.Cleanup(func() { sendmsgXKernelMajor = original })
+			default:
+				t.Fatalf("unknown fallback mode %q", mode)
 			}
 			sendmsgXEnsureQualified()
 			require.False(t, sendmsgXAvailable())

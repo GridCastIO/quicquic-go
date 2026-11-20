@@ -52,10 +52,10 @@ type packetEmission struct {
 	// shortSegments lets a short DATAGRAM packet set a segmented send's
 	// segment size (see gsoBatch); fixed at construction.
 	shortSegments bool
-	// softwareSegments admits N3's selected software constructor on this
-	// platform: Linux, where wire GSO can be unavailable, and Darwin, which
-	// has none (#1589). The constructor's own guard still selects the domain;
-	// fixed at construction.
+	// softwareSegments lets advance use withSoftwareSegments on this platform:
+	// Linux, where wire GSO can be unavailable, and Darwin, which has none
+	// (#1589). The constructor's own guard (confirmed ordinary primary Reno)
+	// still selects the connections; fixed at construction.
 	softwareSegments bool
 	// authority gates queued work and the close submission; nil is ungrouped.
 	authority *connAuthority
