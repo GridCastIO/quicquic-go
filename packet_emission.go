@@ -57,6 +57,11 @@ type packetEmission struct {
 	// (#1589). The constructor's own guard (confirmed ordinary primary Reno)
 	// still selects the connections; fixed at construction.
 	softwareSegments bool
+	// softwarePathZeroCredit admits a multipath connection's path zero into that
+	// domain while no terminal control datagram awaits its receipt: Darwin only
+	// (#1592), where path-credit Reno otherwise writes one datagram per member.
+	// nativeOrdinarySender.softwareCreditAllowed owns the rule; fixed at construction.
+	softwarePathZeroCredit bool
 	// authority gates queued work and the close submission; nil is ungrouped.
 	authority *connAuthority
 	// sendQoS is the connection's send thread QoS, bound to every queue; nil
@@ -260,7 +265,7 @@ func (e *packetEmission) advanceForPlatform(now monotime.Time, gso, softwareSegm
 	if gso {
 		return e.withGSO(now)
 	}
-	if softwareSegments && e.local != nil && e.route == nil && e.pathCredit == nil && e.bbr == nil && len(e.terminalReceipts) == 0 && e.local.canSoftwareSegment() {
+	if softwareSegments && e.local != nil && e.route == nil && e.local.softwareCreditAllowed() && e.bbr == nil && len(e.terminalReceipts) == 0 && e.local.canSoftwareSegment() {
 		return e.withSoftwareSegments(now)
 	}
 	return e.withoutGSO(now)
