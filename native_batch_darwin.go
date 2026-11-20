@@ -5,6 +5,7 @@ package quic
 import (
 	"net"
 	"net/netip"
+	"strconv"
 	"syscall"
 )
 
@@ -84,6 +85,14 @@ func (b *nativeSegmentBatch) submit(datagrams [][]byte, oob []byte, destination 
 	}
 	if b.rawErr || !b.initFamily() {
 		return 0, nil, false
+	}
+	// A named IPv6 zone's interface index can change while the encoded sockaddr
+	// stays cached under the same key, so those destinations stay scalar, where
+	// each write resolves the name through the standard library.
+	if zone := destination.Addr().Zone(); zone != "" {
+		if _, err := strconv.Atoi(zone); err != nil {
+			return 0, nil, false
+		}
 	}
 	if b.addr == nil || destination != b.destination {
 		b.destination, b.addr = destination, net.UDPAddrFromAddrPort(destination)

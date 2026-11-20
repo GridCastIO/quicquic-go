@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"net/netip"
 	"os"
 	"runtime"
 	"strings"
@@ -291,13 +292,12 @@ func TestNativeSoftwareRenoEmissionBatches(t *testing.T) {
 // sendmsg_x. Not parallel: the sendmsg_x counters are process-wide.
 func TestNativeSoftwareGrantedRenoTransferBatches(t *testing.T) {
 	requireNativeBatchQualified(t)
+	// Each writer is joined by its own cleanup, which runs before the capability
+	// reset registered above.
 	server := nativeDarwinGrant(t, newUDPConnLocalhost(t))
+	nativeDarwinJoinOnCleanup(t, server)
 	client := nativeDarwinGrant(t, newUDPConnLocalhost(t))
-	// Join both writers before the capability reset registered above.
-	t.Cleanup(func() {
-		nativeDarwinJoin(t, client)
-		nativeDarwinJoin(t, server)
-	})
+	nativeDarwinJoinOnCleanup(t, client)
 	reno := func() *Config {
 		conf := &Config{}
 		require.NoError(t, conf.SetCongestionControlV1("reno"))
@@ -345,4 +345,38 @@ func TestNativeSoftwareGrantedRenoTransferBatches(t *testing.T) {
 	require.Greater(t, submissionsAfter, submissions, "the granted Reno sender used sendmsg_x")
 	require.Greater(t, batchedAfter-batched, submissionsAfter-submissions, "each submission carried more than one datagram")
 	require.NoError(t, conn.CloseWithError(0, ""))
+}
+
+// nativeDarwinJoinOnCleanup joins tr's writer in its own cleanup. Go cancels
+// t.Context before cleanups run, so the wait gets a fresh bounded context.
+func nativeDarwinJoinOnCleanup(t *testing.T, tr *Transport) {
+	t.Helper()
+	t.Cleanup(func() {
+		require.NoError(t, tr.Close())
+		ctx, cancel := context.WithTimeout(context.Background(), scaleDuration(5*time.Second))
+		defer cancel()
+		require.NoError(t, tr.waitNativeIOStopped(ctx))
+	})
+}
+
+// A named IPv6 zone stays scalar: the hook declines before dispatch, so a cached
+// sockaddr can't carry an interface index the name no longer resolves to.
+func TestNativeSoftwareBatchNamedZoneScalar(t *testing.T) {
+	requireNativeBatchQualified(t)
+	socket, err := net.ListenUDP("udp6", &net.UDPAddr{IP: net.IPv6loopback})
+	if err != nil {
+		t.Skipf("no IPv6 loopback: %v", err)
+	}
+	t.Cleanup(func() { socket.Close() })
+	batch := newNativeSegmentBatch(socket)
+	require.NotNil(t, batch)
+	port := socket.LocalAddr().(*net.UDPAddr).AddrPort().Port()
+	destination := netip.AddrPortFrom(netip.MustParseAddr("fe80::1%lo0"), port)
+	submissions, _, _ := sendmsgXCountersSnapshot()
+	accepted, err, dispatched := batch.submit([][]byte{[]byte("a"), []byte("b")}, nil, destination)
+	require.NoError(t, err)
+	require.False(t, dispatched, "a named zone leaves the chunk to the scalar writer")
+	require.Zero(t, accepted)
+	submissionsAfter, _, _ := sendmsgXCountersSnapshot()
+	require.Equal(t, submissions, submissionsAfter, "nothing reached sendmsg_x")
 }
